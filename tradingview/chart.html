@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الرسم البياني المباشر — TradingView</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: #131722;
+      color: #d1d4dc;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      padding: 12px 16px;
+      background: #1e222d;
+      border-bottom: 1px solid #2a2e39;
+    }
+    header h1 { font-size: 18px; font-weight: 600; }
+    #ticker-tape { flex: 0 0 auto; }
+    #chart-container { flex: 1 1 auto; min-height: 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📈 الرسم البياني المباشر — TradingView</h1>
+  </header>
+
+  <!-- شريط الأسعار المتحرك -->
+  <div id="ticker-tape">
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript"
+        src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+      {
+        "symbols": [
+          { "proName": "BINANCE:BTCUSDT", "title": "بيتكوين" },
+          { "proName": "BINANCE:ETHUSDT", "title": "إيثيريوم" },
+          { "proName": "OANDA:XAUUSD", "title": "الذهب" },
+          { "proName": "FX_IDC:EURUSD", "title": "يورو/دولار" },
+          { "proName": "NASDAQ:AAPL", "title": "أبل" }
+        ],
+        "showSymbolLogo": true,
+        "colorTheme": "dark",
+        "isTransparent": false,
+        "displayMode": "adaptive",
+        "locale": "ar_AE"
+      }
+      </script>
+    </div>
+  </div>
+
+  <!-- الشارت المتقدم -->
+  <div id="chart-container">
+    <div class="tradingview-widget-container" style="height:100%;width:100%">
+      <div id="tradingview-chart" style="height:100%;width:100%"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+        new TradingView.widget({
+          container_id: "tradingview-chart",
+          autosize: true,
+          symbol: "BINANCE:BTCUSDT",   // غيّر الرمز الافتراضي من هنا
+          interval: "60",
+          timezone: "Asia/Riyadh",
+          theme: "dark",
+          style: "1",
+          locale: "ar_AE",
+          enable_publishing: false,
+          withdateranges: true,
+          allow_symbol_change: true,
+          details: true,
+          studies: ["RSI@tv-basicstudies", "MASimple@tv-basicstudies"]
+        });
+      </script>
+    </div>
+  </div>
+</body>
+</html>
