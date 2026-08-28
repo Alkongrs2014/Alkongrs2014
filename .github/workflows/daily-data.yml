@@ -41,6 +41,8 @@ jobs:
 
       - name: جلب الأساسيات والترتيب والأخبار
         run: node scripts/fetch-daily.mjs --out ./out
+        env:
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
 
       - name: التحقق من سلامة الملفات
         run: |
