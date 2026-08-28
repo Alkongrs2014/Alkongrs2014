@@ -208,6 +208,22 @@ async function main() {
     : universe.slice(0, cfg.top);
   console.log(`  الرموز المختارة: ${chosen.length} ${ranking?.top?.length ? "(من الترتيب اليومي)" : "(ترتيب مبدئي)"}`);
 
+  // ترتيب المعالجة حسب الحاجة، لا حسب القيمة السوقية: صلاحية فريم 15 دقيقة
+  // صفر أي "قديم دائماً"، فالرموز الممتلئة تستهلك ميزانية التشغيل كاملةً في
+  // تحديث نفسها ولا يصل الدور أبداً لمن لا يملك شمعة واحدة — عالقاً عند 14
+  // من 70 مهما تكرّرت التشغيلات. من يفتقد اليومي أولاً، ثم الساعة، ثم 15د.
+  const needRank = (s) => {
+    const tf = readJSON(path.join(OUT, "sym", `${s}.json`))?.tf || {};
+    if (!tf["1d"]?.c?.length) return 0;
+    if (!tf["1h"]?.c?.length) return 1;
+    if (!tf["15m"]?.c?.length) return 2;
+    return 3;
+  };
+  const order = new Map(chosen.map(c => [c.s, needRank(c.s)]));
+  chosen.sort((a, b) => order.get(a.s) - order.get(b.s));
+  const needy = [...order.values()].filter(v => v < 3).length;
+  if (needy) console.log(`  رموز ناقصة الشمعات: ${needy} — لها أولوية الميزانية`);
+
   // 1) دفعة الأسعار — Finnhub أولاً (مصدر موثوق بمفتاح، لا يُحظر مثل Yahoo)
   const allSymbols = [...chosen.map(c => c.s), ...cfg.indices.map(i => i.s),
                       ...cfg.indices.map(i => i.proxy).filter(Boolean)];
@@ -399,6 +415,21 @@ function selfCheck() {
     if (packCandles(c)[0].c !== undefined) throw new Error("المضغوط يجب ألا يحمل c");
     if (typeof round[0].c.toFixed !== "function") throw new Error("المفكوك يجب أن يحمل رقماً في c");
     eq(unpackCandles(c), c, "المفكوك أصلاً يمرّ كما هو");
+  });
+
+  t("أولوية الميزانية للرموز الناقصة لا الممتلئة", () => {
+    // نحاكي منطق needRank: الرمز الفارغ يسبق الممتلئ مهما كان ترتيبه الأصلي
+    const rank = (tf) => !tf["1d"]?.c?.length ? 0
+                       : !tf["1h"]?.c?.length ? 1
+                       : !tf["15m"]?.c?.length ? 2 : 3;
+    const full  = { "1d": { c: [1] }, "1h": { c: [1] }, "15m": { c: [1] } };
+    const empty = {};
+    eq([rank(empty), rank(full)], [0, 3], "الفارغ أولى من الممتلئ");
+    eq(rank({ "1d": { c: [1] } }), 1, "ناقص الساعة");
+    eq(rank({ "1d": { c: [1] }, "1h": { c: [1] } }), 2, "ناقص 15 دقيقة");
+    const sorted = [{ s: "ممتلئ", t: full }, { s: "فارغ", t: empty }]
+      .sort((a, b) => rank(a.t) - rank(b.t)).map(x => x.s);
+    eq(sorted, ["فارغ", "ممتلئ"], "الترتيب يقدّم الناقص");
   });
 
   t("aggregate يبني 4h صحيحة من 1h", () => {
