@@ -21,7 +21,10 @@ async function fhReq(path, params, { timeout = 15000 } = {}) {
     fhStats.requests++;
     const r = await fetch(u.toString(), { signal: ctl.signal });
     clearTimeout(timer);
-    if (!r.ok) throw new Error(`Finnhub HTTP ${r.status}`);
+    if (!r.ok) {
+      const body = await r.text().catch(() => "");
+      throw new Error(`Finnhub HTTP ${r.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
+    }
     return await r.json();
   } catch (e) {
     fhStats.failures++;
@@ -38,6 +41,7 @@ async function fhReq(path, params, { timeout = 15000 } = {}) {
 export async function fetchQuotesFinnhub(symbols, { pace = 1050 } = {}) {
   if (!TOKEN) throw new Error("FINNHUB_API_KEY غير مضبوط");
   const out = {};
+  let firstErr = null, errCount = 0;
   for (const sym of symbols) {
     try {
       const q = await fhReq("/quote", { symbol: sym });
@@ -55,10 +59,13 @@ export async function fetchQuotesFinnhub(symbols, { pace = 1050 } = {}) {
           preMarketPrice: null, preMarketChangePercent: null,
           postMarketPrice: null, postMarketChangePercent: null
         };
+      } else if (!firstErr) {
+        firstErr = `استجابة بلا سعر صالح: ${JSON.stringify(q).slice(0, 200)}`;
       }
-    } catch (e) { /* رمز واحد فشل — تجاهله واستمر بالباقي */ }
+    } catch (e) { errCount++; if (!firstErr) firstErr = e.message; }
     await sleep(pace);
   }
+  if (firstErr) console.warn(`  ⚠ Finnhub: أول خطأ من ${errCount}: ${firstErr}`);
   return Object.keys(out).length ? out : null;
 }
 
