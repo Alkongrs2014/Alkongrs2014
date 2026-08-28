@@ -33,8 +33,8 @@ const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "
    الرموز السبعين = 210 طلباً = 28 دقيقة، أطول من مهلة المهمة وأكبر من
    حصة اليوم لو تكرّر. فنحدّث دفعة صغيرة كل تشغيل (~100 ثانية) وتكتمل
    التغطية تدريجياً عبر التشغيلات، مع بقاء بيانات الشمعات السابقة كما هي.
-   12 طلباً × 48 تشغيلاً يومياً ≈ 576 طلباً — داخل حصة الـ800. */
-const TD_PER_RUN = Number(process.env.TD_PER_RUN || 12);
+   14 طلباً × 48 تشغيلاً يومياً ≈ 672 طلباً — داخل حصة الـ800. */
+const TD_PER_RUN = Number(process.env.TD_PER_RUN || 14);
 const tdBudget = { left: TD_PER_RUN };
 
 /* تقريب — Yahoo يعيد 62.014999389648438 والتخزين بلا تقريب يضاعف حجم الملفات */
@@ -105,7 +105,7 @@ async function buildSymbol(meta, prevDir, now, quotes) {
   const sym = meta.s;
   const prev = readJSON(path.join(prevDir, "sym", `${sym}.json`));
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
-  let touched = false, errors = [];
+  let touched = false, errors = [], usedTD = false;
 
   // الترتيب مقصود: اليومي أولاً لأنه أساس الشارت والنتيجة الفنية، فحين
   // تنفد ميزانية الطلبات في تشغيل واحد تكون الفريمات الأهم قد امتلأت
@@ -117,9 +117,13 @@ async function buildSymbol(meta, prevDir, now, quotes) {
     // Twelve Data أولاً حين يتوفّر مفتاحه: Yahoo يحظر رينرات GitHub
     // (429 حتى عبر curl) فلا يُعتمد عليه، لكنه يبقى محاولة ثانية مجانية
     // لأنه ينجح أحياناً ويعطي فترات التداول التي لا يعطيها غيره.
+    // طلب واحد لكل رمز في التشغيل الواحد: بلا هذا القيد تبتلع أول أربعة
+    // رموز الميزانية كاملةً (ثلاثة فريمات لكل رمز) ويبقى 66 رمزاً بلا أي
+    // شمعة لساعات. بالقيد يأخذ كل رمز يومِيَّه أولاً فتكتمل الشارتات
+    // والنتائج الفنية لكل الرموز خلال ~6 تشغيلات بدل 18.
     let got = false;
-    if (hasTwelveData() && tdBudget.left > 0) {
-      tdBudget.left--;
+    if (hasTwelveData() && tdBudget.left > 0 && !usedTD) {
+      tdBudget.left--; usedTD = true;
       try {
         const { candles } = await fetchCandlesTD(sym, tf, { outputsize: KEEP });
         rec.tf[tf] = { updated: now, c: slimCandles(candles.slice(-KEEP)) };
