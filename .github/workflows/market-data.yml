@@ -45,6 +45,7 @@ jobs:
       - name: جلب الأسعار والشموع
         env:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: node scripts/fetch-market.mjs --out ./out
 
       - name: التحقق من سلامة الملفات قبل الحفظ
