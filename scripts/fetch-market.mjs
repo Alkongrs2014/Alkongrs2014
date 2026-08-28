@@ -46,6 +46,12 @@ const slimCandles = (c) => c.map(x => ({
 /* ضغط الشمعات عند الكتابة فقط: مصفوفة بدل كائن يوفّر ~45% من الحجم.
    [الوقت بالثواني, فتح, أعلى, أدنى, إغلاق, حجم] */
 const packCandles = (c) => c.map(x => [Math.round(x.t / 1000), x.o, x.h, x.l, x.c, x.v]);
+/* الملفات المحفوظة تحوي الشكل المضغوط، فإعادة استخدامها في تشغيل تالٍ
+   بلا فكّ ضغط تمرّر مصفوفات حيث يُتوقّع كائنات فينهار الحساب على
+   x.c.toFixed. لم يظهر هذا إلا بعد أن صار هناك بيانات سابقة فعلاً. */
+const unpackCandles = (c) => (Array.isArray(c) && Array.isArray(c[0]))
+  ? c.map(a => ({ t: a[0] * 1000, o: a[1], h: a[2], l: a[3], c: a[4], v: a[5] }))
+  : c;
 const slimAnalysis = (a) => {
   const o = {};
   for (const [k, v] of Object.entries(a)) o[k] = (typeof v === "number") ? r4(v) : v;
@@ -104,6 +110,9 @@ function approxMarketStatus(now) {
 async function buildSymbol(meta, prevDir, now, quotes) {
   const sym = meta.s;
   const prev = readJSON(path.join(prevDir, "sym", `${sym}.json`));
+  // نُعيد الشمعات المحفوظة إلى شكل الكائنات فور القراءة، فما بعدها من
+  // حساب ورسم يتعامل مع شكل واحد فقط
+  for (const o of Object.values(prev?.tf || {})) if (o?.c) o.c = unpackCandles(o.c);
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
   let touched = false, errors = [], usedTD = false;
 
@@ -379,6 +388,17 @@ function selfCheck() {
     eq(approxMarketStatus(Date.UTC(2024, 0, 15, 15, 0)).state, "REGULAR", "10ص محلي");
     eq(approxMarketStatus(Date.UTC(2024, 0, 15, 22, 0)).state, "POST", "5م محلي");
     eq(approxMarketStatus(Date.UTC(2024, 0, 13, 15, 0)).state, "CLOSED", "سبت");
+  });
+
+  t("packCandles/unpackCandles رحلة ذهاب وعودة", () => {
+    const c = [{ t: 1_700_000_000_000, o: 1.5, h: 2.5, l: 1, c: 2, v: 100 },
+               { t: 1_700_000_060_000, o: 2, h: 3, l: 1.8, c: 2.8, v: 200 }];
+    const round = unpackCandles(packCandles(c));
+    eq(round, c, "الشكل يعود كما كان");
+    // الخلل الفعلي: مصفوفة مضغوطة تُستخدم بلا فك، فـ x.c غير معرّف
+    if (packCandles(c)[0].c !== undefined) throw new Error("المضغوط يجب ألا يحمل c");
+    if (typeof round[0].c.toFixed !== "function") throw new Error("المفكوك يجب أن يحمل رقماً في c");
+    eq(unpackCandles(c), c, "المفكوك أصلاً يمرّ كما هو");
   });
 
   t("aggregate يبني 4h صحيحة من 1h", () => {
