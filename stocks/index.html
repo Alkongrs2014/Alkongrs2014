@@ -710,8 +710,26 @@ function labelOf(s) {
 /* =======================================================================
    3) حالة السوق — تُحسب في المتصفح لتبقى صحيحة حتى لو تأخّرت البيانات
    ======================================================================= */
+/* التقدير المحلي بساعات نيويورك — يُستخدم حين لا تصل فترات التداول من
+   المصدر (يحدث حين يُحظر المزوّد الذي يوفّرها). بلا هذا كانت الترويسة
+   تعرض "غير معروف" رغم أن الخادم حسب الحالة الصحيحة أصلاً. */
+function approxStatus(now) {
+  const p = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", hour12: false,
+    weekday: "short", hour: "2-digit", minute: "2-digit"
+  }).formatToParts(now);
+  const g = (t) => (p.find(x => x.type === t) || {}).value;
+  const wd = g("weekday"), m = +g("hour") * 60 + +g("minute");
+  const off = { state: "CLOSED", ar: "السوق مغلق", cls: "off", next: null, nextAr: "" };
+  if (wd === "Sat" || wd === "Sun" || m < 240) return off;
+  if (m < 570) return { state: "PRE", ar: "ما قبل الافتتاح", cls: "pre", next: null, nextAr: "" };
+  if (m < 960) return { state: "REGULAR", ar: "السوق مفتوح", cls: "up", next: null, nextAr: "" };
+  if (m < 1200) return { state: "POST", ar: "بعد الإغلاق", cls: "pre", next: null, nextAr: "" };
+  return off;
+}
+
 function marketStatus(period, now = Date.now()) {
-  if (!period || !period.regular) return { state: "UNKNOWN", ar: "غير معروف", cls: "off", next: null, nextAr: "" };
+  if (!period || !period.regular) return approxStatus(now);
   const { pre, regular, post } = period;
   if (now >= regular.start && now < regular.end)
     return { state: "REGULAR", ar: "السوق مفتوح", cls: "up", next: regular.end, nextAr: "يغلق بعد" };
