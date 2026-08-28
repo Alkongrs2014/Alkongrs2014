@@ -78,7 +78,7 @@ jobs:
       - name: ملخص التشغيل
         if: always()
         run: |
-          if [ -f out/meta.json ]; then
+          if [ -f out/meta.json ] && [ -f out/summary.json ]; then
             node -e '
               const m=require("./out/meta.json").marketRun||{};
               const s=require("./out/summary.json");
