@@ -148,7 +148,7 @@ async function main() {
   } catch (e) { console.warn(`  ⚠ دفعة الأسعار فشلت: ${e.message}`); }
 
   // 2) الشموع
-  const results = await pool(chosen, 6, (m) => buildSymbol(m, OUT, now));
+  const results = await pool(chosen, 3, (m) => buildSymbol(m, OUT, now));   // أخفّ على Yahoo بعد حادثة 429
   const rows = [], failed = [];
   results.forEach((r, i) => {
     if (r.ok) rows.push(r.value);

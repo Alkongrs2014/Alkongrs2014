@@ -6,6 +6,13 @@
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+const COMMON_HEADERS = {
+  "User-Agent": UA,
+  "Accept": "*/*",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Referer": "https://finance.yahoo.com/",
+  "Origin": "https://finance.yahoo.com"
+};
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -17,21 +24,25 @@ function mark(src, ok) {
 }
 
 /* ---------- جلب مع إعادة محاولة تصاعدية ---------- */
-async function req(url, { headers = {}, timeout = 20000, tries = 3, label = "yahoo" } = {}) {
+async function req(url, { headers = {}, timeout = 20000, tries = 5, label = "yahoo" } = {}) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
-    if (i) { stats.retries++; await sleep(600 * Math.pow(2, i - 1) + Math.random() * 400); }
+    if (i) {
+      stats.retries++;
+      // 429 يحتاج انتظاراً أطول من أخطاء الخادم العادية — الحد يُعاد فتحه بعد ثوانٍ لا أجزاء ثانية
+      const base = lastErr?.status === 429 ? 2500 : 500;
+      await sleep(base * Math.pow(2, i - 1) + Math.random() * 500);
+    }
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), timeout);
     try {
       stats.requests++;
-      const r = await fetch(url, {
-        signal: ctl.signal,
-        headers: { "User-Agent": UA, "Accept": "*/*", "Accept-Language": "en-US,en;q=0.9", ...headers }
-      });
+      const r = await fetch(url, { signal: ctl.signal, headers: { ...COMMON_HEADERS, ...headers } });
       clearTimeout(timer);
-      if (r.status === 429 || r.status >= 500) { lastErr = new Error(`HTTP ${r.status}`); continue; }
-      if (!r.ok) { lastErr = new Error(`HTTP ${r.status}`); break; }
+      if (r.status === 429 || r.status >= 500) {
+        lastErr = new Error(`HTTP ${r.status}`); lastErr.status = r.status; continue;
+      }
+      if (!r.ok) { lastErr = new Error(`HTTP ${r.status}`); lastErr.status = r.status; break; }
       mark(label, true);
       return r;
     } catch (e) {
@@ -51,7 +62,7 @@ export async function pool(items, limit, fn) {
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
     while (idx < items.length) {
       const i = idx++;
-      await sleep(200 + Math.random() * 200);   // تشتيت لتفادي الحظر
+      await sleep(450 + Math.random() * 450);   // تشتيت أوسع لتفادي 429 من Yahoo
       try { out[i] = { ok: true, value: await fn(items[i], i) }; }
       catch (e) { out[i] = { ok: false, error: e.message, item: items[i] }; }
     }
@@ -164,7 +175,8 @@ export async function fetchStooqDaily(symbol) {
   const r = await req(`https://stooq.com/q/d/l/?s=${sym}&i=d`, { label: "stooq", tries: 2 });
   const text = await r.text();
   const lines = text.trim().split("\n");
-  if (lines.length < 2 || !lines[0].toLowerCase().startsWith("date")) throw new Error("stooq: bad csv");
+  if (lines.length < 2 || !lines[0].toLowerCase().startsWith("date"))
+    throw new Error("stooq: bad csv (" + JSON.stringify(text.slice(0, 60)) + ")");
   const candles = [];
   for (const line of lines.slice(1)) {
     const [d, o, h, l, c, v] = line.split(",");
