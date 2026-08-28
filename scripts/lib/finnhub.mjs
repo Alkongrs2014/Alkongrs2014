@@ -61,3 +61,39 @@ export async function fetchQuotesFinnhub(symbols, { pace = 1050 } = {}) {
   }
   return Object.keys(out).length ? out : null;
 }
+
+const n = (v) => Number.isFinite(v) ? v : null;
+
+/* ---------- بيانات أساسية — profile2 (قيمة سوقية وقطاع) + metric (مضاعفات
+   ونسب) لكل رمز، بديل عن quoteSummary من Yahoo عند تعطّله. الخطة المجانية
+   لا تعيد موعد الأرباح أو توصية المحللين فتبقى null هنا (تُعرض شرطة). ---------- */
+export async function fetchFundamentalsFinnhub(symbols, { pace = 1050 } = {}) {
+  if (!TOKEN) throw new Error("FINNHUB_API_KEY غير مضبوط");
+  const out = {};
+  for (const sym of symbols) {
+    try {
+      const [profile, metricRes] = await Promise.all([
+        fhReq("/stock/profile2", { symbol: sym }),
+        fhReq("/stock/metric", { symbol: sym, metric: "all" })
+      ]);
+      const m = metricRes?.metric || {};
+      const mc = n(profile?.marketCapitalization) ? profile.marketCapitalization * 1e6 : null;
+      out[sym] = {
+        mc, pe: n(m.peTTM), fpe: null, pb: n(m.pbAnnual),
+        eps: n(m.epsInclExtraItemsTTM) ?? n(m.epsTTM),
+        divY: n(m.currentDividendYieldTTM), divRate: n(m.dividendPerShareTTM),
+        beta: n(m.beta), w52h: n(m["52WeekHigh"]), w52l: n(m["52WeekLow"]),
+        avgVol: n(m["10DayAverageTradingVolume"]) ? m["10DayAverageTradingVolume"] * 1e6 : null,
+        shares: n(profile?.shareOutstanding) ? profile.shareOutstanding * 1e6 : null,
+        margin: n(m.netProfitMarginTTM) ? m.netProfitMarginTTM / 100 : null,
+        revGrow: n(m.revenueGrowthTTMYoy) ? m.revenueGrowthTTMYoy / 100 : null,
+        roe: n(m.roeTTM) ? m.roeTTM / 100 : null,
+        target: null, rec: null, recN: null, earnings: null,
+        sector: profile?.finnhubIndustry || null, industry: profile?.finnhubIndustry || null,
+        staff: null, site: profile?.weburl || null, about: null
+      };
+    } catch (e) { /* رمز واحد فشل — تجاهله واستمر بالباقي */ }
+    await sleep(pace);
+  }
+  return out;
+}

@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchSummary, fetchQuotes, pool, stats, num } from "./lib/yahoo.mjs";
+import { fetchFundamentalsFinnhub } from "./lib/finnhub.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -124,6 +125,17 @@ async function main() {
   });
   console.log(`  ✓ بيانات أساسية: ${Object.keys(fundamentals).length} / ${universe.length}`);
   if (failed.length) console.warn(`  ⚠ فشل: ${failed.join(", ")}`);
+
+  // 1ب) Finnhub بديلاً لكل رمز فشل عند Yahoo (حظر 429 غالباً من عناوين GitHub Actions)
+  if (failed.length && process.env.FINNHUB_API_KEY) {
+    console.log(`  … نجرّب Finnhub لـ ${failed.length} رمزاً فشلت عند Yahoo`);
+    try {
+      const fh = await fetchFundamentalsFinnhub(failed);
+      let got = 0;
+      for (const [s, f] of Object.entries(fh)) { fundamentals[s] = f; got++; }
+      console.log(`  ✓ Finnhub بديل: ${got} / ${failed.length}`);
+    } catch (e) { console.warn(`  ⚠ Finnhub بديل فشل: ${e.message}`); }
+  }
 
   // 2) القيمة السوقية — نكمل الناقص من دفعة الأسعار
   const mc = {};
