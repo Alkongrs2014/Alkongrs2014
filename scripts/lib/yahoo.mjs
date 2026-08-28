@@ -6,15 +6,45 @@
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+/* ترويسة المتصفح وحدها. أُضيفت Referer/Origin سابقاً ظناً أنها تقلّل الرفض،
+   لكن فحصاً مباشراً على رينر GitHub أثبت العكس: طلب بترويسة UA فقط رجع 200
+   ببيانات حقيقية في نفس اللحظة التي كان فيها السكربت (بـ Origin) يأخذ 429
+   على كل رمز — إرسال Origin من الخادم يجعل الطلب يبدو تجاوزاً لـ CORS. */
 const COMMON_HEADERS = {
   "User-Agent": UA,
   "Accept": "*/*",
-  "Accept-Language": "en-US,en;q=0.9",
-  "Referer": "https://finance.yahoo.com/",
-  "Origin": "https://finance.yahoo.com"
+  "Accept-Language": "en-US,en;q=0.9"
 };
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+/* ---------- جلب عبر curl ----------
+   Yahoo يرفض طلبات Node (undici) بـ429 بينما يقبل curl من نفس الرينر في
+   نفس اللحظة بنفس الترويسات — تحقّقت من ذلك بفحص مباشر. الفارق ليس في
+   الترويسات بل في بصمة TLS للعميل. curl مثبّت أصلاً على رينرات GitHub.
+   نعيد كائناً بواجهة مصغّرة تشبه Response لتبقى بقية الشيفرة كما هي. */
+import { execFile } from "node:child_process";
+const SEP = "\n<<<CURL_STATUS>>>";
+function curlGet(url, { headers = {}, timeout = 20000 } = {}) {
+  const args = ["-sS", "--compressed", "--max-time", String(Math.ceil(timeout / 1000)),
+                "-w", `${SEP}%{http_code}`];
+  for (const [k, v] of Object.entries({ ...COMMON_HEADERS, ...headers })) args.push("-H", `${k}: ${v}`);
+  args.push(url);
+  return new Promise((resolve, reject) => {
+    execFile("curl", args, { maxBuffer: 32 * 1024 * 1024, timeout: timeout + 5000 }, (err, stdout) => {
+      if (err && !stdout) return reject(err);
+      const i = stdout.lastIndexOf(SEP);
+      if (i < 0) return reject(new Error("curl: رد بلا رمز حالة"));
+      const body = stdout.slice(0, i);
+      const status = Number(stdout.slice(i + SEP.length).trim());
+      resolve({
+        status, ok: status >= 200 && status < 300,
+        text: async () => body,
+        json: async () => JSON.parse(body)
+      });
+    });
+  });
+}
 
 /* ---------- إحصاءات التشغيل، تُكتب في meta.json ---------- */
 export const stats = { requests: 0, retries: 0, failures: 0, sources: {} };
@@ -23,8 +53,18 @@ function mark(src, ok) {
   ok ? s.ok++ : s.fail++;
 }
 
+/* ---------- قاطع دورة عند حظر 429 المتواصل ----------
+   لو رجع Yahoo 429 على عدد كبير من الطلبات المتتالية فالحظر على مستوى
+   عنوان الرينر لا على طلب بعينه، ومواصلة المحاولة تهدر دقائق بلا فائدة
+   (تشغيل سابق: 498 طلباً و214 إخفاقاً و3 دقائق مقابل صفر بيانات).
+   ننجح مرة واحدة => نصفّر العدّاد، لأن الحظر إذاً ليس شاملاً. */
+const BREAKER_LIMIT = 25;
+let consecutive429 = 0;
+export const breaker = { get tripped() { return consecutive429 >= BREAKER_LIMIT; } };
+
 /* ---------- جلب مع إعادة محاولة تصاعدية ---------- */
 async function req(url, { headers = {}, timeout = 20000, tries = 2, label = "yahoo" } = {}) {
+  if (breaker.tripped) throw new Error("Yahoo محظور لهذا التشغيل (قاطع الدورة)");
   let lastErr;
   for (let i = 0; i < tries; i++) {
     if (i) {
@@ -33,20 +73,22 @@ async function req(url, { headers = {}, timeout = 20000, tries = 2, label = "yah
       // يعلّق التشغيل كله بلا فائدة بدل أن يفشل بسرعة ويُبقي بيانات آخر نجاح
       await sleep(1200 + Math.random() * 800);
     }
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), timeout);
     try {
       stats.requests++;
-      const r = await fetch(url, { signal: ctl.signal, headers: { ...COMMON_HEADERS, ...headers } });
-      clearTimeout(timer);
+      const r = await curlGet(url, { headers, timeout });
       if (r.status === 429 || r.status >= 500) {
-        lastErr = new Error(`HTTP ${r.status}`); lastErr.status = r.status; continue;
+        // عدّاد الحظر لـ Yahoo وحده: Stooq يعيد 200 بصفحة حظر لا 429،
+        // فلو عددناه نجاحاً لصفّر العدّاد بعد كل رمز ولما انفتح القاطع أبداً
+        if (r.status === 429 && label !== "stooq") consecutive429++;
+        lastErr = new Error(`HTTP ${r.status}`); lastErr.status = r.status;
+        if (breaker.tripped) break;
+        continue;
       }
       if (!r.ok) { lastErr = new Error(`HTTP ${r.status}`); lastErr.status = r.status; break; }
+      if (label !== "stooq") consecutive429 = 0;
       mark(label, true);
       return r;
     } catch (e) {
-      clearTimeout(timer);
       lastErr = e;
     }
   }

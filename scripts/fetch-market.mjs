@@ -14,6 +14,7 @@ import {
   fetchChart, fetchQuotes, fetchStooqDaily, pool, stats, num, tradingPeriodFromMeta
 } from "./lib/yahoo.mjs";
 import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
+import { fetchCandlesTD, hasTwelveData, tdSleep, tdStats } from "./lib/twelvedata.mjs";
 import { analyze, overallScore, aggregate, TFS, TF_WEIGHT } from "./lib/indicators.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,6 +27,15 @@ const MAX_AGE = { "15m": 0, "1h": 55 * 60e3, "1d": 20 * 3600e3 };
 const RANGE   = { "15m": "60d", "1h": "730d", "1d": "5y" };
 
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
+
+/* ---------- ميزانية طلبات Twelve Data لكل تشغيل ----------
+   الخطة المجانية: 8 طلبات/دقيقة و800/يوم. تعبئة الفريمات الثلاثة لكل
+   الرموز السبعين = 210 طلباً = 28 دقيقة، أطول من مهلة المهمة وأكبر من
+   حصة اليوم لو تكرّر. فنحدّث دفعة صغيرة كل تشغيل (~100 ثانية) وتكتمل
+   التغطية تدريجياً عبر التشغيلات، مع بقاء بيانات الشمعات السابقة كما هي.
+   14 طلباً × 48 تشغيلاً يومياً ≈ 672 طلباً — داخل حصة الـ800. */
+const TD_PER_RUN = Number(process.env.TD_PER_RUN || 14);
+const tdBudget = { left: TD_PER_RUN };
 
 /* تقريب — Yahoo يعيد 62.014999389648438 والتخزين بلا تقريب يضاعف حجم الملفات */
 const r2 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.round(v * 100) / 100;
@@ -95,14 +105,34 @@ async function buildSymbol(meta, prevDir, now, quotes) {
   const sym = meta.s;
   const prev = readJSON(path.join(prevDir, "sym", `${sym}.json`));
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
-  let touched = false, errors = [];
+  let touched = false, errors = [], usedTD = false;
 
-  for (const tf of ["15m", "1h", "1d"]) {
+  // الترتيب مقصود: اليومي أولاً لأنه أساس الشارت والنتيجة الفنية، فحين
+  // تنفد ميزانية الطلبات في تشغيل واحد تكون الفريمات الأهم قد امتلأت
+  for (const tf of ["1d", "1h", "15m"]) {
     if (!stale(prev, tf, now) && prev?.tf?.[tf]?.c?.length) {
       rec.tf[tf] = prev.tf[tf];                       // ما زال حديثاً — أبقِه
       continue;
     }
-    try {
+    // Twelve Data أولاً حين يتوفّر مفتاحه: Yahoo يحظر رينرات GitHub
+    // (429 حتى عبر curl) فلا يُعتمد عليه، لكنه يبقى محاولة ثانية مجانية
+    // لأنه ينجح أحياناً ويعطي فترات التداول التي لا يعطيها غيره.
+    // طلب واحد لكل رمز في التشغيل الواحد: بلا هذا القيد تبتلع أول أربعة
+    // رموز الميزانية كاملةً (ثلاثة فريمات لكل رمز) ويبقى 66 رمزاً بلا أي
+    // شمعة لساعات. بالقيد يأخذ كل رمز يومِيَّه أولاً فتكتمل الشارتات
+    // والنتائج الفنية لكل الرموز خلال ~6 تشغيلات بدل 18.
+    let got = false;
+    if (hasTwelveData() && tdBudget.left > 0 && !usedTD) {
+      tdBudget.left--; usedTD = true;
+      try {
+        const { candles } = await fetchCandlesTD(sym, tf, { outputsize: KEEP });
+        rec.tf[tf] = { updated: now, c: slimCandles(candles.slice(-KEEP)) };
+        rec.src = "twelvedata";
+        touched = true; got = true;
+      } catch (e) { errors.push(`${tf}/td: ${e.message}`); }
+      await tdSleep();                       // حد 8 طلبات/دقيقة على الخطة المجانية
+    }
+    if (!got) try {
       const { candles, meta: m } = await fetchChart(sym, {
         range: RANGE[tf], interval: tf, prePost: tf === "15m"
       });
@@ -170,7 +200,8 @@ async function main() {
   console.log(`  الرموز المختارة: ${chosen.length} ${ranking?.top?.length ? "(من الترتيب اليومي)" : "(ترتيب مبدئي)"}`);
 
   // 1) دفعة الأسعار — Finnhub أولاً (مصدر موثوق بمفتاح، لا يُحظر مثل Yahoo)
-  const allSymbols = [...chosen.map(c => c.s), ...cfg.indices.map(i => i.s)];
+  const allSymbols = [...chosen.map(c => c.s), ...cfg.indices.map(i => i.s),
+                      ...cfg.indices.map(i => i.proxy).filter(Boolean)];
   let quotes = null;
   try {
     quotes = await fetchQuotesFinnhub(allSymbols);
@@ -184,7 +215,10 @@ async function main() {
   }
 
   // 2) الشموع
-  const results = await pool(chosen, 3, (m) => buildSymbol(m, OUT, now, quotes));   // أخفّ على Yahoo بعد حادثة 429
+  // حد Twelve Data (8/دقيقة) عام لا لكل رمز، فالتوازي معه يتجاوزه ويهدر
+  // الرصيد على طلبات مرفوضة — نسلسل حين يكون مفعَّلاً
+  const lanes = hasTwelveData() ? 1 : 3;
+  const results = await pool(chosen, lanes, (m) => buildSymbol(m, OUT, now, quotes));
   const rows = [], failed = [];
   results.forEach((r, i) => {
     if (r.ok) rows.push(r.value);
@@ -243,7 +277,17 @@ async function main() {
         p = a?.c ?? null; chg = (a && b) ? (a.c - b.c) / b.c * 100 : null;
       } catch (e) { console.warn(`  ⚠ مؤشر ${ix.s}: ${e.message}`); }
     }
-    idxRows.push({ s: ix.s, ar: ix.ar, en: ix.en, p: r2(p), chg: r2(chg) });
+    // Finnhub المجاني يرفض رموز المؤشرات (^GSPC) لكنه يعطي صناديق ETF التي
+    // تتبعها. نسبة التغيّر منها تكاد تطابق المؤشر وهي المطلوبة لمزاج السوق،
+    // أما المستوى نفسه (4,600 نقطة) فلا يُشتق من سعر الصندوق فنتركه شرطة
+    // بدل عرض سعر ETF موهماً أنه مستوى المؤشر.
+    let viaProxy = false;
+    if (chg === null && ix.proxy) {
+      const pq = quotes?.[ix.proxy];
+      const pc = num(pq?.regularMarketChangePercent);
+      if (pc !== null) { chg = pc; viaProxy = true; }
+    }
+    idxRows.push({ s: ix.s, ar: ix.ar, en: ix.en, p: r2(p), chg: r2(chg), ...(viaProxy ? { proxy: ix.proxy } : {}) });
   }
 
   const withChg = summary.filter(r => isFinite(r.chg));
@@ -285,7 +329,8 @@ async function main() {
       stale: summary.filter(r => r.stale).map(r => r.s),
       quotes: quotes ? Object.keys(quotes).length : 0,
       requests: stats.requests, retries: stats.retries, sources: stats.sources,
-      finnhub: { requests: fhStats.requests, failures: fhStats.failures }
+      finnhub: { requests: fhStats.requests, failures: fhStats.failures },
+      twelvedata: { requests: tdStats.requests, failures: tdStats.failures, budget: TD_PER_RUN }
     }
   });
 
