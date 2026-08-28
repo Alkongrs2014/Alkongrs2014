@@ -24,14 +24,14 @@ function mark(src, ok) {
 }
 
 /* ---------- جلب مع إعادة محاولة تصاعدية ---------- */
-async function req(url, { headers = {}, timeout = 20000, tries = 5, label = "yahoo" } = {}) {
+async function req(url, { headers = {}, timeout = 20000, tries = 2, label = "yahoo" } = {}) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     if (i) {
       stats.retries++;
-      // 429 يحتاج انتظاراً أطول من أخطاء الخادم العادية — الحد يُعاد فتحه بعد ثوانٍ لا أجزاء ثانية
-      const base = lastErr?.status === 429 ? 2500 : 500;
-      await sleep(base * Math.pow(2, i - 1) + Math.random() * 500);
+      // محاولة ثانية سريعة فقط — لو كان الحظر ممتداً (لا عابراً) فالانتظار الطويل
+      // يعلّق التشغيل كله بلا فائدة بدل أن يفشل بسرعة ويُبقي بيانات آخر نجاح
+      await sleep(1200 + Math.random() * 800);
     }
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), timeout);
