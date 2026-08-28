@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import {
   fetchChart, fetchQuotes, fetchStooqDaily, pool, stats, num, tradingPeriodFromMeta
 } from "./lib/yahoo.mjs";
+import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
 import { analyze, overallScore, aggregate, TFS, TF_WEIGHT } from "./lib/indicators.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -70,8 +71,27 @@ function marketStatus(period, now) {
   return { state: "CLOSED", ar: "السوق مغلق", next: now < regular.start ? regular.start : null, nextAr: "يفتتح بعد" };
 }
 
+/* ---------- حالة تقريبية عند تعذّر الحصول على فترات التداول من Yahoo
+   (يحدث حين يُحظر Yahoo كلياً ولا نحصل على أي بيانات شموع). تعتمد على
+   ساعات ناسداك/نيويورك القياسية بلا مراعاة للعطلات الرسمية. ---------- */
+function approxMarketStatus(now) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", hour12: false,
+    weekday: "short", hour: "2-digit", minute: "2-digit"
+  }).formatToParts(now);
+  const get = (t) => parts.find(p => p.type === t)?.value;
+  const weekday = get("weekday");
+  const mins = Number(get("hour")) * 60 + Number(get("minute"));
+  if (weekday === "Sat" || weekday === "Sun" || mins < 4 * 60)
+    return { state: "CLOSED", ar: "السوق مغلق", next: null, nextAr: "يفتتح بعد" };
+  if (mins < 9 * 60 + 30) return { state: "PRE", ar: "ما قبل الافتتاح", next: null, nextAr: "يفتتح بعد" };
+  if (mins < 16 * 60) return { state: "REGULAR", ar: "السوق مفتوح", next: null, nextAr: "يغلق بعد" };
+  if (mins < 20 * 60) return { state: "POST", ar: "بعد الإغلاق", next: null, nextAr: "تنتهي الجلسة بعد" };
+  return { state: "CLOSED", ar: "السوق مغلق", next: null, nextAr: "يفتتح بعد" };
+}
+
 /* ---------- بناء ملف سهم واحد ---------- */
-async function buildSymbol(meta, prevDir, now) {
+async function buildSymbol(meta, prevDir, now, quotes) {
   const sym = meta.s;
   const prev = readJSON(path.join(prevDir, "sym", `${sym}.json`));
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
@@ -105,7 +125,16 @@ async function buildSymbol(meta, prevDir, now) {
     } catch (e) { errors.push(`stooq: ${e.message}`); }
   }
 
-  if (!Object.keys(rec.tf).length) throw new Error(errors.join(" | ") || "no data");
+  if (!Object.keys(rec.tf).length) {
+    // لا شموع من أي مصدر — لو عندنا سعر من Finnhub نُدرج السهم بسعر فقط
+    // بلا شارت/مؤشرات بدل استبعاده بالكامل (الواجهة تتعامل مع هذا أصلاً)
+    const q = quotes?.[sym];
+    if (!(q && Number.isFinite(q.regularMarketPrice) && q.regularMarketPrice > 0)) {
+      throw new Error(errors.join(" | ") || "no data");
+    }
+    rec.src = "finnhub";
+    rec.noChart = true;
+  }
 
   // اشتقاق فريم 4 ساعات من الساعة (Yahoo لا يوفّره)
   if (rec.tf["1h"]?.c?.length) rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(rec.tf["1h"].c, 4).slice(-KEEP)), derived: true };
@@ -140,15 +169,22 @@ async function main() {
     : universe.slice(0, cfg.top);
   console.log(`  الرموز المختارة: ${chosen.length} ${ranking?.top?.length ? "(من الترتيب اليومي)" : "(ترتيب مبدئي)"}`);
 
-  // 1) دفعة الأسعار
+  // 1) دفعة الأسعار — Finnhub أولاً (مصدر موثوق بمفتاح، لا يُحظر مثل Yahoo)
+  const allSymbols = [...chosen.map(c => c.s), ...cfg.indices.map(i => i.s)];
   let quotes = null;
   try {
-    quotes = await fetchQuotes([...chosen.map(c => c.s), ...cfg.indices.map(i => i.s)]);
-    console.log(`  ✓ دفعة الأسعار: ${quotes ? Object.keys(quotes).length : 0} رمز`);
-  } catch (e) { console.warn(`  ⚠ دفعة الأسعار فشلت: ${e.message}`); }
+    quotes = await fetchQuotesFinnhub(allSymbols);
+    console.log(`  ✓ أسعار Finnhub: ${quotes ? Object.keys(quotes).length : 0} رمز`);
+  } catch (e) { console.warn(`  ⚠ أسعار Finnhub فشلت: ${e.message}`); }
+  if (!quotes) {
+    try {
+      quotes = await fetchQuotes(allSymbols);
+      console.log(`  ✓ دفعة أسعار Yahoo (احتياط): ${quotes ? Object.keys(quotes).length : 0} رمز`);
+    } catch (e) { console.warn(`  ⚠ دفعة أسعار Yahoo فشلت أيضاً: ${e.message}`); }
+  }
 
   // 2) الشموع
-  const results = await pool(chosen, 3, (m) => buildSymbol(m, OUT, now));   // أخفّ على Yahoo بعد حادثة 429
+  const results = await pool(chosen, 3, (m) => buildSymbol(m, OUT, now, quotes));   // أخفّ على Yahoo بعد حادثة 429
   const rows = [], failed = [];
   results.forEach((r, i) => {
     if (r.ok) rows.push(r.value);
@@ -222,7 +258,7 @@ async function main() {
 
   const scored = summary.filter(r => isFinite(r.score));
   const period = rows.find(r => r.period)?.period || null;
-  const status = marketStatus(period, now);
+  const status = period ? marketStatus(period, now) : approxMarketStatus(now);
 
   writeJSON("market.json", {
     updated: now, status, period, indices: idxRows, sectors,
@@ -248,7 +284,8 @@ async function main() {
       ok: rows.length, failed: failed.length, failures: failed,
       stale: summary.filter(r => r.stale).map(r => r.s),
       quotes: quotes ? Object.keys(quotes).length : 0,
-      requests: stats.requests, retries: stats.retries, sources: stats.sources
+      requests: stats.requests, retries: stats.retries, sources: stats.sources,
+      finnhub: { requests: fhStats.requests, failures: fhStats.failures }
     }
   });
 
@@ -289,6 +326,14 @@ function selfCheck() {
     eq(marketStatus(p, base + 12 * H).state, "POST", "بعد الإغلاق");
     eq(marketStatus(p, base + 20 * H).state, "CLOSED", "مغلق");
     eq(marketStatus(null, base).state, "UNKNOWN", "بلا فترات");
+  });
+
+  t("approxMarketStatus يميّز الجلسات بتوقيت نيويورك", () => {
+    // 15 يناير 2024 — لا توقيت صيفي (EST = UTC-5)
+    eq(approxMarketStatus(Date.UTC(2024, 0, 15, 12, 0)).state, "PRE", "7ص محلي");
+    eq(approxMarketStatus(Date.UTC(2024, 0, 15, 15, 0)).state, "REGULAR", "10ص محلي");
+    eq(approxMarketStatus(Date.UTC(2024, 0, 15, 22, 0)).state, "POST", "5م محلي");
+    eq(approxMarketStatus(Date.UTC(2024, 0, 13, 15, 0)).state, "CLOSED", "سبت");
   });
 
   t("aggregate يبني 4h صحيحة من 1h", () => {
