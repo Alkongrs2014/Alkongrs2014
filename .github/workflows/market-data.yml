@@ -25,6 +25,28 @@ jobs:
         with:
           node-version: "20"
 
+      - name: فحص مصادر الشموع (مؤقت — يُحذف بعد التشخيص)
+        continue-on-error: true
+        env:
+          FH: ${{ secrets.FINNHUB_API_KEY }}
+        run: |
+          probe() {
+            printf '%-30s ' "$1"
+            code=$(curl -s -o /tmp/p.txt -w '%{http_code}' --max-time 20 \
+              -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36' \
+              "$2")
+            printf 'HTTP %s | %s\n' "$code" "$(head -c 100 /tmp/p.txt | tr -d '\n')"
+          }
+          probe "finnhub/candle"      "https://finnhub.io/api/v1/stock/candle?symbol=AAPL&resolution=D&count=5&token=$FH"
+          probe "finnhub/etf-SPY"     "https://finnhub.io/api/v1/quote?symbol=SPY&token=$FH"
+          probe "finnhub/index-GSPC"  "https://finnhub.io/api/v1/quote?symbol=%5EGSPC&token=$FH"
+          probe "stooq.com"           "https://stooq.com/q/d/l/?s=aapl.us&i=d"
+          probe "stooq.pl"            "https://stooq.pl/q/d/l/?s=aapl.us&i=d"
+          probe "yahoo q1"            "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=5d&interval=1d"
+          probe "yahoo q2"            "https://query2.finance.yahoo.com/v8/finance/chart/AAPL?range=5d&interval=1d"
+          probe "alphavantage demo"   "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=IBM&apikey=demo"
+          probe "twelvedata demo"     "https://api.twelvedata.com/time_series?symbol=AAPL&interval=1day&outputsize=5&apikey=demo"
+
       - name: فحص ذاتي للكود
         run: node scripts/fetch-market.mjs --check
 
