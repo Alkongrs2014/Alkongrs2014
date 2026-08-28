@@ -6,12 +6,14 @@
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+/* ترويسة المتصفح وحدها. أُضيفت Referer/Origin سابقاً ظناً أنها تقلّل الرفض،
+   لكن فحصاً مباشراً على رينر GitHub أثبت العكس: طلب بترويسة UA فقط رجع 200
+   ببيانات حقيقية في نفس اللحظة التي كان فيها السكربت (بـ Origin) يأخذ 429
+   على كل رمز — إرسال Origin من الخادم يجعل الطلب يبدو تجاوزاً لـ CORS. */
 const COMMON_HEADERS = {
   "User-Agent": UA,
   "Accept": "*/*",
-  "Accept-Language": "en-US,en;q=0.9",
-  "Referer": "https://finance.yahoo.com/",
-  "Origin": "https://finance.yahoo.com"
+  "Accept-Language": "en-US,en;q=0.9"
 };
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -23,8 +25,18 @@ function mark(src, ok) {
   ok ? s.ok++ : s.fail++;
 }
 
+/* ---------- قاطع دورة عند حظر 429 المتواصل ----------
+   لو رجع Yahoo 429 على عدد كبير من الطلبات المتتالية فالحظر على مستوى
+   عنوان الرينر لا على طلب بعينه، ومواصلة المحاولة تهدر دقائق بلا فائدة
+   (تشغيل سابق: 498 طلباً و214 إخفاقاً و3 دقائق مقابل صفر بيانات).
+   ننجح مرة واحدة => نصفّر العدّاد، لأن الحظر إذاً ليس شاملاً. */
+const BREAKER_LIMIT = 25;
+let consecutive429 = 0;
+export const breaker = { get tripped() { return consecutive429 >= BREAKER_LIMIT; } };
+
 /* ---------- جلب مع إعادة محاولة تصاعدية ---------- */
 async function req(url, { headers = {}, timeout = 20000, tries = 2, label = "yahoo" } = {}) {
+  if (breaker.tripped) throw new Error("Yahoo محظور لهذا التشغيل (قاطع الدورة)");
   let lastErr;
   for (let i = 0; i < tries; i++) {
     if (i) {
@@ -40,9 +52,13 @@ async function req(url, { headers = {}, timeout = 20000, tries = 2, label = "yah
       const r = await fetch(url, { signal: ctl.signal, headers: { ...COMMON_HEADERS, ...headers } });
       clearTimeout(timer);
       if (r.status === 429 || r.status >= 500) {
-        lastErr = new Error(`HTTP ${r.status}`); lastErr.status = r.status; continue;
+        if (r.status === 429) consecutive429++;
+        lastErr = new Error(`HTTP ${r.status}`); lastErr.status = r.status;
+        if (breaker.tripped) break;
+        continue;
       }
       if (!r.ok) { lastErr = new Error(`HTTP ${r.status}`); lastErr.status = r.status; break; }
+      consecutive429 = 0;
       mark(label, true);
       return r;
     } catch (e) {

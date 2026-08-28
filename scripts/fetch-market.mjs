@@ -170,7 +170,8 @@ async function main() {
   console.log(`  الرموز المختارة: ${chosen.length} ${ranking?.top?.length ? "(من الترتيب اليومي)" : "(ترتيب مبدئي)"}`);
 
   // 1) دفعة الأسعار — Finnhub أولاً (مصدر موثوق بمفتاح، لا يُحظر مثل Yahoo)
-  const allSymbols = [...chosen.map(c => c.s), ...cfg.indices.map(i => i.s)];
+  const allSymbols = [...chosen.map(c => c.s), ...cfg.indices.map(i => i.s),
+                      ...cfg.indices.map(i => i.proxy).filter(Boolean)];
   let quotes = null;
   try {
     quotes = await fetchQuotesFinnhub(allSymbols);
@@ -243,7 +244,17 @@ async function main() {
         p = a?.c ?? null; chg = (a && b) ? (a.c - b.c) / b.c * 100 : null;
       } catch (e) { console.warn(`  ⚠ مؤشر ${ix.s}: ${e.message}`); }
     }
-    idxRows.push({ s: ix.s, ar: ix.ar, en: ix.en, p: r2(p), chg: r2(chg) });
+    // Finnhub المجاني يرفض رموز المؤشرات (^GSPC) لكنه يعطي صناديق ETF التي
+    // تتبعها. نسبة التغيّر منها تكاد تطابق المؤشر وهي المطلوبة لمزاج السوق،
+    // أما المستوى نفسه (4,600 نقطة) فلا يُشتق من سعر الصندوق فنتركه شرطة
+    // بدل عرض سعر ETF موهماً أنه مستوى المؤشر.
+    let viaProxy = false;
+    if (chg === null && ix.proxy) {
+      const pq = quotes?.[ix.proxy];
+      const pc = num(pq?.regularMarketChangePercent);
+      if (pc !== null) { chg = pc; viaProxy = true; }
+    }
+    idxRows.push({ s: ix.s, ar: ix.ar, en: ix.en, p: r2(p), chg: r2(chg), ...(viaProxy ? { proxy: ix.proxy } : {}) });
   }
 
   const withChg = summary.filter(r => isFinite(r.chg));
