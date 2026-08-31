@@ -936,14 +936,12 @@ function renderList() {
 
   el.innerHTML = rows.map((r, i) => {
     const col = !isFinite(r.chg) ? "var(--mut)" : r.chg > 0 ? "var(--up)" : r.chg < 0 ? "var(--dn)" : "var(--mut)";
-    const lab = labelOf(r.score);
     const ext = r.ext ? `<span class="chip pre" style="font-size:10px;padding:1px 6px">${r.ext.k === "PRE" ? "قبل" : "بعد"} ${bd(pct(r.ext.c, 1))}</span>` : "";
     return `<div class="srow" data-open="${esc(r.s)}">
       <div class="rank num">${i + 1}</div>
       <div class="id">
-        <div class="t"><span class="dot" style="background:${lab.c}" title="${esc(lab.t)}"></span>
-          <span class="tick">${esc(r.s)}</span>${ext}${r.stale ? `<span class="chip off" style="font-size:10px;padding:1px 6px">قديم</span>` : ""}</div>
-        <div class="n">${esc(r.ar)} · ${esc(r.sec)}</div>
+        <div class="t">${esc(r.ar)}${ext}${r.stale ? `<span class="chip off" style="font-size:10px;padding:1px 6px">قديم</span>` : ""}</div>
+        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}</div>
       </div>
       ${sparkSVG(r.spark, isFinite(r.chg) ? r.chg >= 0 : true)}
       <div class="px">
