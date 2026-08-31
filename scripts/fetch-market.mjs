@@ -37,6 +37,10 @@ const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "
 const TD_PER_RUN = Number(process.env.TD_PER_RUN || 14);
 const tdBudget = { left: TD_PER_RUN };
 
+/* على شبكة منزلية Yahoo غير محظور ومجاني بلا سقف، فيُقدَّم على Twelve Data
+   وتسقط الحاجة لميزانية الطلبات. يُضبط PREFER_YAHOO=1 في التشغيل المحلي. */
+const PREFER_YAHOO = process.env.PREFER_YAHOO === "1";
+
 /* تقريب — Yahoo يعيد 62.014999389648438 والتخزين بلا تقريب يضاعف حجم الملفات */
 const r2 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.round(v * 100) / 100;
 const r4 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.round(v * 10000) / 10000;
@@ -131,7 +135,20 @@ async function buildSymbol(meta, prevDir, now, quotes) {
     // شمعة لساعات. بالقيد يأخذ كل رمز يومِيَّه أولاً فتكتمل الشارتات
     // والنتائج الفنية لكل الرموز خلال ~6 تشغيلات بدل 18.
     let got = false;
-    if (hasTwelveData() && tdBudget.left > 0 && !usedTD) {
+
+    const tryYahoo = async () => {
+      const { candles, meta: m } = await fetchChart(sym, {
+        range: RANGE[tf], interval: tf, prePost: tf === "15m"
+      });
+      rec.tf[tf] = { updated: now, c: slimCandles(candles.slice(-KEEP)) };
+      // فترات التداول الحقيقية لا يوفّرها غير Yahoo — وهي أدق من التقدير
+      if (tf === "15m" && m) { rec.period = tradingPeriodFromMeta(m); rec.cur = num(m.regularMarketPrice); }
+      rec.src = "yahoo";
+      touched = true; got = true;
+    };
+
+    const tryTD = async () => {
+      if (!hasTwelveData() || tdBudget.left <= 0 || usedTD) return;
       tdBudget.left--; usedTD = true;
       try {
         const { candles } = await fetchCandlesTD(sym, tf, { outputsize: KEEP });
@@ -140,18 +157,21 @@ async function buildSymbol(meta, prevDir, now, quotes) {
         touched = true; got = true;
       } catch (e) { errors.push(`${tf}/td: ${e.message}`); }
       await tdSleep();                       // حد 8 طلبات/دقيقة على الخطة المجانية
+    };
+
+    // ترتيب المصادر يعتمد على مكان التشغيل، لأن الحظر مرتبط بعنوان الشبكة:
+    // من رينر سحابي (GitHub) يرفض Yahoo كل طلب بـ429، فـ Twelve Data أولاً
+    // بميزانيته المحدودة. من شبكة منزلية Yahoo غير محظور ومجاني بلا سقف،
+    // فيصير هو الأول ويُستغنى عن ميزانية الطلبات كلياً.
+    const yahooFirst = PREFER_YAHOO;
+    if (yahooFirst) {
+      try { await tryYahoo(); } catch (e) { errors.push(`${tf}: ${e.message}`); }
+      if (!got) await tryTD();
+    } else {
+      await tryTD();
+      if (!got) try { await tryYahoo(); } catch (e) { errors.push(`${tf}: ${e.message}`); }
     }
-    if (!got) try {
-      const { candles, meta: m } = await fetchChart(sym, {
-        range: RANGE[tf], interval: tf, prePost: tf === "15m"
-      });
-      rec.tf[tf] = { updated: now, c: slimCandles(candles.slice(-KEEP)) };
-      if (tf === "15m" && m) { rec.period = tradingPeriodFromMeta(m); rec.cur = num(m.regularMarketPrice); }
-      touched = true;
-    } catch (e) {
-      errors.push(`${tf}: ${e.message}`);
-      if (prev?.tf?.[tf]?.c?.length) rec.tf[tf] = prev.tf[tf];   // أبقِ القديم بدل الحذف
-    }
+    if (!got && prev?.tf?.[tf]?.c?.length) rec.tf[tf] = prev.tf[tf];  // أبقِ القديم بدل الحذف
   }
 
   // Yahoo سقط كلياً لهذا الرمز -> جرّب Stooq لليومي حتى لا ينقطع السهم
@@ -242,7 +262,10 @@ async function main() {
   // 2) الشموع
   // حد Twelve Data (8/دقيقة) عام لا لكل رمز، فالتوازي معه يتجاوزه ويهدر
   // الرصيد على طلبات مرفوضة — نسلسل حين يكون مفعَّلاً
-  const lanes = hasTwelveData() ? 1 : 3;
+  // التسلسل مفروض بحد Twelve Data (8/دقيقة عام لا لكل رمز). حين يكون Yahoo
+  // هو المصدر الأول (تشغيل محلي) فلا حد يقيّدنا، فنتوازى ونختصر الوقت
+  // من ~28 دقيقة إلى دقائق معدودة لكل الرموز السبعين.
+  const lanes = (hasTwelveData() && !PREFER_YAHOO) ? 1 : 3;
   const results = await pool(chosen, lanes, (m) => buildSymbol(m, OUT, now, quotes));
   const rows = [], failed = [];
   results.forEach((r, i) => {

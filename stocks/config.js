@@ -3,9 +3,17 @@
    ===================================================================== */
 window.CFG = {
 
-  /* من أين تُقرأ ملفات البيانات التي تكتبها مهمة GitHub Actions.
-     الافتراضي: فرع data في مستودعك عبر raw.githubusercontent (يدعم CORS). */
-  DATA_BASE: "https://raw.githubusercontent.com/Alkongrs2014/Alkongrs2014/data",
+  /* من أين تُقرأ ملفات البيانات.
+
+     يُكتشف المكان تلقائياً فلا تحتاج نسختين من هذا الملف:
+     • محلياً (localhost أو فتح الملف مباشرة) → مجلد data المجاور،
+       يكتبه المشغّل المحلي `node local/run.mjs`
+     • منشوراً على الويب → فرع data عبر raw.githubusercontent (يدعم CORS)
+
+     لتثبيت مصدر بعينه، استبدل السطر كله بنص ثابت. */
+  DATA_BASE: (["localhost", "127.0.0.1", ""].includes(location.hostname))
+    ? "../data"
+    : "https://raw.githubusercontent.com/Alkongrs2014/Alkongrs2014/data",
 
   /* اتركه فارغاً = الوضع المجاني (البيانات من الملفات، تأخير ~15 دقيقة).
      ضع هنا رابط Cloudflare Worker لتفعيل السعر اللحظي — انظر worker/README.md
