@@ -223,6 +223,10 @@ async function main() {
 
   // الترتيب اليومي يحدد الـ70؛ إن لم يوجد بعد نأخذ ترتيب الملف
   const ranking = readJSON(path.join(OUT, "ranking.json"));
+  // الأساسيات اليومية تسدّ ما لا تعطيه أسعار Finnhub المجانية (نطاق 52
+  // أسبوعاً ومتوسط الحجم). بدونها كانت هذه الحقول null دائماً في الملخص،
+  // فيسقط فرز "حجم التداول" في الواجهة صامتاً.
+  const fundamentals = readJSON(path.join(OUT, "fundamentals.json"))?.f || {};
   const chosen = ranking?.top?.length
     ? universe.filter(u => ranking.top.includes(u.s)).sort((a, b) => ranking.top.indexOf(a.s) - ranking.top.indexOf(b.s))
     : universe.slice(0, cfg.top);
@@ -282,9 +286,11 @@ async function main() {
     for (const [tf, o] of Object.entries(rec.tf)) packed.tf[tf] = { ...o, c: packCandles(o.c) };
     bytes += writeJSON(`sym/${rec.s}.json`, packed);
     const q = quotes?.[rec.s];
+    const fnd = fundamentals[rec.s];
     const d1 = rec.tf["1d"]?.c || [];
     const lastC = d1.length ? d1[d1.length - 1].c : null;
     const prevC = d1.length > 1 ? d1[d1.length - 2].c : null;
+    const lastV = d1.length ? num(d1[d1.length - 1].v) : null;
 
     const price = num(q?.regularMarketPrice) ?? rec.cur ?? lastC;
     const chg = num(q?.regularMarketChangePercent)
@@ -306,8 +312,11 @@ async function main() {
       atr: r4(rec.an["1d"]?.atr ?? null), rsi: r2(rec.an["1d"]?.rsi ?? null),
       tfScore: Object.fromEntries(TFS.filter(t => rec.an[t]).map(t => [t, +rec.an[t].score.toFixed(1)])),
       mc: num(q?.marketCap) ?? ranking?.mc?.[rec.s] ?? null,
-      vol: num(q?.regularMarketVolume) ?? null,
-      w52h: r4(num(q?.fiftyTwoWeekHigh)), w52l: r4(num(q?.fiftyTwoWeekLow)),
+      // حجم آخر شمعة يومية = حجم الجلسة الجارية (أو آخر جلسة مكتملة حين
+      // يكون السوق مغلقاً). أدق من متوسط عشرة أيام، فنقدّمه عليه.
+      vol: num(q?.regularMarketVolume) ?? (lastV || null) ?? num(fnd?.avgVol),
+      w52h: r4(num(q?.fiftyTwoWeekHigh) ?? num(fnd?.w52h)),
+      w52l: r4(num(q?.fiftyTwoWeekLow) ?? num(fnd?.w52l)),
       stale: !!rec.stale, src: rec.src
     };
   });

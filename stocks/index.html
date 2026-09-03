@@ -92,7 +92,13 @@ section[data-view].on{display:block; animation:fade .22s ease}
 
 /* ---------- الشارت ---------- */
 .chart-wrap{position:relative;background:var(--card2);border-radius:11px;padding:6px 2px}
-canvas{display:block;width:100%;height:240px}
+/* pan-y لا none: السحب الأفقي يحرّك المؤشّر، والعمودي يبقى تمريراً للصفحة */
+canvas{display:block;width:100%;height:240px;touch-action:pan-y}
+.ohlc{position:absolute;top:8px;right:8px;left:8px;display:none;gap:9px;flex-wrap:wrap;
+  background:rgba(11,14,19,.9);border:1px solid var(--line);border-radius:9px;padding:5px 8px;
+  font-size:10.5px;color:var(--mut);pointer-events:none}
+.ohlc.on{display:flex}
+.ohlc b{font-weight:700}
 .tf-picker{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
 .tf-picker button{flex:none;background:var(--card2); border:1px solid var(--line); color:var(--mut);
   padding:6px 13px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -120,6 +126,11 @@ canvas{display:block;width:100%;height:240px}
 .toolbar select,.toolbar input{flex:1;min-width:110px;background:var(--card2);border:1px solid var(--line);
   color:var(--tx);border-radius:10px;padding:9px 11px;font-size:13.5px;font-family:inherit}
 .toolbar input{direction:rtl;text-align:right}
+/* flex:1 لا none: على الهاتف ينزل سطراً ويملؤه فيصير شريط تبديل واضح،
+   وعلى الشاشة العريضة يشارك بقية الأدوات نفس السطر */
+.toolbar .favbtn{flex:1;min-width:110px;background:var(--card2);border:1px solid var(--line);
+  color:var(--mut);border-radius:10px;padding:9px 12px;font-size:13.5px;font-family:inherit;cursor:pointer}
+.toolbar .favbtn.on{background:rgba(240,185,11,.14);border-color:rgba(240,185,11,.4);color:var(--neu)}
 .slist{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .srow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);
   cursor:pointer;transition:background .15s}
@@ -129,6 +140,10 @@ canvas{display:block;width:100%;height:240px}
 .srow .id{flex:1;min-width:0}
 .srow .id .t{font-size:14px;display:flex;align-items:center;gap:6px}
 .srow .id .n{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.star{background:none;border:0;padding:0 2px;margin:0;font-size:15px;line-height:1;cursor:pointer;
+  color:var(--dim);flex:none;font-family:inherit}
+.star.on{color:var(--neu)}
+.star:active{transform:scale(.88)}
 .srow .spark{width:56px;height:24px;flex:none;opacity:.9}
 .srow .px{text-align:left;flex:none;min-width:88px}
 .srow .px .p{font-size:14px;font-weight:700}
@@ -299,6 +314,7 @@ details b{color:var(--tx)}
       <option value="sym">الرمز أبجدياً</option>
     </select>
     <select id="qSector"><option value="">كل القطاعات</option></select>
+    <button class="favbtn" id="qFav" aria-pressed="false">★ المتابَعة</button>
   </div>
   <div class="slist" id="stockList"><div class="skl" style="height:300px;border-radius:0"></div></div>
   <p class="srcline" id="listCount"></p>
@@ -316,7 +332,7 @@ details b{color:var(--tx)}
       <button data-tf="4h">4 ساعات</button>
       <button data-tf="1d">يومي</button>
     </div>
-    <div class="chart-wrap"><canvas id="chart"></canvas></div>
+    <div class="chart-wrap"><canvas id="chart"></canvas><div class="ohlc" id="ohlc"></div></div>
     <div class="legend">
       <span><i style="background:#f0b90b"></i>EMA 20</span>
       <span><i style="background:#3b82f6"></i>EMA 50</span>
@@ -549,6 +565,10 @@ const DATA = String(CFG.DATA_BASE || "").replace(/\/+$/, "");
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
+/* أسماء الشهور بالعربية وأرقامها لاتينية — بقية أرقام التطبيق لاتينية،
+   وخلط النظامين في سطر واحد يجعل القراءة متعثّرة */
+const AR = "ar-EG-u-nu-latn";
+
 const TFS       = ["15m", "1h", "4h", "1d"];
 const TF_LABEL  = { "15m": "15 دقيقة", "1h": "ساعة", "4h": "4 ساعات", "1d": "يومي" };
 const TF_WEIGHT = { "15m": 0.5, "1h": 1, "4h": 1.5, "1d": 2 };
@@ -556,7 +576,8 @@ const TF_WEIGHT = { "15m": 0.5, "1h": 1, "4h": 1.5, "1d": 2 };
 const state = {
   summary: null, market: null, fund: null, news: null,
   symCache: {}, view: "now", sym: null, activeTF: "1h",
-  lastOk: 0, busy: false, liveAt: 0, liveOn: false
+  lastOk: 0, busy: false, liveAt: 0, liveOn: false,
+  favs: [], favOnly: false, hover: null, from: "list"
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -608,6 +629,25 @@ function dur(ms) {
 }
 const save = (k, v) => { try { localStorage.setItem("stk_" + k, JSON.stringify(v)); } catch (e) {} };
 const load = (k, d) => { try { const v = localStorage.getItem("stk_" + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+
+/* قائمة المتابعة — سبعون سهماً كثيرة على شاشة هاتف، والمتداول يتابع
+   خمسة أو ستة. تُحفظ محلياً فقط: لا خادم ولا حساب. */
+const isFav = (s) => state.favs.includes(s);
+function toggleFav(s) {
+  const i = state.favs.indexOf(s);
+  if (i < 0) state.favs.push(s); else state.favs.splice(i, 1);
+  save("favs", state.favs);
+  // إلغاء آخر متابَع والفلتر مفعّل يترك قائمة فارغة بلا سبب ظاهر
+  if (state.favOnly && !state.favs.length) setFavOnly(false);
+  else renderList();
+}
+function setFavOnly(on) {
+  state.favOnly = on;
+  const b = $("#qFav");
+  b.classList.toggle("on", on);
+  b.setAttribute("aria-pressed", String(on));
+  renderList();
+}
 
 /* =======================================================================
    2) حسابات المؤشرات — نفس منطق سكربت الخادم بالضبط
@@ -914,8 +954,12 @@ function filteredRows() {
   if (q) rows = rows.filter(r =>
     r.s.toLowerCase().includes(q) || (r.ar || "").includes(q) || (r.en || "").toLowerCase().includes(q));
 
+  if (state.favOnly) rows = rows.filter(r => isFav(r.s));
+
   const by = $("#qSort").value;
-  const nz = (v) => isFinite(v) ? v : -Infinity;
+  /* -Infinity كان يجعل مقارنة قيمتين غائبتين NaN (‎-∞ − ‎-∞‎)، وترتيب
+     المصفوفة بمقارِن يعيد NaN غير معرَّف — فكان فرز الحجم يبدو صامتاً. */
+  const nz = (v) => isFinite(v) ? v : -Number.MAX_VALUE;
   const cmp = {
     score:    (a, b) => nz(b.score) - nz(a.score),
     scoreAsc: (a, b) => nz(a.score) - nz(b.score),
@@ -932,7 +976,11 @@ function renderList() {
   if (!state.summary) return;
   const rows = filteredRows();
   const el = $("#stockList");
-  if (!rows.length) { el.innerHTML = `<div class="empty">لا نتائج مطابقة</div>`; $("#listCount").textContent = ""; return; }
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty">${state.favOnly && !state.favs.length
+      ? "لا أسهم في المتابَعة بعد — اضغط ☆ بجانب أي سهم لإضافته" : "لا نتائج مطابقة"}</div>`;
+    $("#listCount").textContent = ""; return;
+  }
 
   el.innerHTML = rows.map((r, i) => {
     const col = !isFinite(r.chg) ? "var(--mut)" : r.chg > 0 ? "var(--up)" : r.chg < 0 ? "var(--dn)" : "var(--mut)";
@@ -940,7 +988,8 @@ function renderList() {
     return `<div class="srow" data-open="${esc(r.s)}">
       <div class="rank num">${i + 1}</div>
       <div class="id">
-        <div class="t">${esc(r.ar)}${ext}${r.stale ? `<span class="chip off" style="font-size:10px;padding:1px 6px">قديم</span>` : ""}</div>
+        <div class="t"><button class="star${isFav(r.s) ? " on" : ""}" data-fav="${esc(r.s)}"
+          aria-label="${isFav(r.s) ? "إزالة من المتابَعة" : "إضافة للمتابَعة"}">${isFav(r.s) ? "★" : "☆"}</button>${esc(r.ar)}${ext}${r.stale ? `<span class="chip off" style="font-size:10px;padding:1px 6px">قديم</span>` : ""}</div>
         <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}</div>
       </div>
       ${sparkSVG(r.spark, isFinite(r.chg) ? r.chg >= 0 : true)}
@@ -950,12 +999,16 @@ function renderList() {
       </div>
     </div>`;
   }).join("");
-  $("#listCount").textContent = `${rows.length} سهماً · حُدّثت ${ago(state.summary.updated)}`;
+  $("#listCount").textContent = `${rows.length} سهماً${state.favOnly ? " من المتابَعة" : ""} · حُدّثت ${ago(state.summary.updated)}`;
 }
 
 /* ---------- شاشة السهم ---------- */
 async function openSymbol(sym) {
+  // الرابحون والخاسرون في "الآن" يفتحان السهم أيضاً، فالرجوع الثابت إلى
+  // "الأسهم" كان ينقل المستخدم إلى شاشة لم يأتِ منها
+  if (state.view !== "detail") state.from = state.view;
   state.sym = sym;
+  state.hover = null;
   go("detail");
   $("#dHead").innerHTML = `<div class="skl" style="height:90px"></div>`;
   $("#tfTable").innerHTML = `<div class="skl" style="height:100px"></div>`;
@@ -1006,7 +1059,17 @@ function renderDetail() {
       <span style="font-size:12.5px;color:var(--mut)">القراءة الفنية الكلية</span>
       <span style="font-weight:800;color:${lab.c}">${lab.t}${isFinite(rec.score) ? ` (${Math.round(rec.score)})` : ""}</span>
     </div>
-    ${rec.stale ? `<div class="warn" style="margin-top:8px">بيانات هذا السهم لم تُحدَّث في آخر تشغيل — قد تكون قديمة.</div>` : ""}`;
+    ${rec.stale ? `<div class="warn" style="margin-top:8px">بيانات هذا السهم لم تُحدَّث في آخر تشغيل — قد تكون قديمة.</div>` : ""}
+    <button class="btn gray" id="btnToRisk" style="margin-top:12px;font-size:13.5px;padding:10px">
+      🛡️ حجم الصفقة والتنبيه لهذا السهم</button>`;
+
+  // الانتقال محمّلاً بالرمز: كان على المستخدم إعادة اختيار السهم يدوياً في
+  // قائمتين بعد أن اختاره هنا
+  $("#btnToRisk").onclick = () => {
+    for (const id of ["#rSym", "#aSym"]) { const el = $(id); if (el) el.value = sym; }
+    $("#rSym").dispatchEvent(new Event("change"));   // يملأ الدخول والوقف من ATR
+    go("risk");
+  };
 
   renderTfTable(rec);
   renderFund();
@@ -1037,13 +1100,19 @@ function renderFund() {
   if (!f) { el.innerHTML = `<div class="note">البيانات الأساسية غير متوفرة لهذا السهم حالياً.</div>`; return; }
 
   const dy = normPct(f.divY);
+  // حجم الجلسة مقابل متوسطه: الفرق بينهما هو ما يميّز حركة عادية من حركة
+  // عليها إقبال، ولا يُقرأ أي منهما وحده
+  const vol = row && isFinite(row.vol) ? row.vol : null;
+  const volX = (vol !== null && isFinite(f.avgVol) && f.avgVol > 0) ? vol / f.avgVol : null;
   const cells = [
     ["القيمة السوقية", compact(f.mc)],
     ["مكرر الربحية P/E", f.pe === null ? "—" : fmt(f.pe, 1)],
     ["ربحية السهم EPS", f.eps === null ? "—" : money(f.eps)],
     ["عائد التوزيعات", dy === null ? "لا توزيعات" : fmt(dy, 2) + "%"],
     ["بيتا", f.beta === null ? "—" : fmt(f.beta, 2)],
-    ["متوسط الحجم", f.avgVol === null ? "—" : compact(f.avgVol, "")]
+    ["متوسط الحجم", f.avgVol === null ? "—" : compact(f.avgVol, "")],
+    ["حجم الجلسة", vol === null ? "—" : compact(vol, "")],
+    ["الحجم مقابل متوسطه", volX === null ? "—" : fmt(volX, 2) + "×"]
   ];
   let html = `<div class="grid3">${cells.map(([k, v]) =>
     `<div class="stat"><div class="k">${k}</div><div class="v${/[\u0600-\u06FF]/.test(String(v)) ? "" : " num"}">${v}</div></div>`).join("")}</div>`;
@@ -1063,7 +1132,7 @@ function renderFund() {
   // إعلان الأرباح
   if (f.earnings && f.earnings.at) {
     const days = Math.ceil((f.earnings.at - Date.now()) / 86400000);
-    const d = new Date(f.earnings.at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+    const d = new Date(f.earnings.at).toLocaleDateString(AR, { year: "numeric", month: "long", day: "numeric" });
     if (days >= 0) {
       const soon = days <= 7;
       html += `<div class="${soon ? "warn" : "note"}" style="margin-top:12px">
@@ -1199,15 +1268,19 @@ function renderSymNews() {
 }
 
 /* ---------- الشارت ---------- */
+/* هندسة آخر رسم — يحتاجها المؤشّر لتحويل موضع الإصبع إلى رقم شمعة
+   بلا إعادة حساب كل شيء عند كل حركة */
+let geom = null;
+
 function drawChart() {
   const cv = $("#chart");
   const rec = state.sym && state.symCache[state.sym];
   const k = rec && rec.tf[state.activeTF] && rec.tf[state.activeTF].c;
-  if (!cv || !k || !k.length) return;
+  if (!cv || !k || !k.length) { geom = null; return; }
 
   const dpr = window.devicePixelRatio || 1;
   const W = cv.clientWidth, H = cv.clientHeight;
-  if (!W) return;
+  if (!W) { geom = null; return; }
   cv.width = W * dpr; cv.height = H * dpr;
   const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, W, H);
@@ -1215,7 +1288,7 @@ function drawChart() {
   const N = Math.min(k.length, Math.max(40, Math.floor(W / 5)));
   const view = k.slice(-N);
   const a = analyze(k);
-  if (!a) return;
+  if (!a) { geom = null; return; }
   const e20 = a.series.e20.slice(-N), e50 = a.series.e50.slice(-N), e200 = a.series.e200.slice(-N);
 
   const padL = 6, padR = 62, padT = 8, padB = 26;
@@ -1273,6 +1346,55 @@ function drawChart() {
       : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
     g.fillText(lbl, X(i), padT + ch + 7);
   });
+
+  geom = { view, N, padL, padT, cw, ch, X, Y };
+
+  // المؤشّر — يُرسم آخراً ليعلو كل شيء
+  const hv = state.hover;
+  if (hv !== null && hv >= 0 && hv < view.length) {
+    const c = view[hv], x = X(hv);
+    g.setLineDash([3, 3]); g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x, padT); g.lineTo(x, padT + ch); g.stroke(); g.setLineDash([]);
+    g.fillStyle = "#e8eef6"; g.beginPath(); g.arc(x, Y(c.c), 2.6, 0, 7); g.fill();
+  }
+  paintOHLC();
+}
+
+/* قراءة الشمعة تحت الإصبع — نصّاً في HTML لا على الكانفس، لأن الخلط بين
+   العربية والأرقام داخل canvas يقلب ترتيب الأحرف */
+function paintOHLC() {
+  const box = $("#ohlc"); if (!box) return;
+  const i = state.hover;
+  if (i === null || !geom || !geom.view[i]) { box.className = "ohlc"; return; }
+  const c = geom.view[i];
+  const up = c.c >= c.o, col = up ? "var(--up)" : "var(--dn)";
+  const d = new Date(c.t);
+  const when = state.activeTF === "1d"
+    ? d.toLocaleDateString(AR, { month: "short", day: "numeric", year: "numeric" })
+    : d.toLocaleString(AR, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const cell = (k, v) => `<span>${k} <b class="num" style="color:${col}">${fmt(v)}</b></span>`;
+  box.className = "ohlc on";
+  box.innerHTML = `<span style="color:var(--tx)">${when}</span>`
+    + cell("فتح", c.o) + cell("أعلى", c.h) + cell("أدنى", c.l) + cell("إغلاق", c.c)
+    + (c.v ? `<span>حجم <b class="num">${compact(c.v, "")}</b></span>` : "");
+}
+
+/* تحويل موضع المؤشّر إلى رقم شمعة، مع تثبيته داخل حدود العرض */
+function hoverAt(clientX) {
+  const cv = $("#chart");
+  if (!cv || !geom) return;
+  const r = cv.getBoundingClientRect();
+  const step = geom.cw / geom.N;
+  const i = Math.floor((clientX - r.left - geom.padL) / step);
+  const clamped = Math.max(0, Math.min(geom.view.length - 1, i));
+  if (clamped === state.hover) return;                 // لا نعيد الرسم بلا تغيّر
+  state.hover = clamped;
+  drawChart();
+}
+function clearHover() {
+  if (state.hover === null) return;
+  state.hover = null;
+  drawChart();
 }
 
 /* ---------- الأخبار ---------- */
@@ -1439,7 +1561,7 @@ function go(view) {
   $("#btnBack").style.display = isDetail ? "" : "none";
   if (!isDetail) { state.sym = null; $("#tbTitle").textContent = "مرصد الأسهم الأمريكية"; }
   $$("#tabbar button").forEach(b =>
-    b.classList.toggle("on", b.dataset.go === (isDetail ? "list" : view)));
+    b.classList.toggle("on", b.dataset.go === (isDetail ? (state.from || "list") : view)));
   window.scrollTo({ top: 0, behavior: "instant" });
   if (isDetail) setTimeout(drawChart, 60);
   if (view === "list") renderList();
@@ -1470,7 +1592,7 @@ function renderAbout() {
       ? "لحظي عبر وسيط خاص، مع رجوع تلقائي للملفات عند أي انقطاع"
       : "مجاني — مهمة مجدولة تحدّث الملفات كل 10 دقائق أثناء ساعات السوق"}</small></div>
       <div class="r">${live ? "لحظي" : "مجاني"}</div></div>
-    <div class="row"><div class="l">آخر تحديث للأسعار<small>${m ? new Date(m.updated).toLocaleString("ar-EG") : "—"}</small></div>
+    <div class="row"><div class="l">آخر تحديث للأسعار<small>${m ? new Date(m.updated).toLocaleString(AR) : "—"}</small></div>
       <div class="r">${m ? ago(m.updated) : "—"}</div></div>
     <div class="row"><div class="l">عدد الشركات المتابَعة<small>أكبر الشركات الأمريكية بالقيمة السوقية، يُعاد ترتيبها يومياً</small></div>
       <div class="r num">${m ? m.count : "—"}</div></div>
@@ -1544,6 +1666,8 @@ function boot() {
     $("#manifest").href = URL.createObjectURL(new Blob([JSON.stringify(man)], { type: "application/manifest+json" }));
   } catch (e) {}
 
+  state.favs = (load("favs", []) || []).filter(x => typeof x === "string");
+
   // عرض فوري من آخر نسخة محفوظة
   const c = load("cache", null);
   if (c && c.sum && Date.now() - c.t < 24 * 3600e3) {
@@ -1552,13 +1676,23 @@ function boot() {
   }
 
   $$("#tabbar button").forEach(b => b.onclick = () => go(b.dataset.go));
-  $("#btnBack").onclick = () => go("list");
+  $("#btnBack").onclick = () => go(state.from || "list");
   $("#btnRefresh").onclick = () => refresh(true);
+  $("#qFav").onclick = () => setFavOnly(!state.favOnly);
+
+  // مؤشّر الشارت — pointer يغطي الفأرة واللمس معاً
+  const cv = $("#chart");
+  cv.addEventListener("pointerdown", (e) => hoverAt(e.clientX));
+  cv.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" || e.buttons) hoverAt(e.clientX); });
+  cv.addEventListener("pointerleave", clearHover);
+  cv.addEventListener("pointercancel", clearHover);
+  cv.addEventListener("pointerup", (e) => { if (e.pointerType !== "mouse") clearHover(); });
 
   $$("#tfPicker button").forEach(b => b.onclick = () => {
     $$("#tfPicker button").forEach(x => x.classList.remove("on"));
     b.classList.add("on");
     state.activeTF = b.dataset.tf;
+    state.hover = null;
     drawChart();
     const rec = state.sym && state.symCache[state.sym];
     if (rec) renderIndicators(rec);
@@ -1566,6 +1700,8 @@ function boot() {
 
   // فتح سهم — بالتفويض حتى يعمل على القوائم المُعاد رسمها
   document.addEventListener("click", (e) => {
+    const f = e.target.closest("[data-fav]");
+    if (f) { e.stopPropagation(); toggleFav(f.dataset.fav); return; }
     const t = e.target.closest("[data-open]");
     if (t) openSymbol(t.dataset.open);
   });

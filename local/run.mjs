@@ -74,6 +74,15 @@ function serve() {
     });
     fs.createReadStream(file).pipe(res);
   });
+  // منفذ مشغول = غالباً نسخة سابقة ما زالت تعمل، لا عطل. الأثر الكامل
+  // للاستثناء كان يُوهم بخطأ في الشيفرة ويخفي أن الموقع يعمل أصلاً.
+  server.on("error", (e) => {
+    if (e.code !== "EADDRINUSE") throw e;
+    console.error(`\n  ✗ المنفذ ${PORT} مشغول — غالباً خادم سابق ما زال يعمل.`);
+    console.error(`    جرّب فتح  http://localhost:${PORT}  أولاً،`);
+    console.error(`    أو شغّل على منفذ آخر:  PORT=8081 node local/run.mjs serve\n`);
+    process.exit(1);
+  });
   server.listen(PORT, () => {
     console.log(`\n  ✔ الموقع يعمل على:  http://localhost:${PORT}\n`);
     console.log("  اترك هذه النافذة مفتوحة. للإيقاف: Ctrl+C\n");
