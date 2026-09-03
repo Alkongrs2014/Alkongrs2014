@@ -14,6 +14,8 @@ webtrade — مرصد الأسهم الأمريكية (تشغيل محلي)
   update.bat       /  تحديث-الاسعار.bat    تحديث سريع للأسعار
   schedule.bat     /  جدولة-تلقائية.bat    تحديث تلقائي كل 10 دقائق
   link-github.bat  /  ربط-بجيت-هب.bat      ربط المجلد بمستودع GitHub
+  publish.bat      /  نشر-البيانات.bat      نشر بيانات جهازك للموقع المنشور
+  schedule-publish.bat / جدولة-مع-النشر.bat  جدولة تلقائية تنشر بعد كل تحديث
 
 الشرح الكامل:        local\README.md
 سياق المشروع للـ AI:  CLAUDE.md
