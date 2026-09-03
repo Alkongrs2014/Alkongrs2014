@@ -1594,7 +1594,7 @@ function renderAbout() {
       <div class="r">${live ? "لحظي" : "مجاني"}</div></div>
     <div class="row"><div class="l">آخر تحديث للأسعار<small>${m ? new Date(m.updated).toLocaleString(AR) : "—"}</small></div>
       <div class="r">${m ? ago(m.updated) : "—"}</div></div>
-    <div class="row"><div class="l">عدد الشركات المتابَعة<small>أكبر الشركات الأمريكية بالقيمة السوقية، يُعاد ترتيبها يومياً</small></div>
+    <div class="row"><div class="l">عدد الشركات المرصودة<small>أكبر الشركات الأمريكية بالقيمة السوقية، يُعاد ترتيبها يومياً</small></div>
       <div class="r num">${m ? m.count : "—"}</div></div>
     <div class="row"><div class="l">حالة السوق<small>${mk && mk.period
       ? "تُحسب من فترات تداول بورصة نيويورك" : "غير متاحة"}</small></div>
