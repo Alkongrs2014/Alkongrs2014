@@ -809,6 +809,13 @@ function approxStatus(now) {
 function marketStatus(period, now = Date.now()) {
   if (!period || !period.regular) return approxStatus(now);
   const { pre, regular, post } = period;
+  /* الفترات المحفوظة تصف يوم جلبها. حين تتوقّف مهمة الشمعات ليلاً وتبقى
+     الأسعار تتحدّث، تصير فترات الأمس هي المرجع فتُقرأ الترويسة "السوق
+     مغلق" والسوق مفتوح فعلاً. خارج نافذة يومها نرجع للتقدير بساعات
+     نيويورك — وهو مبنيّ على الوقت الحالي فلا يشيخ. */
+  const dayEnd = (post && post.end) || regular.end;
+  const dayStart = (pre && pre.start) || regular.start;
+  if (now > dayEnd || now < dayStart - 86400000) return approxStatus(now);
   if (now >= regular.start && now < regular.end)
     return { state: "REGULAR", ar: "السوق مفتوح", cls: "up", next: regular.end, nextAr: "يغلق بعد" };
   if (pre && now >= pre.start && now < regular.start)
