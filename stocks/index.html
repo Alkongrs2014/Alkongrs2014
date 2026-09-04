@@ -151,6 +151,34 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 .dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
 .empty{text-align:center;color:var(--dim);font-size:13px;padding:26px 10px}
 
+/* ---------- الماسح ---------- */
+.scans{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px;scrollbar-width:none}
+.scans::-webkit-scrollbar{display:none}
+.scans button{flex:none;background:var(--card2);border:1px solid var(--line);color:var(--mut);
+  padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.scans button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.scan-why{font-size:12px;color:var(--mut);line-height:1.65;margin:0 0 10px;padding:0 2px}
+.hitv{font-size:11.5px;color:var(--neu);font-weight:700;white-space:nowrap}
+
+/* ---------- التحليل الأساسي ---------- */
+.bars{display:flex;gap:3px;flex:none;width:64px}
+.bars i{flex:1;height:26px;background:var(--card2);border-radius:3px;position:relative;overflow:hidden}
+.bars i b{position:absolute;bottom:0;left:0;right:0;border-radius:3px;display:block}
+.fscore{width:34px;text-align:center;flex:none;font-weight:800;font-size:13.5px}
+.mtable{width:100%;border-collapse:collapse;font-size:12.5px}
+.mtable th,.mtable td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:center}
+.mtable th{color:var(--mut);font-weight:700;font-size:11.5px}
+.mtable td:first-child,.mtable th:first-child{text-align:right}
+.mtable tr:last-child td{border-bottom:0}
+.mwrap{overflow-x:auto}
+.cmp{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.cmp:last-child{border-bottom:0}
+.cmp .mid{color:var(--mut);font-size:11.5px;text-align:center;flex:1}
+.cmp .side{flex:none;min-width:78px;font-weight:700}
+.cmp .side.a{text-align:right}
+.cmp .side.b{text-align:left}
+.win{color:var(--up)}
+
 /* ---------- نطاق 52 أسبوعاً ---------- */
 .rng{margin-top:4px}
 /* الطرف الأيمن = قاع 52 أسبوعاً (أحمر)، الأيسر = القمة (أخضر) */
@@ -301,6 +329,11 @@ details b{color:var(--tx)}
     </div>
   </div>
 
+  <div class="card">
+    <h2>ℹ️ عن البيانات</h2>
+    <div id="about"><div class="skl" style="height:80px"></div></div>
+  </div>
+
   <p class="disclaimer">
     كل ما في هذا التطبيق معلومات وأدوات حسابية للتعلم فقط، وليست توصية بيع أو شراء
     ولا نصيحة استثمارية. القرار ومسؤوليته عليك وحدك.
@@ -411,19 +444,12 @@ details b{color:var(--tx)}
     <h2>📰 أخبار السهم</h2>
     <div id="symNews"><div class="skl" style="height:80px"></div></div>
   </div>
-</section>
 
-<!-- ================= المخاطرة ================= -->
-<section data-view="risk">
-  <div class="card">
-    <h2>🛡️ حاسبة حجم الصفقة</h2>
-    <p class="hint">تحسب كم سهماً تشتري ليكون خطرك بالضبط النسبة التي تحددها — أهم أداة قبل الدخول</p>
-
-    <div class="fld">
-      <label>السهم (لجلب السعر والتذبذب تلقائياً)</label>
-      <select id="rSym"><option value="">— اختر سهماً —</option></select>
-    </div>
-
+  <!-- أدوات التنفيذ: كانت تبويباً مستقلاً يفرض إعادة اختيار السهم في
+       قائمتين بعد اختياره هنا. مكانها الطبيعي مع السهم الذي تخصّه. -->
+  <div class="card" id="cardSize">
+    <h2>🛡️ حجم الصفقة</h2>
+    <p class="hint">كم سهماً تشتري ليكون خطرك بالضبط النسبة التي تحددها — أهم رقم قبل الدخول</p>
     <div class="grid2">
       <div class="fld"><label>رأس المال ($)</label><input id="iCap" type="number" inputmode="decimal" value="10000"></div>
       <div class="fld"><label>نسبة المخاطرة %</label><input id="iRisk" type="number" inputmode="decimal" value="1"></div>
@@ -433,21 +459,17 @@ details b{color:var(--tx)}
     <div class="fld"><label>الهدف (اختياري)</label><input id="iTarget" type="number" inputmode="decimal"></div>
     <button class="btn" id="btnCalc">احسب</button>
     <div id="calcOut"></div>
-
     <details>
       <summary>لماذا نسبة المخاطرة هي الرقم الأهم؟</summary>
       <p>خسارتك لا تحددها كمية الأسهم وحدها بل <b>المسافة إلى وقف الخسارة</b>.
       لو خاطرت بـ 1% من رأس مالك في كل صفقة، فأنت تحتاج <b>100 صفقة خاسرة متتالية</b> لتخسر الحساب.
-      ولو خاطرت بـ 20% تكفيك 5 صفقات.</p>
-      <p>القاعدة المتعارف عليها: <b>1% إلى 2%</b> من رأس المال لكل صفقة.
-      الحاسبة تخبرك بعدد الأسهم الذي يحقق ذلك بالضبط.</p>
+      ولو خاطرت بـ 20% تكفيك 5 صفقات. المتعارف عليه <b>1% إلى 2%</b>.</p>
     </details>
   </div>
 
   <div class="card">
-    <h2>🔔 تنبيهات السعر</h2>
-    <p class="hint">ينبّهك عند وصول سهم لسعر تحدده — يعمل ما دام التطبيق مفتوحاً</p>
-    <div class="fld"><label>السهم</label><select id="aSym"><option value="">— اختر سهماً —</option></select></div>
+    <h2>🔔 تنبيه سعر</h2>
+    <p class="hint">ينبّهك عند وصول هذا السهم لسعر تحدده — يعمل ما دام التطبيق مفتوحاً</p>
     <div class="grid2">
       <div class="fld"><label>السعر</label><input id="aPrice" type="number" inputmode="decimal"></div>
       <div class="fld"><label>الاتجاه</label>
@@ -458,18 +480,32 @@ details b{color:var(--tx)}
     <div id="alertList" style="margin-top:12px"></div>
     <div class="note" style="margin-top:10px">
       التنبيه يعمل فقط والتطبيق مفتوح في المتصفح، ويُفحص عند كل تحديث للبيانات.
-      في الوضع المجاني البيانات متأخرة نحو 15 دقيقة، فلا تعتمد عليه في قرارات لحظية.
+      البيانات متأخرة دقائق فلا تعتمد عليه في قرارات لحظية.
     </div>
+  </div>
+</section>
+
+<!-- ================= الفرص ================= -->
+<section data-view="screen">
+  <div class="card">
+    <h2>🎯 ماسح الفرص</h2>
+    <p class="hint">مسح آلي على السبعين بشروط جاهزة — نقطة بداية للبحث لا توصية بالشراء</p>
+    <div class="scans" id="scanPicker"></div>
+    <p class="scan-why" id="scanWhy"></p>
+    <div class="slist" id="scanList"><div class="skl" style="height:200px;border-radius:0"></div></div>
+    <p class="srcline" id="scanCount"></p>
   </div>
 
   <div class="card">
-    <h2>⚠️ قواعد نجاة سريعة</h2>
-    <div class="row"><div class="l">لا تدخل صفقة بلا وقف خسارة<small>القرار الأصعب هو الخروج — خذه قبل الدخول لا بعده</small></div></div>
-    <div class="row"><div class="l">لا تزد الحجم لتعويض خسارة<small>مضاعفة الحجم بعد الخسارة أسرع طريق لإنهاء الحساب</small></div></div>
-    <div class="row"><div class="l">لا تجعل وقفك أضيق من ATR<small>ستُضرب بالتذبذب الطبيعي لا بخطأ التحليل — الحاسبة تحذّرك</small></div></div>
-    <div class="row"><div class="l">انتبه لموعد إعلان الأرباح<small>السهم قد يقفز أو يهوي 10% في ثوانٍ بعد الإعلان، ووقف الخسارة قد لا ينفعك</small></div></div>
-    <div class="row"><div class="l">لا تضع كل شيء في قطاع واحد<small>سبعون سهماً تقنياً ليست تنويعاً — إنها رهان واحد</small></div></div>
+    <h2>📅 رزنامة الأرباح</h2>
+    <p class="hint">إعلانات الأرباح القادمة — السهم يتحرك بعنف بعدها وغالباً بفجوة لا يحميك منها وقف الخسارة</p>
+    <div id="earnCal"><div class="skl" style="height:120px"></div></div>
   </div>
+
+  <p class="disclaimer">
+    الماسح يطبّق شروطاً عددية على بيانات متأخرة، ولا يعرف شيئاً عن أخبار الشركة ولا عن وضعك المالي.
+    نتيجته قائمة أسهم تستحق النظر، لا قائمة أسهم تستحق الشراء.
+  </p>
 </section>
 
 <!-- ================= الأخبار ================= -->
@@ -483,70 +519,59 @@ details b{color:var(--tx)}
   والترجمة آلية كذلك — الأصل الإنجليزي مكتوب تحت كل عنوان مترجَم فارجع إليه عند أي التباس.</p>
 </section>
 
-<!-- ================= تعلّم ================= -->
-<section data-view="learn">
+<!-- ================= تحليل ================= -->
+<section data-view="analysis">
   <div class="card">
-    <h2>🎓 المصطلحات بلغة بسيطة</h2>
-    <details><summary>ما الفرق بين السهم والمؤشر؟</summary>
-      <p><b>السهم</b> حصة ملكية في شركة واحدة. <b>المؤشر</b> سلة تقيس أداء مجموعة شركات معاً،
-      مثل إس آند بي 500. لا تستطيع شراء المؤشر مباشرة، بل صندوقاً يتبعه.</p></details>
-    <details><summary>ما معنى مكرر الربحية P/E؟</summary>
-      <p>سعر السهم مقسوماً على ربحية السهم السنوية. لو كان السعر 100$ والربحية 5$ فالمكرر 20 —
-      أي تدفع 20 دولاراً مقابل كل دولار أرباح. المكرر المرتفع يعني أن السوق يتوقع نمواً كبيراً،
-      وهذا سلاح ذو حدين: أي تباطؤ في النمو يضرب السهم بعنف.</p>
-      <p>لا معنى للمقارنة بين قطاعات مختلفة — شركات التقنية مكرراتها أعلى من البنوك دائماً.</p></details>
-    <details><summary>ما هي التوزيعات النقدية؟</summary>
-      <p>مبلغ نقدي تدفعه الشركة لكل سهم، عادةً كل ربع سنة. <b>عائد التوزيعات</b> هو ذلك المبلغ السنوي
-      كنسبة من سعر السهم. الشركات الناضجة توزّع، وشركات النمو تعيد استثمار كل شيء.</p>
-      <p>احذر العائد المرتفع جداً — أحياناً يكون لأن السهم انهار لا لأن التوزيع سخي.</p></details>
-    <details><summary>لماذا يقفز السهم بعد إعلان الأرباح؟</summary>
-      <p>كل ثلاثة أشهر تعلن الشركة نتائجها. السعر <b>قبل</b> الإعلان يعكس توقعات السوق،
-      وبعده يقفز أو يهوي حسب الفارق بين النتيجة والتوقع — لا حسب كون الأرباح جيدة بحد ذاتها.
-      شركة تربح مليارات قد تهبط 15% لأن أرباحها أقل من المتوقع بقليل.</p>
-      <p>الحركة تحدث غالباً <b>بعد إغلاق السوق</b>، فتجد السهم فتح اليوم التالي بفجوة كبيرة.
-      وقف الخسارة لا يحميك من الفجوات لأن السعر يقفز فوقه دون أن يمر به.</p></details>
-    <details><summary>ما هي جلسة ما قبل وبعد الإغلاق؟</summary>
-      <p>الجلسة الرسمية من 9:30 صباحاً إلى 4 عصراً بتوقيت نيويورك (4:30 مساءً إلى 11 مساءً بتوقيت السعودية).
-      قبلها وبعدها توجد جلسات ممتدة بسيولة قليلة جداً.</p>
-      <p>السيولة القليلة تعني <b>فروقات سعرية واسعة وحركات مبالغ فيها</b> —
-      سعر يقفز 8% بعد الإغلاق قد يفتح غداً بـ 3% فقط. اقرأها كإشارة اتجاه لا كسعر نهائي.</p></details>
-    <details><summary>ما معنى الفجوة السعرية (Gap)؟</summary>
-      <p>عندما يفتح السهم عند سعر مختلف تماماً عن إغلاق الأمس، بسبب خبر أو أرباح صدرت والسوق مغلق.
-      الفجوة تعني أن أي أمر بينهما لم يُنفَّذ — وهذا أهم سبب لعدم الاعتماد على وقف الخسارة وحده.</p></details>
-    <details><summary>ما هي تجزئة السهم (Split)؟</summary>
-      <p>تقسيم السهم الواحد إلى عدة أسهم أرخص. سهم بـ 1000$ يصبح 10 أسهم بـ 100$.
-      قيمة استثمارك لا تتغير إطلاقاً — الكعكة نفسها مقطّعة أكثر. تفعلها الشركات لتسهيل الشراء.</p></details>
-    <details><summary>ما معنى القيمة السوقية؟</summary>
-      <p>سعر السهم × عدد الأسهم = ثمن الشركة كاملة. تُقسَّم عادةً إلى:
-      <b>كبيرة</b> فوق 10 مليار، <b>متوسطة</b> 2-10 مليار، <b>صغيرة</b> أقل من 2 مليار.
-      كل الشركات في هذا التطبيق كبيرة جداً (فوق 100 مليار).</p></details>
-    <details><summary>لماذا تتحرك كل الأسهم معاً أحياناً؟</summary>
-      <p>لأن أسباباً عامة تحرّك السوق كله: <b>قرارات الفائدة</b> من البنك المركزي الأمريكي،
-      <b>بيانات التضخم والوظائف</b>، والأحداث الجيوسياسية.
-      في تلك الأيام لا يهم كم شركتك جيدة — لهذا نراقب «اتساع السوق» في تبويب «الآن».</p></details>
-    <details><summary>ما الفرق بين القطاعات؟</summary>
-      <p><b>التقنية</b> نمو عالٍ وتذبذب عالٍ. <b>الاستهلاكي الأساسي</b> (طعام ومنظفات) دفاعي وهادئ.
-      <b>المالي</b> يستفيد من ارتفاع الفائدة. <b>المرافق</b> بطيء لكنه يوزّع أرباحاً.
-      في الأسواق الخائفة تصعد الدفاعية وتهبط النمو، والعكس.</p></details>
+    <h2>⚖️ الأقوى أساسياً</h2>
+    <p class="hint">ترتيب بأرقام الشركة نفسها لا بحركة سهمها — ربحية ونمو وتسعير</p>
+    <div class="toolbar">
+      <select id="fSector"><option value="">كل القطاعات</option></select>
+      <select id="fSort">
+        <option value="total">الأعلى إجمالاً</option>
+        <option value="quality">الأعلى جودة</option>
+        <option value="growth">الأسرع نمواً</option>
+        <option value="value">الأرخص تسعيراً</option>
+      </select>
+    </div>
+    <div class="slist" id="fundRank"><div class="skl" style="height:260px;border-radius:0"></div></div>
+    <div class="legend" style="margin-top:10px">
+      <span><i style="background:#16c784"></i>جودة</span>
+      <span><i style="background:#3b82f6"></i>نمو</span>
+      <span><i style="background:#f0b90b"></i>تسعير</span>
+    </div>
+    <details>
+      <summary>كيف تُحسب هذه الدرجات؟</summary>
+      <p><b>جودة:</b> العائد على حقوق الملكية (ROE) وهامش الربح الصافي — كم تربح الشركة من كل دولار
+      مِلكية ومن كل دولار مبيعات. شركة عالية الجودة تحوّل الإيراد إلى ربح بكفاءة.</p>
+      <p><b>نمو:</b> نمو الإيرادات سنوياً. النمو وحده لا يكفي — شركة تنمو وتخسر ليست استثماراً.</p>
+      <p><b>تسعير:</b> مكرر الربحية ومضاعف القيمة الدفترية <b>مقارنةً بمتوسط قطاعها</b>، لا مطلقاً.
+      مكرر 30 رخيص في التقنية وباهظ في البنوك.</p>
+      <p>كل درجة <b>مرتبة مئوية بين السبعين</b>: 90 تعني أن الشركة تتفوّق على 90% منهن في ذلك البند.
+      والإجمالي متوسطها الثلاثي.</p>
+      <p><b>حدود هذه الأرقام:</b> كلها ماضية لا مستقبلية، ولا تقيس الدَّين ولا جودة الإدارة ولا
+      المنافسة. شركة ممتازة بسعر باهظ استثمار سيئ، والعكس صحيح.</p>
+    </details>
   </div>
 
   <div class="card">
-    <h2>✅ روتين يومي مقترح (5 دقائق)</h2>
-    <div class="row"><div class="l">1. افتح «الآن» واقرأ ميزان السوق<small>هل السوق العام صاعد أم هابط؟ وكم VIX؟</small></div></div>
-    <div class="row"><div class="l">2. انظر لاتساع السوق والقطاعات<small>هل الحركة عامة أم من أسهم قليلة؟ أي قطاع يقود؟</small></div></div>
-    <div class="row"><div class="l">3. افتح «الأسهم» ورتّب بالأقوى فنياً<small>ابحث عن توافق الفريمات لا عن إشارة منفردة</small></div></div>
-    <div class="row"><div class="l">4. افتح السهم وتحقق من موعد الأرباح<small>لا تدخل قبل الإعلان بأيام قليلة</small></div></div>
-    <div class="row"><div class="l">5. حدّد وقفك من المستويات و ATR ثم احسب الحجم<small>لا تدخل قبل أن تعرف كم ستخسر بالدولار</small></div></div>
+    <h2>🏭 متوسطات القطاعات</h2>
+    <p class="hint">لتعرف ما معنى «غالٍ» — الرقم لا معنى له خارج قطاعه</p>
+    <div id="secMed"><div class="skl" style="height:140px"></div></div>
   </div>
 
   <div class="card">
-    <h2>ℹ️ عن هذا التطبيق ومصدر بياناته</h2>
-    <div id="about"><div class="skl" style="height:80px"></div></div>
+    <h2>🆚 مقارنة سهمين</h2>
+    <p class="hint">وجهاً لوجه على نفس المقاييس</p>
+    <div class="grid2">
+      <div class="fld"><label>السهم الأول</label><select id="cmpA"></select></div>
+      <div class="fld"><label>السهم الثاني</label><select id="cmpB"></select></div>
+    </div>
+    <div id="cmpOut"></div>
   </div>
 
   <p class="disclaimer">
-    هذا التطبيق أداة معلوماتية وتعليمية فقط، لا يقدّم توصيات ولا نصائح استثمارية.
-    البيانات من مصادر عامة مجانية وقد تتأخر أو تنقطع. القرار ومسؤوليته عليك وحدك.
+    الأرقام الأساسية من مصادر عامة مجانية وقد تتأخر أو تنقص. هذه أداة قراءة ومقارنة،
+    وليست توصية بيع أو شراء ولا نصيحة استثمارية.
   </p>
 </section>
 
@@ -555,9 +580,9 @@ details b{color:var(--tx)}
 <nav class="tabbar" id="tabbar">
   <button data-go="now" class="on"><em>⚡</em>الآن</button>
   <button data-go="list"><em>📋</em>الأسهم</button>
-  <button data-go="risk"><em>🛡️</em>المخاطرة</button>
+  <button data-go="screen"><em>🎯</em>الفرص</button>
+  <button data-go="analysis"><em>⚖️</em>تحليل</button>
   <button data-go="news"><em>📰</em>الأخبار</button>
-  <button data-go="learn"><em>🎓</em>تعلّم</button>
 </nav>
 
 <script src="config.js"></script>
@@ -585,7 +610,7 @@ const state = {
   summary: null, market: null, fund: null, news: null,
   symCache: {}, view: "now", sym: null, activeTF: "1h",
   lastOk: 0, busy: false, liveAt: 0, liveOn: false,
-  favs: [], favOnly: false, hover: null, from: "list"
+  favs: [], favOnly: false, hover: null, from: "list", scan: null
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -614,6 +639,11 @@ function compact(n, prefix = "$") {
 }
 
 /* Yahoo يعطي عائد التوزيعات كنسبة عشرية أحياناً ومئوية أحياناً */
+/* ROE ونمو الإيراد وهامش الربح تُخزَّن ككسر دائماً (0.276 = 27.6%)،
+   وقيمتها تتجاوز 1 بشكل مشروع: نمو 346% لدى MU، وROE 117% لدى إنفيديا.
+   normPct كانت تعيد 1.17 كما هي فتُعرض "1%" — رقم خاطئ يبدو معقولاً. */
+const asPct = (v) => (v === null || v === undefined || !isFinite(v)) ? null : v * 100;
+
 function normPct(v) {
   if (v === null || v === undefined || !isFinite(v)) return null;
   return v < 1 ? v * 100 : v;
@@ -1015,6 +1045,11 @@ async function openSymbol(sym) {
   // الرابحون والخاسرون في "الآن" يفتحان السهم أيضاً، فالرجوع الثابت إلى
   // "الأسهم" كان ينقل المستخدم إلى شاشة لم يأتِ منها
   if (state.view !== "detail") state.from = state.view;
+  if (state.sym !== sym) {
+    // سعر دخول سهم سابق في شاشة سهم آخر خطأ صامت يكلّف مالاً
+    for (const id of ["#iEntry", "#iStop", "#iTarget", "#aPrice"]) { const el = $(id); if (el) el.value = ""; }
+    const co = $("#calcOut"); if (co) co.innerHTML = "";
+  }
   state.sym = sym;
   state.hover = null;
   go("detail");
@@ -1069,16 +1104,15 @@ function renderDetail() {
     </div>
     ${rec.stale ? `<div class="warn" style="margin-top:8px">بيانات هذا السهم لم تُحدَّث في آخر تشغيل — قد تكون قديمة.</div>` : ""}
     <button class="btn gray" id="btnToRisk" style="margin-top:12px;font-size:13.5px;padding:10px">
-      🛡️ حجم الصفقة والتنبيه لهذا السهم</button>`;
+      🛡️ احسب حجم الصفقة لهذا السهم</button>`;
 
-  // الانتقال محمّلاً بالرمز: كان على المستخدم إعادة اختيار السهم يدوياً في
-  // قائمتين بعد أن اختاره هنا
+  // الحاسبة أسفل نفس الصفحة الآن — الزر ينزل إليها بدل تبديل تبويب
   $("#btnToRisk").onclick = () => {
-    for (const id of ["#rSym", "#aSym"]) { const el = $(id); if (el) el.value = sym; }
-    $("#rSym").dispatchEvent(new Event("change"));   // يملأ الدخول والوقف من ATR
-    go("risk");
+    prefillTrade();
+    $("#cardSize").scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  prefillTrade();
   renderTfTable(rec);
   renderFund();
   renderLevels(rec);
@@ -1161,7 +1195,7 @@ function renderFund() {
   const extra = [];
   if (f.industry) extra.push(`الصناعة: ${esc(f.industry)}`);
   if (isFinite(f.staff)) extra.push(`الموظفون: ${bd(fmt(f.staff, 0))}`);
-  if (isFinite(f.margin)) extra.push(`هامش الربح: ${bd(fmt(normPct(f.margin), 1) + "%")}`);
+  if (isFinite(f.margin)) extra.push(`هامش الربح: ${bd(fmt(asPct(f.margin), 1) + "%")}`);
   if (extra.length) html += `<div style="font-size:12px;color:var(--mut);margin-top:10px">${extra.join(" · ")}</div>`;
   if (f.about) html += `<details><summary>عن الشركة (بالإنجليزية)</summary>
     <p style="direction:ltr;text-align:left">${esc(f.about)}</p></details>`;
@@ -1405,6 +1439,322 @@ function clearHover() {
   drawChart();
 }
 
+/* =======================================================================
+   التحليل الأساسي — أرقام الشركة لا حركة سهمها
+   ======================================================================= */
+const median = (a) => {
+  const v = a.filter(isFinite).sort((x, y) => x - y);
+  if (!v.length) return null;
+  const m = v.length >> 1;
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+};
+
+/* المرتبة المئوية: 90 تعني تفوّقاً على 90% من العيّنة. نستعملها بدل
+   القيم الخام لأن ROE ونمو الإيراد ومكرر الربحية بمقاييس لا تُجمع —
+   الرتبة توحّدها فتصير قابلة للمتوسط. */
+function pctRank(sorted, v) {
+  if (!isFinite(v) || sorted.length < 2) return null;
+  let lo = 0;
+  while (lo < sorted.length && sorted[lo] < v) lo++;
+  return lo / (sorted.length - 1) * 100;
+}
+
+/* يُحسب مرة عند تحميل الأساسيات لا عند كل رسم */
+let fundCache = null;
+function fundScores() {
+  if (fundCache) return fundCache;
+  const F = state.fund && state.fund.f;
+  if (!F || !state.summary) return null;
+  const rows = state.summary.rows.filter(r => F[r.s]);
+  if (rows.length < 5) return null;
+
+  // متوسط القطاع هو مرجع التسعير: مكرر 30 رخيص في التقنية وباهظ في البنوك
+  const bySec = {};
+  for (const r of rows) (bySec[r.sec] ||= []).push(r);
+  const secMed = {};
+  for (const [sec, list] of Object.entries(bySec)) {
+    const f = list.map(r => F[r.s]);
+    secMed[sec] = {
+      n: list.length,
+      pe:     median(f.map(x => x.pe)),
+      pb:     median(f.map(x => x.pb)),
+      roe:    median(f.map(x => x.roe)),
+      margin: median(f.map(x => x.margin)),
+      grow:   median(f.map(x => x.revGrow))
+    };
+  }
+
+  // الخام أولاً، ثم نحوّله إلى رتب
+  const raw = rows.map(r => {
+    const f = F[r.s], m = secMed[r.sec] || {};
+    // نسبة إلى القطاع: أقل من 1 = أرخص من أقرانه. بالسالب لأن الأرخص أفضل
+    const rel = (v, med) => (isFinite(v) && v > 0 && isFinite(med) && med > 0) ? -(v / med) : null;
+    return {
+      s: r.s,
+      quality: [f.roe, f.margin],
+      growth:  [f.revGrow],
+      value:   [rel(f.pe, m.pe), rel(f.pb, m.pb)]
+    };
+  });
+
+  const col = (key, i) => raw.map(x => x[key][i]).filter(isFinite).sort((a, b) => a - b);
+  const dims = { quality: [col("quality", 0), col("quality", 1)],
+                 growth:  [col("growth", 0)],
+                 value:   [col("value", 0), col("value", 1)] };
+
+  const out = {};
+  for (const x of raw) {
+    const sc = {};
+    for (const k of ["quality", "growth", "value"]) {
+      const parts = x[k].map((v, i) => pctRank(dims[k][i], v)).filter(v => v !== null);
+      sc[k] = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null;
+    }
+    const have = ["quality", "growth", "value"].map(k => sc[k]).filter(v => v !== null);
+    // إجمالي من بندين فقط أضعف من إجمالي من ثلاثة، فنُعلمه بدل إخفائه
+    sc.total = have.length ? have.reduce((a, b) => a + b, 0) / have.length : null;
+    sc.parts = have.length;
+    out[x.s] = sc;
+  }
+  fundCache = { sc: out, secMed };
+  return fundCache;
+}
+
+const BAR_COL = { quality: "#16c784", growth: "#3b82f6", value: "#f0b90b" };
+const barsHTML = (sc) => `<div class="bars">${["quality", "growth", "value"].map(k => {
+  const v = sc[k];
+  return `<i>${v === null ? "" : `<b style="height:${Math.max(4, v)}%;background:${BAR_COL[k]}"></b>`}</i>`;
+}).join("")}</div>`;
+
+function renderAnalysis() {
+  const fs = fundScores();
+  const el = $("#fundRank");
+  if (!el) return;
+  if (!fs) { el.innerHTML = `<div class="empty">البيانات الأساسية لم تصل بعد</div>`; return; }
+
+  const F = state.fund.f;
+  const sec = $("#fSector").value, by = $("#fSort").value || "total";
+  let rows = state.summary.rows.filter(r => fs.sc[r.s]);
+  if (sec) rows = rows.filter(r => r.sec === sec);
+  rows = rows.slice().sort((a, b) => {
+    const x = fs.sc[b.s][by], y = fs.sc[a.s][by];
+    return (isFinite(x) ? x : -1) - (isFinite(y) ? y : -1);
+  });
+
+  el.innerHTML = rows.map((r, i) => {
+    const sc = fs.sc[r.s], f = F[r.s];
+    const v = sc[by];
+    const col = !isFinite(v) ? "var(--mut)" : v >= 66 ? "var(--up)" : v >= 33 ? "var(--neu)" : "var(--dn)";
+    return `<div class="srow" data-open="${esc(r.s)}">
+      <div class="rank num">${i + 1}</div>
+      <div class="id">
+        <div class="t">${esc(r.ar)}</div>
+        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}${
+          isFinite(f.roe) ? ` · ROE ${bd(fmt(asPct(f.roe), 0) + "%")}` : ""}</div>
+      </div>
+      ${barsHTML(sc)}
+      <div class="fscore num" style="color:${col}">${isFinite(v) ? Math.round(v) : "—"}</div>
+    </div>`;
+  }).join("") || `<div class="empty">لا نتائج</div>`;
+}
+
+function renderSectorMedians() {
+  const fs = fundScores();
+  const el = $("#secMed");
+  if (!el) return;
+  if (!fs) { el.innerHTML = `<div class="empty">البيانات الأساسية لم تصل بعد</div>`; return; }
+  const rows = Object.entries(fs.secMed).sort((a, b) => (b[1].roe ?? -9) - (a[1].roe ?? -9));
+  el.innerHTML = `<div class="mwrap"><table class="mtable">
+    <tr><th>القطاع</th><th>شركات</th><th>مكرر الربحية</th><th>ROE</th><th>هامش الربح</th><th>نمو الإيراد</th></tr>
+    ${rows.map(([sec, m]) => `<tr>
+      <td>${esc(sec)}</td>
+      <td class="num">${m.n}</td>
+      <td class="num">${m.pe === null ? "—" : fmt(m.pe, 1)}</td>
+      <td class="num">${m.roe === null ? "—" : fmt(asPct(m.roe), 0) + "%"}</td>
+      <td class="num">${m.margin === null ? "—" : fmt(asPct(m.margin), 0) + "%"}</td>
+      <td class="num" style="color:${(m.grow ?? 0) >= 0 ? "var(--up)" : "var(--dn)"}">${
+        m.grow === null ? "—" : pct(asPct(m.grow), 0)}</td>
+    </tr>`).join("")}
+  </table></div>
+  <p class="scan-why" style="margin-top:10px">الوسيط لا المتوسط: شركة واحدة شاذة لا تحرّك الوسيط،
+  بينما تُفسد المتوسط الحسابي وتجعل القطاع كله يبدو غير ما هو عليه.</p>`;
+}
+
+function renderCompare() {
+  const out = $("#cmpOut");
+  if (!out) return;
+  const a = $("#cmpA").value, b = $("#cmpB").value;
+  const F = state.fund && state.fund.f;
+  if (!F || !a || !b || a === b) { out.innerHTML = `<div class="note">اختر سهمين مختلفين للمقارنة.</div>`; return; }
+  const fa = F[a], fb = F[b], ra = symRow(a), rb = symRow(b);
+  if (!fa || !fb) { out.innerHTML = `<div class="note">أحد السهمين بلا بيانات أساسية.</div>`; return; }
+
+  // hi=true يعني الأعلى أفضل. التسعير عكسه، ولذلك لا يُقارَن بين قطاعين
+  const M = [
+    ["القيمة السوقية", compact(fa.mc), compact(fb.mc), fa.mc, fb.mc, true],
+    ["مكرر الربحية",   fa.pe === null ? "—" : fmt(fa.pe, 1), fb.pe === null ? "—" : fmt(fb.pe, 1), fa.pe, fb.pe, false],
+    ["ROE",            fa.roe === null ? "—" : fmt(asPct(fa.roe), 0) + "%", fb.roe === null ? "—" : fmt(asPct(fb.roe), 0) + "%", fa.roe, fb.roe, true],
+    ["هامش الربح",     fa.margin === null ? "—" : fmt(asPct(fa.margin), 0) + "%", fb.margin === null ? "—" : fmt(asPct(fb.margin), 0) + "%", fa.margin, fb.margin, true],
+    ["نمو الإيراد",    fa.revGrow === null ? "—" : pct(asPct(fa.revGrow), 0), fb.revGrow === null ? "—" : pct(asPct(fb.revGrow), 0), fa.revGrow, fb.revGrow, true],
+    ["عائد التوزيعات", normPct(fa.divY) === null ? "—" : fmt(normPct(fa.divY), 2) + "%", normPct(fb.divY) === null ? "—" : fmt(normPct(fb.divY), 2) + "%", normPct(fa.divY), normPct(fb.divY), true],
+    ["بيتا (التذبذب)", fa.beta === null ? "—" : fmt(fa.beta, 2), fb.beta === null ? "—" : fmt(fb.beta, 2), fa.beta, fb.beta, false],
+    ["تغيّر اليوم",    pct(ra && ra.chg), pct(rb && rb.chg), ra && ra.chg, rb && rb.chg, true],
+    ["القراءة الفنية", isFinite(ra && ra.score) ? Math.round(ra.score) : "—", isFinite(rb && rb.score) ? Math.round(rb.score) : "—", ra && ra.score, rb && rb.score, true]
+  ];
+
+  out.innerHTML = `<div class="sep"></div>
+    <div class="cmp"><div class="side a"><span class="tick">${esc(a)}</span></div>
+      <div class="mid">${esc((symRow(a) || {}).sec || "")}</div>
+      <div class="side b"><span class="tick">${esc(b)}</span></div></div>
+    ${M.map(([k, va, vb, na, nb, hi]) => {
+      const cmpOk = isFinite(na) && isFinite(nb) && na !== nb;
+      const aWin = cmpOk && (hi ? na > nb : na < nb);
+      const bWin = cmpOk && !aWin;
+      return `<div class="cmp">
+        <div class="side a num${aWin ? " win" : ""}">${va}</div>
+        <div class="mid">${k}</div>
+        <div class="side b num${bWin ? " win" : ""}">${vb}</div></div>`;
+    }).join("")}
+    <p class="scan-why" style="margin-top:10px">الأخضر يعني الأفضل في ذلك البند وحده.
+    مقارنة شركتين من قطاعين مختلفين تضلّل في التسعير خاصةً — مكرر البنوك لا يُقارَن بمكرر التقنية.</p>`;
+}
+
+/* =======================================================================
+   ماسح الفرص — شروط عددية على البيانات الموجودة، بلا أي جلب إضافي
+   ======================================================================= */
+const near = (p, lvl, tol) => isFinite(p) && isFinite(lvl) && lvl > 0 && Math.abs(p - lvl) / lvl <= tol;
+const allTF = (r, sign) => {
+  const v = Object.values(r.tfScore || {});
+  return v.length === 4 && v.every(x => sign > 0 ? x > 15 : x < -15);
+};
+const volX = (r, f) => (isFinite(r.vol) && f && isFinite(f.avgVol) && f.avgVol > 0) ? r.vol / f.avgVol : null;
+
+const SCANS = [
+  { id: "align", lbl: "توافق الفريمات ▲",
+    why: "الفريمات الأربعة (15د، ساعة، 4 ساعات، يومي) كلها صاعدة معاً. التوافق أندر من أي إشارة منفردة وأصعب على الضجيج أن يفتعله — لكنه يعني أيضاً أن الحركة بدأت وأن الدخول لم يعد مبكراً.",
+    test: (r) => allTF(r, 1), val: (r) => `${Math.round(r.score)} نقطة`,
+    rank: (r) => -r.score },
+  { id: "alignDn", lbl: "توافق الفريمات ▼",
+    why: "الفريمات الأربعة كلها هابطة. تُقرأ كتحذير على المراكز المفتوحة، لا كدعوة للبيع على المكشوف — الهبوط المتوافق ينعكس بعنف حين ينعكس.",
+    test: (r) => allTF(r, -1), val: (r) => `${Math.round(r.score)} نقطة`,
+    rank: (r) => r.score },
+  { id: "high52", lbl: "قرب قمة 52 أسبوعاً",
+    why: "السعر ضمن 3% من أعلى سعر في سنة. القرب من القمة زخم لا خطر بحد ذاته — أغلب الأسهم التي تضاعفت مرّت من قممها مراراً. والمخاطرة أن القمة نفسها مقاومة.",
+    test: (r) => near(r.p, r.w52h, 0.03) && r.p <= r.w52h,
+    val: (r) => `${fmt((r.p - r.w52l) / (r.w52h - r.w52l) * 100, 0)}% من النطاق`,
+    rank: (r) => -(r.p - r.w52l) / (r.w52h - r.w52l) },
+  { id: "low52", lbl: "قرب قاع 52 أسبوعاً",
+    why: "السعر ضمن 8% من أدنى سعر في سنة، مع بقاء الشركة رابحة (ROE موجب). قد تكون فرصة وقد تكون سقوطاً مستمراً — السعر وحده لا يفرّق، فاقرأ الأخبار وسبب الهبوط.",
+    test: (r, f) => near(r.p, r.w52l, 0.08) && f && isFinite(f.roe) && f.roe > 0,
+    val: (r) => `${fmt((r.p - r.w52l) / r.w52l * 100, 1)}% فوق القاع`,
+    rank: (r) => (r.p - r.w52l) / r.w52l },
+  { id: "vol", lbl: "حجم غير معتاد",
+    why: "حجم تداول اليوم يفوق متوسط عشرة أيام بمرة ونصف. الحجم الشاذ يسبق الخبر أحياناً ويتبعه غالباً — وهو أول ما يتغيّر قبل تغيّر السعر.",
+    test: (r, f) => (volX(r, f) ?? 0) >= 1.5, val: (r, f) => `${fmt(volX(r, f), 2)}× المتوسط`,
+    rank: (r, f) => -volX(r, f) },
+  { id: "oversold", lbl: "تشبّع بيعي في اتجاه صاعد",
+    why: "RSI تحت 35 بينما الاتجاه اليومي ما زال موجباً — تراجع داخل صعود لا انقلاب. أخطر ما في هذا الشرط أن الاتجاه قد يكون في طريقه للانكسار فعلاً.",
+    test: (r) => isFinite(r.rsi) && r.rsi < 35 && (r.tfScore || {})["1d"] > 0,
+    val: (r) => `RSI ${fmt(r.rsi, 0)}`,
+    rank: (r) => r.rsi },
+  { id: "cheap", lbl: "أرخص من قطاعه",
+    why: "مكرر ربحية أقل من وسيط قطاعه مع عائد على الملكية فوق 12%: ربحية جيدة بتسعير أقل من الأقران. الرخص قد يكون لسبب وجيه — دَين أو نمو متوقّف لا يظهران هنا.",
+    test: (r, f, ctx) => {
+      const m = ctx.secMed[r.sec];
+      return f && isFinite(f.pe) && f.pe > 0 && m && isFinite(m.pe) && f.pe < m.pe && isFinite(f.roe) && f.roe > 0.12;
+    },
+    val: (r, f, ctx) => `مكرر ${fmt(f.pe, 1)} مقابل ${fmt(ctx.secMed[r.sec].pe, 1)}`,
+    rank: (r, f, ctx) => f.pe / ctx.secMed[r.sec].pe },
+  { id: "earn", lbl: "أرباح خلال أسبوع",
+    why: "إعلان الأرباح خلال سبعة أيام. ليست فرصة بل تحذير: الحركة بعد الإعلان تحدث غالباً بفجوة سعرية يقفز فيها السعر فوق وقف الخسارة دون أن يمرّ به.",
+    test: (r, f) => {
+      if (!f || !f.earnings || !f.earnings.at) return false;
+      const d = (f.earnings.at - Date.now()) / 86400000;
+      return d >= 0 && d <= 7;
+    },
+    val: (r, f) => `بعد ${Math.ceil((f.earnings.at - Date.now()) / 86400000)} يوم`,
+    rank: (r, f) => f.earnings.at }
+];
+
+function renderScreen() {
+  const pick = $("#scanPicker");
+  if (!pick) return;
+  if (!pick.dataset.built) {
+    pick.innerHTML = SCANS.map(s => `<button data-scan="${s.id}">${esc(s.lbl)}</button>`).join("");
+    pick.dataset.built = "1";
+    $$("#scanPicker button").forEach(b => b.onclick = () => { state.scan = b.dataset.scan; renderScreen(); });
+  }
+  const id = state.scan || SCANS[0].id;
+  $$("#scanPicker button").forEach(b => b.classList.toggle("on", b.dataset.scan === id));
+  const scan = SCANS.find(s => s.id === id) || SCANS[0];
+  $("#scanWhy").textContent = scan.why;
+
+  const el = $("#scanList");
+  if (!state.summary) { el.innerHTML = `<div class="empty">جارِ التحميل…</div>`; return; }
+  const F = (state.fund && state.fund.f) || {};
+  const fs = fundScores();
+  const ctx = { secMed: (fs && fs.secMed) || {} };
+
+  let hits = [];
+  for (const r of state.summary.rows) {
+    try { if (scan.test(r, F[r.s], ctx)) hits.push(r); } catch (e) { /* حقل ناقص — تخطَّ الرمز */ }
+  }
+  // كل مسح يرتّب بمقياسه: الحجم بمضاعف الحجم، والأرباح بالأقرب موعداً.
+  // الترتيب بالنتيجة الفنية دائماً كان يضع 1.50× فوق 2.38× في مسح الحجم.
+  const key = (r) => { try { return scan.rank ? scan.rank(r, F[r.s], ctx) : -(r.score ?? -999); } catch (e) { return Infinity; } };
+  hits.sort((a, b) => {
+    const x = key(a), y = key(b);
+    return (isFinite(x) ? x : Infinity) - (isFinite(y) ? y : Infinity);
+  });
+
+  if (!hits.length) {
+    el.innerHTML = `<div class="empty">لا سهم ينطبق عليه هذا الشرط الآن — وهذا نتيجة صحيحة لا عطل</div>`;
+    $("#scanCount").textContent = "";
+    return;
+  }
+  el.innerHTML = hits.map((r, i) => {
+    const col = !isFinite(r.chg) ? "var(--mut)" : r.chg > 0 ? "var(--up)" : r.chg < 0 ? "var(--dn)" : "var(--mut)";
+    let v = "";
+    try { v = scan.val(r, F[r.s], ctx) || ""; } catch (e) {}
+    return `<div class="srow" data-open="${esc(r.s)}">
+      <div class="rank num">${i + 1}</div>
+      <div class="id">
+        <div class="t">${esc(r.ar)}</div>
+        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}</div>
+      </div>
+      <div class="hitv">${esc(v)}</div>
+      <div class="px">
+        <div class="p num">${money(r.p)}</div>
+        <div class="c num" style="color:${col}">${pct(r.chg)}</div>
+      </div>
+    </div>`;
+  }).join("");
+  $("#scanCount").textContent = `${hits.length} من ${state.summary.rows.length} سهماً · حُدّثت ${ago(state.summary.updated)}`;
+}
+
+function renderEarnings() {
+  const el = $("#earnCal");
+  if (!el) return;
+  const F = state.fund && state.fund.f;
+  if (!F) { el.innerHTML = `<div class="empty">البيانات الأساسية لم تصل بعد</div>`; return; }
+  const now = Date.now();
+  const list = state.summary.rows
+    .map(r => ({ r, f: F[r.s] }))
+    .filter(x => x.f && x.f.earnings && x.f.earnings.at && x.f.earnings.at >= now - 86400000)
+    .sort((a, b) => a.f.earnings.at - b.f.earnings.at)
+    .slice(0, 14);
+  if (!list.length) { el.innerHTML = `<div class="empty">لا مواعيد أرباح معروفة حالياً</div>`; return; }
+  el.innerHTML = list.map(({ r, f }) => {
+    const d = Math.ceil((f.earnings.at - now) / 86400000);
+    const soon = d <= 7;
+    return `<div class="row" style="cursor:pointer" data-open="${esc(r.s)}">
+      <div class="l"><span class="tick">${esc(r.s)}</span> ${esc(r.ar)}
+        <small>${new Date(f.earnings.at).toLocaleDateString(AR, { weekday: "long", month: "long", day: "numeric" })}${
+          f.earnings.estimated ? " · تاريخ تقديري" : ""}</small></div>
+      <div class="r" style="color:${soon ? "var(--neu)" : "var(--mut)"}">${
+        d <= 0 ? "اليوم" : `بعد ${bd(d)} يوم`}</div></div>`;
+  }).join("");
+}
+
 /* ---------- الأخبار ---------- */
 const POS = /surge|rally|soar|jump|bull|record|high|beat|upgrade|approve|gain|rise|boost|buy|profit|growth|strong|outperform|raises/i;
 const NEG = /crash|plunge|drop|fall|bear|hack|ban|lawsuit|sues|probe|miss|downgrade|cut|slump|decline|fear|warn|risk|layoff|fraud|recall|weak/i;
@@ -1439,11 +1789,20 @@ function renderNews() {
 /* =======================================================================
    6) حاسبة المخاطرة
    ======================================================================= */
+/* الدخول = السعر الحالي، والوقف = 1.5 × ATR تحته: نقطة بداية معقولة
+   تُعدَّل يدوياً، أفضل من حقلين فارغين يخمّنهما المستخدم. */
+function prefillTrade() {
+  const r = symRow(state.sym);
+  if (!r || !isFinite(r.p)) return;
+  const e = $("#iEntry"), st = $("#iStop");
+  if (e && !e.value) e.value = r.p.toFixed(2);
+  if (st && !st.value && isFinite(r.atr) && r.atr > 0) st.value = (r.p - r.atr * 1.5).toFixed(2);
+}
 function calc() {
   const cap = +$("#iCap").value, riskPct = +$("#iRisk").value;
   const entry = +$("#iEntry").value, stop = +$("#iStop").value, target = +$("#iTarget").value;
   const out = $("#calcOut");
-  const sym = $("#rSym").value;
+  const sym = state.sym;
 
   if (!(cap > 0 && riskPct > 0 && entry > 0 && stop > 0)) {
     out.innerHTML = `<div class="warn">أدخل رأس المال ونسبة المخاطرة وسعر الدخول ووقف الخسارة.</div>`; return;
@@ -1582,29 +1941,39 @@ function go(view) {
   window.scrollTo({ top: 0, behavior: "instant" });
   if (isDetail) setTimeout(drawChart, 60);
   if (view === "list") renderList();
+  if (view === "screen") { renderScreen(); renderEarnings(); }
+  if (view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
 }
 
 function fillSymbolSelects() {
   if (!state.summary) return;
-  const opts = state.summary.rows.slice()
-    .sort((a, b) => a.s.localeCompare(b.s))
-    .map(r => `<option value="${esc(r.s)}">${esc(r.s)} — ${esc(r.ar)}</option>`).join("");
-  for (const id of ["#rSym", "#aSym"]) {
-    const el = $(id), cur = el.value;
-    el.innerHTML = `<option value="">— اختر سهماً —</option>` + opts;
+  const rows = state.summary.rows.slice().sort((a, b) => a.s.localeCompare(b.s));
+  const opts = rows.map(r => `<option value="${esc(r.s)}">${esc(r.s)} — ${esc(r.ar)}</option>`).join("");
+
+  // المقارنة تبدأ بأكبر شركتين بدل قائمتين فارغتين تطلبان اختياراً
+  const big = state.summary.rows.slice(0, 2).map(r => r.s);
+  [["#cmpA", big[0]], ["#cmpB", big[1]]].forEach(([id, dflt]) => {
+    const el = $(id); if (!el) return;
+    const cur = el.value;
+    el.innerHTML = opts;
+    el.value = cur || dflt || "";
+  });
+
+  const secs = [...new Set(state.summary.rows.map(r => r.sec))].sort();
+  const secOpts = secs.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
+  for (const id of ["#qSector", "#fSector"]) {
+    const el = $(id); if (!el) continue;
+    const cur = el.value;
+    el.innerHTML = `<option value="">كل القطاعات</option>` + secOpts;
     if (cur) el.value = cur;
   }
-  const secs = [...new Set(state.summary.rows.map(r => r.sec))].sort();
-  const sel = $("#qSector"), cur = sel.value;
-  sel.innerHTML = `<option value="">كل القطاعات</option>` +
-    secs.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
-  if (cur) sel.value = cur;
 }
 
 function renderAbout() {
+  const el = $("#about"); if (!el) return;
   const m = state.summary, mk = state.market;
   const live = String(CFG.LIVE_ENDPOINT || "").trim();
-  $("#about").innerHTML = `
+  el.innerHTML = `
     <div class="row"><div class="l">وضع البيانات<small>${live
       ? "لحظي عبر وسيط خاص، مع رجوع تلقائي للملفات عند أي انقطاع"
       : "مجاني — مهمة مجدولة تحدّث الملفات كل 10 دقائق أثناء ساعات السوق"}</small></div>
@@ -1629,6 +1998,8 @@ function renderAbout() {
    ======================================================================= */
 function renderAll() {
   renderTop(); renderNow(); renderList(); fillSymbolSelects(); renderAbout();
+  if (state.view === "screen") { renderScreen(); renderEarnings(); }
+  if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
   if (state.sym && state.symCache[state.sym]) renderDetail();
 }
 
@@ -1657,7 +2028,12 @@ async function refresh(force = false) {
     btn.textContent = "⟳"; state.busy = false;
   }
   // الملفات الثانوية — لا توقف العرض إن فشلت
-  getJSON("fundamentals.json").then(f => { state.fund = f; if (state.sym) { renderFund(); const r = state.symCache[state.sym]; if (r) renderLevels(r); } }).catch(() => {});
+  getJSON("fundamentals.json").then(f => {
+    state.fund = f; fundCache = null;                 // الرتب تُبنى من هذا الملف
+    if (state.sym) { renderFund(); const r = state.symCache[state.sym]; if (r) renderLevels(r); }
+    if (state.view === "screen") { renderScreen(); renderEarnings(); }
+    if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
+  }).catch(() => {});
   getJSON("news.json").then(n => { state.news = n; renderNews(); if (state.sym) renderSymNews(); }).catch(() => {
     $("#newsList").innerHTML = `<div class="note">تعذّر جلب الأخبار الآن.</div>`;
   });
@@ -1728,18 +2104,16 @@ function boot() {
   $("#qSort").onchange = renderList;
   $("#qSector").onchange = renderList;
 
-  $("#rSym").onchange = () => {
-    const r = symRow($("#rSym").value);
-    if (r && isFinite(r.p)) {
-      $("#iEntry").value = r.p.toFixed(2);
-      if (isFinite(r.atr) && r.atr > 0) $("#iStop").value = (r.p - r.atr * 1.5).toFixed(2);
-    }
-  };
   $("#btnCalc").onclick = calc;
 
+  $("#fSector").onchange = renderAnalysis;
+  $("#fSort").onchange = renderAnalysis;
+  $("#cmpA").onchange = renderCompare;
+  $("#cmpB").onchange = renderCompare;
+
   $("#btnAddAlert").onclick = () => {
-    const s = $("#aSym").value, p = +$("#aPrice").value;
-    if (!s) return alert("اختر سهماً أولاً");
+    const s = state.sym, p = +$("#aPrice").value;
+    if (!s) return alert("افتح سهماً أولاً");
     if (!(p > 0)) return alert("أدخل سعراً صحيحاً");
     const l = load("alerts", []);
     l.push({ s, p, dir: $("#aDir").value });
