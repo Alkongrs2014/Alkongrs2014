@@ -40,11 +40,15 @@
 ## البنية
 
 ```
-stocks/index.html      التطبيق كاملاً (~1600 سطر، 9 أقسام معلّمة)
+stocks/index.html      التطبيق كاملاً (5 تبويبات: الآن، الأسهم، الفرص، تحليل، الأخبار)
 stocks/config.js       الإعدادات — يكتشف مكانه تلقائياً (localhost أم ويب)
 stocks/symbols.json    90 رمزاً مرشّحاً، يُختار أعلى 70 بالقيمة السوقية
-scripts/fetch-market.mjs   أسعار + شموع + مؤشرات (دوري)
-scripts/fetch-daily.mjs    أساسيات + ترتيب + أخبار (يومي)
+scripts/fetch-quotes.mjs   أسعار فقط — الحلقة السريعة (كل دقيقتين)
+scripts/fetch-market.mjs   أسعار + شموع + مؤشرات (كل 10 دقائق)
+scripts/fetch-news.mjs     أخبار عربية ومترجمة (مع كل تحديث سوق)
+scripts/fetch-daily.mjs    أساسيات + ترتيب (يومي)
+scripts/lib/news.mjs       خلاصات RSS + الترجمة وذاكرتها
+scripts/lib/session.mjs    حالة جلسة السوق — مشتركة بين المهمتين
 scripts/lib/finnhub.mjs    أسعار لحظية وأساسيات
 scripts/lib/twelvedata.mjs شموع (أساسي سحابياً)
 scripts/lib/yahoo.mjs      شموع (أساسي محلياً) + Stooq احتياطاً
@@ -58,12 +62,19 @@ local/*.bat            اختصارات ويندوز
 ## الأوامر
 
 ```bash
-node scripts/fetch-market.mjs --check    # فحص ذاتي بلا شبكة — شغّله قبل أي دفع
-node local/run.mjs market                # جلب أسعار وشموع
-node local/run.mjs both                  # جلب كل شيء
+# الفحص الذاتي لكل مهمة — بلا شبكة، شغّلها كلها قبل أي دفع
+node scripts/fetch-quotes.mjs --check
+node scripts/fetch-market.mjs --check
+node scripts/fetch-news.mjs   --check
+node scripts/fetch-daily.mjs  --check
+
+node local/run.mjs quotes                # أسعار فقط (~90 ثانية)
+node local/run.mjs market                # شموع ومؤشرات + أخبار
+node local/run.mjs news                  # أخبار وحدها
+node local/run.mjs both                  # كل شيء
 node local/run.mjs serve                 # خادم على localhost:8080
 node local/run.mjs publish               # نشر data/ على فرع data
-node local/run.mjs market --publish      # جلب ثم نشر (النشر بشرط نجاح الجلب)
+node local/run.mjs quotes --publish      # جلب ثم نشر (النشر بشرط نجاح الجلب)
 ```
 
 ---
@@ -87,6 +98,16 @@ node local/run.mjs market --publish      # جلب ثم نشر (النشر بشر
    من الخادم يجعل الطلب يبدو تجاوزاً لـ CORS.
 3. ❌ «بصمة TLS هي السبب» — `curl` نجح مرة ثم فشل؛ كان حظ عنوان IP.
 
+### ثلاث دورات لا دورة واحدة
+| المهمة | الدورة | لماذا |
+|---|---|---|
+| `fetch-quotes` | دقيقتان | السعر وحده. 70 رمزاً × طلب = ~90 ثانية عند حد 60/دقيقة |
+| `fetch-market` | 10 دقائق | الشمعة المكتملة لا تتغيّر كل دقيقة، وإعادة جلبها تزاحم الأسعار على نفس الحصّة |
+| `fetch-daily` | يومياً | الأساسيات تتغيّر مرة كل ربع سنة |
+
+**لا تحسب المؤشرات في `fetch-quotes`.** تحديث السعر بلا تحديث الشمعة لا
+يغيّر RSI ولا MACD فعلاً، وحسابها من سعر واحد يعطي رقماً كاذباً.
+
 ### مصائد كامنة أُصلحت — احذر إعادتها
 - **الشمعات تُحفظ مضغوطة** `[t,o,h,l,c,v]` وتحتاج `unpackCandles` عند
   القراءة. بدونها: `Cannot read properties of undefined (reading 'toFixed')`.
@@ -96,6 +117,15 @@ node local/run.mjs market --publish      # جلب ثم نشر (النشر بشر
 - **لا تبتلع الأخطاء** — `catch {}` في حلقة على 70 رمزاً يخفي السبب.
   اطبع أول خطأ فعلي وعدده.
 - **اعرض `—` لا رقماً ملفّقاً** عند غياب أي حقل. الشمعة الناقصة تُتخطّى.
+- **`isFinite` العالمية تحوّل `null` إلى صفر** فتقبله كرقم صالح. استعمل
+  `Number.isFinite`. سهم بلا سعر كان يدخل متوسط قطاعه كـ«تغيّر 0%».
+- **`normPct` لِعائد التوزيعات وحده.** ROE ونمو الإيراد والهامش كسور
+  تتجاوز الواحد بشكل مشروع (ROE إنفيديا 1.17 = 117%)، فتُضرب في 100
+  دائماً عبر `asPct`. `normPct` كانت تعيدها كما هي فتُعرض «1%».
+- **`market.json` لا يحفظ `proxy` إلا حين يُستعمل**، فمصدر بدائل
+  المؤشرات هو `symbols.json` لا الملف المحفوظ — وإلا تجمّدت المؤشرات.
+- **فترات التداول المحفوظة تصف يوم جلبها.** استعمالها في اليوم التالي
+  يعطي «بعد الإغلاق» والسوق مفتوح. `statusNow` ترجع للتقدير حينها.
 
 ### حالة قائمة (لم تُحلّ)
 **جدولة GitHub Actions لم تشتغل ولا مرة** — صفر تشغيل من نوع `schedule`

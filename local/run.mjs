@@ -8,8 +8,9 @@
    الحاجة لميزانية الطلبات ولحصة Twelve Data.
 
    الاستخدام:
+     node local/run.mjs quotes     أسعار فقط — سريعة (شغّلها كل دقيقتين)
      node local/run.mjs market     أسعار وشموع + أخبار (شغّلها كل 10 دقائق)
-     node local/run.mjs news       الأخبار وحدها (سريعة)
+     node local/run.mjs news       الأخبار وحدها
      node local/run.mjs daily      أساسيات وترتيب (مرة يومياً)
      node local/run.mjs both       الكل بالترتيب
      node local/run.mjs serve      خادم محلي لعرض الموقع
@@ -187,7 +188,8 @@ else {
 
   // الأخبار مع كل تحديث سوق: دورتها دقائق لا يوم، وهي أرخص جزء في
   // التشغيل (بضع خلاصات RSS) فلا تكلّف شيئاً أن تُرافق الأسعار
-  const jobs = cmd === "market" ? ["fetch-market.mjs", "fetch-news.mjs"]
+  const jobs = cmd === "quotes" ? ["fetch-quotes.mjs"]
+             : cmd === "market" ? ["fetch-market.mjs", "fetch-news.mjs"]
              : cmd === "news"   ? ["fetch-news.mjs"]
              : cmd === "daily"  ? ["fetch-daily.mjs"]
              : ["fetch-daily.mjs", "fetch-market.mjs", "fetch-news.mjs"];

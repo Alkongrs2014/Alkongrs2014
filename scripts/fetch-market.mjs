@@ -16,6 +16,7 @@ import {
 import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
 import { fetchCandlesTD, hasTwelveData, tdSleep, tdStats } from "./lib/twelvedata.mjs";
 import { analyze, overallScore, aggregate, TFS, TF_WEIGHT } from "./lib/indicators.mjs";
+import { marketStatus, approxMarketStatus } from "./lib/session.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -78,39 +79,9 @@ function stale(prev, tf, now) {
   return (now - u) >= MAX_AGE[tf];
 }
 
-/* ---------- حالة السوق من فترات التداول ---------- */
-function marketStatus(period, now) {
-  if (!period?.regular) return { state: "UNKNOWN", ar: "غير معروف", next: null };
-  const { pre, regular, post } = period;
-  if (regular.start <= now && now < regular.end)
-    return { state: "REGULAR", ar: "السوق مفتوح", next: regular.end, nextAr: "يغلق بعد" };
-  if (pre && pre.start <= now && now < pre.start + (regular.start - pre.start))
-    return { state: "PRE", ar: "ما قبل الافتتاح", next: regular.start, nextAr: "يفتتح بعد" };
-  if (post && regular.end <= now && now < post.end)
-    return { state: "POST", ar: "بعد الإغلاق", next: post.end, nextAr: "تنتهي الجلسة بعد" };
-  return { state: "CLOSED", ar: "السوق مغلق", next: now < regular.start ? regular.start : null, nextAr: "يفتتح بعد" };
-}
+/* حالة الجلسة في scripts/lib/session.mjs — تستعملها مهمة الأسعار
+   السريعة أيضاً، ونسخة واحدة تمنع اختلاف الترويسة بين المهمتين. */
 
-/* ---------- حالة تقريبية عند تعذّر الحصول على فترات التداول من Yahoo
-   (يحدث حين يُحظر Yahoo كلياً ولا نحصل على أي بيانات شموع). تعتمد على
-   ساعات ناسداك/نيويورك القياسية بلا مراعاة للعطلات الرسمية. ---------- */
-function approxMarketStatus(now) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York", hour12: false,
-    weekday: "short", hour: "2-digit", minute: "2-digit"
-  }).formatToParts(now);
-  const get = (t) => parts.find(p => p.type === t)?.value;
-  const weekday = get("weekday");
-  const mins = Number(get("hour")) * 60 + Number(get("minute"));
-  if (weekday === "Sat" || weekday === "Sun" || mins < 4 * 60)
-    return { state: "CLOSED", ar: "السوق مغلق", next: null, nextAr: "يفتتح بعد" };
-  if (mins < 9 * 60 + 30) return { state: "PRE", ar: "ما قبل الافتتاح", next: null, nextAr: "يفتتح بعد" };
-  if (mins < 16 * 60) return { state: "REGULAR", ar: "السوق مفتوح", next: null, nextAr: "يغلق بعد" };
-  if (mins < 20 * 60) return { state: "POST", ar: "بعد الإغلاق", next: null, nextAr: "تنتهي الجلسة بعد" };
-  return { state: "CLOSED", ar: "السوق مغلق", next: null, nextAr: "يفتتح بعد" };
-}
-
-/* ---------- بناء ملف سهم واحد ---------- */
 async function buildSymbol(meta, prevDir, now, quotes) {
   const sym = meta.s;
   const prev = readJSON(path.join(prevDir, "sym", `${sym}.json`));
@@ -347,7 +318,9 @@ async function main() {
     idxRows.push({ s: ix.s, ar: ix.ar, en: ix.en, p: r2(p), chg: r2(chg), ...(viaProxy ? { proxy: ix.proxy } : {}) });
   }
 
-  const withChg = summary.filter(r => isFinite(r.chg));
+  // Number.isFinite لا isFinite: العالمية تحوّل null إلى صفر، فسهم بلا
+  // سعر يُحسب "تغيّر 0%" ويدخل متوسط قطاعه ويجرّه نحو الصفر
+  const withChg = summary.filter(r => Number.isFinite(r.chg));
   const bySector = {};
   for (const r of withChg) {
     (bySector[r.sec] ||= { sec: r.sec, n: 0, sum: 0 });
@@ -357,7 +330,7 @@ async function main() {
     .map(x => ({ sec: x.sec, n: x.n, avg: r2(x.sum / x.n) }))
     .sort((a, b) => b.avg - a.avg);
 
-  const scored = summary.filter(r => isFinite(r.score));
+  const scored = summary.filter(r => Number.isFinite(r.score));
   const period = rows.find(r => r.period)?.period || null;
   const status = period ? marketStatus(period, now) : approxMarketStatus(now);
 
