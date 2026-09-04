@@ -8,9 +8,10 @@
    الحاجة لميزانية الطلبات ولحصة Twelve Data.
 
    الاستخدام:
-     node local/run.mjs market     أسعار وشموع (شغّلها كل 10 دقائق)
-     node local/run.mjs daily      أساسيات وترتيب وأخبار (مرة يومياً)
-     node local/run.mjs both       الاثنان بالترتيب
+     node local/run.mjs market     أسعار وشموع + أخبار (شغّلها كل 10 دقائق)
+     node local/run.mjs news       الأخبار وحدها (سريعة)
+     node local/run.mjs daily      أساسيات وترتيب (مرة يومياً)
+     node local/run.mjs both       الكل بالترتيب
      node local/run.mjs serve      خادم محلي لعرض الموقع
      node local/run.mjs publish    نشر البيانات المحلية على فرع data
      أضف ‎--publish‎ لأي أمر جلب لينشر بعده: ‎market --publish‎
@@ -184,9 +185,12 @@ else {
   if (!process.env.FINNHUB_API_KEY)
     console.warn("  ⚠ FINNHUB_API_KEY غير مضبوط — ستُجلب الأسعار من الشموع بدل السعر اللحظي");
 
-  const jobs = cmd === "market" ? ["fetch-market.mjs"]
+  // الأخبار مع كل تحديث سوق: دورتها دقائق لا يوم، وهي أرخص جزء في
+  // التشغيل (بضع خلاصات RSS) فلا تكلّف شيئاً أن تُرافق الأسعار
+  const jobs = cmd === "market" ? ["fetch-market.mjs", "fetch-news.mjs"]
+             : cmd === "news"   ? ["fetch-news.mjs"]
              : cmd === "daily"  ? ["fetch-daily.mjs"]
-             : ["fetch-daily.mjs", "fetch-market.mjs"];
+             : ["fetch-daily.mjs", "fetch-market.mjs", "fetch-news.mjs"];
 
   let bad = 0;
   for (const j of jobs) {

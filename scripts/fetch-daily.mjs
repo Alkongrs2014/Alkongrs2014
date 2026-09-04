@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* =====================================================================
    المهمة اليومية: ترتيب أكبر 70 شركة بالقيمة السوقية الفعلية،
-   البيانات الأساسية لكل شركة، مواعيد إعلان الأرباح، والأخبار.
+   البيانات الأساسية لكل شركة، مواعيد إعلان الأرباح، وترتيب الأعلى قيمة.
 
      node scripts/fetch-daily.mjs --out ./out
      node scripts/fetch-daily.mjs --check
@@ -72,38 +72,6 @@ export function extractFundamentals(res) {
   };
 }
 
-/* ---------- تحليل RSS بلا مكتبات ---------- */
-export function parseRSS(xml, source) {
-  const items = [];
-  const blocks = xml.split(/<item[\s>]/i).slice(1);
-  const pick = (b, tag) => {
-    const m = b.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
-    if (!m) return null;
-    return m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-               .replace(/<[^>]+>/g, "")
-               .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-               .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
-               .trim() || null;
-  };
-  for (const b of blocks) {
-    const title = pick(b, "title"), link = pick(b, "link");
-    if (!title || !link) continue;
-    const d = pick(b, "pubDate");
-    const t = d ? Date.parse(d) : NaN;
-    items.push({ title, link, src: source, t: isFinite(t) ? t : null });
-  }
-  return items;
-}
-
-async function fetchRSS(url, source) {
-  const r = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; StocksWatch/1.0)" },
-    signal: AbortSignal.timeout(15000)
-  });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return parseRSS(await r.text(), source);
-}
-
 /* ---------- التشغيل ---------- */
 async function main() {
   const now = Date.now();
@@ -170,36 +138,8 @@ async function main() {
   writeJSON("ranking.json", { updated: now, top, mc, entered, exited });
   writeJSON("fundamentals.json", { updated: now, count: Object.keys(fundamentals).length, f: fundamentals });
 
-  // 4) الأخبار — أخبار السوق + عناوين لكل سهم من الـ70
-  const market = [];
-  for (const [src, url] of [
-    ["Yahoo Finance", "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US"],
-    ["MarketWatch",   "https://feeds.content.dowjones.io/public/rss/mw_topstories"],
-    ["CNBC",          "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664"]
-  ]) {
-    try { market.push(...(await fetchRSS(url, src)).slice(0, 12)); console.log(`  ✓ أخبار ${src}`); }
-    catch (e) { console.warn(`  ⚠ أخبار ${src}: ${e.message}`); }
-  }
-
-  const perSymbol = {};
-  const newsRes = await pool(top, 5, async (s) => ({
-    s, items: (await fetchRSS(
-      `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(s)}&region=US&lang=en-US`,
-      "Yahoo Finance")).slice(0, 6)
-  }));
-  let newsOk = 0;
-  for (const r of newsRes) if (r.ok && r.value.items.length) { perSymbol[r.value.s] = r.value.items; newsOk++; }
-  console.log(`  ✓ أخبار الأسهم: ${newsOk} / ${top.length}`);
-
-  const seen = new Set();
-  const marketDedup = market
-    .filter(n => { const k = n.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
-    .sort((a, b) => (b.t ?? 0) - (a.t ?? 0)).slice(0, 30);
-
-  // لا نكتب ملف أخبار فارغاً فوق ملف سليم
-  const prevNews = readJSON(path.join(OUT, "news.json"));
-  if (marketDedup.length || newsOk) writeJSON("news.json", { updated: now, market: marketDedup, sym: perSymbol });
-  else if (prevNews) console.warn("  ⚠ لا أخبار جديدة — أبقينا ملف الأمس");
+  // الأخبار انتقلت إلى scripts/fetch-news.mjs: دورتها دقائق لا يوم،
+  // فبقاؤها هنا كان يجعل عناوين عمرها ساعات تظهر على أنها "الآن".
 
   const prevMeta = readJSON(path.join(OUT, "meta.json"), {});
   writeJSON("meta.json", {
@@ -209,7 +149,6 @@ async function main() {
       at: new Date(now).toISOString(),
       fundamentals: Object.keys(fundamentals).length,
       failed, ranked: ranked.length, entered, exited,
-      marketNews: marketDedup.length, symbolNews: newsOk,
       requests: stats.requests, retries: stats.retries, sources: stats.sources
     }
   });
@@ -242,24 +181,6 @@ function selfCheck() {
     const f = extractFundamentals({});
     for (const k of ["pe", "eps", "mc", "divY", "target", "earnings", "sector"])
       if (f[k] !== null) throw new Error(`${k} = ${JSON.stringify(f[k])} بدل null`);
-  });
-
-  t("parseRSS يستخرج العناوين ويفك CDATA", () => {
-    const xml = `<rss><channel>
-      <item><title><![CDATA[Apple &amp; Nvidia rally]]></title><link>https://x.com/1</link><pubDate>Tue, 05 Aug 2025 12:00:00 GMT</pubDate></item>
-      <item><title>Plain &lt;b&gt;title&lt;/b&gt;</title><link>https://x.com/2</link></item>
-      <item><title>No link</title></item>
-    </channel></rss>`;
-    const items = parseRSS(xml, "T");
-    eq(items.length, 2, "تجاهل العنصر بلا رابط");
-    eq(items[0].title, "Apple & Nvidia rally", "CDATA + كيانات");
-    eq(items[0].t, Date.parse("Tue, 05 Aug 2025 12:00:00 GMT"), "التاريخ");
-    eq(items[1].t, null, "بلا تاريخ -> null");
-  });
-
-  t("parseRSS يتحمّل XML تالفاً", () => {
-    eq(parseRSS("", "T").length, 0, "فارغ");
-    eq(parseRSS("<html>not rss</html>", "T").length, 0, "ليس RSS");
   });
 
   t("منطق الترتيب يختار الأعلى قيمة سوقية", () => {

@@ -180,7 +180,14 @@ input:focus,select:focus{outline:none;border-color:var(--acc)}
 .news-item{display:block;padding:11px 0;border-bottom:1px solid var(--line)}
 .news-item:last-child{border-bottom:0}
 .news-t{color:var(--tx);font-size:13.5px;line-height:1.55;direction:ltr;text-align:left}
+.news-t.rtl{direction:rtl;text-align:right}
+/* الأصل الإنجليزي تحت الترجمة: يسمح بالتحقق دون أن ينافس العنوان العربي */
+.news-o{color:var(--dim);font-size:11px;line-height:1.5;direction:ltr;text-align:left;margin-top:3px}
 .news-m{font-size:11px;color:var(--dim);margin-top:5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.news-m .tag-ar,.news-m .tag-tr,.news-m .tag-en{padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700}
+.news-m .tag-ar{background:rgba(22,199,132,.14);color:var(--up)}
+.news-m .tag-tr{background:rgba(59,130,246,.14);color:var(--acc)}
+.news-m .tag-en{background:rgba(139,152,169,.13);color:var(--mut)}
 .alert-item{display:flex;justify-content:space-between;align-items:center;background:var(--card2);
   padding:10px 12px;border-radius:10px;margin-bottom:7px;font-size:13.5px}
 .del{background:none;border:0;color:var(--dn);font-size:18px;cursor:pointer;padding:0 4px}
@@ -469,10 +476,11 @@ details b{color:var(--tx)}
 <section data-view="news">
   <div class="card">
     <h2>📰 أخبار السوق</h2>
-    <p class="hint">العناوين بالإنجليزية من مصادر مالية عامة — التصنيف اللوني آلي مبدئي</p>
+    <p class="hint">من غرف أخبار اقتصادية عربية وعالمية · ما كان بالإنجليزية يُترجم آلياً ويبقى أصله تحته</p>
     <div id="newsList"><div class="skl" style="height:150px"></div></div>
   </div>
-  <p class="disclaimer">الأخبار من مصادر خارجية ولا نتحمل مسؤولية دقتها. التصنيف (إيجابي/سلبي) آلي بحسب كلمات العنوان وقد يخطئ.</p>
+  <p class="disclaimer">الأخبار من مصادر خارجية ولا نتحمل مسؤولية دقتها. التصنيف (إيجابي/سلبي) آلي بحسب كلمات العنوان وقد يخطئ،
+  والترجمة آلية كذلك — الأصل الإنجليزي مكتوب تحت كل عنوان مترجَم فارجع إليه عند أي التباس.</p>
 </section>
 
 <!-- ================= تعلّم ================= -->
@@ -1406,11 +1414,20 @@ function tone(t) {
   return { t: "محايد", c: "var(--mut)" };
 }
 function newsHTML(it) {
+  // التصنيف يُقرأ من الأصل الإنجليزي دائماً: كلماته هي التي ضُبطت عليها
+  // التعابير، والترجمة قد تُبدّل الكلمة المفتاحية فيضيع التصنيف
   const tn = tone(it.title);
+  const ar = it.lang === "ar";
+  const shown = ar ? it.title : (it.ar || it.title);
+  const translated = !ar && !!it.ar;
   return `<a class="news-item" href="${esc(it.link)}" target="_blank" rel="noopener noreferrer">
-    <div class="news-t">${esc(it.title)}</div>
+    <div class="news-t${ar || translated ? " rtl" : ""}">${esc(shown)}</div>
+    ${translated ? `<div class="news-o">${esc(it.title)}</div>` : ""}
     <div class="news-m"><span style="color:${tn.c};font-weight:700">${tn.t}</span>
-    <span>·</span><span>${esc(it.src)}</span>${it.t ? `<span>·</span><span>${ago(it.t)}</span>` : ""}</div></a>`;
+    <span>·</span><span>${esc(it.src)}</span>${it.t ? `<span>·</span><span>${ago(it.t)}</span>` : ""}
+    ${ar ? `<span class="tag-ar">عربي</span>`
+         : translated ? `<span class="tag-tr">مترجم آلياً</span>`
+         : `<span class="tag-en">بالإنجليزية</span>`}</div></a>`;
 }
 function renderNews() {
   const el = $("#newsList");

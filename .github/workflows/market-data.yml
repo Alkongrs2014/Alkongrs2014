@@ -29,7 +29,9 @@ jobs:
           node-version: "20"
 
       - name: فحص ذاتي للكود
-        run: node scripts/fetch-market.mjs --check
+        run: |
+          node scripts/fetch-market.mjs --check
+          node scripts/fetch-news.mjs --check
 
       - name: إحضار البيانات الحالية من فرع data
         run: |
@@ -50,6 +52,12 @@ jobs:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: node scripts/fetch-market.mjs --out ./out
+
+      - name: الأخبار
+        # دورتها دقائق لا يوم، فتُجلب مع كل تحديث سوق. فشلها لا يوقف
+        # المهمة: بوابة السلامة داخلها تُبقي ملف الأخبار السابق.
+        continue-on-error: true
+        run: node scripts/fetch-news.mjs --out ./out
 
       - name: التحقق من سلامة الملفات قبل الحفظ
         run: |
