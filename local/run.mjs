@@ -47,6 +47,36 @@ function loadEnv() {
   return n;
 }
 
+/* =====================================================================
+   قفل التشغيل — مهمة واحدة في كل مرة.
+
+   الدورات الثلاث تتشارك حصّة Finnhub نفسها (60 طلباً في الدقيقة)، وكل
+   واحدة تستهلكها كاملةً تقريباً. تداخل دورة الأسعار مع دورة الشمعات
+   يضاعف المعدّل فيبدأ المزوّد بالرفض — أي أن الجدولة الأكثف تعطي بيانات
+   أقل لا أكثر. القفل يجعل المتأخّرة تنسحب بهدوء بدل أن تُفسد السابقة.
+   ===================================================================== */
+const LOCK = path.join(DATA, ".run.lock");
+
+function alive(pid) {
+  try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
+}
+
+function acquireLock(job) {
+  try {
+    const prev = JSON.parse(fs.readFileSync(LOCK, "utf8"));
+    const age = Date.now() - prev.at;
+    // عملية ماتت دون تنظيف تترك قفلاً أبدياً، فنُسقطه بعد عشرين دقيقة
+    if (age < 20 * 60000 && alive(prev.pid)) {
+      console.log(`  ⏭ ${prev.job} ما زالت تعمل منذ ${Math.round(age / 1000)} ثانية — ننسحب`);
+      return false;
+    }
+  } catch (e) { /* لا قفل، أو قفل تالف — امضِ */ }
+  fs.writeFileSync(LOCK, JSON.stringify({ job, pid: process.pid, at: Date.now() }));
+  return true;
+}
+
+const releaseLock = () => { try { fs.unlinkSync(LOCK); } catch (e) {} };
+
 /* ---------- تشغيل سكربت الجلب كعملية منفصلة ---------- */
 function runScript(name) {
   return new Promise((resolve) => {
@@ -144,7 +174,9 @@ function publish() {
 
   const stage = path.join(os.tmpdir(), "webtrade-publish");
   fs.rmSync(stage, { recursive: true, force: true });
-  fs.cpSync(DATA, stage, { recursive: true });
+  // القفل ملف تشغيل محلي لا بيانات، ونشره يعني دفعة جديدة كل دورة
+  // لمجرد تغيّر رقم العملية
+  fs.cpSync(DATA, stage, { recursive: true, filter: (src) => path.basename(src) !== ".run.lock" });
 
   // اسم المؤلّف من إعدادات المستودع الأب إن وُجد، وإلا اسم محايد
   const cfg = (k, d) => { try { return git(["config", k], ROOT) || d; } catch { return d; } };
@@ -193,6 +225,12 @@ else {
              : cmd === "news"   ? ["fetch-news.mjs"]
              : cmd === "daily"  ? ["fetch-daily.mjs"]
              : ["fetch-daily.mjs", "fetch-market.mjs", "fetch-news.mjs"];
+
+  // الانسحاب أمام تشغيل جارٍ ليس فشلاً — نخرج بصفر حتى لا تُعلَّم المهمة
+  // المجدولة كفاشلة كل دورة متداخلة
+  if (!acquireLock(cmd)) process.exit(0);
+  process.on("exit", releaseLock);
+  for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { releaseLock(); process.exit(1); });
 
   let bad = 0;
   for (const j of jobs) {
