@@ -173,6 +173,15 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 .mwrap{overflow-x:auto}
 .cmp{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
 .cmp:last-child{border-bottom:0}
+/* جدول العقود: أعمدة كثيرة على شاشة جوال، فيمرّر أفقياً داخل حاويته
+   وحدها — الصفحة نفسها لا تمرّر أفقياً أبداً */
+.otwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
+.otbl{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.otbl th{font-size:11px;color:var(--mut);font-weight:600;padding:6px 7px;
+  border-bottom:1px solid var(--line);text-align:center;position:sticky;top:0;background:var(--card)}
+.otbl td{padding:7px;border-bottom:1px solid var(--line);text-align:center}
+.otbl tr:last-child td{border-bottom:0}
+.otbl small{font-size:10px}
 .cmp .mid{color:var(--mut);font-size:11.5px;text-align:center;flex:1}
 .cmp .side{flex:none;min-width:78px;font-weight:700}
 .cmp .side.a{text-align:right}
@@ -445,6 +454,42 @@ details b{color:var(--tx)}
     </details>
   </div>
 
+  <div class="card" id="cardOpts" style="display:none">
+    <h2>📑 عقود الخيارات</h2>
+    <p class="hint" id="optHint"></p>
+    <div id="optVol"></div>
+    <div id="optBest"></div>
+    <div class="tf-picker" id="optExp"></div>
+    <div class="tf-picker" id="optSide">
+      <button data-side="calls" class="on">كول (صعود)</button>
+      <button data-side="puts">بوت (هبوط)</button>
+    </div>
+    <div id="optTable"></div>
+    <details>
+      <summary>كيف تُقرأ هذه الأرقام؟</summary>
+      <p><b>الاحتمال:</b> احتمال أن ينتهي العقد داخل المال عند الاستحقاق، محسوباً
+      من نموذج Black–Scholes. وهو <b>ليس احتمال الربح</b>: الربح يحتاج تجاوز نقطة
+      التعادل لا مجرّد بلوغ سعر التنفيذ، والفرق بينهما هو القسط المدفوع.</p>
+      <p><b>نقطة التعادل:</b> السعر الذي يجب أن يبلغه السهم كي لا يخسر المشتري.
+      «يحتاج» بجانبها هو بُعدها عن السعر الحالي بالنسبة المئوية.</p>
+      <p><b>دلتا:</b> كم يتحرك سعر العقد لكل دولار في السهم. <b>جاما:</b> كم تتغيّر
+      دلتا نفسها — أي سرعة تسارع العقد. <b>ثيتا:</b> ما يفقده العقد يومياً بمرور
+      الوقت وحده، وهو ثمن الانتظار. <b>فيغا:</b> أثر تغيّر التقلّب 1%.</p>
+      <p><b>الترتيب:</b> من بين العقود السائلة (فائدة مفتوحة ≥ 50 وسعر قابل للتنفيذ)
+      نُبقي ما احتماله بين 25% و65% — تحتها تذكرة يانصيب، وفوقها عقد ثمنه قريب من
+      سعر السهم بلا رافعة تُذكر — ثم نرتّب حسب <b>التعرّض لكل دولار</b> (دلتا مقسومة
+      على كلفة العقد). قاعدة معلنة لا نتيجة مبهمة.</p>
+      <p><b>الضمني مقابل المحقَّق:</b> التقلّب الضمني ما يسعّره السوق للمستقبل،
+      والمحقَّق ما تحرّكه السهم فعلاً في عشرين يوماً. النسبة فوق الواحد تعني عقوداً
+      أغلى من حركة السهم المعتادة — وهو حال أغلب السوق أغلب الوقت.</p>
+    </details>
+    <p class="disclaimer">
+      الخيارات أداة عالية المخاطر تفقد قيمتها بمرور الوقت وقد تنتهي بخسارة القسط
+      كاملاً. هذه أرقام محسوبة من بيانات عامة قد تتأخر، للقراءة والتعلّم فقط،
+      وليست توصية بيع أو شراء ولا نصيحة استثمارية.
+    </p>
+  </div>
+
   <div class="card">
     <h2>📰 أخبار السهم</h2>
     <div id="symNews"><div class="skl" style="height:80px"></div></div>
@@ -499,6 +544,14 @@ details b{color:var(--tx)}
     <p class="scan-why" id="scanWhy"></p>
     <div class="slist" id="scanList"><div class="skl" style="height:200px;border-radius:0"></div></div>
     <p class="srcline" id="scanCount"></p>
+  </div>
+
+  <div class="card" id="cardOptScan" style="display:none">
+    <h2>📑 غلاء العقود عبر السوق</h2>
+    <p class="hint">التقلّب الضمني الذي يسعّره سوق الخيارات مقابل ما يتحرّكه السهم فعلاً في
+    عشرين يوماً — أعلى القائمة عقود غالية، وأسفلها رخيصة</p>
+    <div id="optScan"></div>
+    <p class="srcline" id="optScanNote"></p>
   </div>
 
   <div class="card">
@@ -615,7 +668,8 @@ const state = {
   summary: null, wide: null, market: null, fund: null, news: null,
   symCache: {}, view: "now", sym: null, activeTF: "1h",
   lastOk: 0, busy: false, liveAt: 0, liveOn: false,
-  favs: [], favOnly: false, hover: null, from: "list", scan: null
+  favs: [], favOnly: false, hover: null, from: "list", scan: null,
+  optCache: {}, opts: null, optExp: 0, optSide: "calls"
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -1098,12 +1152,119 @@ async function openSymbol(sym) {
   $("#tfTable").innerHTML = `<div class="skl" style="height:100px"></div>`;
   $("#levels").innerHTML = `<div class="skl" style="height:120px"></div>`;
   $("#indicators").innerHTML = `<div class="skl" style="height:140px"></div>`;
+  $("#cardOpts").style.display = "none";
   try {
     await getSymbol(sym);
     renderDetail();
   } catch (e) {
     $("#dHead").innerHTML = `<div class="warn">تعذّر تحميل بيانات ${esc(sym)} — ${esc(e.message)}</div>`;
   }
+  // العقود تُجلب لسبعين رمزاً فقط ولا تُملأ سحابياً (ياهو يحظر الرينرات)،
+  // فغيابها هو الحالة الطبيعية لا خطأ: نُخفي البطاقة بصمت
+  loadOptions(sym).catch(() => {});
+}
+
+/* ملخّص العقود عبر السوق — قراءة واحدة تقول أين الخيارات غالية وأين رخيصة */
+function renderOptScan() {
+  const card = $("#cardOptScan");
+  const j = state.opts;
+  if (!card) return;
+  const rows = (j?.rows || []).filter(r => Number.isFinite(r.ivHv));
+  if (!rows.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  const line = (r) => `<div class="srow" data-open="${esc(r.s)}">
+    <div class="id">
+      <div class="t">${esc(nm(r))}</div>
+      <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> ·
+        ضمني ${bd(fmt(r.ivAtm * 100, 1))}% · محقَّق ${bd(fmt(r.hv20 * 100, 1))}%</div>
+    </div>
+    <div class="px">
+      <div class="p num" style="color:${r.ivHv >= 1.3 ? "var(--dn)" : r.ivHv <= 0.8 ? "var(--up)" : "var(--tx)"}">
+        ${bd(fmt(r.ivHv, 2))}×</div>
+      <div class="c num" style="font-size:11px;color:var(--mut)">${r.ivHv >= 1 ? "غالية" : "رخيصة"}</div>
+    </div></div>`;
+
+  const top = rows.slice(0, 5), bottom = rows.slice(-5).reverse();
+  $("#optScan").innerHTML =
+    `<p class="hint" style="margin:6px 0 2px">الأغلى</p><div class="slist">${top.map(line).join("")}</div>
+     <p class="hint" style="margin:12px 0 2px">الأرخص</p><div class="slist">${bottom.map(line).join("")}</div>`;
+  $("#optScanNote").textContent =
+    `${rows.length} رمزاً · النسبة فوق الواحد تعني أن السوق يسعّر تقلّباً أعلى مما تحقّق فعلاً`;
+}
+
+/* ---------- عقود الخيارات ---------- */
+async function loadOptions(sym) {
+  if (!state.optCache[sym]) state.optCache[sym] = await getJSON(`options/${sym}.json`);
+  if (state.sym !== sym) return;                 // انتقل المستخدم أثناء الجلب
+  state.optExp = 0; state.optSide = "calls";
+  renderOptions();
+}
+
+function renderOptions() {
+  const o = state.sym && state.optCache[state.sym];
+  const card = $("#cardOpts");
+  if (!o || !o.exp || !o.exp.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  // التمييز صريح: القارئ يستحق أن يعرف أن الأسعار من إغلاق آخر جلسة
+  $("#optHint").innerHTML = o.mode === "live"
+    ? `تسعير لحظي · السعر ${money(o.spot)}`
+    : `<b>من إغلاق آخر جلسة</b> — خارج ساعات التداول لا يعطي المصدر عرضاً وطلباً،
+       فالأسعار أسعار آخر صفقة والتقلّب الضمني مستخرج منها. السعر ${money(o.spot)}`;
+
+  // الضمني مقابل المحقَّق: الرقم الذي يجعل IV مقروءاً
+  const hv = o.hv20, iv = o.ivAtm, ratio = o.ivHv;
+  $("#optVol").innerHTML = (iv && hv) ? `<div class="row">
+      <div class="l">التقلّب الضمني مقابل المحقَّق<small>${ratio >= 1
+        ? `العقود أغلى من حركة السهم المعتادة بـ${bd(fmt((ratio - 1) * 100, 0))}%`
+        : `العقود أرخص من حركة السهم المعتادة بـ${bd(fmt((1 - ratio) * 100, 0))}%`}</small></div>
+      <div class="r num" style="color:${ratio >= 1.3 ? "var(--dn)" : ratio <= 0.8 ? "var(--up)" : "var(--tx)"}">
+        ${bd(fmt(iv * 100, 1))}% مقابل ${bd(fmt(hv * 100, 1))}%</div></div>` : "";
+
+  const best = (c, type) => {
+    if (!c) return "";
+    const up = type === "call";
+    return `<div class="note" style="margin-top:8px">
+      <b style="color:${up ? "var(--up)" : "var(--dn)"}">${up ? "أفضل كول" : "أفضل بوت"}</b>
+      · تنفيذ <span class="num">${money(c.k)}</span>
+      · بعد <span class="num">${bd(c.days)}</span> يوم
+      · قسط <span class="num">${money(c.mid)}</span><br>
+      تعادل عند <span class="num">${money(c.be)}</span>
+      (يحتاج <span class="num">${bd(pct(c.beMove, 1))}</span>)
+      · احتمال داخل المال <span class="num">${bd(fmt(c.probITM * 100, 0))}%</span></div>`;
+  };
+  $("#optBest").innerHTML = best(o.bestCalls?.[0], "call") + best(o.bestPuts?.[0], "put");
+
+  const ex = $("#optExp");
+  ex.innerHTML = o.exp.map((e, i) =>
+    `<button data-exp="${i}"${i === state.optExp ? ' class="on"' : ""}>${bd(e.days)} يوم</button>`).join("");
+  ex.querySelectorAll("button").forEach(b => b.onclick = () => {
+    state.optExp = +b.dataset.exp; renderOptions();
+  });
+  $$("#optSide button").forEach(b => b.classList.toggle("on", b.dataset.side === state.optSide));
+
+  const e = o.exp[state.optExp] || o.exp[0];
+  const rows = (e[state.optSide] || []);
+  if (!rows.length) { $("#optTable").innerHTML = `<div class="empty">لا عقود سائلة على هذا الاستحقاق</div>`; return; }
+
+  const head = ["تنفيذ", "قسط", "تعادل", "احتمال", "دلتا", "جاما", "ثيتا/يوم", "مفتوحة"];
+  $("#optTable").innerHTML = `<div class="otwrap"><table class="otbl">
+    <thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>
+    ${rows.map(c => {
+      const itm = state.optSide === "calls" ? c.k < o.spot : c.k > o.spot;
+      return `<tr${itm ? ' style="opacity:.75"' : ""}>
+        <td class="num"><b>${money(c.k)}</b></td>
+        <td class="num">${money(c.mid)}</td>
+        <td class="num">${money(c.be)}<small style="display:block;color:var(--mut)">${bd(pct(c.beMove, 1))}</small></td>
+        <td class="num">${bd(fmt(c.probITM * 100, 0))}%</td>
+        <td class="num">${bd(fmt(c.delta, 2))}</td>
+        <td class="num">${bd(fmt(c.gamma, 3))}</td>
+        <td class="num" style="color:var(--dn)">${bd(fmt(c.theta, 2))}</td>
+        <td class="num">${bd(compact(c.oi, ""))}</td></tr>`;
+    }).join("")}</tbody></table></div>
+    <p class="srcline">الصفوف الباهتة عقود داخل المال أصلاً · محسوبة بـBlack–Scholes
+    عند فائدة ${bd(fmt(o.r * 100, 2))}%${o.q ? ` وعائد توزيعات ${bd(fmt(o.q * 100, 2))}%` : ""}</p>`;
 }
 
 function symRow(sym) {
@@ -2005,7 +2166,7 @@ function go(view) {
   window.scrollTo({ top: 0, behavior: "instant" });
   if (isDetail) setTimeout(drawChart, 60);
   if (view === "list") renderList();
-  if (view === "screen") { renderScreen(); renderEarnings(); }
+  if (view === "screen") { renderScreen(); renderEarnings(); renderOptScan(); }
   if (view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
 }
 
@@ -2089,7 +2250,7 @@ async function refresh(force = false) {
     const [sum, mkt] = await Promise.all([getJSON("summary.json"), getJSON("market.json")]);
     if (!sum || !Array.isArray(sum.rows) || !sum.rows.length) throw new Error("ملف الملخص فارغ");
     state.summary = sum; state.market = mkt; state.lastOk = Date.now();
-    state.symCache = {};                       // أعِد تحميل ملفات الأسهم بعد التحديث
+    state.symCache = {}; state.optCache = {};  // أعِد تحميل ملفات الأسهم والعقود بعد التحديث
     save("cache", { sum, mkt, t: Date.now() });
     renderAll();
     checkAlerts();
@@ -2112,6 +2273,11 @@ async function refresh(force = false) {
   // الطبقة الواسعة: بقية S&P 500 بالفريم اليومي وحده. تُحمَّل بعد الرسم
   // الأول لا قبله — بها يعمل البحث على الكون كاملاً، وبدونها يبقى التطبيق
   // كما كان على المرصودة. لذلك فشلها صامت ولا يوقف شيئاً.
+  // ملخّص العقود — يُملأ محلياً فقط، فغيابه سحابياً حالة طبيعية
+  getJSON("options.json").then(j => {
+    state.opts = j;
+    if (state.view === "screen") renderOptScan();
+  }).catch(() => {});
   getJSON("wide.json").then(w => {
     if (!w || !Array.isArray(w.rows)) return;
     state.wide = w;
@@ -2185,6 +2351,7 @@ function boot() {
   $("#qSort").onchange = renderList;
   $("#qSector").onchange = renderList;
   $("#qMarket").onchange = renderList;
+  $$("#optSide button").forEach(b => b.onclick = () => { state.optSide = b.dataset.side; renderOptions(); });
 
   $("#btnCalc").onclick = calc;
 
