@@ -1562,9 +1562,31 @@ function renderOptScan() {
     </div></div>`;
 
   const top = rows.slice(0, 5), bottom = rows.slice(-5).reverse();
+
+  // النشاط غير المعتاد — أين يدخل مال جديد على العقود اليوم
+  const flows = (j.rows || []).filter(r => r.flow && Number.isFinite(r.flow.vx))
+    .sort((a, b) => b.flow.vx - a.flow.vx).slice(0, 6);
+  const flowLine = (r) => `<div class="srow" data-open="${esc(r.s)}">
+    <div class="id">
+      <div class="t">${esc(nm(r))}
+        <span class="chip ${r.flow.side === "call" ? "pre" : "off"}" style="font-size:10px;padding:1px 6px">${
+          r.flow.side === "call" ? "كول" : "بوت"}</span></div>
+      <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> ·
+        تنفيذ ${money(r.flow.k)} · بعد ${bd(r.flow.days)} يوماً</div>
+    </div>
+    <div class="px">
+      <div class="p num" style="color:${r.flow.side === "call" ? "var(--up)" : "var(--dn)"}">${bd(fmt(r.flow.vx, 1))}×</div>
+      <div class="c num" style="font-size:11px;color:var(--mut)">${bd(compact(r.flow.vol, ""))} عقداً</div>
+    </div></div>`;
+
   $("#optScan").innerHTML =
-    `<p class="hint" style="margin:6px 0 2px">الأغلى</p><div class="slist">${top.map(line).join("")}</div>
-     <p class="hint" style="margin:12px 0 2px">الأرخص</p><div class="slist">${bottom.map(line).join("")}</div>`;
+    (flows.length ? `<p class="hint" style="margin:6px 0 2px">⚡ نشاط غير معتاد — حجم اليوم يفوق المراكز القائمة</p>
+      <div class="slist">${flows.map(flowLine).join("")}</div>
+      <p class="srcline" style="margin-bottom:10px">مالٌ يدخل الآن لا يخرج. الجانب هو المعلومة:
+        نشاط على البوت ليس نشاطاً على الكول. ولا يشمل ما ينتهي خلال أسبوع — حجمُ العقد
+        المنتهي قريباً يفوق مراكزه بطبيعته، وهو تحيّز لا إشارة.</p>` : "")
+    + `<p class="hint" style="margin:6px 0 2px">الأغلى</p><div class="slist">${top.map(line).join("")}</div>
+       <p class="hint" style="margin:12px 0 2px">الأرخص</p><div class="slist">${bottom.map(line).join("")}</div>`;
   $("#optScanNote").textContent =
     `${rows.length} رمزاً · النسبة فوق الواحد تعني أن السوق يسعّر تقلّباً أعلى مما تحقّق فعلاً`;
 }
@@ -1610,7 +1632,20 @@ function renderOptions() {
       (يحتاج <span class="num">${bd(pct(c.beMove, 1))}</span>)
       · احتمال داخل المال <span class="num">${bd(fmt(c.probITM * 100, 0))}%</span></div>`;
   };
-  $("#optBest").innerHTML = best(o.bestCalls?.[0], "call") + best(o.bestPuts?.[0], "put");
+  // النشاط غير المعتاد: حجم اليوم مقابل المراكز القائمة على عقد بعينه
+  const fl = o.flow;
+  const flowHTML = fl ? `<div class="note" style="margin-top:8px;border-right:3px solid ${
+      fl.side === "call" ? "var(--up)" : "var(--dn)"}">
+    <b>⚡ ${esc(fl.lbl || "نشاط غير معتاد")}</b> على
+    ${fl.side === "call" ? "الكول" : "البوت"} تنفيذ <span class="num">${money(fl.k)}</span>
+    بعد <span class="num">${bd(fl.days)}</span> يوماً:
+    حجم اليوم <span class="num">${bd(compact(fl.vol, ""))}</span> مقابل
+    <span class="num">${bd(compact(fl.oi, ""))}</span> مركزاً قائماً
+    (<b>${bd(fmt(fl.vx, 1))}×</b>).<br>
+    <small style="color:var(--mut)">يعني أن أغلب تداول اليوم مراكز جديدة لا إغلاق قديمة.
+    لا يقول من اشترى ولا لماذا ولا إن كان محقاً.</small></div>` : "";
+
+  $("#optBest").innerHTML = flowHTML + best(o.bestCalls?.[0], "call") + best(o.bestPuts?.[0], "put");
 
   const ex = $("#optExp");
   ex.innerHTML = o.exp.map((e, i) =>

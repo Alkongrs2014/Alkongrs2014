@@ -18,7 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchOptions, fetchChart, pool, stats, num } from "./lib/yahoo.mjs";
 import { bs, erf, N, evaluate, liquid, rank, yearsToExpiry, impliedVol,
-         chainMode, PROB_BAND, FILTER } from "./lib/options.mjs";
+         chainMode, flowRatio, flowLabel, PROB_BAND, FILTER, FLOW } from "./lib/options.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -33,6 +33,12 @@ const EXPIRIES = Number(process.env.OPT_EXPIRIES || 2);
 // أغلبها بلا سيولة، وحفظها يضخّم الملف بلا أن يقرأه أحد.
 const KEEP_PER_SIDE = 30;
 const DAY = 86400e3;
+// سقف رموز الطبقة الواسعة لكل تشغيل — نفس فكرة `WIDE_PER_RUN` في دورة
+// الشمعات: خمسمئة رمز × استحقاقين = ألف طلب في الدورة الواحدة، بينما
+// التدوير يغطّيها كلها خلال ساعات بلا ذروة تستدعي الرفض.
+const WIDE_PER_RUN = Number(process.env.OPT_WIDE_PER_RUN || 40);
+// صلاحية عقود الطبقة الواسعة: أطول من الأساسية لأنها ليست تحت المراقبة
+const WIDE_MAX_AGE = Number(process.env.OPT_WIDE_AGE_H || 6) * 3600e3;
 
 const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return d; } };
 function writeJSON(rel, obj) {
@@ -208,6 +214,22 @@ async function buildSymbol(meta, now, r, fund) {
   out.bestCalls = rank(allCalls, PROB_BAND, 3);
   out.bestPuts = rank(allPuts, PROB_BAND, 3);
   out.n = allCalls.length + allPuts.length;
+
+  // أقوى نشاط غير معتاد في السلسلة كلها، مع جانبه: كول أم بوت.
+  // الجانب هو المعلومة — نشاط على البوت ليس نشاطاً على الكول.
+  //
+  // ونستبعد ما ينتهي خلال أيام: عقدٌ يبقى له يوم واحد حجمُه يفوق مراكزه
+  // القائمة بطبيعته (المراكز تُغلق قبل الانتهاء)، فتصدّرت القائمةَ كلُّها
+  // عقودُ الغد بنسب 25–50 ضعفاً — تحيّز بنيوي لا إشارة. ما يبقى له أسبوع
+  // فأكثر يعني تموضعاً فعلياً.
+  const withFlow = [...allCalls.map(c => ({ ...c, side: "call" })),
+                    ...allPuts.map(c => ({ ...c, side: "put" }))]
+    .filter(c => c.days >= FLOW.minDays && Number.isFinite(c.vx) && c.vx >= FLOW.high)
+    .sort((a, b) => b.vx - a.vx);
+  const top = withFlow[0];
+  out.flow = top ? { side: top.side, k: top.k, exp: top.exp, days: top.days,
+                     vx: top.vx, vol: top.vol, oi: top.oi,
+                     lbl: flowLabel(top.vx)?.ar || null } : null;
   return out;
 }
 
@@ -217,12 +239,23 @@ async function main() {
 
   const ranking = readJSON(path.join(OUT, "ranking.json"));
   const universe = cfg.symbols;
-  const chosen = ranking?.top?.length
+  const core = ranking?.top?.length
     ? universe.filter(u => ranking.top.includes(u.s))
     : universe.slice(0, cfg.top);
+
+  // الطبقة الواسعة بالتدوير: الأقدم عقوداً أولاً، بسقف لكل تشغيل.
+  // عمرُ عقود كل رمز محفوظ في options.json فلا نقرأ 500 ملف لنعرفه.
+  const prev = readJSON(path.join(OUT, "options.json"))?.rows || [];
+  const age = new Map(prev.map(r => [r.s, r.updated || 0]));
+  const wideDue = (cfg.wide || [])
+    .filter(m => (now - (age.get(m.s) ?? 0)) >= WIDE_MAX_AGE)
+    .sort((a, b) => (age.get(a.s) ?? 0) - (age.get(b.s) ?? 0))
+    .slice(0, WIDE_PER_RUN);
+
+  const chosen = [...core, ...wideDue];
   const fund = readJSON(path.join(OUT, "fundamentals.json"))?.f || {};
 
-  console.log(`▶ خيارات ${chosen.length} رمزاً · ${EXPIRIES} استحقاقاً لكل رمز …`);
+  console.log(`▶ خيارات ${core.length} أساسياً + ${wideDue.length} من الطبقة الواسعة · ${EXPIRIES} استحقاقاً لكل رمز …`);
   const r = await riskFreeRate();
   console.log(`  المعدّل الخالي من المخاطر: ${(r * 100).toFixed(2)}%`);
 
@@ -240,15 +273,25 @@ async function main() {
   for (const o of ok) bytes += writeJSON(`options/${o.s}.json`, o);
 
   // الملخّص: أفضل عقد لكل جانب + قراءة غلاء العقود، بلا السلاسل
-  const rows = ok.map(o => ({
-    s: o.s, ar: o.ar, en: o.en, spot: o.spot,
+  const fresh = ok.map(o => ({
+    s: o.s, ar: o.ar, en: o.en, spot: o.spot, updated: o.updated,
     ivAtm: o.ivAtm, hv20: o.hv20, ivHv: o.ivHv,
-    call: o.bestCalls[0] || null, put: o.bestPuts[0] || null, n: o.n
-  })).sort((a, b) => (b.ivHv ?? 0) - (a.ivHv ?? 0));
+    call: o.bestCalls[0] || null, put: o.bestPuts[0] || null, n: o.n,
+    // أقوى نشاط غير معتاد في سلسلة الرمز — يجعل الملخّص قابلاً للفرز عليه
+    flow: o.flow || null
+  }));
+
+  // تراكمي كـ wide.json: كل تشغيل يجدّد حصّته ويدمجها فوق القديم، وإلا
+  // خرج الملف بحصّة التشغيل الأخير وحدها واختفت بقية الرموز من الواجهة
+  const merged = new Map(prev.map(r => [r.s, r]));
+  for (const r of fresh) merged.set(r.s, r);
+  const rows = [...merged.values()].sort((a, b) => (b.ivHv ?? 0) - (a.ivHv ?? 0));
+  if (rows.length < prev.length)
+    throw new Error(`ملخّص العقود تقلّص ${prev.length}→${rows.length} — لن نكتب`);
 
   bytes += writeJSON("options.json", {
     updated: now, count: rows.length, r: r4(r),
-    band: PROB_BAND, filter: FILTER, rows
+    band: PROB_BAND, filter: FILTER, flow: FLOW, rows
   });
 
   const prevMeta = readJSON(path.join(OUT, "meta.json"), {});
@@ -259,7 +302,9 @@ async function main() {
                   requests: stats.requests }
   });
 
-  console.log(`✔ ${ok.length} / ${chosen.length} رمزاً · ${rows.reduce((a, x) => a + x.n, 0)} عقداً سائلاً · ${(bytes / 1024).toFixed(0)} ك.ب`);
+  const flowN = rows.filter(x => x.flow).length;
+  console.log(`✔ ${ok.length} / ${chosen.length} رمزاً · ${rows.length} في الملخّص · ${fresh.reduce((a, x) => a + x.n, 0)} عقداً سائلاً · ${(bytes / 1024).toFixed(0)} ك.ب`);
+  if (flowN) console.log(`  نشاط غير معتاد على ${flowN} رمزاً`);
   console.log(`  طلبات: ${stats.requests} · إخفاقات: ${stats.failures}`);
   return 0;
 }
@@ -457,6 +502,32 @@ function selfCheck() {
     const wrong = impliedVol(1.41, { ...a, q: 5.5842 });
     if (!(right > 0.2 && right < 0.4)) throw new Error(`الصحيح غير معقول: ${right}`);
     if (!(wrong > 1)) throw new Error(`الخاطئ يُفترض أن ينفجر: ${wrong}`);
+  });
+
+  t("flowRatio يقيس حجم اليوم مقابل المراكز القائمة", () => {
+    near(flowRatio({ volume: 900, openInterest: 300 }), 3, 1e-12, "ثلاثة أضعاف");
+    eq(flowRatio({ volume: 100, openInterest: 0 }), null, "بلا مراكز قائمة");
+    eq(flowRatio({ volume: null, openInterest: 500 }), null, "بلا حجم");
+    eq(flowRatio({}), null, "بلا حقول");
+  });
+
+  t("flowLabel يميّز غير المعتاد عن الاستثنائي", () => {
+    eq(flowLabel(0.4), null, "نشاط عادي");
+    eq(flowLabel(1.2).k, "high", "غير معتاد");
+    eq(flowLabel(5).k, "extreme", "استثنائي");
+    eq(flowLabel(null), null, "بلا قيمة");
+    // الحدّان بالضبط
+    eq(flowLabel(FLOW.high).k, "high", "عند الحد");
+    eq(flowLabel(FLOW.extreme).k, "extreme", "عند الحد الأعلى");
+  });
+
+  t("evaluate يُرفق نسبة النشاط بالعقد", () => {
+    const now = Date.UTC(2026, 8, 8, 11);
+    const exp = Math.floor(Date.UTC(2026, 9, 16) / 1000);
+    const e = evaluate({ strike: 315, bid: 3, ask: 3.1, impliedVolatility: 0.3,
+                         lastPrice: 3.05, openInterest: 200, volume: 800, expiration: exp },
+                       { spot: 320, r: 0.04, q: 0, type: "call", now, mode: "live" });
+    near(e.vx, 4, 1e-9, "حجم أربعة أضعاف المراكز");
   });
 
   t("rank يحترم نطاق الاحتمال ويرتّب حسب التعرّض للدولار", () => {
