@@ -80,6 +80,7 @@ PREFER_YAHOO=1
 > ```
 > schtasks /Delete /TN "WebTrade-Quotes" /F
 > schtasks /Delete /TN "WebTrade-Market" /F
+> schtasks /Delete /TN "WebTrade-Options" /F
 > schtasks /Delete /TN "WebTrade-Daily" /F
 > ```
 
