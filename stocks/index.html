@@ -182,6 +182,8 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 .otbl td{padding:7px;border-bottom:1px solid var(--line);text-align:center}
 .otbl tr:last-child td{border-bottom:0}
 .otbl small{font-size:10px}
+.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mut);margin:8px 0}
+.chk input{width:16px;height:16px;accent-color:var(--up);flex:none}
 .cmp .mid{color:var(--mut);font-size:11.5px;text-align:center;flex:1}
 .cmp .side{flex:none;min-width:78px;font-weight:700}
 .cmp .side.a{text-align:right}
@@ -578,6 +580,52 @@ details b{color:var(--tx)}
     <div id="scanHist"></div>
     <div class="slist" id="scanList"><div class="skl" style="height:200px;border-radius:0"></div></div>
     <p class="srcline" id="scanCount"></p>
+  </div>
+
+  <div class="card">
+    <h2>🧠 وش أشتري الآن؟</h2>
+    <p class="hint">حدّد معاييرك أنت، ونرتّب لك الأسهم المطابقة — ولو لم يطابق شيء نقول ذلك بدل تخفيف الشروط</p>
+    <div class="grid2">
+      <div class="fld"><label>القطاع</label><select id="pkSector"><option value="">كل القطاعات</option></select></div>
+      <div class="fld"><label>النطاق</label>
+        <select id="pkScope">
+          <option value="us">المرصودة (٧٠)</option>
+          <option value="all">كل السوق</option>
+          <option value="crypto">الكريبتو</option>
+        </select></div>
+      <div class="fld"><label>الاتجاه الفني</label>
+        <select id="pkTrend">
+          <option value="any">أي اتجاه</option>
+          <option value="up" selected>صاعد فقط</option>
+          <option value="strong">صاعد قوي</option>
+          <option value="down">هابط فقط</option>
+        </select></div>
+      <div class="fld"><label>الزخم (RSI)</label>
+        <select id="pkRsi">
+          <option value="any">أي قيمة</option>
+          <option value="dip">تراجع (تحت 45)</option>
+          <option value="mid">متوازن (45–65)</option>
+          <option value="hot">قوي (فوق 65)</option>
+        </select></div>
+      <div class="fld"><label>موقعه من نطاق السنة</label>
+        <select id="pkRange">
+          <option value="any">أي موقع</option>
+          <option value="low">قرب القاع</option>
+          <option value="mid">في الوسط</option>
+          <option value="high">قرب القمة</option>
+        </select></div>
+      <div class="fld"><label>حجم التداول</label>
+        <select id="pkVol">
+          <option value="any">أي حجم</option>
+          <option value="hot">أعلى من معتاده</option>
+        </select></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="pkRR" checked>
+      اشترط خطة بعائد ≥ 2 أضعاف المخاطرة</label>
+    <label class="chk"><input type="checkbox" id="pkEarn" checked>
+      استبعد من يعلن أرباحه خلال أسبوع</label>
+    <button class="btn" id="btnPick">🔎 رتّب الفرص</button>
+    <div id="pickOut"></div>
   </div>
 
   <div class="card" id="cardArchive" style="display:none">
@@ -1264,6 +1312,144 @@ function renderEvents() {
   const src = (j.sources || [j.source]).filter(Boolean).join(" و");
   $("#eventNote").textContent =
     `المصدر: ${src} · المواعيد بتوقيت جهازك، والأصل بتوقيت نيويورك`;
+}
+
+/* =======================================================================
+   «وش أشتري الآن؟» — ترشيح بمعايير المستخدم ثم ترتيب.
+
+   الفرق عن ماسح الفرص: الماسح يطبّق شرطاً واحداً جاهزاً، وهذا يجمع
+   شروط المستخدم كلها معاً. ولذلك قد لا يطابق شيء — وحينها نقول ذلك
+   ونعرض أقرب ما فات، لا نخفّف الشروط سراً كي نملأ القائمة.
+
+   الترتيب يحتاج خطة صفقة، والخطة تحتاج شمعات الرمز (ملف مستقل لكل
+   رمز). فنجلبها للمرشّحين فقط لا للكون كله — عشرون طلباً لا خمسمئة.
+   ======================================================================= */
+function pickCriteria() {
+  const v = (id) => { const el = $(id); return el ? el.value : ""; };
+  const on = (id) => { const el = $(id); return !!(el && el.checked); };
+  return { sec: v("#pkSector"), scope: v("#pkScope") || "us", trend: v("#pkTrend"),
+           rsi: v("#pkRsi"), range: v("#pkRange"), vol: v("#pkVol"),
+           rr: on("#pkRR"), noEarn: on("#pkEarn") };
+}
+
+/* كل شرط دالة مستقلة تعيد سببَ الرفض أو null — فنعرف **لماذا** سقط كل
+   سهم، ونستطيع أن نقول للمستخدم أيّ شرط هو الذي أفرغ القائمة. */
+const PICK_TESTS = {
+  sec: (r, f, c) => (!c.sec || r.sec === c.sec) ? null : "القطاع",
+  trend: (r, f, c) => {
+    const s = r.score;
+    if (c.trend === "any" || !Number.isFinite(s)) return null;
+    if (c.trend === "up") return s > 15 ? null : "الاتجاه";
+    if (c.trend === "strong") return s >= 45 ? null : "الاتجاه";
+    if (c.trend === "down") return s < -15 ? null : "الاتجاه";
+    return null;
+  },
+  rsi: (r, f, c) => {
+    if (c.rsi === "any" || !Number.isFinite(r.rsi)) return null;
+    if (c.rsi === "dip") return r.rsi < 45 ? null : "الزخم";
+    if (c.rsi === "mid") return (r.rsi >= 45 && r.rsi <= 65) ? null : "الزخم";
+    if (c.rsi === "hot") return r.rsi > 65 ? null : "الزخم";
+    return null;
+  },
+  range: (r, f, c) => {
+    if (c.range === "any") return null;
+    if (!(Number.isFinite(r.p) && Number.isFinite(r.w52h) && Number.isFinite(r.w52l) && r.w52h > r.w52l))
+      return "نطاق السنة";
+    const pos = (r.p - r.w52l) / (r.w52h - r.w52l);
+    if (c.range === "low") return pos <= 0.33 ? null : "نطاق السنة";
+    if (c.range === "mid") return (pos > 0.33 && pos < 0.67) ? null : "نطاق السنة";
+    if (c.range === "high") return pos >= 0.67 ? null : "نطاق السنة";
+    return null;
+  },
+  vol: (r, f, c) => {
+    if (c.vol === "any") return null;
+    const x = (Number.isFinite(r.vol) && f && Number.isFinite(f.avgVol) && f.avgVol > 0) ? r.vol / f.avgVol : null;
+    return (x !== null && x >= 1.5) ? null : "الحجم";
+  },
+  noEarn: (r, f, c) => {
+    if (!c.noEarn || !f || !f.earnings || !f.earnings.at) return null;
+    const d = (f.earnings.at - Date.now()) / 86400000;
+    return (d >= 0 && d <= 7) ? "أرباح قريبة" : null;
+  }
+};
+
+async function runPicker() {
+  const out = $("#pickOut");
+  if (!state.summary) { out.innerHTML = `<div class="empty">البيانات لم تصل بعد</div>`; return; }
+  const c = pickCriteria();
+  const F = (state.fund && state.fund.f) || {};
+
+  let rows = (c.scope === "us" ? state.summary.rows : allRows());
+  rows = c.scope === "crypto" ? rows.filter(r => r.mkt === "crypto")
+       : c.scope === "us" ? rows.filter(r => r.mkt !== "crypto") : rows;
+
+  const rejected = {};
+  const passed = rows.filter(r => {
+    for (const t of Object.values(PICK_TESTS)) {
+      const why = t(r, F[r.s], c);
+      if (why) { rejected[why] = (rejected[why] || 0) + 1; return false; }
+    }
+    return true;
+  });
+
+  if (!passed.length) {
+    const top = Object.entries(rejected).sort((a, b) => b[1] - a[1])[0];
+    const u = c.scope === "crypto" ? "عملة" : "سهماً";
+    out.innerHTML = `<div class="warn" style="margin-top:10px">
+      <b>لا شيء يطابق كل شروطك.</b>${top ? ` أكثر شرط أسقط المرشّحين:
+      <b>${esc(top[0])}</b> (${bd(top[1])} ${u}).` : ""}
+      <br>خفّف شرطاً واحداً وأعد المحاولة — تخفيفها تلقائياً كان سيعطيك
+      قائمة لا تطابق ما طلبت.</div>`;
+    return;
+  }
+
+  // الترتيب المبدئي بالنتيجة الفنية، ثم نجلب شمعات المرشّحين وحدهم
+  passed.sort((a, b) => (b.score ?? -999) - (a.score ?? -999));
+  const shortlist = passed.slice(0, c.rr ? 20 : 3);
+  out.innerHTML = `<div class="empty">جارِ فحص ${bd(shortlist.length)} مرشّحاً…</div>`;
+
+  const plans = [];
+  for (const r of shortlist) {
+    try {
+      const rec = await getSymbol(r.s);
+      const p = tradePlan(rec);
+      if (!p) continue;
+      // بلا هدف لا خطة: "وش أشتري" جوابها يحتاج أين تخرج، وترتيبٌ بعائدٍ
+      // غير معروف ترتيبٌ بلا معيار
+      if (p.target === null || !Number.isFinite(p.rr)) continue;
+      if (c.rr && !(p.rr >= 2)) continue;
+      plans.push({ r, p });
+      if (plans.length >= 3) break;
+    } catch (e) { /* رمز بلا ملف شمعات — يسقط بهدوء */ }
+  }
+
+  if (!plans.length) {
+    out.innerHTML = `<div class="warn" style="margin-top:10px">
+      <b>${bd(passed.length)} ${c.scope === "crypto" ? "عملة طابقت" : "سهماً طابق"} معاييرك،
+      لكن لا واحد منها يعطي خطة بعائد ضِعفَي المخاطرة.</b><br>هذا يحدث حين تكون المقاومات قريبة —
+      وهو نفسه معلومة: السوق لا يعطي فرصاً بهذه الشروط الآن.
+      أزل شرط العائد لترى الترتيب بلا قيده.</div>`;
+    return;
+  }
+
+  const matched = c.scope === "crypto"
+    ? `${bd(passed.length)} عملة طابقت شروطك`
+    : `${bd(passed.length)} سهماً طابق شروطك`;
+  const best = plans.length === 1 ? "وأفضلها حسب خطة الصفقة"
+                                  : `وأفضل ${bd(plans.length)} حسب خطة الصفقة`;
+  out.innerHTML = `<p class="hint" style="margin-top:10px">${matched} · ${best}</p>` + plans.map(({ r, p }, i) => `
+    <div class="row" style="cursor:pointer;align-items:flex-start" data-open="${esc(r.s)}">
+      <div class="l"><b>${bd(i + 1)}. ${esc(nm(r))}</b>
+        <small><span class="tick">${esc(r.s)}</span> · ${esc(r.sec)} ·
+          نتيجة ${bd(fmt(r.score, 0))} · RSI ${bd(fmt(r.rsi, 0))}</small>
+        <small>شراء <b class="num">${money(p.buy)}</b> ·
+          وقف <b class="num">${money(p.stop)}</b> ·
+          هدف <b class="num">${money(p.target)}</b></small></div>
+      <div class="r num" style="color:var(--up)">${bd(fmt(p.rr, 2))}:1
+        <span style="display:block;font-size:11px;color:var(--mut)">${bd(pct(r.chg, 2))} اليوم</span></div>
+    </div>`).join("") + `
+    <p class="disclaimer">ترتيب حسابي على معاييرك أنت، من بيانات متأخرة دقائق.
+    ليس توصية بالشراء، ولا يعرف شيئاً عن أخبار الشركة ولا عن وضعك المالي.</p>`;
 }
 
 /* =======================================================================
@@ -2634,7 +2820,7 @@ function fillSymbolSelects() {
 
   const secs = [...new Set(allRows().map(r => r.sec))].sort();
   const secOpts = secs.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
-  for (const id of ["#qSector", "#fSector"]) {
+  for (const id of ["#qSector", "#fSector", "#pkSector"]) {
     const el = $(id); if (!el) continue;
     const cur = el.value;
     el.innerHTML = `<option value="">كل القطاعات</option>` + secOpts;
@@ -2814,6 +3000,7 @@ function boot() {
   $("#qSort").onchange = renderList;
   $("#qSector").onchange = renderList;
   $("#qMarket").onchange = renderList;
+  { const b = $("#btnPick"); if (b) b.onclick = () => runPicker(); }
   $$("#optSide button").forEach(b => b.onclick = () => { state.optSide = b.dataset.side; renderOptions(); });
 
   $("#btnCalc").onclick = calc;
