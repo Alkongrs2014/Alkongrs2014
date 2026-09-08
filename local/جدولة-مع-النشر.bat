@@ -21,9 +21,9 @@ echo.
 echo   يتطلب أن يكون المجلد مربوطاً بـ GitHub (local\link-github.bat).
 echo.
 pause
-schtasks /Create /TN "WebTrade-Quotes" /TR "node \"%P%\local\run.mjs\" quotes --publish" /SC MINUTE /MO 2 /F
-schtasks /Create /TN "WebTrade-Market" /TR "node \"%P%\local\run.mjs\" market --publish" /SC MINUTE /MO 10 /F
-schtasks /Create /TN "WebTrade-Daily"  /TR "node \"%P%\local\run.mjs\" daily --publish"  /SC DAILY /ST 09:30 /F
+schtasks /Create /TN "WebTrade-Quotes" /TR "wscript.exe \"%P%\local\run-hidden.vbs\" quotes --publish" /SC MINUTE /MO 2 /F
+schtasks /Create /TN "WebTrade-Market" /TR "wscript.exe \"%P%\local\run-hidden.vbs\" market --publish" /SC MINUTE /MO 10 /F
+schtasks /Create /TN "WebTrade-Daily"  /TR "wscript.exe \"%P%\local\run-hidden.vbs\" daily --publish"  /SC DAILY /ST 09:30 /F
 echo.
 echo   ضبط سقف زمني لكل مهمة حتى لا يعلّق تشغيل عالق البقية:
 powershell -NoProfile -Command "$l=@{'WebTrade-Quotes'='PT5M';'WebTrade-Market'='PT20M';'WebTrade-Daily'='PT30M'}; foreach($k in $l.Keys){$t=Get-ScheduledTask -TaskName $k; $t.Settings.ExecutionTimeLimit=$l[$k]; $t.Settings.MultipleInstances='IgnoreNew'; Set-ScheduledTask -TaskName $k -Settings $t.Settings | Out-Null}"

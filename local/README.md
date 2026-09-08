@@ -78,9 +78,16 @@ PREFER_YAHOO=1
 
 > الجدولة تعمل فقط والجهاز يعمل. لإلغائها:
 > ```
+> schtasks /Delete /TN "WebTrade-Quotes" /F
 > schtasks /Delete /TN "WebTrade-Market" /F
 > schtasks /Delete /TN "WebTrade-Daily" /F
 > ```
+
+> **لماذا `run-hidden.vbs`؟** المهام لا تنادي `node` مباشرة، بل
+> `wscript.exe local\run-hidden.vbs`. السبب أن `node` تطبيق كونسول،
+> فيفتح Windows نافذة طرفية مرئية عند كل تشغيل — أي كل دقيقتين مع دورة
+> الأسعار، وهو إزعاج متواصل. الوسيط يشغّل الأمر نفسه بنافذة مخفية.
+> لمتابعة ما يجري، شغّل `node local\run.mjs quotes` يدوياً في طرفية.
 
 ---
 
