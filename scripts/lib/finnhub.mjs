@@ -34,6 +34,59 @@ async function fhReq(path, params, { timeout = 15000 } = {}) {
   }
 }
 
+/* =====================================================================
+   توزيع توصيات المحللين وصفقات المطّلعين.
+
+   نقطتان مجانيتان على خطة Finnhub المجانية (على عكس تقويمه الاقتصادي
+   الذي يردّ 403). ياهو يعطينا التوصية كخلاصة واحدة ("شراء") وعدد
+   المحللين، ولا يعطي التوزيع ولا صفقات المطّلعين إطلاقاً.
+
+   لماذا يستحقان الطلب: التوزيع يفرّق بين إجماع حقيقي وانقسام حاد
+   يعطيان نفس الخلاصة، وصفقات المطّلعين تُظهر ما يفعله من يعرف الشركة
+   من الداخل — لا ما يقوله محلل من الخارج.
+   ===================================================================== */
+export async function fetchRecommendation(symbol) {
+  if (!TOKEN) throw new Error("FINNHUB_API_KEY غير مضبوط");
+  const j = await fhReq("/stock/recommendation", { symbol });
+  if (!Array.isArray(j) || !j.length) return null;
+  // الأحدث أولاً: النقطة تعيد سلسلة شهرية والقديم منها لا يصف الحاضر
+  const r = j.slice().sort((a, b) => String(b.period).localeCompare(String(a.period)))[0];
+  const n = (v) => Number.isFinite(v) ? v : 0;
+  const total = n(r.strongBuy) + n(r.buy) + n(r.hold) + n(r.sell) + n(r.strongSell);
+  if (!total) return null;
+  return { period: r.period || null, n: total,
+           sb: n(r.strongBuy), b: n(r.buy), h: n(r.hold), s: n(r.sell), ss: n(r.strongSell) };
+}
+
+/* صافي شراء/بيع المطّلعين خلال نافذة زمنية، بالأسهم لا بعدد الصفقات:
+   مدير يبيع ألف سهم ومدير يشتري مئة ألف ليسا إشارتين متعادلتين. */
+export async function fetchInsiders(symbol, { days = 180, now = Date.now() } = {}) {
+  if (!TOKEN) throw new Error("FINNHUB_API_KEY غير مضبوط");
+  const from = new Date(now - days * 86400e3).toISOString().slice(0, 10);
+  const j = await fhReq("/stock/insider-transactions", { symbol, from });
+  const rows = Array.isArray(j?.data) ? j.data : [];
+  return summarizeInsiders(rows);
+}
+
+/* مفصولة عن الجلب لتكون قابلة للاختبار بلا شبكة */
+export function summarizeInsiders(rows) {
+  let bought = 0, sold = 0, buys = 0, sells = 0, last = null;
+  for (const r of rows || []) {
+    // المشتقات (منح وخيارات موظفين) ليست قراراً سوقياً — تُستبعد
+    if (r.isDerivative) continue;
+    const ch = Number(r.change);
+    if (!Number.isFinite(ch) || ch === 0) continue;
+    if (ch > 0) { bought += ch; buys++; } else { sold += -ch; sells++; }
+    const d = r.transactionDate || r.filingDate;
+    if (d && (!last || d > last)) last = d;
+  }
+  if (!buys && !sells) return null;
+  const net = bought - sold;
+  return { bought, sold, net, buys, sells, last,
+           // النسبة تجعل الرقم مقروءاً بلا معرفة حجم الشركة
+           ratio: (bought + sold) ? +(net / (bought + sold)).toFixed(3) : 0 };
+}
+
 /* ---------- دفعة أسعار — Finnhub لا يدعم عدة رموز بطلب واحد، فنطلب
    تباعاً بوتيرة تحترم حد 60 طلباً/دقيقة على الخطة المجانية.
    الشكل المُعاد مطابق تماماً لما كان يعيده Yahoo v7/finance/quote

@@ -10,7 +10,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchSummary, fetchQuotes, pool, stats, num } from "./lib/yahoo.mjs";
-import { fetchFundamentalsFinnhub } from "./lib/finnhub.mjs";
+import { fetchFundamentalsFinnhub, fetchRecommendation, fetchInsiders,
+         summarizeInsiders, fhStats } from "./lib/finnhub.mjs";
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -105,6 +108,24 @@ async function main() {
     } catch (e) { console.warn(`  ⚠ Finnhub بديل فشل: ${e.message}`); }
   }
 
+  // 1ج) توزيع التوصيات وصفقات المطّلعين — مجانيان عند Finnhub وغائبان
+  // عند ياهو. طلبان لكل رمز بحدّ 60/دقيقة، فنسلسل بوتيرة تحترمه.
+  // فشلهما لا يوقف المهمة: هما إضافة على البطاقة لا أساس لها.
+  if (process.env.FINNHUB_API_KEY) {
+    const syms = Object.keys(fundamentals);
+    console.log(`  … توصيات ومطّلعون لـ ${syms.length} رمزاً`);
+    let recN = 0, insN = 0, err = null;
+    for (const s of syms) {
+      try { const r = await fetchRecommendation(s); if (r) { fundamentals[s].recDist = r; recN++; } }
+      catch (e) { err ||= e.message; }
+      await sleep(1050);
+      try { const i = await fetchInsiders(s); if (i) { fundamentals[s].insider = i; insN++; } }
+      catch (e) { err ||= e.message; }
+      await sleep(1050);
+    }
+    console.log(`  ✓ توزيع التوصيات ${recN} · مطّلعون ${insN}${err ? ` (أول خطأ: ${err})` : ""}`);
+  }
+
   // 2) القيمة السوقية — نكمل الناقص من دفعة الأسعار
   const mc = {};
   for (const [s, f] of Object.entries(fundamentals)) if (f.mc) mc[s] = f.mc;
@@ -181,6 +202,24 @@ function selfCheck() {
     const f = extractFundamentals({});
     for (const k of ["pe", "eps", "mc", "divY", "target", "earnings", "sector"])
       if (f[k] !== null) throw new Error(`${k} = ${JSON.stringify(f[k])} بدل null`);
+  });
+
+  t("summarizeInsiders يستبعد المشتقات ويحسب الصافي بالأسهم", () => {
+    const rows = [
+      { change: 100000, isDerivative: false, transactionDate: "2026-08-01" },
+      { change: -1000,  isDerivative: false, transactionDate: "2026-08-20" },
+      { change: 500000, isDerivative: true,  transactionDate: "2026-08-25" },  // منحة موظف
+      { change: 0,      isDerivative: false, transactionDate: "2026-08-26" }
+    ];
+    const r = summarizeInsiders(rows);
+    eq([r.bought, r.sold, r.net, r.buys, r.sells], [100000, 1000, 99000, 1, 1], "الصافي بالأسهم");
+    eq(r.last, "2026-08-20", "آخر صفقة غير مشتقّة");
+  });
+
+  t("summarizeInsiders يعيد null لا أصفاراً حين لا صفقات", () => {
+    eq(summarizeInsiders([]), null, "فارغ");
+    eq(summarizeInsiders(null), null, "غائب");
+    eq(summarizeInsiders([{ change: 9, isDerivative: true }]), null, "مشتقات فقط");
   });
 
   t("منطق الترتيب يختار الأعلى قيمة سوقية", () => {
