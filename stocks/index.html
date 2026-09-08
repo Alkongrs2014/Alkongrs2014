@@ -1261,8 +1261,9 @@ function renderEvents() {
       <div class="r" style="color:${days <= 3 ? "var(--neu)" : "var(--mut)"}">${
         days <= 0 ? "اليوم" : `بعد ${bd(days)} يوم`}</div></div>`;
   }).join("");
+  const src = (j.sources || [j.source]).filter(Boolean).join(" و");
   $("#eventNote").textContent =
-    `المصدر: ${j.source} · المواعيد بتوقيت جهازك، والأصل بتوقيت نيويورك`;
+    `المصدر: ${src} · المواعيد بتوقيت جهازك، والأصل بتوقيت نيويورك`;
 }
 
 /* =======================================================================

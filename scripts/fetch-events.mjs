@@ -2,10 +2,12 @@
 /* =====================================================================
    الأحداث القوية — تقويم البنك الفدرالي الأمريكي.
 
-   لماذا هذا المصدر بالذات: تقويم Finnhub الاقتصادي مدفوع (يردّ 403 على
-   المفتاح المجاني)، وموقع مكتب إحصاءات العمل يحجب طلباتنا (403 أيضاً).
-   لكن الفدرالي ينشر تقويمه كاملاً بصيغة JSON على عنوان عام بلا مفتاح
-   ولا حصّة — وهو **المصدر الرسمي نفسه**، لا وسيطاً ينقل عنه.
+   مصدران رسميان لا وسيط ينقل عنهما:
+   - الفدرالي ينشر تقويمه كاملاً بصيغة JSON بلا مفتاح ولا حصّة
+     (اجتماعات الفائدة ومحاضرها والكتاب البيج والشهادات).
+   - مكتب إحصاءات العمل ينشر جداول التضخّم وتقرير الوظائف كصفحات HTML.
+
+   تقويم Finnhub الاقتصادي مدفوع (403 على المفتاح المجاني)، فلا يُستعمل.
 
    ولذلك لا تُكتب المواعيد يدوياً في الشيفرة: تاريخ اجتماع مكتوب من
    الذاكرة يبدو صحيحاً وهو خاطئ، ولا شيء في الواجهة يكشفه.
@@ -25,6 +27,33 @@ const OUT = (() => { const i = args.indexOf("--out"); return i >= 0 ? path.resol
 const FED_URL = "https://www.federalreserve.gov/json/calendar.json";
 const AHEAD_DAYS = 120;
 const DAY = 86400e3;
+
+/* =====================================================================
+   مكتب إحصاءات العمل — التضخّم وتقرير الوظائف.
+
+   يحجب الطلبات ذات الترويسة الناقصة بـ403، وكان هذا سبب اعتقادنا أن
+   المصدر مغلق. الحجب ليس على الآلات بل على الطلب الذي لا يشبه المتصفح:
+   مع ترويسات المتصفح الكاملة (Accept وAccept-Language وSec-Fetch-*)
+   يردّ 200. لذلك لم تُكتب المواعيد يدوياً هنا أيضاً.
+   ===================================================================== */
+const BLS = [
+  { url: "https://www.bls.gov/schedule/news_release/cpi.htm",
+    ar: "مؤشر أسعار المستهلك (التضخّم)", w: 3,
+    note: "أهم مقياس للتضخّم، ويحرّك توقّعات الفائدة" },
+  { url: "https://www.bls.gov/schedule/news_release/empsit.htm",
+    ar: "تقرير الوظائف الأمريكي", w: 3,
+    note: "الوظائف المضافة ونسبة البطالة — يُنشر أول جمعة غالباً" }
+];
+
+const BROWSER_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "none",
+  "Upgrade-Insecure-Requests": "1"
+};
 
 /* الأنواع التي تحرّك السوق فعلاً. `Stat` نشرات إحصائية دورية بالعشرات
    شهرياً، و`Speeches` كلمات روتينية — إدراجهما يغرق الحدث المهم. */
@@ -153,6 +182,56 @@ export function toEvents(raw, now, aheadDays = AHEAD_DAYS) {
   }).sort((a, b) => a.at - b.at);
 }
 
+/* =====================================================================
+   قراءة جدول BLS.
+
+   صفوف الجدول: "August 2026 | Sep. 11, 2026 | 08:30 AM" — الشهر المرجعي
+   ثم تاريخ النشر ثم وقته. نحن نريد الثاني والثالث؛ الأول يفيد كوصف
+   ("عن شهر أغسطس") لأن السوق يتحرك على البيانات لا على تاريخ صدورها.
+   ===================================================================== */
+const MONTH_NUM = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12
+};
+
+export function parseBLS(html, meta, now, aheadDays = AHEAD_DAYS) {
+  const text = String(html)
+    .replace(/<[^>]+>/g, "\t")            // الوسوم فواصل خلايا، لا تُحذف بلا أثر
+    .replace(/&nbsp;/g, " ")
+    .replace(/[ \t]+/g, "\t");
+  const out = [];
+  // "Sep. 11, 2026" ثم بعدها بقليل "08:30 AM"
+  const re = /([A-Z][a-z]{2})\.?\s+(\d{1,2}),\s+(\d{4})[\s\t]*(\d{1,2}):(\d{2})\s*([AP])M/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const mo = MONTH_NUM[m[1].toLowerCase()];
+    if (!mo) continue;
+    let hh = (+m[4]) % 12;
+    if (m[6] === "P") hh += 12;
+    const at = etToUTC(+m[3], mo, +m[2], hh, +m[5]);
+    if (at < now - DAY || at > now + aheadDays * DAY) continue;
+    out.push({ at, ar: meta.ar, w: meta.w, note: meta.note, link: meta.url });
+  }
+  return out;
+}
+
+async function fetchBLS(now) {
+  const out = [];
+  for (const b of BLS) {
+    try {
+      const r = await fetch(b.url, { headers: BROWSER_HEADERS });
+      if (!r.ok) throw new Error(`ردّ ${r.status}`);
+      const rows = parseBLS(await r.text(), b, now);
+      if (!rows.length) console.warn(`  ⚠ ${b.ar}: لا مواعيد داخل النافذة`);
+      out.push(...rows);
+    } catch (e) {
+      // سقوط BLS لا يُسقط التقويم كله — أحداث الفدرالي تكفي وحدها
+      console.warn(`  ⚠ ${b.ar}: ${e.message}`);
+    }
+  }
+  return out;
+}
+
 async function main() {
   const now = Date.now();
   console.log("▶ تقويم الفدرالي …");
@@ -162,18 +241,27 @@ async function main() {
   if (!res.ok) throw new Error(`الفدرالي ردّ ${res.status}`);
   // الملف يبدأ بعلامة ترتيب البايتات، وJSON.parse لا يقبلها
   const j = JSON.parse((await res.text()).replace(/^﻿/, ""));
-  const events = toEvents(j.events, now);
+  const fed = toEvents(j.events, now);
+  console.log(`  ✓ الفدرالي: ${fed.length}`);
+
+  console.log("▶ مكتب إحصاءات العمل …");
+  const bls = await fetchBLS(now);
+  console.log(`  ✓ التضخّم والوظائف: ${bls.length}`);
+
+  const events = [...fed, ...bls].sort((a, b) => a.at - b.at);
   if (!events.length) throw new Error("لا أحداث قادمة — لن نكتب ملفاً فارغاً");
 
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(path.join(OUT, "events.json"),
-    JSON.stringify({ updated: now, source: "federalreserve.gov", count: events.length, events }));
+    JSON.stringify({ updated: now, sources: ["federalreserve.gov", "bls.gov"],
+                     count: events.length, events }));
 
   const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return d; } };
   const prevMeta = readJSON(path.join(OUT, "meta.json"), {});
   fs.writeFileSync(path.join(OUT, "meta.json"), JSON.stringify({
     ...prevMeta, eventsUpdated: now,
-    eventsRun: { at: new Date(now).toISOString(), count: events.length }
+    eventsRun: { at: new Date(now).toISOString(), count: events.length,
+                 fed: fed.length, bls: bls.length }
   }));
 
   console.log(`✔ ${events.length} حدثاً خلال ${AHEAD_DAYS} يوماً`);
@@ -258,6 +346,31 @@ function selfCheck() {
     const ev = toEvents(raw, now);
     eq(ev.length, 2, "يومان بلا تكرار");
     eq(ev.map(e => new Date(e.at).toISOString().slice(0, 10)), ["2026-09-20", "2026-09-21"], "مرتّبة");
+  });
+
+  t("parseBLS يقرأ صفوف الجدول الرسمي", () => {
+    const now = Date.UTC(2026, 8, 8);
+    // الشكل الحقيقي من صفحة BLS: شهر مرجعي ثم تاريخ نشر ثم وقت
+    const html = `<tr><td>July 2026</td><td>Aug. 12, 2026</td><td>08:30 AM</td></tr>
+                  <tr><td>August 2026</td><td>Sep. 11, 2026</td><td>08:30 AM</td></tr>
+                  <tr><td>September 2026</td><td>Oct. 14, 2026</td><td>08:30 AM</td></tr>`;
+    const r = parseBLS(html, { ar: "التضخّم", w: 3, note: "x", url: "u" }, now);
+    eq(r.length, 2, "الماضي يسقط");
+    // 8:30 صباحاً بتوقيت نيويورك صيفاً = 12:30 UTC
+    eq(new Date(r[0].at).toISOString(), "2026-09-11T12:30:00.000Z", "أول موعد");
+    eq(r[0].ar, "التضخّم", "الاسم");
+  });
+
+  t("parseBLS يحترم التوقيت الشتوي أيضاً", () => {
+    const now = Date.UTC(2026, 10, 1);
+    const html = `<td>November 2026</td><td>Dec. 10, 2026</td><td>08:30 AM</td>`;
+    const r = parseBLS(html, { ar: "x", w: 3 }, now);
+    // شتاءً EST = UTC-5 فيصير 13:30 لا 12:30
+    eq(new Date(r[0].at).toISOString(), "2026-12-10T13:30:00.000Z", "شتوي");
+  });
+
+  t("parseBLS يعيد قائمة فارغة لصفحة بلا جدول", () => {
+    eq(parseBLS("<html><body>no table here</body></html>", { ar: "x", w: 1 }, Date.now()), [], "بلا مواعيد");
   });
 
   t("toEvents يتجاهل الشهر المشوّه بدل أن يرمي", () => {
