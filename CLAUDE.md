@@ -57,6 +57,7 @@ scripts/lib/indicators.mjs المؤشرات — مشتركة بين الخادم
 scripts/lib/options.mjs    Black–Scholes والجريكس واستخراج التقلّب الضمني
 stocks/scans.js            شروط الماسح — نسخة واحدة للمتصفح والخادم
 scripts/backtest.mjs       الأرشيف التاريخي — سجلّ كل شرط على خمس سنوات
+scripts/track-signals.mjs  السجلّ الحيّ — يثبّت ما ظهر فعلاً ويتابعه
 scripts/fetch-options.mjs  عقود الخيارات — دورة نصف ساعة مستقلة
 local/run.mjs          المشغّل المحلي (env + جلب + خادم + نشر)
 local/*.bat            اختصارات ويندوز
@@ -74,6 +75,7 @@ node scripts/fetch-news.mjs   --check
 node scripts/fetch-daily.mjs  --check
 node scripts/fetch-options.mjs --check
 node scripts/backtest.mjs      --check
+node scripts/track-signals.mjs --check
 node scripts/build-universe.mjs --check
 
 node local/run.mjs quotes                # أسعار فقط (~90 ثانية)
@@ -81,6 +83,7 @@ node local/run.mjs market                # شموع ومؤشرات + أخبار
 node local/run.mjs news                  # أخبار وحدها
 node local/run.mjs options               # عقود الخيارات (دورة نصف ساعة)
 node local/run.mjs backtest              # الأرشيف التاريخي (يومياً، ~500 طلب)
+node local/run.mjs signals               # تثبيت إشارات اليوم (بلا شبكة)
 node local/run.mjs both                  # كل شيء
 node local/run.mjs serve                 # خادم على localhost:8080
 node local/run.mjs publish               # نشر data/ على فرع data

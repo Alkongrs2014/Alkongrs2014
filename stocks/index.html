@@ -551,6 +551,7 @@ details b{color:var(--tx)}
     <h2>📊 أرشيف النتائج</h2>
     <p class="hint" id="archHint"></p>
     <div id="archTable"></div>
+    <div id="archLive"></div>
     <p class="srcline" id="archNote"></p>
     <details>
       <summary>كيف قيس هذا، ولماذا "الحافة" هي الرقم المهم؟</summary>
@@ -694,7 +695,7 @@ const state = {
   symCache: {}, view: "now", sym: null, activeTF: "1h",
   lastOk: 0, busy: false, liveAt: 0, liveOn: false,
   favs: [], favOnly: false, hover: null, from: "list", scan: null,
-  optCache: {}, opts: null, arch: null, optExp: 0, optSide: "calls"
+  optCache: {}, opts: null, arch: null, live: null, optExp: 0, optSide: "calls"
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -1248,6 +1249,28 @@ function renderArchive() {
         <td class="num">${bd(fmt(b.ret[20].win, 1))}%</td>
         <td class="num">—</td></tr>
     </tbody></table></div>`;
+
+  // السجلّ الحيّ: ما ظهر فعلاً في هذا التطبيق منذ تشغيل التتبّع. يغطّي
+  // حتى الشرطين اللذين لا يُقاسان تاريخياً، لكنه يحتاج وقتاً ليقول شيئاً.
+  const L = state.live;
+  if (!L?.scans?.length) $("#archLive").innerHTML = "";
+  else {
+    const closed = L.closed || 0;
+    const rows = L.scans.map(s => `<tr>
+      <td style="text-align:right">${esc(s.lbl)}</td>
+      <td class="num">${bd(fmt(s.open, 0))}</td>
+      <td class="num">${bd(fmt(s.closed, 0))}</td>
+      <td class="num">${Number.isFinite(s.med) ? bd(pct(s.med, 2)) : "—"}</td>
+      <td class="num">${Number.isFinite(s.win) ? bd(fmt(s.win, 1)) + "%" : "—"}</td></tr>`).join("");
+    $("#archLive").innerHTML = `
+      <p class="hint" style="margin:14px 0 4px">السجلّ الحيّ — إشارات هذا التطبيق منذ تشغيل التتبّع</p>
+      ${closed ? "" : `<div class="note" style="margin:0 0 8px">لم تُغلق أي إشارة بعد.
+        كل إشارة تُغلق بعد ${bd(L.holdDays)} يوماً من ظهورها، فالأعمدة الأخيرة تبقى فارغة حتى ذلك الحين.
+        وهذا بخلاف الجدول أعلاه المبني على خمس سنوات مضت.</div>`}
+      <div class="otwrap"><table class="otbl">
+        <thead><tr><th style="text-align:right">الشرط</th><th>مفتوحة</th><th>مغلقة</th>
+          <th>وسيط</th><th>موجب</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
 
   const ex = (j.excluded || []).map(e => e.lbl).join(" · ");
   $("#archNote").textContent =
@@ -2312,10 +2335,15 @@ async function refresh(force = false) {
   // الطبقة الواسعة: بقية S&P 500 بالفريم اليومي وحده. تُحمَّل بعد الرسم
   // الأول لا قبله — بها يعمل البحث على الكون كاملاً، وبدونها يبقى التطبيق
   // كما كان على المرصودة. لذلك فشلها صامت ولا يوقف شيئاً.
-  // الأرشيف التاريخي — يُبنى بمهمة أسبوعية، وغيابه لا يعطّل الماسح
+  // الأرشيف التاريخي — يُبنى مع الدورة اليومية، وغيابه لا يعطّل الماسح
   getJSON("backtest.json").then(j => {
     state.arch = j;
     if (state.view === "screen") { renderArchive(); renderScanHistory(state.scan || SCANS[0].id); }
+  }).catch(() => {});
+  // السجلّ الحيّ — يتراكم مع كل دورة سوق
+  getJSON("archive.json").then(j => {
+    state.live = j;
+    if (state.view === "screen") renderArchive();
   }).catch(() => {});
   // ملخّص العقود — يُملأ محلياً فقط، فغيابه سحابياً حالة طبيعية
   getJSON("options.json").then(j => {
