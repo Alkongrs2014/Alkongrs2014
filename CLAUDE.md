@@ -58,6 +58,7 @@ scripts/lib/options.mjs    Black–Scholes والجريكس واستخراج ا�
 stocks/scans.js            شروط الماسح — نسخة واحدة للمتصفح والخادم
 scripts/backtest.mjs       الأرشيف التاريخي — سجلّ كل شرط على خمس سنوات
 scripts/track-signals.mjs  السجلّ الحيّ — يثبّت ما ظهر فعلاً ويتابعه
+scripts/fetch-events.mjs   الأحداث القوية — تقويم الفدرالي الرسمي
 scripts/fetch-options.mjs  عقود الخيارات — دورة نصف ساعة مستقلة
 local/run.mjs          المشغّل المحلي (env + جلب + خادم + نشر)
 local/*.bat            اختصارات ويندوز
@@ -76,6 +77,7 @@ node scripts/fetch-daily.mjs  --check
 node scripts/fetch-options.mjs --check
 node scripts/backtest.mjs      --check
 node scripts/track-signals.mjs --check
+node scripts/fetch-events.mjs  --check
 node scripts/build-universe.mjs --check
 
 node local/run.mjs quotes                # أسعار فقط (~90 ثانية)
@@ -84,6 +86,7 @@ node local/run.mjs news                  # أخبار وحدها
 node local/run.mjs options               # عقود الخيارات (دورة نصف ساعة)
 node local/run.mjs backtest              # الأرشيف التاريخي (يومياً، ~500 طلب)
 node local/run.mjs signals               # تثبيت إشارات اليوم (بلا شبكة)
+node local/run.mjs events                # تقويم الفدرالي (يومياً)
 node local/run.mjs both                  # كل شيء
 node local/run.mjs serve                 # خادم على localhost:8080
 node local/run.mjs publish               # نشر data/ على فرع data
@@ -103,6 +106,8 @@ node local/run.mjs quotes --publish      # جلب ثم نشر (النشر بشر
 | Finnhub مجاني | أسعار وأساسيات ✅ · **الشموع 403** · رموز `^GSPC` مرفوضة |
 | Twelve Data مجاني | شموع ✅ · **8/دقيقة و800/يوم** |
 | Stooq | ⛔ يعيد صفحة حظر **بحالة 200** لا 429 |
+| تقويم الفدرالي | ✅ `federalreserve.gov/json/calendar.json` بلا مفتاح ولا حصّة |
+| مكتب إحصاءات العمل (BLS) | ⛔ يحجب طلباتنا بـ403 — لا CPI ولا تقرير الوظائف |
 | خيارات ياهو | ✅ بالـcrumb · **يصفّر bid/ask/IV خارج الجلسة** (انظر أدناه) |
 
 ### فرضيات جُرّبت وثبت خطؤها — لا تكرّرها

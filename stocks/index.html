@@ -295,6 +295,13 @@ details b{color:var(--tx)}
     </details>
   </div>
 
+  <div class="card" id="cardEvents" style="display:none">
+    <h2>⚡ أحداث قوية قادمة</h2>
+    <p class="hint">من تقويم البنك الفدرالي الرسمي — هذه المواعيد تحرّك السوق كله لا سهماً بعينه</p>
+    <div id="eventList"></div>
+    <p class="srcline" id="eventNote"></p>
+  </div>
+
   <div class="card">
     <h2>📉 المؤشرات العامة</h2>
     <div class="grid2" id="indices">
@@ -695,7 +702,7 @@ const state = {
   symCache: {}, view: "now", sym: null, activeTF: "1h",
   lastOk: 0, busy: false, liveAt: 0, liveOn: false,
   favs: [], favOnly: false, hover: null, from: "list", scan: null,
-  optCache: {}, opts: null, arch: null, live: null, optExp: 0, optSide: "calls"
+  optCache: {}, opts: null, arch: null, live: null, events: null, optExp: 0, optSide: "calls"
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -1188,6 +1195,33 @@ async function openSymbol(sym) {
   // العقود تُجلب لسبعين رمزاً فقط ولا تُملأ سحابياً (ياهو يحظر الرينرات)،
   // فغيابها هو الحالة الطبيعية لا خطأ: نُخفي البطاقة بصمت
   loadOptions(sym).catch(() => {});
+}
+
+/* =======================================================================
+   الأحداث القوية — تقويم الفدرالي
+   ======================================================================= */
+function renderEvents() {
+  const card = $("#cardEvents"); if (!card) return;
+  const j = state.events;
+  const now = Date.now();
+  const list = (j?.events || []).filter(e => e.at >= now - 3600e3).slice(0, 8);
+  if (!list.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  $("#eventList").innerHTML = list.map(e => {
+    const days = Math.round((e.at - now) / 86400000);
+    // الوزن 3 = قرار فائدة أو مؤتمر صحفي: يستحق تمييزاً بصرياً
+    const hot = e.w >= 3;
+    const when = new Date(e.at).toLocaleDateString(AR, { weekday: "long", month: "long", day: "numeric" });
+    const time = new Date(e.at).toLocaleTimeString(AR, { hour: "2-digit", minute: "2-digit" });
+    return `<div class="row"${hot ? ' style="border-right:3px solid var(--neu);padding-right:8px"' : ""}>
+      <div class="l">${hot ? "⚡ " : ""}${esc(e.ar)}
+        <small>${esc(when)} · ${esc(time)} بتوقيتك${e.note ? " · " + esc(e.note) : ""}</small></div>
+      <div class="r" style="color:${days <= 3 ? "var(--neu)" : "var(--mut)"}">${
+        days <= 0 ? "اليوم" : `بعد ${bd(days)} يوم`}</div></div>`;
+  }).join("");
+  $("#eventNote").textContent =
+    `المصدر: ${j.source} · المواعيد بتوقيت جهازك، والأصل بتوقيت نيويورك`;
 }
 
 /* =======================================================================
@@ -2340,6 +2374,8 @@ async function refresh(force = false) {
     state.arch = j;
     if (state.view === "screen") { renderArchive(); renderScanHistory(state.scan || SCANS[0].id); }
   }).catch(() => {});
+  // تقويم الفدرالي — يومي، وغيابه يُخفي البطاقة لا يكسر الصفحة
+  getJSON("events.json").then(j => { state.events = j; renderEvents(); }).catch(() => {});
   // السجلّ الحيّ — يتراكم مع كل دورة سوق
   getJSON("archive.json").then(j => {
     state.live = j;
