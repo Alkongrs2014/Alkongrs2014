@@ -54,6 +54,8 @@ scripts/lib/finnhub.mjs    أسعار لحظية وأساسيات
 scripts/lib/twelvedata.mjs شموع (أساسي سحابياً)
 scripts/lib/yahoo.mjs      شموع (أساسي محلياً) + Stooq احتياطاً
 scripts/lib/indicators.mjs المؤشرات — مشتركة بين الخادم والمتصفح
+scripts/lib/options.mjs    Black–Scholes والجريكس واستخراج التقلّب الضمني
+scripts/fetch-options.mjs  عقود الخيارات — دورة نصف ساعة مستقلة
 local/run.mjs          المشغّل المحلي (env + جلب + خادم + نشر)
 local/*.bat            اختصارات ويندوز
 ```
@@ -68,11 +70,13 @@ node scripts/fetch-quotes.mjs --check
 node scripts/fetch-market.mjs --check
 node scripts/fetch-news.mjs   --check
 node scripts/fetch-daily.mjs  --check
+node scripts/fetch-options.mjs --check
 node scripts/build-universe.mjs --check
 
 node local/run.mjs quotes                # أسعار فقط (~90 ثانية)
 node local/run.mjs market                # شموع ومؤشرات + أخبار
 node local/run.mjs news                  # أخبار وحدها
+node local/run.mjs options               # عقود الخيارات (دورة نصف ساعة)
 node local/run.mjs both                  # كل شيء
 node local/run.mjs serve                 # خادم على localhost:8080
 node local/run.mjs publish               # نشر data/ على فرع data
@@ -92,6 +96,7 @@ node local/run.mjs quotes --publish      # جلب ثم نشر (النشر بشر
 | Finnhub مجاني | أسعار وأساسيات ✅ · **الشموع 403** · رموز `^GSPC` مرفوضة |
 | Twelve Data مجاني | شموع ✅ · **8/دقيقة و800/يوم** |
 | Stooq | ⛔ يعيد صفحة حظر **بحالة 200** لا 429 |
+| خيارات ياهو | ✅ بالـcrumb · **يصفّر bid/ask/IV خارج الجلسة** (انظر أدناه) |
 
 ### فرضيات جُرّبت وثبت خطؤها — لا تكرّرها
 1. ❌ «التراجع الطويل يحل 429» — يعلّق التشغيل 20 دقيقة بلا فائدة.
@@ -155,6 +160,22 @@ node local/run.mjs quotes --publish      # جلب ثم نشر (النشر بشر
   المؤشرات هو `symbols.json` لا الملف المحفوظ — وإلا تجمّدت المؤشرات.
 - **فترات التداول المحفوظة تصف يوم جلبها.** استعمالها في اليوم التالي
   يعطي «بعد الإغلاق» والسوق مفتوح. `statusNow` ترجع للتقدير حينها.
+
+- **ياهو يصفّر `bid` و`ask` و`impliedVolatility` للخيارات خارج ساعات
+  التداول** ولا يُبقي إلا `lastPrice` و`openInterest` و`lastTradeDate`.
+  الفلتر الذي يشترط عرضاً وطلباً يعيد **صفر عقد** ليلاً — وهو ما حدث في
+  أول تشغيل. لذلك وضعان: `live` بعرض وطلب حقيقيين، و`last` يستخرج
+  التقلّب الضمني من سعر آخر صفقة بالتنصيف. الوضع يُقرأ من نسبة العقود
+  المسعَّرة لا من ساعة الحائط، ولا يكفي عقدٌ أو عقدان مسعَّران لقلب
+  السلسلة إلى `live` — كان ذلك يُفرغ سلاسل PANW وCRM تماماً.
+- **في الوضع المغلق يُقاس الزمن من لحظة السعر لا من الآن.** سعرُ عقدٍ
+  نُفِّذ الجمعة مع زمنٍ متبقٍّ محسوب الثلاثاء يخلط لحظتين، فيُنسب فارق
+  الزمن كلّه إلى التقلّب: تقلّب VZ الضمني خرج 117% بدل 22%.
+- **`divY` في `fundamentals.json` مخزَّن بمقياسين**: أبل `0.0034` (كسر)
+  وفيرايزون `5.5842` (نسبة مئوية) — هكذا يعطيه ياهو. الواجهة تتعايش عبر
+  `normPct` لأنها تعرض النسبة، أما الحساب فلا: تمرير `5.5842` كعائد
+  توزيعات إلى Black–Scholes يخفض السعر الآجل إلى 59% من الفوري. أي
+  مستهلك حسابي يجب أن يطبّع بنفسه (`divYield` في `fetch-options`).
 
 ### حالة قائمة (لم تُحلّ)
 **جدولة GitHub Actions لم تشتغل ولا مرة** — صفر تشغيل من نوع `schedule`

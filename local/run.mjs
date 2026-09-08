@@ -224,7 +224,10 @@ else {
              : cmd === "market" ? ["fetch-market.mjs", "fetch-news.mjs"]
              : cmd === "news"   ? ["fetch-news.mjs"]
              : cmd === "daily"  ? ["fetch-daily.mjs"]
-             : ["fetch-daily.mjs", "fetch-market.mjs", "fetch-news.mjs"];
+             // الخيارات دورة نصف ساعة مستقلة: كل رمز يحتاج طلباً لكل
+             // استحقاق، وسلسلة العقود لا تتغيّر بمعدّل الشمعة
+             : cmd === "options" ? ["fetch-options.mjs"]
+             : ["fetch-daily.mjs", "fetch-market.mjs", "fetch-news.mjs", "fetch-options.mjs"];
 
   // الانسحاب أمام تشغيل جارٍ ليس فشلاً — نخرج بصفر حتى لا تُعلَّم المهمة
   // المجدولة كفاشلة كل دورة متداخلة

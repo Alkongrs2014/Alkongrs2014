@@ -209,6 +209,30 @@ export async function fetchSummary(symbol) {
 }
 
 /* =====================================================================
+   3.5) سلسلة الخيارات — تحتاج crumb مثل quoteSummary تماماً.
+   بلا `date` تعيد أقرب استحقاق مع قائمة كل التواريخ المتاحة، ومعها
+   تعيد سلسلة ذلك التاريخ وحده. فالنداء الأول يكشف التواريخ ويعطي
+   أوّلها مجاناً، وما بعده طلب لكل استحقاق إضافي.
+   ===================================================================== */
+export async function fetchOptions(symbol, date) {
+  const s = await getSession();
+  if (!s.crumb) throw new Error("no crumb");
+  const u = new URL(`https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`);
+  u.searchParams.set("crumb", s.crumb);
+  if (date) u.searchParams.set("date", String(date));
+  const r = await req(u.toString(), { headers: { Cookie: s.cookie }, label: "options" });
+  const j = await r.json();
+  const res = j?.optionChain?.result?.[0];
+  if (!res) throw new Error("empty option chain");
+  return {
+    expirations: res.expirationDates || [],
+    spot: num(res.quote?.regularMarketPrice),
+    calls: res.options?.[0]?.calls || [],
+    puts: res.options?.[0]?.puts || []
+  };
+}
+
+/* =====================================================================
    4) بديل احتياطي — Stooq CSV (أسعار يومية، بلا مفتاح ولا مصادقة)
       يُستخدم فقط إذا سقط Yahoo كلياً، حتى لا ينقطع التطبيق.
    ===================================================================== */
