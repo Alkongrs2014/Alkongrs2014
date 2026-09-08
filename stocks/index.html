@@ -542,8 +542,32 @@ details b{color:var(--tx)}
     <p class="hint">مسح آلي على السبعين بشروط جاهزة — نقطة بداية للبحث لا توصية بالشراء</p>
     <div class="scans" id="scanPicker"></div>
     <p class="scan-why" id="scanWhy"></p>
+    <div id="scanHist"></div>
     <div class="slist" id="scanList"><div class="skl" style="height:200px;border-radius:0"></div></div>
     <p class="srcline" id="scanCount"></p>
+  </div>
+
+  <div class="card" id="cardArchive" style="display:none">
+    <h2>📊 أرشيف النتائج</h2>
+    <p class="hint" id="archHint"></p>
+    <div id="archTable"></div>
+    <p class="srcline" id="archNote"></p>
+    <details>
+      <summary>كيف قيس هذا، ولماذا "الحافة" هي الرقم المهم؟</summary>
+      <p>مُرِّر كل شرط على تاريخ الأسهم يوماً بيوم، وسُجِّل ما حدث بعد كل إشارة.
+      الدخول عند <b>إغلاق شمعة الإشارة</b> — لا عند فتح اليوم التالي ولا عند أفضل
+      سعر في اليوم، لأن أي افتراض أفضل من ذلك يجمّل النتيجة بلا مقابل واقعي.</p>
+      <p><b>الحافة</b> هي الفرق عن <b>خط الأساس</b>: نفس الإحصاء محسوباً على كل
+      الشمعات بلا أي شرط. «نسبة نجاح 57%» لا تعني شيئاً إن كان نصيب أي يوم عشوائي
+      56%. الفارق هو المعلومة، والرقم المطلق ليس معلومة.</p>
+      <p>ونستعمل <b>الوسيط لا المتوسط</b>: توزيع العوائد ملتوٍ بشدّة، وسهم واحد
+      تضاعف عشر مرات يزيح متوسط عشرات الآلاف من الملاحظات ولا يزيح وسيطها.</p>
+      <p>الشروط التي تحتاج أساسيات (مكرر ربحية، ROE، موعد أرباح) لا تدخل القياس أو
+      تدخل بنواتها السعرية وحدها: نحن نعرف قيمة هذه الأرقام <b>اليوم</b> لا قيمتها
+      يوم الإشارة، وقياس شرط بمعلومة لاحقة يعطي نتيجة متفائلة كذباً.</p>
+      <p>ما يُعرض هنا يشمل الرابح والخاسر. الشرط ذو الحافة السالبة يبقى معروضاً
+      بحافته السالبة — أرشيف يُخفي خسائره دعاية لا قياس.</p>
+    </details>
   </div>
 
   <div class="card" id="cardOptScan" style="display:none">
@@ -644,6 +668,7 @@ details b{color:var(--tx)}
 </nav>
 
 <script src="config.js"></script>
+<script src="scans.js"></script>
 <script>
 "use strict";
 
@@ -669,7 +694,7 @@ const state = {
   symCache: {}, view: "now", sym: null, activeTF: "1h",
   lastOk: 0, busy: false, liveAt: 0, liveOn: false,
   favs: [], favOnly: false, hover: null, from: "list", scan: null,
-  optCache: {}, opts: null, optExp: 0, optSide: "calls"
+  optCache: {}, opts: null, arch: null, optExp: 0, optSide: "calls"
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -1162,6 +1187,72 @@ async function openSymbol(sym) {
   // العقود تُجلب لسبعين رمزاً فقط ولا تُملأ سحابياً (ياهو يحظر الرينرات)،
   // فغيابها هو الحالة الطبيعية لا خطأ: نُخفي البطاقة بصمت
   loadOptions(sym).catch(() => {});
+}
+
+/* =======================================================================
+   أرشيف النتائج — سجلّ كل شرط على تاريخ الأسهم
+   ======================================================================= */
+const archOf = (id) => (state.arch?.scans || []).find(x => x.id === id) || null;
+
+/* سطر تحت الماسح: سجلّ الشرط المختار الآن، بجانب نتائجه الحالية.
+   قائمة فرص بلا سجلّ تُقرأ كوعد؛ ومعه تُقرأ كاحتمال معلوم. */
+function renderScanHistory(id) {
+  const el = $("#scanHist"); if (!el) return;
+  const a = archOf(id), b = state.arch?.baseline;
+  if (!a || !b) { el.innerHTML = ""; return; }
+  const e = a.edge[20], w = a.edgeWin[20];
+  const good = e > 0;
+  el.innerHTML = `<div class="note" style="margin:8px 0 10px;border-right:3px solid ${good ? "var(--up)" : "var(--dn)"}">
+    <b>تاريخياً</b> على ${bd(fmt(a.n, 0))} إشارة في خمس سنوات:
+    بعد عشرين يوم تداول كان العائد الوسيط <span class="num">${bd(pct(a.ret[20].med, 2))}</span>
+    و<span class="num">${bd(fmt(a.ret[20].win, 1))}%</span> منها موجبة —
+    أي <b style="color:${good ? "var(--up)" : "var(--dn)"}">${good ? "أفضل" : "أسوأ"}
+    من أي يوم عشوائي بـ${bd(fmt(Math.abs(e), 2))} نقطة</b>
+    (خط الأساس ${bd(pct(b.ret[20].med, 2))} و${bd(fmt(b.ret[20].win, 1))}% موجبة).
+    ${a.note ? `<br><small style="color:var(--mut)">القياس التاريخي ${esc(a.note)}</small>` : ""}
+    ${!good ? `<br><small style="color:var(--mut)">حافة سالبة: الشرط لم يتفوّق على السوق في هذه الفترة.
+      يبقى معروضاً لأن إخفاءه دعاية لا قياس.</small>` : ""}</div>`;
+}
+
+function renderArchive() {
+  const card = $("#cardArchive"); if (!card) return;
+  const j = state.arch;
+  if (!j?.scans?.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  const b = j.baseline;
+  $("#archHint").innerHTML =
+    `ما حدث فعلاً بعد كل إشارة على <b>${bd(fmt(j.symbols, 0))}</b> سهماً
+     و<b>${bd(fmt(j.bars, 0))}</b> شمعة يومية — الرابح والخاسر معاً`;
+
+  const cell = (v, d = 2, color = false) => {
+    if (!Number.isFinite(v)) return `<td class="num">—</td>`;
+    const c = color ? (v > 0 ? "var(--up)" : v < 0 ? "var(--dn)" : "var(--mut)") : "";
+    return `<td class="num"${c ? ` style="color:${c}"` : ""}>${bd(fmt(v, d))}</td>`;
+  };
+  const rows = j.scans.map(s => `<tr>
+      <td style="text-align:right">${esc(s.lbl)}${s.note
+        ? `<small style="display:block;color:var(--mut)">${esc(s.note)}</small>` : ""}</td>
+      <td class="num">${bd(fmt(s.n, 0))}</td>
+      ${cell(s.ret[5].med)}${cell(s.ret[20].med)}
+      <td class="num">${bd(fmt(s.ret[20].win, 1))}%</td>
+      ${cell(s.edge[20], 2, true)}</tr>`).join("");
+
+  $("#archTable").innerHTML = `<div class="otwrap"><table class="otbl">
+    <thead><tr><th style="text-align:right">الشرط</th><th>إشارات</th><th>وسيط 5ي</th>
+      <th>وسيط 20ي</th><th>موجب</th><th>الحافة</th></tr></thead>
+    <tbody>${rows}
+      <tr style="background:var(--bg2,transparent);font-weight:700">
+        <td style="text-align:right">خط الأساس — أي يوم بلا شرط</td>
+        <td class="num">${bd(fmt(b.n, 0))}</td>
+        ${cell(b.ret[5].med)}${cell(b.ret[20].med)}
+        <td class="num">${bd(fmt(b.ret[20].win, 1))}%</td>
+        <td class="num">—</td></tr>
+    </tbody></table></div>`;
+
+  const ex = (j.excluded || []).map(e => e.lbl).join(" · ");
+  $("#archNote").textContent =
+    `الأسهم وحدها بلا كريبتو · فترة تهدئة ${j.cooldown} شمعات بين إشارتين للرمز نفسه`
+    + (ex ? ` · خارج القياس لعدم توفّر تاريخ مدخلاتها: ${ex}` : "");
 }
 
 /* ملخّص العقود عبر السوق — قراءة واحدة تقول أين الخيارات غالية وأين رخيصة */
@@ -1844,61 +1935,8 @@ function renderCompare() {
 }
 
 /* =======================================================================
-   ماسح الفرص — شروط عددية على البيانات الموجودة، بلا أي جلب إضافي
+   ماسح الفرص — الشروط في stocks/scans.js، نسخة واحدة يقرأها الخادم أيضاً
    ======================================================================= */
-const near = (p, lvl, tol) => isFinite(p) && isFinite(lvl) && lvl > 0 && Math.abs(p - lvl) / lvl <= tol;
-const allTF = (r, sign) => {
-  const v = Object.values(r.tfScore || {});
-  return v.length === 4 && v.every(x => sign > 0 ? x > 15 : x < -15);
-};
-const volX = (r, f) => (isFinite(r.vol) && f && isFinite(f.avgVol) && f.avgVol > 0) ? r.vol / f.avgVol : null;
-
-const SCANS = [
-  { id: "align", lbl: "توافق الفريمات ▲",
-    why: "الفريمات الأربعة (15د، ساعة، 4 ساعات، يومي) كلها صاعدة معاً. التوافق أندر من أي إشارة منفردة وأصعب على الضجيج أن يفتعله — لكنه يعني أيضاً أن الحركة بدأت وأن الدخول لم يعد مبكراً.",
-    test: (r) => allTF(r, 1), val: (r) => `${Math.round(r.score)} نقطة`,
-    rank: (r) => -r.score },
-  { id: "alignDn", lbl: "توافق الفريمات ▼",
-    why: "الفريمات الأربعة كلها هابطة. تُقرأ كتحذير على المراكز المفتوحة، لا كدعوة للبيع على المكشوف — الهبوط المتوافق ينعكس بعنف حين ينعكس.",
-    test: (r) => allTF(r, -1), val: (r) => `${Math.round(r.score)} نقطة`,
-    rank: (r) => r.score },
-  { id: "high52", lbl: "قرب قمة 52 أسبوعاً",
-    why: "السعر ضمن 3% من أعلى سعر في سنة. القرب من القمة زخم لا خطر بحد ذاته — أغلب الأسهم التي تضاعفت مرّت من قممها مراراً. والمخاطرة أن القمة نفسها مقاومة.",
-    test: (r) => near(r.p, r.w52h, 0.03) && r.p <= r.w52h,
-    val: (r) => `${fmt((r.p - r.w52l) / (r.w52h - r.w52l) * 100, 0)}% من النطاق`,
-    rank: (r) => -(r.p - r.w52l) / (r.w52h - r.w52l) },
-  { id: "low52", lbl: "قرب قاع 52 أسبوعاً",
-    why: "السعر ضمن 8% من أدنى سعر في سنة، مع بقاء الشركة رابحة (ROE موجب). قد تكون فرصة وقد تكون سقوطاً مستمراً — السعر وحده لا يفرّق، فاقرأ الأخبار وسبب الهبوط.",
-    test: (r, f) => near(r.p, r.w52l, 0.08) && f && isFinite(f.roe) && f.roe > 0,
-    val: (r) => `${fmt((r.p - r.w52l) / r.w52l * 100, 1)}% فوق القاع`,
-    rank: (r) => (r.p - r.w52l) / r.w52l },
-  { id: "vol", lbl: "حجم غير معتاد",
-    why: "حجم تداول اليوم يفوق متوسط عشرة أيام بمرة ونصف. الحجم الشاذ يسبق الخبر أحياناً ويتبعه غالباً — وهو أول ما يتغيّر قبل تغيّر السعر.",
-    test: (r, f) => (volX(r, f) ?? 0) >= 1.5, val: (r, f) => `${fmt(volX(r, f), 2)}× المتوسط`,
-    rank: (r, f) => -volX(r, f) },
-  { id: "oversold", lbl: "تشبّع بيعي في اتجاه صاعد",
-    why: "RSI تحت 35 بينما الاتجاه اليومي ما زال موجباً — تراجع داخل صعود لا انقلاب. أخطر ما في هذا الشرط أن الاتجاه قد يكون في طريقه للانكسار فعلاً.",
-    test: (r) => isFinite(r.rsi) && r.rsi < 35 && (r.tfScore || {})["1d"] > 0,
-    val: (r) => `RSI ${fmt(r.rsi, 0)}`,
-    rank: (r) => r.rsi },
-  { id: "cheap", lbl: "أرخص من قطاعه",
-    why: "مكرر ربحية أقل من وسيط قطاعه مع عائد على الملكية فوق 12%: ربحية جيدة بتسعير أقل من الأقران. الرخص قد يكون لسبب وجيه — دَين أو نمو متوقّف لا يظهران هنا.",
-    test: (r, f, ctx) => {
-      const m = ctx.secMed[r.sec];
-      return f && isFinite(f.pe) && f.pe > 0 && m && isFinite(m.pe) && f.pe < m.pe && isFinite(f.roe) && f.roe > 0.12;
-    },
-    val: (r, f, ctx) => `مكرر ${fmt(f.pe, 1)} مقابل ${fmt(ctx.secMed[r.sec].pe, 1)}`,
-    rank: (r, f, ctx) => f.pe / ctx.secMed[r.sec].pe },
-  { id: "earn", lbl: "أرباح خلال أسبوع",
-    why: "إعلان الأرباح خلال سبعة أيام. ليست فرصة بل تحذير: الحركة بعد الإعلان تحدث غالباً بفجوة سعرية يقفز فيها السعر فوق وقف الخسارة دون أن يمرّ به.",
-    test: (r, f) => {
-      if (!f || !f.earnings || !f.earnings.at) return false;
-      const d = (f.earnings.at - Date.now()) / 86400000;
-      return d >= 0 && d <= 7;
-    },
-    val: (r, f) => `بعد ${Math.ceil((f.earnings.at - Date.now()) / 86400000)} يوم`,
-    rank: (r, f) => f.earnings.at }
-];
 
 function renderScreen() {
   const pick = $("#scanPicker");
@@ -1912,6 +1950,7 @@ function renderScreen() {
   $$("#scanPicker button").forEach(b => b.classList.toggle("on", b.dataset.scan === id));
   const scan = SCANS.find(s => s.id === id) || SCANS[0];
   $("#scanWhy").textContent = scan.why;
+  renderScanHistory(scan.id);
 
   const el = $("#scanList");
   if (!state.summary) { el.innerHTML = `<div class="empty">جارِ التحميل…</div>`; return; }
@@ -2166,7 +2205,7 @@ function go(view) {
   window.scrollTo({ top: 0, behavior: "instant" });
   if (isDetail) setTimeout(drawChart, 60);
   if (view === "list") renderList();
-  if (view === "screen") { renderScreen(); renderEarnings(); renderOptScan(); }
+  if (view === "screen") { renderScreen(); renderEarnings(); renderOptScan(); renderArchive(); }
   if (view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
 }
 
@@ -2273,6 +2312,11 @@ async function refresh(force = false) {
   // الطبقة الواسعة: بقية S&P 500 بالفريم اليومي وحده. تُحمَّل بعد الرسم
   // الأول لا قبله — بها يعمل البحث على الكون كاملاً، وبدونها يبقى التطبيق
   // كما كان على المرصودة. لذلك فشلها صامت ولا يوقف شيئاً.
+  // الأرشيف التاريخي — يُبنى بمهمة أسبوعية، وغيابه لا يعطّل الماسح
+  getJSON("backtest.json").then(j => {
+    state.arch = j;
+    if (state.view === "screen") { renderArchive(); renderScanHistory(state.scan || SCANS[0].id); }
+  }).catch(() => {});
   // ملخّص العقود — يُملأ محلياً فقط، فغيابه سحابياً حالة طبيعية
   getJSON("options.json").then(j => {
     state.opts = j;

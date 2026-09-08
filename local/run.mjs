@@ -11,7 +11,9 @@
      node local/run.mjs quotes     أسعار فقط — سريعة (شغّلها كل دقيقتين)
      node local/run.mjs market     أسعار وشموع + أخبار (شغّلها كل 10 دقائق)
      node local/run.mjs news       الأخبار وحدها
-     node local/run.mjs daily      أساسيات وترتيب (مرة يومياً)
+     node local/run.mjs daily      أساسيات وترتيب + الأرشيف (مرة يومياً)
+     node local/run.mjs options    عقود الخيارات (كل نصف ساعة)
+     node local/run.mjs backtest   الأرشيف التاريخي وحده
      node local/run.mjs both       الكل بالترتيب
      node local/run.mjs serve      خادم محلي لعرض الموقع
      node local/run.mjs publish    نشر البيانات المحلية على فرع data
@@ -223,11 +225,15 @@ else {
   const jobs = cmd === "quotes" ? ["fetch-quotes.mjs"]
              : cmd === "market" ? ["fetch-market.mjs", "fetch-news.mjs"]
              : cmd === "news"   ? ["fetch-news.mjs"]
-             : cmd === "daily"  ? ["fetch-daily.mjs"]
+             // الأرشيف مع الدورة اليومية: يجلب خمس سنوات لكل رمز (~500
+             // طلب) فلا مكان له في دورة عشر دقائق، ونتيجته لا تتغيّر
+             // بمعدّل أسرع من يوم على أي حال
+             : cmd === "daily"  ? ["fetch-daily.mjs", "backtest.mjs"]
+             : cmd === "backtest" ? ["backtest.mjs"]
              // الخيارات دورة نصف ساعة مستقلة: كل رمز يحتاج طلباً لكل
              // استحقاق، وسلسلة العقود لا تتغيّر بمعدّل الشمعة
              : cmd === "options" ? ["fetch-options.mjs"]
-             : ["fetch-daily.mjs", "fetch-market.mjs", "fetch-news.mjs", "fetch-options.mjs"];
+             : ["fetch-daily.mjs", "fetch-market.mjs", "fetch-news.mjs", "fetch-options.mjs", "backtest.mjs"];
 
   // الانسحاب أمام تشغيل جارٍ ليس فشلاً — نخرج بصفر حتى لا تُعلَّم المهمة
   // المجدولة كفاشلة كل دورة متداخلة

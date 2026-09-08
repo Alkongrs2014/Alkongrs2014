@@ -85,6 +85,28 @@ export const last = (a) => {
 };
 
 /* تحليل فريم واحد -> نتيجة من -100 (هبوط قوي) إلى +100 (صعود قوي) */
+/* =====================================================================
+   النتيجة الفنية من قيم المؤشرات عند نقطة واحدة.
+
+   مستقلّة عن `analyze` عمداً: الأرشيف التاريخي يحتاج النتيجة عند كل
+   شمعة من آلاف الشمعات، واستدعاء `analyze` على شريحة متنامية لكل شمعة
+   تكلفته تربيعية. هنا تُحسب السلاسل مرة ثم تُستدعى هذه الدالة لكل نقطة.
+
+   والأهم: تعريف واحد للنتيجة. لو نسخ سكربت الأرشيف منطق التسجيل لديه
+   لصار يقيس نتيجةً غير التي تعرضها القائمة، بلا أن يظهر الاختلاف.
+   ===================================================================== */
+export function scoreFrom({ px, e20, e50, e200, rsi, hist, histRising, bbMid }) {
+  let sc = 0, max = 0;
+  const add = (cond, w) => { max += w; sc += cond ? w : -w; };
+  if (e200 !== null && e200 !== undefined) add(px > e200, 2.5);
+  if (e50 !== null && e50 !== undefined && e200 !== null && e200 !== undefined) add(e50 > e200, 1.5);
+  if (e20 !== null && e20 !== undefined) add(px > e20, 1.0);
+  if (hist !== null && hist !== undefined) { add(hist > 0, 1.5); max += 0.5; sc += histRising ? 0.5 : -0.5; }
+  if (rsi !== null && rsi !== undefined) { max += 1; sc += rsi > 55 ? 1 : (rsi < 45 ? -1 : 0); }
+  if (bbMid !== null && bbMid !== undefined) add(px > bbMid, 0.5);
+  return max > 0 ? Math.max(-100, Math.min(100, sc / max * 100)) : 0;
+}
+
 export function analyze(k) {
   if (!k || k.length < 30) return null;
   const c = k.map(x => x.c), h = k.map(x => x.h), l = k.map(x => x.l);
@@ -96,16 +118,8 @@ export function analyze(k) {
   const hi = m.hist.filter(v => v !== null);
   const rising = hi.length > 1 ? hi[hi.length - 1] > hi[hi.length - 2] : false;
 
-  let sc = 0, max = 0;
-  const add = (cond, w) => { max += w; sc += cond ? w : -w; };
-  if (E200 !== null) add(px > E200, 2.5);
-  if (E50 !== null && E200 !== null) add(E50 > E200, 1.5);
-  if (E20 !== null) add(px > E20, 1.0);
-  if (H !== null) { add(H > 0, 1.5); max += 0.5; sc += rising ? 0.5 : -0.5; }
-  if (R !== null) { max += 1; sc += R > 55 ? 1 : (R < 45 ? -1 : 0); }
-  if (b.mid[b.mid.length - 1] !== null) add(px > last(b.mid), 0.5);
-
-  const norm = max > 0 ? Math.max(-100, Math.min(100, sc / max * 100)) : 0;
+  const norm = scoreFrom({ px, e20: E20, e50: E50, e200: E200, rsi: R,
+                           hist: H, histRising: rising, bbMid: last(b.mid) });
   return {
     score: norm, px, e20: E20, e50: E50, e200: E200, rsi: R,
     hist: H, histRising: rising, atr: A,

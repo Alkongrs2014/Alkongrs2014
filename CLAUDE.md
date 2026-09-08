@@ -55,6 +55,8 @@ scripts/lib/twelvedata.mjs شموع (أساسي سحابياً)
 scripts/lib/yahoo.mjs      شموع (أساسي محلياً) + Stooq احتياطاً
 scripts/lib/indicators.mjs المؤشرات — مشتركة بين الخادم والمتصفح
 scripts/lib/options.mjs    Black–Scholes والجريكس واستخراج التقلّب الضمني
+stocks/scans.js            شروط الماسح — نسخة واحدة للمتصفح والخادم
+scripts/backtest.mjs       الأرشيف التاريخي — سجلّ كل شرط على خمس سنوات
 scripts/fetch-options.mjs  عقود الخيارات — دورة نصف ساعة مستقلة
 local/run.mjs          المشغّل المحلي (env + جلب + خادم + نشر)
 local/*.bat            اختصارات ويندوز
@@ -71,12 +73,14 @@ node scripts/fetch-market.mjs --check
 node scripts/fetch-news.mjs   --check
 node scripts/fetch-daily.mjs  --check
 node scripts/fetch-options.mjs --check
+node scripts/backtest.mjs      --check
 node scripts/build-universe.mjs --check
 
 node local/run.mjs quotes                # أسعار فقط (~90 ثانية)
 node local/run.mjs market                # شموع ومؤشرات + أخبار
 node local/run.mjs news                  # أخبار وحدها
 node local/run.mjs options               # عقود الخيارات (دورة نصف ساعة)
+node local/run.mjs backtest              # الأرشيف التاريخي (يومياً، ~500 طلب)
 node local/run.mjs both                  # كل شيء
 node local/run.mjs serve                 # خادم على localhost:8080
 node local/run.mjs publish               # نشر data/ على فرع data
@@ -176,6 +180,17 @@ node local/run.mjs quotes --publish      # جلب ثم نشر (النشر بشر
   `normPct` لأنها تعرض النسبة، أما الحساب فلا: تمرير `5.5842` كعائد
   توزيعات إلى Black–Scholes يخفض السعر الآجل إلى 59% من الفوري. أي
   مستهلك حسابي يجب أن يطبّع بنفسه (`divYield` في `fetch-options`).
+
+- **تواريخ ياهو للعملات الرقمية تحمل أسعاراً "ما قبل الإدراج"**: UNI-USD
+  يقفز من 0.000038 إلى 0.598 في يوم — عائد 1,573,986%. رقم واحد كهذا وسط
+  نصف مليون ملاحظة رفع متوسط عائد اليوم الواحد ثلاث نقاط مئوية، فصار خط
+  أساس الأرشيف 19% لعشرين يوماً بدل 1%. لذلك: الكريبتو خارج الأرشيف،
+  و`trimArtifacts` تقطع السلسلة عند أي قفزة يومية فوق 80%، والإحصاء
+  **بالوسيط لا المتوسط**.
+- **ملفات `sym/*.json` تحفظ 260 شمعة يومية فقط** (`KEEP`)، وهي أقصر من
+  فترة تسخين الأرشيف نفسها (EMA200 + نافذة 52 أسبوعاً = 260). فالأرشيف
+  يجلب تاريخه بنفسه في الذاكرة ولا يخزّنه — خمس سنوات لخمسمئة رمز
+  ~25 ميغابايت تُنشر بلا أن يقرأها أحد، ومخرَجه ثلاثة كيلوبايتات.
 
 ### حالة قائمة (لم تُحلّ)
 **جدولة GitHub Actions لم تشتغل ولا مرة** — صفر تشغيل من نوع `schedule`
