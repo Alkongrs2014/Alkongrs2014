@@ -1,5 +1,4 @@
 @echo off
 chcp 65001 >nul
-rem  اسم عربي مريح لنفس السكربت. الملف الأصلي schedule.bat.
-rem  نسختان من نفس الأوامر تتباعدان بأول تعديل، فهذا وسيط لا نسخة.
+rem  Arabic-named alias for schedule.bat -- a wrapper, not a copy.
 call "%~dp0schedule.bat"

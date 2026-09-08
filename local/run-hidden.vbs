@@ -7,10 +7,19 @@
 ' Usage (from Task Scheduler):
 '   wscript.exe "<repo>\local\run-hidden.vbs" quotes --publish
 '
+' WAIT for node instead of returning immediately. With bWaitOnReturn = False
+' wscript.exe exits the instant node starts, so Task Scheduler marks the task
+' "finished, result 0x0" before any work happens. That silently disables three
+' safety nets: ExecutionTimeLimit can never kill a hung run, LastTaskResult
+' always reads success, and MultipleInstances=IgnoreNew never sees an overlap.
+' Waiting costs nothing -- window style 0 keeps it hidden either way -- and it
+' makes the exit code real. See data/.run.lock for the in-app overlap guard,
+' which had to exist precisely because the scheduler's own guard was inert.
+'
 ' Comments are kept ASCII on purpose: VBScript files are read as ANSI, so
 ' UTF-8 Arabic here would be mojibake. See local/README.md for the Arabic notes.
 
-Dim sh, fso, root, args, a
+Dim sh, fso, root, args, a, code
 Set sh  = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
@@ -22,4 +31,5 @@ For Each a In WScript.Arguments
 Next
 
 sh.CurrentDirectory = root
-sh.Run "node """ & root & "\local\run.mjs""" & args, 0, False
+code = sh.Run("node """ & root & "\local\run.mjs""" & args, 0, True)
+WScript.Quit code
