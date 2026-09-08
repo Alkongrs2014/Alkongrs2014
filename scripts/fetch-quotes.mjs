@@ -34,7 +34,15 @@ const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "
 const writeJSON = (rel, o) => fs.writeFileSync(path.join(OUT, rel), JSON.stringify(o));
 const num = (v) => (typeof v === "number" && isFinite(v)) ? v : null;
 const r2 = (v) => v === null ? null : Math.round(v * 100) / 100;
-const r4 = (v) => v === null ? null : Math.round(v * 10000) / 10000;
+/* تقريب الأسعار بالأرقام المعنوية لا بالخانات العشرية: أصل بسعر
+   0.0000051 (شيبا إينو) يصير صفراً بالتقريب إلى أربع خانات. نفس
+   الدالة في fetch-market.mjs — أي اختلاف بينهما يجعل السعر يقفز بين
+   دورة الأسعار ودورة الشمعات. */
+const rp = (v) => {
+  if (v === null || v === undefined || !Number.isFinite(v)) return null;
+  if (v === 0) return 0;
+  return Math.abs(v) >= 1 ? Math.round(v * 10000) / 10000 : Number(v.toPrecision(6));
+};
 
 /* يُعاد حسابه من نسب التغيّر الجديدة. الاتساع والنتيجة الفنية لا،
    لأنهما من الشمعات التي لم تتغيّر. */
@@ -133,7 +141,7 @@ async function main() {
       if (!q) continue;
       const p = num(q.regularMarketPrice);
       if (p === null || p <= 0) continue;
-      r.p = r4(p);
+      r.p = rp(p);
       const c = num(q.regularMarketChangePercent);
       if (c !== null) r.chg = r2(c);
       n++;

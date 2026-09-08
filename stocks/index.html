@@ -717,7 +717,21 @@ function fmt(n, d = 2) {
   if (n === null || n === undefined || !isFinite(n)) return "—";
   return Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 }
-const money = (n, d = 2) => (n === null || n === undefined || !isFinite(n)) ? "—" : "$" + fmt(n, d);
+/* عدد الخانات يتبع حجم الرقم: خانتان تكفيان لسهم بـ$320، وتعرضان شيبا
+   إينو (0.00000544) كـ"$0.00". الأصول عندنا تمتد على سبع مراتب عشرية. */
+function priceDigits(n) {
+  const a = Math.abs(n);
+  if (a === 0 || a >= 1) return 2;
+  if (a >= 0.01) return 4;
+  if (a >= 0.0001) return 6;
+  return 8;
+}
+const money = (n, d) => {
+  if (n === null || n === undefined || !isFinite(n)) return "—";
+  if (d !== undefined) return "$" + fmt(n, d);
+  // الأصفار الزائدة بعد الخانة الثانية تُقصّ: "$0.8500" تُقرأ كخطأ مطبعي
+  return "$" + fmt(n, priceDigits(n)).replace(/(\.\d\d\d*?)0+$/, "$1");
+};
 const pct   = (n, d = 2) => (n === null || n === undefined || !isFinite(n)) ? "—" : (n > 0 ? "+" : "") + fmt(n, d) + "%";
 
 function compact(n, prefix = "$") {

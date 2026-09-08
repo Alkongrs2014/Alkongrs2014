@@ -49,8 +49,23 @@ const PREFER_YAHOO = process.env.PREFER_YAHOO === "1";
 /* تقريب — Yahoo يعيد 62.014999389648438 والتخزين بلا تقريب يضاعف حجم الملفات */
 const r2 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.round(v * 100) / 100;
 const r4 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.round(v * 10000) / 10000;
+
+/* =====================================================================
+   تقريب الأسعار — بالأرقام المعنوية لا بالخانات العشرية.
+
+   الأسعار عندنا تمتد من 0.0000051 (شيبا إينو) إلى 5,800 (بوكينج).
+   التقريب الثابت إلى أربع خانات عشرية يمحو الصغير منها تماماً: سعر شيبا
+   صار صفراً، وشمعاتها كلها أصفاراً، وATR صفراً — ولم يظهر ذلك إلا حين
+   رفضت بوابة النشر الصفَّ كاملاً.
+   ===================================================================== */
+export const rp = (v) => {
+  if (v === null || v === undefined || !Number.isFinite(v)) return null;
+  if (v === 0) return 0;
+  return Math.abs(v) >= 1 ? Math.round(v * 10000) / 10000 : Number(v.toPrecision(6));
+};
+
 const slimCandles = (c) => c.map(x => ({
-  t: x.t, o: r4(x.o), h: r4(x.h), l: r4(x.l), c: r4(x.c), v: Math.round(x.v || 0)
+  t: x.t, o: rp(x.o), h: rp(x.h), l: rp(x.l), c: rp(x.c), v: Math.round(x.v || 0)
 }));
 /* ضغط الشمعات عند الكتابة فقط: مصفوفة بدل كائن يوفّر ~45% من الحجم.
    [الوقت بالثواني, فتح, أعلى, أدنى, إغلاق, حجم] */
@@ -63,7 +78,9 @@ const unpackCandles = (c) => (Array.isArray(c) && Array.isArray(c[0]))
   : c;
 const slimAnalysis = (a) => {
   const o = {};
-  for (const [k, v] of Object.entries(a)) o[k] = (typeof v === "number") ? r4(v) : v;
+  // rp لا r4: قيم المؤشرات على مقياس السعر (ATR والمتوسطات وبولنجر)،
+  // فتقريبها بخانات ثابتة يمحوها لأصل رخيص كما مُحي سعره
+  for (const [k, v] of Object.entries(a)) o[k] = (typeof v === "number") ? rp(v) : v;
   return o;
 };
 
@@ -315,24 +332,25 @@ async function main() {
     // سعر ما قبل / بعد الإغلاق
     let ext = null;
     if (num(q?.preMarketPrice) !== null)
-      ext = { k: "PRE", p: r4(num(q.preMarketPrice)), c: r2(num(q.preMarketChangePercent)) };
+      ext = { k: "PRE", p: rp(num(q.preMarketPrice)), c: r2(num(q.preMarketChangePercent)) };
     else if (num(q?.postMarketPrice) !== null)
-      ext = { k: "POST", p: r4(num(q.postMarketPrice)), c: r2(num(q.postMarketChangePercent)) };
+      ext = { k: "POST", p: rp(num(q.postMarketPrice)), c: r2(num(q.postMarketChangePercent)) };
 
-    const spark = (rec.tf["1h"]?.c || d1).slice(-30).map(x => +x.c.toFixed(2));
+    // الشرارة أيضاً: toFixed(2) يجعل خط شيبا صفراً مستقيماً
+    const spark = (rec.tf["1h"]?.c || d1).slice(-30).map(x => rp(x.c));
 
     return {
       s: rec.s, ar: rec.ar, en: rec.en, sec: rec.sec, ...(rec.mkt ? { mkt: rec.mkt } : {}),
-      p: r4(price), chg: r2(chg), ext, ...(withSpark ? { spark } : {}),
+      p: rp(price), chg: r2(chg), ext, ...(withSpark ? { spark } : {}),
       score: rec.score,
-      atr: r4(rec.an["1d"]?.atr ?? null), rsi: r2(rec.an["1d"]?.rsi ?? null),
+      atr: rp(rec.an["1d"]?.atr ?? null), rsi: r2(rec.an["1d"]?.rsi ?? null),
       tfScore: Object.fromEntries(TFS.filter(t => rec.an[t]).map(t => [t, +rec.an[t].score.toFixed(1)])),
       mc: num(q?.marketCap) ?? ranking?.mc?.[rec.s] ?? null,
       // حجم آخر شمعة يومية = حجم الجلسة الجارية (أو آخر جلسة مكتملة حين
       // يكون السوق مغلقاً). أدق من متوسط عشرة أيام، فنقدّمه عليه.
       vol: num(q?.regularMarketVolume) ?? (lastV || null) ?? num(fnd?.avgVol),
-      w52h: r4(num(q?.fiftyTwoWeekHigh) ?? num(fnd?.w52h)),
-      w52l: r4(num(q?.fiftyTwoWeekLow) ?? num(fnd?.w52l)),
+      w52h: rp(num(q?.fiftyTwoWeekHigh) ?? num(fnd?.w52h)),
+      w52l: rp(num(q?.fiftyTwoWeekLow) ?? num(fnd?.w52l)),
       stale: !!rec.stale, src: rec.src
     };
   };
@@ -542,6 +560,18 @@ function selfCheck() {
     if (Math.abs(s - expect) > 1e-9) throw new Error(`${s} ≠ ${expect}`);
     if (s <= 0) throw new Error("الفريمات الكبيرة يجب أن ترجّح النتيجة للصعود");
     eq(overallScore({}), null, "بلا فريمات");
+  });
+
+  t("rp يحفظ أسعار الأصول الرخيصة ولا يمحوها", () => {
+    // شيبا إينو بسعر حقيقي 0.0000051 — التقريب لأربع خانات كان يعطي صفراً
+    eq(rp(0.0000051), 0.0000051, "سعر دون المليونية");
+    eq(rp(0.00000512345678), 0.00000512346, "ستة أرقام معنوية");
+    eq(rp(0.5), 0.5, "أقل من واحد");
+    // الأسعار العادية كما كانت: أربع خانات عشرية
+    eq(rp(62.014999389648438), 62.015, "سعر سهم");
+    eq(rp(5812.3456789), 5812.3457, "سعر مرتفع");
+    eq(rp(-0.0000051), -0.0000051, "سالب");
+    eq([rp(null), rp(undefined), rp(NaN), rp(0)], [null, null, null, 0], "الحالات الحدّية");
   });
 
   t("num() لا يختلق أرقاماً", () => {
