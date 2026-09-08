@@ -21,12 +21,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
+import { fetchQuotes } from "./lib/yahoo.mjs";
 import { statusNow } from "./lib/session.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const OUT = (() => { const i = args.indexOf("--out"); return i >= 0 ? path.resolve(args[i + 1]) : path.join(ROOT, "out"); })();
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
+const PREFER_YAHOO = process.env.PREFER_YAHOO === "1";
 
 const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return d; } };
 const writeJSON = (rel, o) => fs.writeFileSync(path.join(OUT, rel), JSON.stringify(o));
@@ -37,9 +39,12 @@ const r4 = (v) => v === null ? null : Math.round(v * 10000) / 10000;
 /* يُعاد حسابه من نسب التغيّر الجديدة. الاتساع والنتيجة الفنية لا،
    لأنهما من الشمعات التي لم تتغيّر. */
 export function recompute(rows, prevMarket) {
+  // الكريبتو خارج إحصاء السوق الأمريكي — مداه اليومي أوسع بمراتب فيحتل
+  // قائمتَي الرابحين والخاسرين ويزيح متوسطات القطاعات. نفس الاستبعاد في
+  // fetch-market، وأي اختلاف بينهما يجعل القوائم تقفز بين الدورتين.
   // Number.isFinite لا isFinite: العالمية تحوّل null إلى صفر فتعتبره
   // "تغيّر 0%"، فيدخل سهم بلا سعر في متوسط قطاعه ويجرّه نحو الصفر
-  const withChg = rows.filter(r => Number.isFinite(r.chg));
+  const withChg = rows.filter(r => r.mkt !== "crypto" && Number.isFinite(r.chg));
 
   const bySector = {};
   for (const r of withChg) {
@@ -86,7 +91,7 @@ async function main() {
   const market = readJSON(path.join(OUT, "market.json"));
   if (!summary?.rows?.length || !market)
     throw new Error("لا يوجد ملخّص سابق — شغّل fetch-market.mjs أولاً");
-  if (!process.env.FINNHUB_API_KEY)
+  if (!PREFER_YAHOO && !process.env.FINNHUB_API_KEY)
     throw new Error("FINNHUB_API_KEY غير مضبوط — لا مصدر أسعار سريع بدونه");
 
   const syms = summary.rows.map(r => r.s);
@@ -94,28 +99,64 @@ async function main() {
   // يستهلك من حصّة الستين في الدقيقة ويطيل الدورة بلا مقابل. نطلب
   // صناديقها البديلة وحدها.
   const extra = cfg.indices.map(i => i.proxy).filter(Boolean);
-  console.log(`▶ أسعار ${syms.length} رمزاً …`);
 
-  const quotes = await fetchQuotesFinnhub([...syms, ...extra], { pace: 1050 });
-  if (!quotes) throw new Error("لم يصل أي سعر — لن نكتب فوق بيانات سليمة");
+  // الطبقة الواسعة تُسعَّر مع دفعات Yahoo وحدها: 414 رمزاً إضافياً تكلّف
+  // أحد عشر طلباً هناك، بينما تكلّف Finnhub 414 طلباً — سبع دقائق تكسر
+  // دورة الدقيقتين. سحابياً تبقى أسعارها من جلبها اليومي.
+  const wide = PREFER_YAHOO ? readJSON(path.join(OUT, "wide.json")) : null;
+  const wideSyms = wide?.rows?.map(r => r.s) || [];
+  console.log(`▶ أسعار ${syms.length} رمزاً${wideSyms.length ? ` + ${wideSyms.length} في الطبقة الواسعة` : ""} …`);
 
-  let hit = 0;
-  for (const r of summary.rows) {
-    const q = quotes[r.s];
-    if (!q) continue;
-    const p = num(q.regularMarketPrice);
-    if (p === null || p <= 0) continue;
-    r.p = r4(p);
-    const c = num(q.regularMarketChangePercent);
-    if (c !== null) r.chg = r2(c);
-    hit++;
+  // ترتيب المصدر يتبع مكان التشغيل: Yahoo يجمع 40 رمزاً في الطلب، وFinnhub
+  // طلبٌ لكل رمز. محلياً Yahoo أولاً، وسحابياً Finnhub لأن Yahoo محظور.
+  const want = [...syms, ...wideSyms, ...extra];
+  let quotes = null, src = "";
+  const tryQuotes = async (label, fn) => {
+    if (quotes) return;
+    try { quotes = await fn(); if (quotes) src = label; }
+    catch (e) { console.warn(`  ⚠ ${label}: ${e.message}`); }
+  };
+  if (PREFER_YAHOO) {
+    await tryQuotes("Yahoo", () => fetchQuotes(want));
+    await tryQuotes("Finnhub", () => fetchQuotesFinnhub([...syms, ...extra], { pace: 1050 }));
+  } else {
+    await tryQuotes("Finnhub", () => fetchQuotesFinnhub([...syms, ...extra], { pace: 1050 }));
+    await tryQuotes("Yahoo", () => fetchQuotes(want));
   }
+  if (!quotes) throw new Error("لم يصل أي سعر — لن نكتب فوق بيانات سليمة");
+  console.log(`  المصدر: ${src}`);
+
+  const applyQuotes = (rows) => {
+    let n = 0;
+    for (const r of rows) {
+      const q = quotes[r.s];
+      if (!q) continue;
+      const p = num(q.regularMarketPrice);
+      if (p === null || p <= 0) continue;
+      r.p = r4(p);
+      const c = num(q.regularMarketChangePercent);
+      if (c !== null) r.chg = r2(c);
+      n++;
+    }
+    return n;
+  };
+
+  const hit = applyQuotes(summary.rows);
   // بوابة السلامة: تحديث جزئي جداً يعني عطلاً في المصدر لا سوقاً هادئاً
   if (hit < syms.length * 0.5)
     throw new Error(`${hit} من ${syms.length} فقط وصلت — مرفوض`);
 
   summary.updated = now;
   writeJSON("summary.json", summary);
+
+  // الطبقة الواسعة: السعر وحده. `u` عمر الشمعات لا عمر السعر، فلا يُمس —
+  // لمسه هنا يجعل fetch-market يظنّ يوميّها حديثاً فلا يجدّده أبداً.
+  let wideHit = 0;
+  if (wide?.rows?.length) {
+    wideHit = applyQuotes(wide.rows);
+    wide.updated = now;
+    writeJSON("wide.json", wide);
+  }
 
   const m2 = recompute(summary.rows, market);
   m2.indices = refreshIndices(market.indices, quotes, cfg.indices);
@@ -128,10 +169,11 @@ async function main() {
   const prevMeta = readJSON(path.join(OUT, "meta.json"), {});
   writeJSON("meta.json", {
     ...prevMeta, marketUpdated: now,
-    quotesRun: { at: new Date(now).toISOString(), ok: hit, of: syms.length, requests: fhStats.requests }
+    quotesRun: { at: new Date(now).toISOString(), ok: hit, of: syms.length, src,
+                 wide: wideHit, wideOf: wideSyms.length, requests: fhStats.requests }
   });
 
-  console.log(`✔ ${hit} / ${syms.length} سعراً · ${fhStats.requests} طلباً`);
+  console.log(`✔ ${hit} / ${syms.length} سعراً${wideSyms.length ? ` · الواسعة ${wideHit} / ${wideSyms.length}` : ""}`);
   console.log("  الشمعات والمؤشرات الفنية لم تُمَس — تلك دورة fetch-market");
   return 0;
 }
@@ -163,6 +205,15 @@ function selfCheck() {
   t("recompute يتجاهل الصفوف بلا تغيّر", () => {
     const m = recompute([{ s: "A", sec: "x", chg: null, p: 1 }, { s: "B", sec: "x", chg: 5, p: 2 }], {});
     eq(m.sectors[0], { sec: "x", n: 1, avg: 5 }, "واحد فقط");
+  });
+
+  t("recompute يستبعد الكريبتو من إحصاء السوق الأمريكي", () => {
+    const m = recompute([
+      { s: "AAPL", sec: "تقنية", chg: 1, p: 100 },
+      { s: "BTC-USD", sec: "كريبتو", mkt: "crypto", chg: 40, p: 90000 }
+    ], {});
+    eq(m.sectors.map(x => x.sec), ["تقنية"], "قطاع واحد");
+    eq(m.gainers.map(x => x.s), ["AAPL"], "بيتكوين لا يتصدّر الرابحين");
   });
 
   t("refreshIndices يستعمل الصندوق البديل للنسبة ويُبقي المستوى", () => {

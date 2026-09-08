@@ -37,6 +37,15 @@ export function approxMarketStatus(now) {
   return { state: "CLOSED", ar: "السوق مغلق", next: null, nextAr: "يفتتح بعد" };
 }
 
+/* الكريبتو يتداول بلا انقطاع: لا افتتاح ولا إغلاق ولا عطلة نهاية أسبوع.
+   تمريره على منطق ساعات نيويورك يجعله "مغلقاً" ليل السبت وهو يتحرك. */
+export const CRYPTO_STATUS = { state: "OPEN24", ar: "مفتوح ٢٤/٧", next: null, nextAr: "" };
+
+/* المدخل الموحّد: أعطِ سوق الرمز فتحصل على حالته الصحيحة */
+export function statusFor(mkt, period, now) {
+  return mkt === "crypto" ? { ...CRYPTO_STATUS } : statusNow(period, now);
+}
+
 /* الفترات المحفوظة تصف يوم جلبها. استعمالها في اليوم التالي يعطي
    "بعد الإغلاق" بينما السوق مفتوح فعلاً، لأن كل مقارنات النافذة تقع
    خلف now. فإن لم تعد فترات اليوم تشمل الوقت الحالي نرجع للتقدير. */

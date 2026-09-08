@@ -25,6 +25,10 @@ const OUT = (() => { const i = args.indexOf("--out"); return i >= 0 ? path.resol
 
 const KEEP = 260;                 // يكفي لـ EMA200 مع هامش، ويُبقي الملفات خفيفة
 const MAX_AGE = { "15m": 0, "1h": 55 * 60e3, "1d": 20 * 3600e3 };
+// سقف رموز الطبقة الواسعة لكل تشغيل. صلاحية اليومي عشرون ساعة، ودورة
+// السوق عشر دقائق، فـ 60 رمزاً/تشغيل تكفي لتجديد 414 رمزاً في ~70 دقيقة
+// دون أن ترتفع دورة واحدة إلى مئات الطلبات فتستدعي 429.
+const WIDE_PER_RUN = Number(process.env.WIDE_PER_RUN || 60);
 const RANGE   = { "15m": "60d", "1h": "730d", "1d": "5y" };
 
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
@@ -82,18 +86,23 @@ function stale(prev, tf, now) {
 /* حالة الجلسة في scripts/lib/session.mjs — تستعملها مهمة الأسعار
    السريعة أيضاً، ونسخة واحدة تمنع اختلاف الترويسة بين المهمتين. */
 
-async function buildSymbol(meta, prevDir, now, quotes) {
+/* `frames` تحدد عمق الرمز: الطبقة الأساسية تأخذ الفريمات الثلاثة،
+   والطبقة الواسعة اليوميَّ وحده. جلب 500 رمز × 3 فريمات كل عشر دقائق
+   يستدعي 429 حتى من شبكة منزلية، واليوميُّ وحده يكفي للبحث ولمستويات
+   الدعم والمقاومة و52 أسبوعاً — وهو كل ما يُطلب من رمز خارج المرصودة. */
+async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15m"]) {
   const sym = meta.s;
   const prev = readJSON(path.join(prevDir, "sym", `${sym}.json`));
   // نُعيد الشمعات المحفوظة إلى شكل الكائنات فور القراءة، فما بعدها من
   // حساب ورسم يتعامل مع شكل واحد فقط
   for (const o of Object.values(prev?.tf || {})) if (o?.c) o.c = unpackCandles(o.c);
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
+  if (meta.mkt) rec.mkt = meta.mkt;
   let touched = false, errors = [], usedTD = false;
 
   // الترتيب مقصود: اليومي أولاً لأنه أساس الشارت والنتيجة الفنية، فحين
   // تنفد ميزانية الطلبات في تشغيل واحد تكون الفريمات الأهم قد امتلأت
-  for (const tf of ["1d", "1h", "15m"]) {
+  for (const tf of frames) {
     if (!stale(prev, tf, now) && prev?.tf?.[tf]?.c?.length) {
       rec.tf[tf] = prev.tf[tf];                       // ما زال حديثاً — أبقِه
       continue;
@@ -190,7 +199,9 @@ async function main() {
   fs.mkdirSync(OUT, { recursive: true });
 
   const universe = cfg.symbols;
-  console.log(`▶ تحديث ${universe.length} رمزاً …`);
+  const cryptoAll = cfg.crypto || [];
+  const wideAll = cfg.wide || [];
+  console.log(`▶ ${universe.length} مرشّحاً أساسياً · ${cryptoAll.length} عملة رقمية · ${wideAll.length} في الطبقة الواسعة`);
 
   // الترتيب اليومي يحدد الـ70؛ إن لم يوجد بعد نأخذ ترتيب الملف
   const ranking = readJSON(path.join(OUT, "ranking.json"));
@@ -219,19 +230,47 @@ async function main() {
   const needy = [...order.values()].filter(v => v < 3).length;
   if (needy) console.log(`  رموز ناقصة الشمعات: ${needy} — لها أولوية الميزانية`);
 
-  // 1) دفعة الأسعار — Finnhub أولاً (مصدر موثوق بمفتاح، لا يُحظر مثل Yahoo)
-  const allSymbols = [...chosen.map(c => c.s), ...cfg.indices.map(i => i.s),
+  // الطبقة الواسعة: من انقضت صلاحية يوميّه فقط، بسقف لكل تشغيل.
+  // نقرأ أعمارها من wide.json لا من 414 ملفاً على القرص — فحص الملفات
+  // واحداً واحداً يقرأ عشرات الميغابايتات في كل دورة بلا داعٍ.
+  const prevWide = readJSON(path.join(OUT, "wide.json"))?.rows || [];
+  const wideAge = new Map(prevWide.map(r => [r.s, r.u || 0]));
+  const wideDue = wideAll
+    .filter(m => (now - (wideAge.get(m.s) ?? 0)) >= MAX_AGE["1d"])
+    .sort((a, b) => (wideAge.get(a.s) ?? 0) - (wideAge.get(b.s) ?? 0))   // الأقدم أولاً
+    .slice(0, WIDE_PER_RUN);
+  if (wideAll.length)
+    console.log(`  الطبقة الواسعة: ${wideDue.length} مستحقّ من ${wideAll.length} (سقف ${WIDE_PER_RUN}/تشغيل)`);
+
+  // الوظائف: الأساسية والكريبتو بالفريمات الثلاثة، والواسعة باليومي وحده
+  const FULL = ["1d", "1h", "15m"];
+  const jobs = [
+    ...chosen.map(m => ({ m, frames: FULL, tier: "core" })),
+    ...cryptoAll.map(m => ({ m, frames: FULL, tier: "core" })),
+    ...wideDue.map(m => ({ m, frames: ["1d"], tier: "wide" }))
+  ];
+
+  // 1) دفعة الأسعار.
+  // ترتيب المصدر يتبع مكان التشغيل كما في الشموع: Finnhub المجاني طلبٌ لكل
+  // رمز بحد 60/دقيقة، فـ 160 رمزاً تعني أكثر من دقيقتين ونصف — أطول من دورة
+  // الأسعار نفسها. Yahoo يجمع 40 رمزاً في الطلب الواحد، فيكفيه أربعة طلبات.
+  // محلياً Yahoo أولاً إذن، وسحابياً يبقى Finnhub أولاً لأن Yahoo محظور هناك.
+  const allSymbols = [...jobs.map(j => j.m.s), ...cfg.indices.map(i => i.s),
                       ...cfg.indices.map(i => i.proxy).filter(Boolean)];
   let quotes = null;
-  try {
-    quotes = await fetchQuotesFinnhub(allSymbols);
-    console.log(`  ✓ أسعار Finnhub: ${quotes ? Object.keys(quotes).length : 0} رمز`);
-  } catch (e) { console.warn(`  ⚠ أسعار Finnhub فشلت: ${e.message}`); }
-  if (!quotes) {
+  const tryQuotes = async (label, fn) => {
+    if (quotes) return;
     try {
-      quotes = await fetchQuotes(allSymbols);
-      console.log(`  ✓ دفعة أسعار Yahoo (احتياط): ${quotes ? Object.keys(quotes).length : 0} رمز`);
-    } catch (e) { console.warn(`  ⚠ دفعة أسعار Yahoo فشلت أيضاً: ${e.message}`); }
+      quotes = await fn(allSymbols);
+      console.log(`  ✓ أسعار ${label}: ${quotes ? Object.keys(quotes).length : 0} رمز`);
+    } catch (e) { console.warn(`  ⚠ أسعار ${label} فشلت: ${e.message}`); }
+  };
+  if (PREFER_YAHOO) {
+    await tryQuotes("Yahoo (دفعات)", fetchQuotes);
+    await tryQuotes("Finnhub (احتياط)", fetchQuotesFinnhub);
+  } else {
+    await tryQuotes("Finnhub", fetchQuotesFinnhub);
+    await tryQuotes("Yahoo (احتياط)", fetchQuotes);
   }
 
   // 2) الشموع
@@ -241,18 +280,24 @@ async function main() {
   // هو المصدر الأول (تشغيل محلي) فلا حد يقيّدنا، فنتوازى ونختصر الوقت
   // من ~28 دقيقة إلى دقائق معدودة لكل الرموز السبعين.
   const lanes = (hasTwelveData() && !PREFER_YAHOO) ? 1 : 3;
-  const results = await pool(chosen, lanes, (m) => buildSymbol(m, OUT, now, quotes));
-  const rows = [], failed = [];
+  const results = await pool(jobs, lanes, (j) => buildSymbol(j.m, OUT, now, quotes, j.frames));
+  const rows = [], wideRecs = [], failed = [];
   results.forEach((r, i) => {
-    if (r.ok) rows.push(r.value);
-    else { failed.push({ s: chosen[i].s, error: r.error }); console.warn(`  ✗ ${chosen[i].s}: ${r.error}`); }
+    const j = jobs[i];
+    if (r.ok) (j.tier === "wide" ? wideRecs : rows).push(r.value);
+    else { failed.push({ s: j.m.s, error: r.error }); console.warn(`  ✗ ${j.m.s}: ${r.error}`); }
   });
-  console.log(`  ✓ نجح ${rows.length} / ${chosen.length}`);
-  if (!rows.length) throw new Error("لم ينجح أي رمز — لن نكتب فوق البيانات السليمة");
+  console.log(`  ✓ نجح ${rows.length + wideRecs.length} / ${jobs.length}`);
+  // بوابة السلامة على الطبقة الأساسية وحدها: الواسعة تراكمية، وتشغيل لم
+  // يستحقّ فيه أي رمز واسع تحديثاً ليس فشلاً.
+  if (!rows.length) throw new Error("لم ينجح أي رمز أساسي — لن نكتب فوق البيانات السليمة");
 
   // 3) ملفات الأسهم + صفوف الملخص
   let bytes = 0;
-  const summary = rows.map(rec => {
+  // نفس بناء الصف للطبقتين — نسختان تعنيان حقلاً يُضاف لواحدة وتُنسى فيه
+  // الأخرى، فيظهر السهم الموسّع ناقصاً بلا سبب ظاهر. الفرق الوحيد `spark`:
+  // ثلاثون رقماً لكل صف تضاعف حجم ملف الطبقة الواسعة بلا فائدة في القائمة.
+  const buildRow = (rec, withSpark) => {
     const packed = { ...rec, v: 2, tf: {} };
     for (const [tf, o] of Object.entries(rec.tf)) packed.tf[tf] = { ...o, c: packCandles(o.c) };
     bytes += writeJSON(`sym/${rec.s}.json`, packed);
@@ -277,8 +322,8 @@ async function main() {
     const spark = (rec.tf["1h"]?.c || d1).slice(-30).map(x => +x.c.toFixed(2));
 
     return {
-      s: rec.s, ar: rec.ar, en: rec.en, sec: rec.sec,
-      p: r4(price), chg: r2(chg), ext, spark,
+      s: rec.s, ar: rec.ar, en: rec.en, sec: rec.sec, ...(rec.mkt ? { mkt: rec.mkt } : {}),
+      p: r4(price), chg: r2(chg), ext, ...(withSpark ? { spark } : {}),
       score: rec.score,
       atr: r4(rec.an["1d"]?.atr ?? null), rsi: r2(rec.an["1d"]?.rsi ?? null),
       tfScore: Object.fromEntries(TFS.filter(t => rec.an[t]).map(t => [t, +rec.an[t].score.toFixed(1)])),
@@ -290,8 +335,21 @@ async function main() {
       w52l: r4(num(q?.fiftyTwoWeekLow) ?? num(fnd?.w52l)),
       stale: !!rec.stale, src: rec.src
     };
-  });
+  };
+
+  const summary = rows.map(rec => buildRow(rec, true));
   summary.sort((a, b) => (b.mc ?? 0) - (a.mc ?? 0));
+
+  // الطبقة الواسعة تراكمية: كل تشغيل يجدّد حصّته فقط، فندمج الجديد فوق
+  // القديم بدل استبداله. بلا الدمج يخرج الملف بستين صفاً كل مرة وينهار
+  // البحث إلى آخر دفعة جُلبت.
+  const wideMerged = new Map(prevWide.map(r => [r.s, r]));
+  for (const rec of wideRecs) wideMerged.set(rec.s, { ...buildRow(rec, false), u: now });
+  const wideRows = [...wideMerged.values()].sort((a, b) => (b.mc ?? 0) - (a.mc ?? 0));
+  if (wideRows.length < prevWide.length)
+    throw new Error(`الطبقة الواسعة تقلّصت ${prevWide.length}→${wideRows.length} — لن نكتب`);
+  bytes += writeJSON("wide.json", { updated: now, count: wideRows.length, rows: wideRows });
+  console.log(`  ✓ الطبقة الواسعة: ${wideRows.length} صفاً (+${wideRecs.length} محدَّثاً)`);
 
   // 4) المؤشرات العامة + اتساع السوق + القطاعات
   const idxRows = [];
@@ -318,9 +376,14 @@ async function main() {
     idxRows.push({ s: ix.s, ar: ix.ar, en: ix.en, p: r2(p), chg: r2(chg), ...(viaProxy ? { proxy: ix.proxy } : {}) });
   }
 
+  // اتساع السوق ومزاجه وقطاعاته تصف **السوق الأمريكي**. الكريبتو يتحرك
+  // بمدى يومي أوسع بمراتب، فبيتكوين وحده يزيح متوسط "مزاج السوق" ويحتل
+  // قائمتَي الرابحين والخاسرين كل يوم تقريباً. يبقى في الملخّص ويخرج من
+  // الإحصاء.
+  const usRows = summary.filter(r => r.mkt !== "crypto");
   // Number.isFinite لا isFinite: العالمية تحوّل null إلى صفر، فسهم بلا
   // سعر يُحسب "تغيّر 0%" ويدخل متوسط قطاعه ويجرّه نحو الصفر
-  const withChg = summary.filter(r => Number.isFinite(r.chg));
+  const withChg = usRows.filter(r => Number.isFinite(r.chg));
   const bySector = {};
   for (const r of withChg) {
     (bySector[r.sec] ||= { sec: r.sec, n: 0, sum: 0 });
@@ -330,8 +393,10 @@ async function main() {
     .map(x => ({ sec: x.sec, n: x.n, avg: r2(x.sum / x.n) }))
     .sort((a, b) => b.avg - a.avg);
 
-  const scored = summary.filter(r => Number.isFinite(r.score));
-  const period = rows.find(r => r.period)?.period || null;
+  const scored = usRows.filter(r => Number.isFinite(r.score));
+  // فترات التداول من رمز أمريكي حصراً: الكريبتو يتداول 24/7 وميتاداتاه
+  // تعطي نافذة يوم كامل، فتقول الترويسة "السوق مفتوح" ليل السبت.
+  const period = rows.find(r => r.mkt !== "crypto" && r.period)?.period || null;
   const status = period ? marketStatus(period, now) : approxMarketStatus(now);
 
   writeJSON("market.json", {
@@ -376,10 +441,29 @@ function selfCheck() {
   const t = (name, fn) => { try { fn(); console.log(`  ✓ ${name}`); pass++; } catch (e) { console.log(`  ✗ ${name} — ${e.message}`); fail++; } };
   const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`); };
 
-  t("symbols.json صالح و 90 رمزاً", () => {
+  t("symbols.json صالح و 90 مرشّحاً أساسياً", () => {
     if (cfg.symbols.length !== 90) throw new Error(`${cfg.symbols.length}`);
     if (cfg.top !== 70) throw new Error("top ≠ 70");
     for (const s of cfg.symbols) if (!s.s || !s.ar || !s.sec) throw new Error(`حقل ناقص في ${s.s}`);
+  });
+
+  t("الطبقتان الواسعة والكريبتو لا تتقاطعان مع الأساسية", () => {
+    const core = new Set(cfg.symbols.map(s => s.s));
+    if (!cfg.wide?.length) throw new Error("لا طبقة واسعة");
+    if (!cfg.crypto?.length) throw new Error("لا كريبتو");
+    const seen = new Set(core);
+    for (const s of [...cfg.wide, ...cfg.crypto]) {
+      if (!s.s || !s.en || !s.sec) throw new Error(`حقل ناقص في ${s.s}`);
+      if (seen.has(s.s)) throw new Error(`${s.s} مكرّر بين الطبقات`);
+      seen.add(s.s);
+    }
+    for (const c of cfg.crypto) if (c.mkt !== "crypto") throw new Error(`${c.s} بلا mkt`);
+  });
+
+  t("سقف الطبقة الواسعة يكفي لتجديدها داخل صلاحية اليومي", () => {
+    const runsPerTTL = MAX_AGE["1d"] / (10 * 60e3);          // دورة السوق 10 دقائق
+    if (WIDE_PER_RUN * runsPerTTL < cfg.wide.length)
+      throw new Error(`${WIDE_PER_RUN}/تشغيل لا تكفي ${cfg.wide.length} رمزاً`);
   });
 
   const H = 3600e3;

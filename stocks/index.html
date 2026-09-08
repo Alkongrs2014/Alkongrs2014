@@ -344,6 +344,11 @@ details b{color:var(--tx)}
 <section data-view="list">
   <div class="toolbar">
     <input id="qSearch" type="search" placeholder="ابحث برمز أو اسم…" autocomplete="off">
+    <select id="qMarket">
+      <option value="us" selected>المرصودة (٧٠)</option>
+      <option value="all">كل السوق</option>
+      <option value="crypto">الكريبتو</option>
+    </select>
     <select id="qSort">
       <option value="score">الأقوى فنياً</option>
       <option value="scoreAsc">الأضعف فنياً</option>
@@ -607,7 +612,7 @@ const TF_LABEL  = { "15m": "15 دقيقة", "1h": "ساعة", "4h": "4 ساعا�
 const TF_WEIGHT = { "15m": 0.5, "1h": 1, "4h": 1.5, "1d": 2 };
 
 const state = {
-  summary: null, market: null, fund: null, news: null,
+  summary: null, wide: null, market: null, fund: null, news: null,
   symCache: {}, view: "now", sym: null, activeTF: "1h",
   lastOk: 0, busy: false, liveAt: 0, liveOn: false,
   favs: [], favOnly: false, hover: null, from: "list", scan: null
@@ -845,6 +850,18 @@ async function getJSON(name) {
   } finally { clearTimeout(timer); }
 }
 
+/* اسم العرض. الطبقة الواسعة (بقية S&P 500) بلا اسم عربي عمداً: الترجمة
+   الآلية تشوّه أسماء الشركات، فالإنجليزي أصدق من عربي مفبرك. وبلا هذه
+   الدالة كان `esc(r.ar)` يطبع "undefined" في صفوفها. */
+const nm = (r) => (r && (r.ar || r.en || r.s)) || "";
+
+/* رموز الطبقتين معاً — نطاق البحث حين يكتب المستخدم شيئاً */
+function allRows() {
+  const a = (state.summary && state.summary.rows) || [];
+  const b = (state.wide && state.wide.rows) || [];
+  return b.length ? a.concat(b) : a.slice();
+}
+
 /* الشمعات تصل مضغوطة كمصفوفات [ث, فتح, أعلى, أدنى, إغلاق, حجم] — نفكّها مرة واحدة */
 const unpackCandles = (arr) => Array.isArray(arr) && Array.isArray(arr[0])
   ? arr.map(a => ({ t: a[0] * 1000, o: a[1], h: a[2], l: a[3], c: a[4], v: a[5] }))
@@ -992,8 +1009,18 @@ function sparkSVG(vals, up) {
 
 function filteredRows() {
   if (!state.summary) return [];
-  let rows = state.summary.rows.slice();
   const q = ($("#qSearch").value || "").trim().toLowerCase();
+  const mkt = ($("#qMarket") && $("#qMarket").value) || "us";
+
+  // البحث يعمّ الكون كاملاً بمجرّد كتابة نص — هذا هو معنى "ابحث عن أي رمز".
+  // بلا نص نعرض المرصودة وحدها، فقائمة من 510 صفوف بلا هدف ليست ميزة.
+  // ومَن كتب "بيتكوين" يقصده: حصر البحث في الأمريكي لأن المُبدّل عليه
+  // افتراضاً يعيد "لا نتائج" عن رمز موجود فعلاً. الحصر نيّة صريحة لا
+  // افتراضية، فلا يُطبَّق مع نص البحث إلا حين يختار المستخدم الكريبتو.
+  let rows = (q || mkt !== "us") ? allRows() : state.summary.rows.slice();
+  if (mkt === "crypto") rows = rows.filter(r => r.mkt === "crypto");
+  else if (mkt === "us" && !q) rows = rows.filter(r => r.mkt !== "crypto");
+
   const sec = $("#qSector").value;
   if (sec) rows = rows.filter(r => r.sec === sec);
   if (q) rows = rows.filter(r =>
@@ -1034,7 +1061,7 @@ function renderList() {
       <div class="rank num">${i + 1}</div>
       <div class="id">
         <div class="t"><button class="star${isFav(r.s) ? " on" : ""}" data-fav="${esc(r.s)}"
-          aria-label="${isFav(r.s) ? "إزالة من المتابَعة" : "إضافة للمتابَعة"}">${isFav(r.s) ? "★" : "☆"}</button>${esc(r.ar)}${ext}${r.stale ? `<span class="chip off" style="font-size:10px;padding:1px 6px">قديم</span>` : ""}</div>
+          aria-label="${isFav(r.s) ? "إزالة من المتابَعة" : "إضافة للمتابَعة"}">${isFav(r.s) ? "★" : "☆"}</button>${esc(nm(r))}${ext}${r.stale ? `<span class="chip off" style="font-size:10px;padding:1px 6px">قديم</span>` : ""}</div>
         <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}</div>
       </div>
       ${sparkSVG(r.spark, isFinite(r.chg) ? r.chg >= 0 : true)}
@@ -1044,7 +1071,14 @@ function renderList() {
       </div>
     </div>`;
   }).join("");
-  $("#listCount").textContent = `${rows.length} سهماً${state.favOnly ? " من المتابَعة" : ""} · حُدّثت ${ago(state.summary.updated)}`;
+  const mkt = ($("#qMarket") && $("#qMarket").value) || "us";
+  const unit = mkt === "crypto" ? "عملة" : "سهماً";
+  // الطبقة الواسعة يوميّة الشمعات: قول ذلك صراحةً أصدق من ترك المستخدم
+  // يفترض أنها تتحدّث كالمرصودة
+  const depth = (mkt !== "us" || $("#qSearch").value.trim())
+    ? ` · خارج المرصودة: شمعات يومية فقط` : "";
+  $("#listCount").textContent =
+    `${rows.length} ${unit}${state.favOnly ? " من المتابَعة" : ""} · حُدّثت ${ago(state.summary.updated)}${depth}`;
 }
 
 /* ---------- شاشة السهم ---------- */
@@ -1073,14 +1107,17 @@ async function openSymbol(sym) {
 }
 
 function symRow(sym) {
-  return (state.summary && state.summary.rows.find(r => r.s === sym)) || null;
+  return (state.summary && state.summary.rows.find(r => r.s === sym))
+      || (state.wide && state.wide.rows.find(r => r.s === sym))
+      || null;
 }
 
 function renderDetail() {
   const sym = state.sym; if (!sym) return;
   const rec = state.symCache[sym]; if (!rec) return;
+  syncTFPicker(rec);
   const row = symRow(sym);
-  $("#tbTitle").textContent = `${rec.ar} · ${sym}`;
+  $("#tbTitle").textContent = `${nm(rec)} · ${sym}`;
 
   const price = (row && row.p) || rec.cur;
   const chg = row && row.chg;
@@ -1091,8 +1128,9 @@ function renderDetail() {
   $("#dHead").innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
       <div style="min-width:0">
-        <div style="font-size:15px;font-weight:800">${esc(rec.ar)}</div>
-        <div style="font-size:12px;color:var(--mut)">${esc(rec.en)} · ${esc(rec.sec)}</div>
+        <div style="font-size:15px;font-weight:800">${esc(nm(rec))}</div>
+        <div style="font-size:12px;color:var(--mut)">${rec.ar ? esc(rec.en) + " · " : ""}${esc(rec.sec)}${
+          rec.mkt === "crypto" ? ` · <span style="color:var(--up)">يتداول ٢٤/٧</span>` : ""}</div>
       </div>
       <div style="text-align:left;flex:none">
         <div class="num" style="font-size:26px;font-weight:800">${money(price)}</div>
@@ -1261,6 +1299,25 @@ function renderLevels(rec) {
     res.map(l => row(l, "res")).join("") +
     `<div class="lvl now"><span class="num" style="font-weight:800">${money(px)}</span><span class="tag">السعر الآن</span></div>` +
     sup.map(l => row(l, "sup")).join("");
+}
+
+/* رموز الطبقة الواسعة تُجلب بالفريم اليومي وحده. بلا هذا كان المستخدم
+   يفتح أحدها فيجد الشارت فارغاً على فريم الساعة الافتراضي وثلاثة أزرار
+   تعطي "لا بيانات" — نعطّل الغائب ونحوّل الاختيار إلى فريم موجود. */
+function syncTFPicker(rec) {
+  const has = (tf) => !!(rec.tf && rec.tf[tf] && rec.tf[tf].c && rec.tf[tf].c.length);
+  const btns = $$("#tfPicker button");
+  btns.forEach(b => {
+    const ok = has(b.dataset.tf);
+    b.disabled = !ok;
+    b.style.opacity = ok ? "" : ".35";
+    b.title = ok ? "" : "غير متاح لهذا الرمز";
+  });
+  if (!has(state.activeTF)) {
+    const alt = ["1d", "4h", "1h", "15m"].find(has);
+    if (alt) state.activeTF = alt;
+  }
+  btns.forEach(b => b.classList.toggle("on", b.dataset.tf === state.activeTF));
 }
 
 function renderIndicators(rec) {
@@ -1554,7 +1611,7 @@ function renderAnalysis() {
     return `<div class="srow" data-open="${esc(r.s)}">
       <div class="rank num">${i + 1}</div>
       <div class="id">
-        <div class="t">${esc(r.ar)}</div>
+        <div class="t">${esc(nm(r))}</div>
         <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}${
           isFinite(f.roe) ? ` · ROE ${bd(fmt(asPct(f.roe), 0) + "%")}` : ""}</div>
       </div>
@@ -1725,7 +1782,7 @@ function renderScreen() {
     return `<div class="srow" data-open="${esc(r.s)}">
       <div class="rank num">${i + 1}</div>
       <div class="id">
-        <div class="t">${esc(r.ar)}</div>
+        <div class="t">${esc(nm(r))}</div>
         <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}</div>
       </div>
       <div class="hitv">${esc(v)}</div>
@@ -1754,7 +1811,7 @@ function renderEarnings() {
     const d = Math.ceil((f.earnings.at - now) / 86400000);
     const soon = d <= 7;
     return `<div class="row" style="cursor:pointer" data-open="${esc(r.s)}">
-      <div class="l"><span class="tick">${esc(r.s)}</span> ${esc(r.ar)}
+      <div class="l"><span class="tick">${esc(r.s)}</span> ${esc(nm(r))}
         <small>${new Date(f.earnings.at).toLocaleDateString(AR, { weekday: "long", month: "long", day: "numeric" })}${
           f.earnings.estimated ? " · تاريخ تقديري" : ""}</small></div>
       <div class="r" style="color:${soon ? "var(--neu)" : "var(--mut)"}">${
@@ -1954,8 +2011,11 @@ function go(view) {
 
 function fillSymbolSelects() {
   if (!state.summary) return;
+  // قوائم المقارنة والتنبيهات تبقى على المرصودة: المقارنة تقرأ الأساسيات
+  // وهي لا تُجلب إلا لها، فإدراج 414 رمزاً بلا أساسيات يملأ القائمة بخيارات
+  // تعطي "—" في كل صف.
   const rows = state.summary.rows.slice().sort((a, b) => a.s.localeCompare(b.s));
-  const opts = rows.map(r => `<option value="${esc(r.s)}">${esc(r.s)} — ${esc(r.ar)}</option>`).join("");
+  const opts = rows.map(r => `<option value="${esc(r.s)}">${esc(r.s)} — ${esc(nm(r))}</option>`).join("");
 
   // المقارنة تبدأ بأكبر شركتين بدل قائمتين فارغتين تطلبان اختياراً
   const big = state.summary.rows.slice(0, 2).map(r => r.s);
@@ -1966,7 +2026,7 @@ function fillSymbolSelects() {
     el.value = cur || dflt || "";
   });
 
-  const secs = [...new Set(state.summary.rows.map(r => r.sec))].sort();
+  const secs = [...new Set(allRows().map(r => r.sec))].sort();
   const secOpts = secs.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
   for (const id of ["#qSector", "#fSector"]) {
     const el = $(id); if (!el) continue;
@@ -2049,6 +2109,15 @@ async function refresh(force = false) {
   getJSON("news.json").then(n => { state.news = n; renderNews(); if (state.sym) renderSymNews(); }).catch(() => {
     $("#newsList").innerHTML = `<div class="note">تعذّر جلب الأخبار الآن.</div>`;
   });
+  // الطبقة الواسعة: بقية S&P 500 بالفريم اليومي وحده. تُحمَّل بعد الرسم
+  // الأول لا قبله — بها يعمل البحث على الكون كاملاً، وبدونها يبقى التطبيق
+  // كما كان على المرصودة. لذلك فشلها صامت ولا يوقف شيئاً.
+  getJSON("wide.json").then(w => {
+    if (!w || !Array.isArray(w.rows)) return;
+    state.wide = w;
+    fillSymbolSelects();
+    if (state.view === "list") renderList();
+  }).catch(() => {});
 }
 
 function boot() {
@@ -2115,6 +2184,7 @@ function boot() {
   $("#qSearch").oninput = () => { clearTimeout(deb); deb = setTimeout(renderList, 180); };
   $("#qSort").onchange = renderList;
   $("#qSector").onchange = renderList;
+  $("#qMarket").onchange = renderList;
 
   $("#btnCalc").onclick = calc;
 
