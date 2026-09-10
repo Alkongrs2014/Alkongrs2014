@@ -81,10 +81,23 @@ export function guard(prevCount, nextCount, { pruning = false } = {}) {
    تُسجَّل مرة واحدة لا أربع عشرة. */
 export const openKey = (s) => `${s.sym}|${s.scan}`;
 
-/* تحديث إشارة مفتوحة بسعر اليوم */
+/* اتجاه الشرط من تعريفه الواحد في `scans.js` — لا نسخة ثانية هنا، فنسختان
+   من الاتجاه تتباعدان فيقيس الأرشيف شرطاً غير الذي يراه المستخدم. */
+export const scanDir = (id) => {
+  const s = SCANS.find(x => x.id === id);
+  return (s && s.dir === -1) ? -1 : 1;
+};
+
+/* تحديث إشارة مفتوحة بسعر اليوم.
+
+   العائد يُقاس **باتجاه الإشارة** المثبَّت في سجلّها: إشارة هبوط تربح حين
+   يهبط السعر. قياسُ كل الإشارات بمنطق الشراء كان يقلب معنى إشارتي الهبوط
+   تماماً، فتُحتسب «توافق الفريمات ▼» رابحة حين يصعد السعر — أي أن الأرشيف
+   كان يحكم على شرطٍ يعمل بأنه فاشل، والرقم يبدو موثوقاً لأنه محسوب. */
 export function update(sig, price, now) {
   if (!(price > 0) || !(sig.entry > 0)) return sig;
-  const ret = (price - sig.entry) / sig.entry * 100;
+  const d = sig.dir === -1 ? -1 : 1;
+  const ret = (price - sig.entry) / sig.entry * 100 * d;
   sig.last = r2(price);
   sig.ret = r2(ret);
   sig.mfe = r2(Math.max(sig.mfe ?? ret, ret));
@@ -101,6 +114,9 @@ export function aggregate(records) {
   // عشرات الإشارات السهمية. نفس الاستبعاد في الأرشيف التاريخي.
   for (const s of records) {
     if (s.mkt === "crypto") continue;
+    // سجلات ما قبل توقيع الاتجاه: مقاييسها بمواضعة الشراء، فجمعُها مع
+    // المواضعة الصحيحة يخرج وسيطاً لا يصف أياً منهما
+    if (s.conv === "long") continue;
     (byScan[s.scan] ||= { open: [], done: [] })[s.open ? "open" : "done"].push(s);
   }
   const out = [];
@@ -109,7 +125,7 @@ export function aggregate(records) {
     if (!g) continue;
     const rets = g.done.map(x => x.ret).filter(Number.isFinite);
     out.push({
-      id: scan.id, lbl: scan.lbl,
+      id: scan.id, lbl: scan.lbl, dir: scanDir(scan.id),
       open: g.open.length, closed: g.done.length,
       med: r2(median(rets)), avg: r2(mean(rets)),
       win: rets.length ? r2(rets.filter(x => x > 0).length / rets.length * 100) : null,
@@ -139,6 +155,23 @@ async function main() {
   const records = Array.isArray(prev?.records) ? prev.records : [];
   const prevCount = records.length;
 
+  // ٠) هجرة اتجاه — مرّة واحدة لكل سجلّ قديم
+  //
+  // السجلات المكتوبة قبل توقيع الاتجاه قِيست كلها بمنطق الشراء. تحويلها
+  // لا يصحّ: `mfe` و`mae` مسارٌ تراكمي لا يُعاد حسابه من سعر واحد، ودمج
+  // مواضعتين في حقل واحد يفبرك رقماً لا يصف أياً منهما. فتُوسَم `conv`
+  // وتُغلق فتخرج من الإحصاء، وتُعاد الإشارة صحيحةً في الدورة التالية.
+  // الكلفة ساعاتُ تتبّع لا شهور — والبديل رقمٌ مقلوب يبدو موثوقاً.
+  let migrated = 0;
+  for (const sig of records) {
+    if (sig.conv || sig.dir === -1) continue;      // مهاجَر، أو مكتوب بعد التصحيح
+    if (scanDir(sig.scan) !== -1) continue;        // شرط صاعد: مواضعته صحيحة أصلاً
+    sig.conv = "long";
+    if (sig.open) { sig.open = false; sig.closed = now; }
+    migrated++;
+  }
+  if (migrated) console.log(`  ⟳ هجرة اتجاه: أُغلق ${migrated} سجلاً بمواضعة الشراء`);
+
   // ١) حدّث المفتوحة بسعر اليوم
   let closedNow = 0;
   for (const sig of records) {
@@ -165,7 +198,11 @@ async function main() {
       records.push({
         sym: r.s, scan: scan.id, at: now, at2: now,
         entry: r2(r.p), last: r2(r.p), ret: 0, mfe: 0, mae: 0,
-        atr: r4(r.atr), open: true, ...(r.mkt ? { mkt: r.mkt } : {})
+        atr: r4(r.atr), open: true,
+        // `dir` يُكتب حين يخالف +1 وحده — نفس أسلوب `mkt` الشرطي، فسجلّ
+        // يتراكم بعشرات الآلاف لا يحمل حقلاً قيمته هي الافتراض
+        ...(scan.dir === -1 ? { dir: -1 } : {}),
+        ...(r.mkt ? { mkt: r.mkt } : {})
       });
       openNow.add(key);
       added++;
@@ -191,7 +228,9 @@ async function main() {
   fs.writeFileSync(path.join(OUT, "archive.json"),
     JSON.stringify({ updated: now, holdDays: HOLD_DAYS,
                      open: records.filter(s => s.open).length,
-                     closed: records.filter(s => !s.open).length, scans }));
+                     closed: records.filter(s => !s.open).length,
+                     // المستبعَد يُعلَن: عددٌ ناقص بلا سبب يُقرأ كخلل
+                     legacy: records.filter(s => s.conv === "long").length, scans }));
 
   const prevMeta = readJSON(path.join(OUT, "meta.json"), {});
   fs.writeFileSync(path.join(OUT, "meta.json"), JSON.stringify({
@@ -246,6 +285,46 @@ function selfCheck() {
     const s = { sym: "X", scan: "a", at: 1, entry: 100, open: true, ret: 5, mfe: 5, mae: 0 };
     update(s, 0, 2); update(s, null, 3); update(s, NaN, 4);
     eq([s.ret, s.mfe, s.mae], [5, 5, 0], "بلا تغيير");
+  });
+
+  t("update يقيس إشارة الهبوط باتجاهها لا بمنطق الشراء", () => {
+    const now = 1_700_000_000_000;
+    // نفس الرحلة السعرية بالضبط، وسجلّان باتجاهين: النتيجة معكوسة تماماً
+    const trip = (dir) => {
+      const s = { sym: "X", scan: "alignDn", at: now, entry: 100, open: true, ...(dir === -1 ? { dir } : {}) };
+      update(s, 90, now + DAY); update(s, 110, now + 2 * DAY); update(s, 95, now + 3 * DAY);
+      return [s.ret, s.mfe, s.mae];
+    };
+    eq(trip(1), [-5, 10, -10], "بمنطق الشراء");
+    eq(trip(-1), [5, 10, -10], "باتجاه الهبوط: الهبوط ربح");
+  });
+
+  t("إشارة هبوط ناجحة تُحتسب موجبة لا سالبة", () => {
+    const now = 1_700_000_000_000;
+    const s = { sym: "X", scan: "alignDn", at: now, entry: 200, open: true, dir: -1 };
+    update(s, 180, now + DAY);                       // هبط 10% — نجحت
+    eq([s.ret, s.mfe], [10, 10], "الهبوط ربح للإشارة الهابطة");
+    update(s, 220, now + 2 * DAY);                   // صعد 10% فوق الدخول — خسرت
+    eq([s.ret, s.mae], [-10, -10], "الصعود خسارة لها");
+  });
+
+  t("scanDir يقرأ الاتجاه من scans.js ولا يخترعه", () => {
+    eq(scanDir("alignDn"), -1, "الشرط الهابط");
+    eq(scanDir("align"), 1, "الشرط الصاعد");
+    eq(scanDir("vol"), 1, "بلا حقل = صعود");
+    eq(scanDir("لا-يوجد"), 1, "شرط مجهول");
+  });
+
+  t("aggregate يستبعد سجلات ما قبل توقيع الاتجاه", () => {
+    const rec = [
+      { scan: "alignDn", open: false, ret: 6, mfe: 8, mae: -1, dir: -1 },
+      { scan: "alignDn", open: false, ret: 4, mfe: 5, mae: -2, dir: -1 },
+      // مقلوب المواضعة: لو دخل الإحصاء لأزاح الوسيط إلى -50
+      { scan: "alignDn", open: false, ret: -50, mfe: 0, mae: -50, conv: "long" }
+    ];
+    const g = aggregate(rec).find(x => x.id === "alignDn");
+    eq([g.closed, g.med, g.win], [2, 5, 100], "القديم خارج الحساب");
+    eq(g.dir, -1, "الاتجاه معلن في المخرَج");
   });
 
   t("openKey يمنع تكرار نفس الإشارة للرمز نفسه", () => {

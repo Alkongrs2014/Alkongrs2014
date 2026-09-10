@@ -447,16 +447,22 @@ details b{color:var(--tx)}
     <div id="planLevels"></div>
     <details>
       <summary>من أين جاءت هذه الأرقام؟</summary>
+      <p><b>اتجاه الخطة:</b> من النتيجة الفنية للسهم. تحت ‎−15‎ نقطة تُبنى الخطة هبوطاً،
+      وما فوقها صعوداً. الخطة الصاعدة والهابطة مرآة إحداهما للأخرى: كل ما يلي مقلوبٌ
+      في الهبوط — تُقرأ «الدعم» مقاومةً و«فوق» تحتَ.</p>
       <p><b>منطقة الشراء:</b> أقرب دعم تحت السعر. الشراء عند الدعم يجعل وقف الخسارة قريباً،
-      فتكون الخسارة المحتملة أصغر مقابل نفس الهدف.</p>
-      <p><b>وقف الخسارة:</b> تحت الدعم بمقدار نصف ATR — لا عنده بالضبط. الوقف الملاصق للدعم
-      يُضرب بالتذبذب الطبيعي حتى لو كان التحليل صحيحاً.</p>
-      <p><b>الهدف:</b> أقرب مقاومة فوق السعر. لو كانت المقاومة قريبة جداً بحيث لا يستحق
-      العائد المخاطرة، يُعرض ذلك صراحةً بدل تضخيم الهدف ليبدو الرقم جميلاً.</p>
+      فتكون الخسارة المحتملة أصغر مقابل نفس الهدف. وفي خطة الهبوط هي <b>منطقة البيع</b>:
+      أقرب مقاومة فوق السعر.</p>
+      <p><b>وقف الخسارة:</b> خلف الحاجز بمقدار نصف ATR — لا عنده بالضبط. الوقف الملاصق
+      للحاجز يُضرب بالتذبذب الطبيعي حتى لو كان التحليل صحيحاً. تحت الدعم في الصعود،
+      وفوق المقاومة في الهبوط.</p>
+      <p><b>الهدف:</b> أقرب مقاومة فوق الدخول في الصعود، وأقرب دعم تحته في الهبوط. لو كان
+      الحاجز قريباً جداً بحيث لا يستحق العائد المخاطرة، يُعرض ذلك صراحةً بدل تضخيم الهدف
+      ليبدو الرقم جميلاً.</p>
       <p><b>العائد مقابل المخاطرة:</b> كم دولاراً تربح مقابل كل دولار تخاطر به. تحت 1.5
       تعني أن الصفقة تحتاج نسبة نجاح عالية جداً كي تربح على المدى الطويل.</p>
       <p>هذه أرقام محسوبة من حركة السعر وحدها. لا تعرف شيئاً عن أخبار الشركة ولا عن وضعك
-      المالي، وليست توصية بالشراء.</p>
+      المالي، وليست توصية بالشراء ولا بالبيع.</p>
     </details>
   </div>
 
@@ -777,7 +783,8 @@ const state = {
   lastOk: 0, busy: false, liveAt: 0, liveOn: false,
   favs: [], favOnly: false, hover: null, from: "list", scan: null,
   optCache: {}, opts: null, arch: null, live: null, events: null, signals: null,
-  optExp: 0, optSide: "calls"
+  optExp: 0, optSide: "calls",
+  diag: []
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -838,6 +845,23 @@ function ago(ts) {
   if (s < 86400) return "قبل " + Math.floor(s / 3600) + " ساعة";
   return "قبل " + Math.floor(s / 86400) + " يوم";
 }
+
+/* =======================================================================
+   تشخيص — الخطأ الصامت أسوأ من الخطأ الظاهر.
+
+   القاعدة نفسها التي تمنع `catch {}` في حلقة على سبعين رمزاً: ما يُرفض
+   بلا أثر لا يعرف أحد أنه رُفض. كل ما تردّه بوابةُ اتجاه الخطة يُسجَّل
+   هنا بسببه، ويُقرأ من الـconsole أو من `window.__diag()` في DevTools.
+   ======================================================================= */
+const DIAG_MAX = 200;
+function diag(tag, msg, data) {
+  const e = { at: Date.now(), tag, msg, data };
+  state.diag.push(e);
+  if (state.diag.length > DIAG_MAX) state.diag.shift();
+  console.warn(`[${tag}] ${msg}`, data === undefined ? "" : data);
+  return e;
+}
+window.__diag = () => state.diag;
 function dur(ms) {
   if (!isFinite(ms) || ms <= 0) return "";
   const t = Math.floor(ms / 1000);
@@ -1442,7 +1466,7 @@ async function runPicker() {
       <div class="l"><b>${bd(i + 1)}. ${esc(nm(r))}</b>
         <small><span class="tick">${esc(r.s)}</span> · ${esc(r.sec)} ·
           نتيجة ${bd(fmt(r.score, 0))} · RSI ${bd(fmt(r.rsi, 0))}</small>
-        <small>شراء <b class="num">${money(p.buy)}</b> ·
+        <small>${p.dir > 0 ? "شراء" : "بيع"} <b class="num">${money(p.entry)}</b> ·
           وقف <b class="num">${money(p.stop)}</b> ·
           هدف <b class="num">${money(p.target)}</b></small></div>
       <div class="r num" style="color:var(--up)">${bd(fmt(p.rr, 2))}:1
@@ -1461,16 +1485,19 @@ const archOf = (id) => (state.arch?.scans || []).find(x => x.id === id) || null;
    قائمة فرص بلا سجلّ تُقرأ كوعد؛ ومعه تُقرأ كاحتمال معلوم. */
 function renderScanHistory(id) {
   const el = $("#scanHist"); if (!el) return;
-  const a = archOf(id), b = state.arch?.baseline;
+  const a = archOf(id);
+  // الشرط الهابط يُقاس على خط الأساس الهابط: مقارنته بالصاعد تقلب الحكم
+  const dn = a && a.dir === -1;
+  const b = dn ? state.arch?.baselineDn : state.arch?.baseline;
   if (!a || !b) { el.innerHTML = ""; return; }
   const e = a.edge[20], w = a.edgeWin[20];
   const good = e > 0;
   el.innerHTML = `<div class="note" style="margin:8px 0 10px;border-right:3px solid ${good ? "var(--up)" : "var(--dn)"}">
     <b>تاريخياً</b> على ${bd(fmt(a.n, 0))} إشارة في خمس سنوات:
-    بعد عشرين يوم تداول كان العائد الوسيط <span class="num">${bd(pct(a.ret[20].med, 2))}</span>
+    بعد عشرين يوم تداول كان العائد الوسيط${dn ? " هبوطاً" : ""} <span class="num">${bd(pct(a.ret[20].med, 2))}</span>
     و<span class="num">${bd(fmt(a.ret[20].win, 1))}%</span> منها موجبة —
     أي <b style="color:${good ? "var(--up)" : "var(--dn)"}">${good ? "أفضل" : "أسوأ"}
-    من أي يوم عشوائي بـ${bd(fmt(Math.abs(e), 2))} نقطة</b>
+    من أي يوم عشوائي${dn ? " في نفس الاتجاه" : ""} بـ${bd(fmt(Math.abs(e), 2))} نقطة</b>
     (خط الأساس ${bd(pct(b.ret[20].med, 2))} و${bd(fmt(b.ret[20].win, 1))}% موجبة).
     ${a.note ? `<br><small style="color:var(--mut)">القياس التاريخي ${esc(a.note)}</small>` : ""}
     ${!good ? `<br><small style="color:var(--mut)">حافة سالبة: الشرط لم يتفوّق على السوق في هذه الفترة.
@@ -1492,24 +1519,32 @@ function renderArchive() {
     const c = color ? (v > 0 ? "var(--up)" : v < 0 ? "var(--dn)" : "var(--mut)") : "";
     return `<td class="num"${c ? ` style="color:${c}"` : ""}>${bd(fmt(v, d))}</td>`;
   };
+  // العائد هنا **باتجاه الشرط**: الشرط الهابط يربح حين يهبط السعر، فرقمه
+  // موجب حين تصحّ إشارته. بلا هذا التوضيح يُقرأ عمود واحد بمعنيين.
+  const anyDn = j.scans.some(s => s.dir === -1);
   const rows = j.scans.map(s => `<tr>
-      <td style="text-align:right">${esc(s.lbl)}${s.note
+      <td style="text-align:right">${esc(s.lbl)}${s.dir === -1
+        ? ` <span class="chip dn" style="font-size:10px;padding:1px 5px">هابط</span>` : ""}${s.note
         ? `<small style="display:block;color:var(--mut)">${esc(s.note)}</small>` : ""}</td>
       <td class="num">${bd(fmt(s.n, 0))}</td>
       ${cell(s.ret[5].med)}${cell(s.ret[20].med)}
       <td class="num">${bd(fmt(s.ret[20].win, 1))}%</td>
       ${cell(s.edge[20], 2, true)}</tr>`).join("");
 
+  // خط الأساس بإشارتين حين يوجد شرط هابط — الحافة تُقاس على المطابق منهما
+  const baseRow = (bb, lbl) => `<tr style="background:var(--bg2,transparent);font-weight:700">
+        <td style="text-align:right">${lbl}</td>
+        <td class="num">${bd(fmt(bb.n, 0))}</td>
+        ${cell(bb.ret[5].med)}${cell(bb.ret[20].med)}
+        <td class="num">${bd(fmt(bb.ret[20].win, 1))}%</td>
+        <td class="num">—</td></tr>`;
+
   $("#archTable").innerHTML = `<div class="otwrap"><table class="otbl">
     <thead><tr><th style="text-align:right">الشرط</th><th>إشارات</th><th>وسيط 5ي</th>
       <th>وسيط 20ي</th><th>موجب</th><th>الحافة</th></tr></thead>
     <tbody>${rows}
-      <tr style="background:var(--bg2,transparent);font-weight:700">
-        <td style="text-align:right">خط الأساس — أي يوم بلا شرط</td>
-        <td class="num">${bd(fmt(b.n, 0))}</td>
-        ${cell(b.ret[5].med)}${cell(b.ret[20].med)}
-        <td class="num">${bd(fmt(b.ret[20].win, 1))}%</td>
-        <td class="num">—</td></tr>
+      ${baseRow(b, anyDn ? "خط الأساس صعوداً — أي يوم بلا شرط" : "خط الأساس — أي يوم بلا شرط")}
+      ${anyDn && j.baselineDn ? baseRow(j.baselineDn, "خط الأساس هبوطاً — أي يوم بلا شرط") : ""}
     </tbody></table></div>`;
 
   // السجلّ الحيّ: ما ظهر فعلاً في هذا التطبيق منذ تشغيل التتبّع. يغطّي
@@ -1519,13 +1554,17 @@ function renderArchive() {
   else {
     const closed = L.closed || 0;
     const rows = L.scans.map(s => `<tr>
-      <td style="text-align:right">${esc(s.lbl)}</td>
+      <td style="text-align:right">${esc(s.lbl)}${s.dir === -1
+        ? ` <span class="chip dn" style="font-size:10px;padding:1px 5px">هابط</span>` : ""}</td>
       <td class="num">${bd(fmt(s.open, 0))}</td>
       <td class="num">${bd(fmt(s.closed, 0))}</td>
       <td class="num">${Number.isFinite(s.med) ? bd(pct(s.med, 2)) : "—"}</td>
       <td class="num">${Number.isFinite(s.win) ? bd(fmt(s.win, 1)) + "%" : "—"}</td></tr>`).join("");
     $("#archLive").innerHTML = `
       <p class="hint" style="margin:14px 0 4px">السجلّ الحيّ — إشارات هذا التطبيق منذ تشغيل التتبّع</p>
+      ${L.legacy ? `<div class="note" style="margin:0 0 8px">${bd(L.legacy)} إشارة قديمة خارج
+        الحساب: قِيست قبل تصحيح اتجاه القياس بمنطق الشراء، وتحويلها كان سيُخرج رقماً
+        لا يصف مواضعتها ولا الجديدة. تُستبدل بإشارات صحيحة مع التشغيل.</div>` : ""}
       ${closed ? "" : `<div class="note" style="margin:0 0 8px">لم تُغلق أي إشارة بعد.
         كل إشارة تُغلق بعد ${bd(L.holdDays)} يوماً من ظهورها، فالأعمدة الأخيرة تبقى فارغة حتى ذلك الحين.
         وهذا بخلاف الجدول أعلاه المبني على خمس سنوات مضت.</div>`}
@@ -1537,6 +1576,7 @@ function renderArchive() {
   const ex = (j.excluded || []).map(e => e.lbl).join(" · ");
   $("#archNote").textContent =
     `الأسهم وحدها بلا كريبتو · فترة تهدئة ${j.cooldown} شمعات بين إشارتين للرمز نفسه`
+    + (anyDn ? " · العائد مقاس باتجاه الشرط: الشرط الهابط يربح حين يهبط السعر" : "")
     + (ex ? ` · خارج القياس لعدم توفّر تاريخ مدخلاتها: ${ex}` : "");
 }
 
@@ -2007,55 +2047,204 @@ function renderWhy(rec) {
 
 /* =======================================================================
    خطة الصفقة — من المستويات نفسها المعروضة تحتها، لا من حساب موازٍ.
+
+   الخطة **موقَّعة باتجاه**: ‎+1‎ صعود و‎−1‎ هبوط، في مسار حسابي واحد لا
+   فرعين. نسختان من نفس الرياضيات — واحدة للشراء وأخرى للبيع — تتباعدان
+   بأول تعديل، فيصير الرقم في شاشة غير الرقم في شاشة أخرى.
+
+   قبل هذا التوقيع كانت الدالة شراءً دائماً ولا تسأل عن الاتجاه: سهمٌ
+   نتيجته الفنية «هابط قوي» تُبنى له خطة أهدافُها **فوق** سعره، لأن الأهداف
+   تُشتق من المقاومات ولا شيء يقلبها. الخلل كان في الرياضيات لا في النص،
+   فلم يكن يُصلحه تغيير عنوان ولا لون.
    ======================================================================= */
-function tradePlan(rec) {
-  const L = computeLevels(rec);
-  if (!L || !isFinite(L.px)) return null;
-  const { px, res, sup } = L;
+
+/* الاتجاه من إشارة النتيجة الفنية بنفس حدود `labelOf`: ما تحت ‎−15‎ هبوط،
+   وما فوقه — والمحايد معه — يبقى شراءً كما كان. المحايد لا تُخفى خطته:
+   إخفاؤها لكل سهم عرضي يُفرغ الخطة من أكثر الأسهم في أكثر الأوقات. */
+function planDir(rec) {
   const row = symRow(rec.s);
-  // ATR **اليومي** لا ATR الفريم المعروض: `computeLevels` تبني على 4 ساعات
-  // حين تتوفّر، و ATR أربع ساعات أصغر من اليومي بمرّتين تقريباً. استعماله
-  // أخرج وقفاً على بُعد 1.2% بينما مدى إنفيديا اليومي 3.3% — أي وقف داخل
-  // التذبذب الطبيعي، وهو الخطأ الذي تحذّر منه بطاقة المؤشرات نفسها.
-  const atr = (row && isFinite(row.atr) && row.atr > 0) ? row.atr : L.atr;
-  if (!isFinite(atr) || atr <= 0) return null;
+  const s = row && Number.isFinite(row.score) ? row.score : null;
+  return (s !== null && s < -15) ? -1 : 1;
+}
 
-  const s1 = sup.length ? sup[0].p : null;
+/* نواة نقية: أرقام تدخل وأرقام تخرج، بلا `state` ولا DOM. فُصلت لهذا وحده
+   — كي تُختبر بمستويات مصطنعة في `planSelfTest`، فالدالة التي تقرأ حالة
+   التطبيق لا تُختبر إلا بتشغيل التطبيق كاملاً. */
+function planFrom({ px, atr, resAll, supAll }, d) {
+  if (!Number.isFinite(px) || px <= 0) return null;
+  if (!Number.isFinite(atr) || atr <= 0) return null;
+  if (d !== 1 && d !== -1) return null;
+  const res = resAll || [], sup = supAll || [];
 
-  // منطقة الشراء: الدعم إن كان قريباً بما يكفي ليُنتظر، وإلا السعر الحالي.
-  // دعمٌ يبعد 12% ليس "منطقة شراء" بل انتظارٌ قد لا ينتهي.
-  const farSup = s1 !== null && (px - s1) / px > 0.12;
-  const buy = (s1 !== null && !farSup) ? s1 : px;
-  const buyIsNow = buy === px;
+  // الحاجز في جهة الرجوع: دعمٌ يُشترى عنده في الصعود، ومقاومةٌ يُباع عندها
+  // في الهبوط. وحاجزٌ يبعد 12% ليس منطقة دخول بل انتظارٌ قد لا ينتهي.
+  const back = (d > 0 ? sup : res)[0] || null;
+  const farBack = back !== null && Math.abs(px - back.p) / px > 0.12;
+  const brk = (back !== null && !farBack) ? back.p : null;
+  const entry = brk !== null ? brk : px;
+  const entryIsNow = entry === px;
 
-  // الوقف تحت الدعم بنصف ATR، وبحدٍّ أدنى ATR كامل تحت الشراء: الوقف
-  // الملاصق للدعم يُضرب بالتذبذب الطبيعي حتى لو صحّ التحليل.
-  const stop = Math.min(buy - atr * 0.5, buy - atr, (s1 !== null && !farSup ? s1 - atr * 0.5 : Infinity));
+  // الوقف خلف الحاجز بنصف ATR، وبحدٍّ أدنى ATR كامل خلف الدخول: الوقف
+  // الملاصق للحاجز يُضرب بالتذبذب الطبيعي حتى لو صحّ التحليل.
+  const stop = d > 0
+    ? Math.min(entry - atr * 0.5, entry - atr, brk !== null ? brk - atr * 0.5 : Infinity)
+    : Math.max(entry + atr * 0.5, entry + atr, brk !== null ? brk + atr * 0.5 : -Infinity);
 
-  const risk = buy - stop;
+  const risk = (entry - stop) * d;     // موجب في الاتجاهين معاً
   if (!(risk > 0)) return null;
 
-  // أهداف متعددة لا هدف واحد. أخذُ أول مقاومة بعد ATR يجعل العائد مساوياً
+  // أهداف متعددة لا هدف واحد. أخذُ أول حاجز بعد ATR يجعل العائد مساوياً
   // للخطر دائماً (خرجت النسبة ~1:1 لكل سهم جرّبناه)، فتصير الخطة عديمة
-  // الفائدة. نعرض المقاومات المتاحة بنسبها ونترك الاختيار ظاهراً.
-  const targets = (L.resAll || [])
-    .filter(l => l.p - buy >= atr)
+  // الفائدة. نعرض المتاح بنسبه ونترك الاختيار ظاهراً.
+  const pool = d > 0 ? res : sup;      // كلاهما مرتَّب من الأقرب إلى الأبعد
+  const targets = pool
+    .filter(l => (l.p - entry) * d >= atr)
     .slice(0, 3)
-    .map(l => ({ p: l.p, rr: (l.p - buy) / risk, pct: (l.p - buy) / buy * 100,
-                 name: [...l.names][0] || "مقاومة" }));
-  const skippedNear = !!((L.resAll || []).length && (L.resAll[0].p - buy) < atr);
+    .map(l => ({ p: l.p, rr: (l.p - entry) * d / risk, pct: (l.p - entry) * d / entry * 100,
+                 name: [...l.names][0] || (d > 0 ? "مقاومة" : "دعم") }));
+  const skippedNear = !!(pool.length && (pool[0].p - entry) * d < atr);
 
   // الهدف الأساسي أول ما يبلغ 2:1، وإلا فأبعد المتاح مع قول ذلك صراحةً
   const primary = targets.find(t => t.rr >= 2) || targets[targets.length - 1] || null;
   const meets2 = !!(primary && primary.rr >= 2);
 
-  return { px, buy, buyIsNow, stop, atr, risk, targets, primary, meets2, skippedNear,
+  return { dir: d, px, entry, entryIsNow, stop, atr, risk, targets, primary, meets2, skippedNear,
            target: primary ? primary.p : null,
            rr: primary ? primary.rr : null,
            targetPct: primary ? primary.pct : null,
-           stopPct: risk / buy * 100,
-           atrPct: atr / buy * 100 };
+           stopPct: risk / entry * 100,
+           atrPct: atr / entry * 100 };
 }
+
+/* =======================================================================
+   بوابة الاتجاه — تُقرأ الخطة قبل عرضها.
+
+   لا تُصلح شيئاً: تقول ما اختلّ وتردّ الخطة. خطةٌ أهدافها في الجهة الخاطئة
+   كذبٌ يبدو موثوقاً لأنه ظاهر برقم — وعرضُها أسوأ من ألّا تُعرض خطة. هي
+   نفس قاعدة «اعرض ‎—‎ لا رقماً ملفّقاً» مطبَّقة على خطة كاملة لا على حقل.
+   ======================================================================= */
+function validatePlan(p) {
+  if (!p) return ["لا خطة"];
+  const bad = [], d = p.dir;
+  if (d !== 1 && d !== -1) { bad.push("اتجاه غير معروف"); return bad; }
+
+  // `Number.isFinite` لا `isFinite` العالمية: هذه تحوّل null إلى صفر فتقبله
+  [["الدخول", p.entry], ["الوقف", p.stop], ["المخاطرة", p.risk], ["المدى", p.atr]]
+    .forEach(([k, v]) => { if (!Number.isFinite(v)) bad.push(k + " ليس رقماً"); });
+  if (!(p.risk > 0)) bad.push("المخاطرة غير موجبة");
+  if ((p.stop - p.entry) * d >= 0) bad.push("الوقف في جهة الهدف لا خلفَ الدخول");
+
+  let prev = p.entry;
+  (p.targets || []).forEach((t, i) => {
+    if (!Number.isFinite(t.p) || !Number.isFinite(t.rr)) { bad.push(`الهدف ${i + 1} ليس رقماً`); return; }
+    if ((t.p - p.entry) * d <= 0) bad.push(`الهدف ${i + 1} في الجهة الخاطئة من الدخول`);
+    else if (i > 0 && (t.p - prev) * d < 0) bad.push(`الهدف ${i + 1} أقرب من الذي قبله`);
+    prev = t.p;
+  });
+  if (p.primary && (p.primary.p - p.entry) * d <= 0) bad.push("الهدف الأساسي في الجهة الخاطئة");
+  return bad;
+}
+
+function tradePlan(rec, dir) {
+  const L = computeLevels(rec);
+  if (!L) return null;
+  const row = symRow(rec.s);
+  // ATR **اليومي** لا ATR الفريم المعروض: `computeLevels` تبني على 4 ساعات
+  // حين تتوفّر، و ATR أربع ساعات أصغر من اليومي بمرّتين تقريباً. استعماله
+  // أخرج وقفاً على بُعد 1.2% بينما مدى إنفيديا اليومي 3.3% — أي وقف داخل
+  // التذبذب الطبيعي، وهو الخطأ الذي تحذّر منه بطاقة المؤشرات نفسها.
+  const atr = (row && Number.isFinite(row.atr) && row.atr > 0) ? row.atr : L.atr;
+  const d = (dir === 1 || dir === -1) ? dir : planDir(rec);
+
+  const p = planFrom({ px: L.px, atr, resAll: L.resAll, supAll: L.supAll }, d);
+  if (!p) return null;
+
+  const bad = validatePlan(p);
+  if (bad.length) { diag("plan", `خطة ${rec.s} مرفوضة`, bad); return null; }
+  return p;
+}
+
+/* =======================================================================
+   الفحص الذاتي لنواة الخطة — يعمل بـ‎?selftest=1‎ ولا يعمل بغيره.
+
+   نفس ثقافة ‎--check‎ في سكربتات Node: اختبار بلا شبكة يمرّ في جزء من
+   الثانية. أهم حالاته «المقارنة الذهبية»: مدخلات صعود ثابتة يجب أن تعيد
+   الأرقام نفسها التي كانت تعيدها الدالة قبل توقيعها بالاتجاه — وإلا فقد
+   أصلح الإصلاحُ الهبوطَ وكسر الصعود، وهو أسوأ من العلة الأصلية.
+   ======================================================================= */
+function planSelfTest() {
+  const cases = [], mk = (a) => a.map(p => ({ p, names: new Set(["قمة سابقة"]) }));
+  const ok = (n, c, extra) => cases.push({ n, pass: !!c, extra: extra || "" });
+  const near = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 1e-9;
+
+  const IN = { px: 100, atr: 3, supAll: mk([98, 94, 88]), resAll: mk([101, 106, 112, 120]) };
+
+  /* ١) المقارنة الذهبية — أرقام الصعود ملتقطة من الدالة قبل التعديل */
+  const up = planFrom(IN, 1);
+  ok("صعود: الدخول عند الدعم 98", up && near(up.entry, 98));
+  ok("صعود: الوقف 95 (ATR كامل تحت الدخول)", up && near(up.stop, 95));
+  ok("صعود: المخاطرة 3", up && near(up.risk, 3));
+  ok("صعود: ثلاثة أهداف 101/106/112", up && up.targets.length === 3
+    && near(up.targets[0].p, 101) && near(up.targets[1].p, 106) && near(up.targets[2].p, 112));
+  ok("صعود: الهدف الأساسي 106 بعائد 2.667", up && near(up.target, 106) && near(up.rr, 8 / 3));
+  ok("صعود: نسبة الهدف 8.1633%", up && near(up.targetPct, 800 / 98));
+  ok("صعود: نسبة الوقف 3.0612%", up && near(up.stopPct, 300 / 98));
+  ok("صعود: لم تُتخطَّ مقاومة قريبة", up && up.skippedNear === false);
+
+  /* ٢) الهبوط مرآة الصعود — وهو ما كان مكسوراً */
+  const dn = planFrom(IN, -1);
+  ok("هبوط: الدخول عند المقاومة 101", dn && near(dn.entry, 101));
+  ok("هبوط: الوقف 104 فوق الدخول", dn && near(dn.stop, 104));
+  ok("هبوط: الأهداف تحت الدخول", dn && dn.targets.length && dn.targets.every(t => t.p < dn.entry));
+  ok("هبوط: الأهداف تتنازل", dn && dn.targets.every((t, i) => i === 0 || t.p < dn.targets[i - 1].p));
+  ok("هبوط: المخاطرة موجبة", dn && dn.risk > 0);
+  ok("هبوط: العائد موجب", dn && dn.rr > 0);
+  ok("هبوط: أهدافه من الدعوم 98/94/88", dn && near(dn.targets[0].p, 98) && near(dn.targets[2].p, 88));
+
+  /* ٣) قاعدة الاتجاه التي طُلبت حرفياً */
+  [[up, 1, "صعود"], [dn, -1, "هبوط"]].forEach(([p, d, lbl]) => {
+    ok(`${lbl}: الوقف خلف الدخول`, p && (p.stop - p.entry) * d < 0);
+    ok(`${lbl}: كل هدف أمام الدخول`, p && p.targets.every(t => (t.p - p.entry) * d > 0));
+    ok(`${lbl}: البوابة لا تجد خللاً`, p && validatePlan(p).length === 0, JSON.stringify(validatePlan(p)));
+  });
+
+  /* ٤) البوابة تُمسك خطة مقلوبة مصطنعة — بوابة لا تردّ شيئاً ليست بوابة */
+  const forged = { dir: -1, entry: 250, stop: 245, atr: 5, risk: 5,
+                   targets: [{ p: 252, rr: 0.4 }, { p: 258, rr: 1.6 }, { p: 260, rr: 2 }], primary: { p: 260 } };
+  ok("البوابة تردّ خطة هبوط بأهداف أعلى", validatePlan(forged).length >= 4, JSON.stringify(validatePlan(forged)));
+
+  /* ٥) حالات حدّية */
+  ok("لا خطة بلا مدى (ATR صفر)", planFrom({ ...IN, atr: 0 }, 1) === null);
+  ok("لا خطة باتجاه غير معروف", planFrom(IN, 0) === null);
+  ok("لا خطة بسعر غير رقمي", planFrom({ ...IN, px: null }, 1) === null);
+  // هبوط بلا دعوم تحته: يبقى الدخول والوقف صحيحين وتخرج بلا أهداف
+  const noSup = planFrom({ px: 100, atr: 3, supAll: [], resAll: mk([101, 106]) }, -1);
+  ok("هبوط بلا دعوم: خطة صحيحة بلا أهداف", noSup && noSup.targets.length === 0 && noSup.target === null
+    && validatePlan(noSup).length === 0);
+  // حاجز يبعد أكثر من 12% لا يُنتظر — الدخول يصير السعر الحالي
+  const farB = planFrom({ px: 100, atr: 3, supAll: mk([80]), resAll: mk([106, 112]) }, 1);
+  ok("دعم بعيد 20% يُتجاهل فيصير الدخول السعر", farB && near(farB.entry, 100) && farB.entryIsNow === true);
+  // أصل رخيص: النسب تصمد على سعر شيبا إينو ولا تخرج NaN ولا صفراً
+  const tiny = planFrom({ px: 0.0000051, atr: 0.0000004,
+                          supAll: mk([0.0000049, 0.0000040]), resAll: mk([0.0000058, 0.0000070]) }, -1);
+  ok("أصل رخيص: نسب منتهية لا NaN", tiny && Number.isFinite(tiny.rr) && Number.isFinite(tiny.targetPct)
+    && tiny.rr > 0 && validatePlan(tiny).length === 0);
+
+  const failed = cases.filter(c => !c.pass);
+  console.log(`%cفحص نواة الخطة: ${cases.length - failed.length}/${cases.length}`,
+    `font-weight:700;color:${failed.length ? "#ea3943" : "#16c784"}`);
+  failed.forEach(c => console.error("✗ " + c.n, c.extra));
+
+  const bar = document.createElement("div");
+  bar.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:99;padding:8px 12px;
+    font:700 13px/1.4 system-ui;text-align:center;color:#fff;background:${failed.length ? "#ea3943" : "#16c784"}`;
+  bar.textContent = failed.length
+    ? `فحص نواة الخطة: سقطت ${failed.length} من ${cases.length} — التفصيل في الـconsole`
+    : `فحص نواة الخطة: مرّت ${cases.length} حالة`;
+  document.body.appendChild(bar);
+  return { total: cases.length, failed: failed.length, cases };
+}
+window.__planSelfTest = planSelfTest;
 
 function renderPlan(rec) {
   const card = $("#cardPlan"); if (!card) return;
@@ -2068,34 +2257,48 @@ function renderPlan(rec) {
     <div class="v num" style="color:${color || "var(--tx)"}">${val}</div>
     ${sub ? `<div class="k" style="margin-top:2px">${sub}</div>` : ""}</div>`;
 
-  let html = `<div class="grid3">
-    ${cell("منطقة الشراء", money(p.buy), p.buyIsNow ? "السعر الآن — لا دعم قريب" : `دعم · ${bd(pct((p.buy - p.px) / p.px * 100, 1))}`, "var(--up)")}
-    ${cell("وقف الخسارة", money(p.stop), `${bd(fmt(p.stopPct, 1))}% تحت الشراء · مدى اليوم ${bd(fmt(p.atrPct, 1))}%`, "var(--dn)")}
+  // اتجاه الخطة يقود كل كلمة فيها: «شراء» في خطة هبوط ليس خطأ عرض بل
+  // وصفٌ لصفقة أخرى غير التي حُسبت أرقامها.
+  const up = p.dir > 0;
+  const barr = up ? "دعم" : "مقاومة";        // الحاجز الذي يُدخل عنده
+  const goal = up ? "مقاومة" : "دعم";        // الحاجز الذي يُخرج عنده
+
+  let html = `<div style="margin-bottom:8px"><span class="chip ${up ? "up" : "dn"}">${
+    up ? "▲ خطة صعود" : "▼ خطة هبوط"}</span></div>
+  <div class="grid3">
+    ${cell(up ? "منطقة الشراء" : "منطقة البيع", money(p.entry),
+        p.entryIsNow ? `السعر الآن — لا ${barr} قريبة` : `${barr} · ${bd(pct((p.entry - p.px) / p.px * 100, 1))}`,
+        up ? "var(--up)" : "var(--dn)")}
+    ${cell("وقف الخسارة", money(p.stop), `${bd(fmt(p.stopPct, 1))}% ${
+        up ? "تحت" : "فوق"} الدخول · مدى اليوم ${bd(fmt(p.atrPct, 1))}%`,
+        up ? "var(--dn)" : "var(--up)")}
     ${cell("الهدف", p.target === null ? "—" : money(p.target),
-        p.target === null ? "لا مقاومة أبعد من مدى اليوم" : `${bd(fmt(p.targetPct, 1))}% · ${bd(fmt(p.rr, 2))}:1`, "var(--neu)")}
+        p.target === null ? `لا ${goal} أبعد من مدى اليوم` : `${bd(fmt(p.targetPct, 1))}% · ${bd(fmt(p.rr, 2))}:1`, "var(--neu)")}
   </div>`;
 
   // الأهداف المتاحة كلها بنسبها: الهدف الواحد يخفي أن الثاني قد يستحق
   if (p.targets.length > 1) {
     html += `<div class="sep"></div>
-      <div style="font-size:12.5px;color:var(--mut);margin-bottom:6px">المقاومات فوق منطقة الشراء</div>
+      <div style="font-size:12.5px;color:var(--mut);margin-bottom:6px">${
+        up ? "المقاومات فوق منطقة الشراء" : "الدعوم تحت منطقة البيع"}</div>
       ${p.targets.map((t, i) => `<div class="row"><div class="l">الهدف ${i + 1}
-        <small>${esc(t.name)} · ${bd(fmt(t.pct, 1))}% فوق الشراء</small></div>
+        <small>${esc(t.name)} · ${bd(fmt(t.pct, 1))}% ${up ? "فوق" : "تحت"} الدخول</small></div>
         <div class="r num" style="color:${t.rr >= 2 ? "var(--up)" : "var(--mut)"}">${money(t.p)}
           <span style="font-size:11px"> · ${bd(fmt(t.rr, 2))}:1</span></div></div>`).join("")}`;
   }
 
-  if (p.skippedNear) html += `<p class="srcline">تُخطّيت أقرب مقاومة لأنها داخل مدى اليوم
+  if (p.skippedNear) html += `<p class="srcline">تُخطّي أقرب ${goal} لأنها داخل مدى اليوم
     الواحد — هدفٌ لا يتجاوز التذبذب الطبيعي ليس هدفاً.</p>`;
 
   if (!p.targets.length) {
     html += `<div class="note" style="margin-top:10px">
-      لا مقاومة تبعد أكثر من مدى اليوم الواحد فوق منطقة الشراء. السهم في
+      لا ${goal} تبعد أكثر من مدى اليوم الواحد ${up ? "فوق منطقة الشراء" : "تحت منطقة البيع"}. السهم في
       منطقة بلا مرجع سابق — وهذا ليس عيباً، لكنه يعني أن لا شيء يحدد أين تخرج.</div>`;
   } else if (!p.meets2) {
     html += `<div class="warn" style="margin-top:10px">
-      <b>لا هدف يبلغ 2:1</b> — أفضل المتاح ${bd(fmt(p.rr, 2))}:1. المقاومات قريبة
-      والوقف يحتاج مساحة مدى اليوم. الأصدق أن تنتظر سعراً أقرب للدعم بدل
+      <b>لا هدف يبلغ 2:1</b> — أفضل المتاح ${bd(fmt(p.rr, 2))}:1. ${
+      up ? "المقاومات" : "الدعوم"} قريبة
+      والوقف يحتاج مساحة مدى اليوم. الأصدق أن تنتظر سعراً أقرب لل${barr} بدل
       تحريك الهدف حتى تبدو النسبة جميلة.</div>`;
   } else {
     html += `<div class="note" style="margin-top:10px">
@@ -2109,7 +2312,9 @@ function renderPlan(rec) {
 
   $("#btnUsePlan").onclick = () => {
     const set = (id, v) => { const el = $(id); if (el && isFinite(v)) el.value = (+v).toFixed(2); };
-    set("#iEntry", p.buy); set("#iStop", p.stop); set("#iTarget", p.target);
+    // الحاسبة تعرف الاتجاهين أصلاً (`long = stop < entry`) وتتحقق من جهة
+    // الهدف بنفسها، فخطة الهبوط تمرّ إليها بلا تحويل
+    set("#iEntry", p.entry); set("#iStop", p.stop); set("#iTarget", p.target);
     calc();
     $("#cardSize").scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -2126,16 +2331,21 @@ function renderPlan(rec) {
    ======================================================================= */
 function renderTrackedLevels(rec, p) {
   const el = $("#planLevels"); if (!el) return;
+  // سجلات ما قبل تصحيح الاتجاه (`conv`) تُستبعد: مقاييسها بمواضعة الشراء
+  // فقراءتها كإشارة هبوط تقلب معناها. تُستبدل بأخرى صحيحة في أول دورة.
   const sig = (state.signals && state.signals.records || [])
-    .filter(s => s.sym === rec.s)
+    .filter(s => s.sym === rec.s && s.conv !== "long")
     .sort((a, b) => b.at - a.at)[0];
 
   const marks = [1, 2, 5];
   if (!sig) {
+    // بلا إشارة متتبَّعة تُقاس المستويات من السعر الحالي، وباتجاه الخطة
+    // المعروضة فوقها — لا صعوداً دائماً
+    const pd = p.dir;
     el.innerHTML = `<div class="sep"></div>
       <div style="font-size:12.5px;color:var(--mut);margin-bottom:6px">مستويات من السعر الحالي</div>
-      ${marks.map(m => `<div class="row"><div class="l">المستوى +${m}%
-        <small>${money(p.px * (1 + m / 100))}</small></div>
+      ${marks.map(m => `<div class="row"><div class="l">المستوى ${pd > 0 ? "+" : "‎−‎"}${m}%
+        <small>${money(p.px * (1 + pd * m / 100))}</small></div>
         <div class="r" style="color:var(--mut)">لم يبدأ التتبّع</div></div>`).join("")}
       <p class="srcline">التتبّع يبدأ حين يظهر السهم في ماسح الفرص — عندها نثبّت سعره
       ونقيس ما بلغه فعلاً.</p>`;
@@ -2145,21 +2355,25 @@ function renderTrackedLevels(rec, p) {
   const d0 = Math.max(0, Math.round((Date.now() - sig.at) / 86400000));
   const days = d0 === 0 ? "اليوم" : `قبل ${d0} يوماً`;
   const scan = (typeof SCANS !== "undefined" && SCANS.find(x => x.id === sig.scan)) || null;
+  // اتجاه الإشارة من سجلّها المثبَّت لحظة الاكتشاف لا من نتيجة السهم اليوم:
+  // إشارة هبوط تُقاس هبوطاً حتى لو انقلب السهم بعدها
+  const sd = sig.dir === -1 ? -1 : ((scan && scan.dir === -1) ? -1 : 1);
+  const sgn = sd > 0 ? "+" : "‎−‎";
   el.innerHTML = `<div class="sep"></div>
     <div style="font-size:12.5px;color:var(--mut);margin-bottom:6px">
       منذ إشارة «${esc(scan ? scan.lbl : sig.scan)}» ${bd(days)} عند
       <span class="num">${money(sig.entry)}</span></div>
     ${marks.map(m => {
-      const lvl = sig.entry * (1 + m / 100);
-      // mfe = أقصى ارتفاع بلغه السعر منذ الإشارة، وهو ما يحسم "تحقق"
-      const hit = isFinite(sig.mfe) && sig.mfe >= m;
-      return `<div class="row"><div class="l">${hit ? "🟢" : "⚪"} المستوى +${m}%
+      const lvl = sig.entry * (1 + sd * m / 100);
+      // mfe = أقصى ما بلغه السعر **في اتجاه الإشارة**، وهو ما يحسم "تحقق"
+      const hit = Number.isFinite(sig.mfe) && sig.mfe >= m;
+      return `<div class="row"><div class="l">${hit ? "🟢" : "⚪"} المستوى ${sgn}${m}%
         <small>${money(lvl)}</small></div>
         <div class="r" style="color:${hit ? "var(--up)" : "var(--mut)"}">${hit ? "تحقق" : "لم يتحقق"}</div></div>`;
     }).join("")}
-    <p class="srcline">أقصى ما بلغه السعر منذ الإشارة
+    <p class="srcline">أقصى ما بلغه السعر في اتجاه الإشارة
       <b class="num" style="color:${sig.mfe > 0 ? "var(--up)" : "var(--mut)"}">${bd(pct(sig.mfe, 2))}</b>
-      · وأقصى تراجع <b class="num" style="color:${sig.mae < 0 ? "var(--dn)" : "var(--mut)"}">${bd(pct(sig.mae, 2))}</b>
+      · وأقصى تراجع عكسها <b class="num" style="color:${sig.mae < 0 ? "var(--dn)" : "var(--mut)"}">${bd(pct(sig.mae, 2))}</b>
       · والوضع الآن <b class="num">${bd(pct(sig.ret, 2))}</b></p>`;
 }
 
@@ -2971,6 +3185,12 @@ async function refresh(force = false) {
 }
 
 function boot() {
+  // الفحص الذاتي أولاً وبلا شبكة: لو سقطت نواة الخطة فلا معنى لجلب بيانات
+  // نبني عليها أرقاماً خاطئة. لا يعمل إلا بـ‎?selftest=1‎ صريحاً.
+  if (/[?&]selftest=1\b/.test(location.search)) {
+    try { planSelfTest(); } catch (e) { console.error("سقط الفحص الذاتي نفسه", e); }
+  }
+
   // أيقونة وملف تعريف للتثبيت على الشاشة الرئيسية
   const ICON = "data:image/svg+xml," + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
