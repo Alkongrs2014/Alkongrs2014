@@ -235,6 +235,9 @@ details{background:var(--card2);border-radius:10px;padding:10px 12px;margin-top:
 details summary{cursor:pointer;font-size:13px;color:var(--acc);font-weight:700;list-style:none}
 details summary::-webkit-details-marker{display:none}
 details summary::before{content:"؟ ";}
+/* الكاشف الافتراضي سؤال («من أين جاء هذا الرقم؟») فبادئته «؟». والتسلسل
+   ليس سؤالاً بل قائمةً تُفتح، فتأخذ سهماً بدل علامة الاستفهام. */
+details.plain summary::before{content:"⌄ ";}
 details[open] summary{margin-bottom:8px}
 details p{margin:0 0 8px;font-size:13px;color:var(--mut);line-height:1.75}
 details p:last-child{margin-bottom:0}
@@ -438,6 +441,12 @@ details b{color:var(--tx)}
     <h2>🧭 قراءة السهم في ثلاثة أسطر</h2>
     <p class="hint">نفس الأرقام التي في الأسفل، مقروءةً بالكلام</p>
     <div id="whyList"></div>
+  </div>
+
+  <div class="card" id="cardTrend" style="display:none">
+    <h2>🕒 متى صارت هذه التوصية</h2>
+    <p class="hint">الشاشة تقول الحالة الآن — وهذا يقول منذ متى، وماذا كانت قبلها</p>
+    <div id="trendOut"></div>
   </div>
 
   <div class="card" id="cardPlan">
@@ -784,7 +793,7 @@ const state = {
   favs: [], favOnly: false, hover: null, from: "list", scan: null,
   optCache: {}, opts: null, arch: null, live: null, events: null, signals: null,
   optExp: 0, optSide: "calls",
-  diag: []
+  diag: [], trend: null, trendBusy: false
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -845,6 +854,44 @@ function ago(ts) {
   if (s < 86400) return "قبل " + Math.floor(s / 3600) + " ساعة";
   return "قبل " + Math.floor(s / 86400) + " يوم";
 }
+
+/* العمر كمدّة مقروءة. ثلاث دوال زمن لثلاث حاجات، ولا واحدة تنوب عن
+   أخرى: `ago` تقول «قبل ساعة» (نقطة في الماضي)، و`dur` تقول «1:04:22»
+   (عدّاد تنازلي لفتح السوق)، و`age` تقول «ساعة و4 دقائق» (طول المدة).
+   ⚠ لا تُسمَّ هذه `dur`: الاسم مأخوذ لعدّاد الترويسة، وإعادة تعريفه
+   تجعل «عمر الفرصة» يظهر بصيغة ساعةِ حائط — وهو ما حدث فعلاً أول مرة. */
+function age(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "أقل من دقيقة";
+  if (m < 60) return `${m} دقيقة`;
+  const h = Math.floor(m / 60), rm = m % 60;
+  if (h < 24) return rm ? `${h} ساعة و${rm} دقيقة` : `${h} ساعة`;
+  const d = Math.floor(h / 24), rh = h % 24;
+  return rh ? `${d} يوم و${rh} ساعة` : `${d} يوم`;
+}
+
+/* الصيغة المختصرة لخانة الرقم في `.grid3`: عمودها ثُلث العرض و`.stat .v`
+   فيها `nowrap` مع قصٍّ بثلاث نقاط — فـ«3 ساعة و50 دقيقة» تظهر على الهاتف
+   «3 ساعة و5…». العمر المقصوص أسوأ من المختصر. */
+function ageShort(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "الآن";
+  if (m < 60) return `${m}د`;
+  const h = Math.floor(m / 60), rm = m % 60;
+  if (h < 24) return rm ? `${h}س ${rm}د` : `${h}س`;
+  const d = Math.floor(h / 24), rh = h % 24;
+  return rh ? `${d}ي ${rh}س` : `${d}ي`;
+}
+
+const clock = (ts) => new Date(ts).toLocaleTimeString(AR, { hour: "2-digit", minute: "2-digit" });
+const dayOf = (ts) => new Date(ts).toLocaleDateString(AR, { month: "short", day: "numeric" });
+
+/* اليوم يُقال باسمه، وما قبله بتاريخه: «10:35» وحدها تكذب على من يقرأها
+   بعد يومين. */
+const isToday = (ts) => new Date(ts).toDateString() === new Date().toDateString();
+const stamp = (ts) => isToday(ts) ? clock(ts) : `${dayOf(ts)} ${clock(ts)}`;
 
 /* =======================================================================
    تشخيص — الخطأ الصامت أسوأ من الخطأ الظاهر.
@@ -1299,9 +1346,13 @@ async function openSymbol(sym) {
   $("#levels").innerHTML = `<div class="skl" style="height:120px"></div>`;
   $("#indicators").innerHTML = `<div class="skl" style="height:140px"></div>`;
   $("#cardOpts").style.display = "none";
+  $("#cardTrend").style.display = "none";
   try {
     await getSymbol(sym);
     renderDetail();
+    // التسلسل بعد الرسم لا قبله: انتظارُه يؤخّر الشاشة كلها لأجل بطاقة
+    // واحدة، وهو ملفٌّ لا يُطلب إلا هنا. وإن وصل متأخراً أعاد رسم بطاقته.
+    loadTrend().then(() => { if (state.sym === sym) renderTrend(state.symCache[sym]); });
   } catch (e) {
     $("#dHead").innerHTML = `<div class="warn">تعذّر تحميل بيانات ${esc(sym)} — ${esc(e.message)}</div>`;
   }
@@ -1773,6 +1824,7 @@ function renderDetail() {
   renderTfTable(rec);
   renderFund();
   renderWhy(rec);
+  renderTrend(rec);
   renderPlan(rec);
   renderLevels(rec);
   renderIndicators(rec);
@@ -2043,6 +2095,129 @@ function renderWhy(rec) {
   $("#cardWhy").style.display = "";
   el.innerHTML = lines.map(l => `<div class="row">
     <div class="l"><b>${l.i} ${esc(l.k)}</b><small>${esc(l.t)}</small></div></div>`).join("");
+}
+
+/* =======================================================================
+   تسلسل التوصية — «منذ متى» لا «ما هي».
+
+   نتيجةٌ فنية معروضة بلا زمن تُقرأ كأنها طازجة دائماً: من يرى «هابط قوي»
+   لا يعرف إن كان ذلك حاله منذ أسبوع أم انقلب قبل نصف ساعة، والفرق بينهما
+   هو الفرق بين اتجاه راسخ وانقلاب لم يُثبت نفسه بعد.
+
+   المصدران مختلفان عن قصد:
+     · `trend.json` تسلسلُ نتيجة **الرمز** — يُحمَّل عند فتح سهم لا عند
+       فتح التطبيق، فلا يُثقل بدءَ كل جلسة بما لا يُقرأ في أغلبها.
+     · `signals.json` لحظةُ ظهور **الإشارة** وسعرها المثبَّت — منه العمر
+       و«آخر تحديث».
+   ======================================================================= */
+async function loadTrend() {
+  if (state.trend || state.trendBusy) return state.trend;
+  state.trendBusy = true;
+  try { state.trend = await getJSON("trend.json"); }
+  catch (e) { state.trend = { syms: {} }; diag("trend", "تسلسل النتيجة لم يصل", e.message); }
+  finally { state.trendBusy = false; }
+  return state.trend;
+}
+
+const trendOf = (sym) => (((state.trend || {}).syms) || {})[sym] || [];
+
+/* إشارات الرمز المفتوحة، الأحدث أولاً. سجلات ما قبل توقيع الاتجاه
+   مستبعدة كما في `renderTrackedLevels` — مقاييسها بمواضعة أخرى. */
+function sigsOf(sym) {
+  return ((state.signals && state.signals.records) || [])
+    .filter(s => s.sym === sym && s.open && s.conv !== "long")
+    .sort((a, b) => b.at - a.at);
+}
+
+function renderTrend(rec) {
+  const card = $("#cardTrend"); if (!card) return;
+  const row = symRow(rec.s);
+  const pts = trendOf(rec.s), sigs = sigsOf(rec.s);
+  // بلا تسلسل ولا إشارة لا شيء يُقال — والبطاقة الفارغة أسوأ من غيابها
+  if (!pts.length && !sigs.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  const now = Date.now();
+  const scanLbl = (id) => {
+    const s = (typeof SCANS !== "undefined" && SCANS.find(x => x.id === id)) || null;
+    return s ? s.lbl : id;
+  };
+  const cell = (lbl, val, sub, color) => `<div class="stat">
+    <div class="k">${lbl}</div>
+    <div class="v num" style="color:${color || "var(--tx)"};font-size:15px">${val}</div>
+    ${sub ? `<div class="k" style="margin-top:2px">${sub}</div>` : ""}</div>`;
+
+  let html = "";
+
+  /* ---------- الحالة الآن، والاكتشاف، والعمر ---------- */
+  const sc = row && Number.isFinite(row.score) ? row.score : null;
+  const lab = labelOf(sc);
+  const top = sigs[0] || null;
+  html += `<div class="grid3">
+    ${cell("الحالة الآن", sc === null ? "—" : bd(fmt(sc, 0)), esc(lab.t), lab.c)}
+    ${cell("اكتُشفت", top ? bd(clock(top.at)) : "—",
+        top ? `${isToday(top.at) ? "اليوم" : bd(dayOf(top.at))} · ${esc(scanLbl(top.scan))}`
+            : "لم يبدأ التتبّع", "var(--tx)")}
+    ${cell("العمر", top ? bd(ageShort(now - top.at)) : "—",
+        top ? `${esc(age(now - top.at))} · آخر تحديث ${bd(ago(top.at2))}` : "", "var(--mut)")}
+  </div>`;
+
+  /* ---------- آخر انقلاب اتجاه ---------- */
+  // النطاق يتغيّر بعبور ‎±15‎ أو ‎±45‎ — نفس حدود `labelOf` كي لا يقول
+  // التسلسل «انقلب» والعنوان فوقه يقول غير ذلك
+  const band = (s) => [-45, -15, 15, 45].filter(b => s >= b).length;
+  let flip = null;
+  for (let i = pts.length - 1; i > 0; i--) {
+    if (band(pts[i][1]) !== band(pts[i - 1][1])) { flip = { to: pts[i], from: pts[i - 1] }; break; }
+  }
+  if (flip) {
+    const t = flip.to[0] * 1000, a = labelOf(flip.from[1]), b2 = labelOf(flip.to[1]);
+    html += `<div class="sep"></div>
+      <div class="row"><div class="l">آخر انقلاب في الاتجاه
+        <small><span style="color:${a.c}">${esc(a.t)}</span> ← <span style="color:${b2.c}">${esc(b2.t)}</span></small></div>
+        <div class="r">${bd(stamp(t))}<span style="display:block;font-size:11px;color:var(--mut)">${bd(age(now - t))}</span></div></div>`;
+  } else if (pts.length > 1) {
+    html += `<div class="sep"></div>
+      <div class="row"><div class="l">الاتجاه لم ينقلب
+        <small>النتيجة تحرّكت داخل نطاقها منذ ${esc(age(now - pts[0][0] * 1000))}</small></div></div>`;
+  }
+
+  /* ---------- إشاراته المفتوحة كلها بأعمارها ---------- */
+  if (sigs.length > 1) {
+    html += `<div class="sep"></div>
+      <div style="font-size:12.5px;color:var(--mut);margin-bottom:6px">إشاراته المفتوحة</div>
+      ${sigs.map(s => `<div class="row"><div class="l">${esc(scanLbl(s.scan))}
+        <small>عند <span class="num">${money(s.entry)}</span>${
+          Number.isFinite(s.sc) ? ` · نتيجتها حينها ${bd(fmt(s.sc, 0))}` : ""}</small></div>
+        <div class="r" style="font-size:12px">${bd(stamp(s.at))}<span style="display:block;color:var(--mut)">${
+          bd(age(now - s.at))}</span></div></div>`).join("")}`;
+  }
+
+  /* ---------- التسلسل كاملاً — مطويّ حتى يُطلب ---------- */
+  if (pts.length) {
+    const rowsHtml = pts.slice().reverse().map((p, i, arr) => {
+      const l = labelOf(p[1]);
+      const prev = arr[i + 1];                       // الأقدم منه (القائمة مقلوبة)
+      const flipped = prev && band(p[1]) !== band(prev[1]);
+      const delta = prev ? p[1] - prev[1] : null;
+      return `<div class="row"><div class="l">${flipped ? "🔄 " : ""}${bd(stamp(p[0] * 1000))}
+        <small style="color:${l.c}">${esc(l.t)}${p[2] !== null && p[2] !== undefined
+          ? ` · السعر ${money(p[2])}` : ""}</small></div>
+        <div class="r num" style="color:${l.c}">${bd(fmt(p[1], 0))}${delta === null ? ""
+          : `<span style="font-size:11px;color:var(--mut)"> · ${bd((delta > 0 ? "+" : "") + fmt(delta, 0))}</span>`}</div></div>`;
+    }).join("");
+    html += `<details class="plain"><summary>التسلسل كاملاً (${bd(pts.length)} نقطة)</summary>
+      ${rowsHtml}
+      <p class="srcline" style="text-align:right">نقطةٌ تُحفظ حين تتحرّك النتيجة ‎±5‎ نقاط
+      أو تعبر حدّ نطاق — لا كل دورة، وإلا صار السجلّ ضجيجاً. و🔄 تعني انقلاب الاتجاه.</p></details>`;
+  }
+
+  html += `<p class="srcline">دقّة الزمن هي دورة السوق (عشر دقائق): من قرأ
+    <span class="num">${top ? bd(clock(top.at)) : "10:35"}</span> فالحدث وقع خلال العشر
+    دقائق المنتهية عندها. والتسلسل يتقدّم حين تعمل دورة الجلب، فتوقّفُ الجهاز
+    فجوةٌ في السجلّ لا استقرارٌ في الاتجاه.</p>`;
+
+  $("#trendOut").innerHTML = html;
 }
 
 /* =======================================================================
@@ -2816,15 +2991,31 @@ function renderScreen() {
     $("#scanCount").textContent = "";
     return;
   }
+  // عمر الفرصة من سجلّ الإشارة نفسه: شرطٌ محقَّق اليوم قد يكون محقَّقاً
+  // منذ أسبوعين، ومن يراه في القائمة يحسبه ظهر الآن. والسعر المثبَّت
+  // لحظتها يقول كم تحرّك السهم قبل أن تراه.
+  const now = Date.now();
+  const openSig = {};
+  for (const s of ((state.signals && state.signals.records) || [])) {
+    if (!s.open || s.scan !== scan.id || s.conv === "long") continue;
+    if (!openSig[s.sym] || s.at < openSig[s.sym].at) openSig[s.sym] = s;
+  }
+
   el.innerHTML = hits.map((r, i) => {
     const col = !isFinite(r.chg) ? "var(--mut)" : r.chg > 0 ? "var(--up)" : r.chg < 0 ? "var(--dn)" : "var(--mut)";
     let v = "";
     try { v = scan.val(r, F[r.s], ctx) || ""; } catch (e) {}
+    const sg = openSig[r.s];
+    const since = sg
+      ? `<div class="n" style="color:var(--dim)">🕒 ${esc(age(now - sg.at))} · عند
+         <span class="num">${money(sg.entry)}</span></div>`
+      : "";
     return `<div class="srow" data-open="${esc(r.s)}">
       <div class="rank num">${i + 1}</div>
       <div class="id">
         <div class="t">${esc(nm(r))}</div>
         <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}</div>
+        ${since}
       </div>
       <div class="hitv">${esc(v)}</div>
       <div class="px">
@@ -3164,7 +3355,12 @@ async function refresh(force = false) {
   // السعر بعدها، وبلا لحظة بداية لا معنى لـ"تحقق المستوى"
   getJSON("signals.json").then(j => {
     state.signals = j;
-    if (state.sym && state.symCache[state.sym]) renderPlan(state.symCache[state.sym]);
+    if (state.sym && state.symCache[state.sym]) {
+      renderPlan(state.symCache[state.sym]);
+      renderTrend(state.symCache[state.sym]);
+    }
+    // أعمار الفرص في قائمة الماسح تأتي من هذا الملف نفسه
+    if (state.view === "screen") renderScreen();
   }).catch(() => {});
   // السجلّ الحيّ — يتراكم مع كل دورة سوق
   getJSON("archive.json").then(j => {
