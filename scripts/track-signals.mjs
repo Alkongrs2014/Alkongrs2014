@@ -32,6 +32,12 @@ const HOLD_DAYS = 28;                  // ~20 يوم تداول
 const MAX_RECORDS = 20000;             // سقف الملف
 const DAY = 86400e3;
 
+/* تسلسل النتيجة الفنية — حدوده مشروحة عند `pushTrend` أدناه */
+const TREND_MAX = 40;                  // نقاط لكل رمز
+const TREND_DAYS = 14;                 // عمر النقطة الأقصى
+const TREND_STEP = 5;                  // أصغر حركة تستحق نقطة
+const BANDS = [-45, -15, 15, 45];      // حدود `labelOf` نفسها
+
 const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return d; } };
 const r2 = (v) => (v === null || v === undefined || !Number.isFinite(v)) ? null : Math.round(v * 100) / 100;
 const r4 = (v) => (v === null || v === undefined || !Number.isFinite(v)) ? null : Math.round(v * 10000) / 10000;
@@ -105,6 +111,61 @@ export function update(sig, price, now) {
   sig.at2 = now;
   if (now - sig.at >= HOLD_DAYS * DAY) { sig.open = false; sig.closed = now; }
   return sig;
+}
+
+/* =====================================================================
+   تسلسل النتيجة الفنية لكل رمز — «متى صارت هذه التوصية، وماذا كانت قبل».
+
+   الشاشة تعرض حالة السهم **الآن** فقط، فمن يرى «هابط ‎−97‎» لا يعرف إن
+   كانت هذه حالته منذ أسبوع أم انقلبت قبل ساعة — والفرق بينهما هو الفرق
+   بين اتجاه راسخ وانقلاب طازج.
+
+   ولا نحفظ كل دورة: 96 رمزاً × 144 دورة يومياً = ~14 ألف نقطة في اليوم،
+   أي ملفٌ بالميغابايتات يصف حركةً لا معنى لها — نتيجةٌ تتحرك من 78.8 إلى
+   79.1 ليست حدثاً. فتُحفظ النقطة في حالتين فقط:
+
+     ١) **تغيّر النطاق** (عبور ‎±15‎ أو ‎±45‎، حدود `labelOf` نفسها) —
+        هذا هو انقلاب الاتجاه الذي لا يجوز أن يُفقد أبداً، ولو كانت
+        الحركة نقطةً واحدة.
+     ٢) حركة ‎±5‎ نقاط أو أكثر عن آخر نقطة محفوظة.
+
+   والزمن **بالثواني لا بالملّي**: ثلاثة أرقام زائدة في كل نقطة تصير
+   18 كيلوبايت في ملف بستة آلاف نقطة، بلا أن تُقرأ.
+
+   ⚠ دقة الزمن هي دورة السوق (عشر دقائق)، لا الدقيقة. من قرأ «10:35»
+   فالحدث بين 10:25 و10:35 — والواجهة تقول ذلك صراحةً.
+   ===================================================================== */
+export const bandOf = (sc) => BANDS.filter(b => sc >= b).length;   // 0..4
+
+export function pushTrend(list, ts, score, price) {
+  if (!Number.isFinite(score)) return list;
+  const pts = Array.isArray(list) ? list : [];
+  const last = pts[pts.length - 1];
+  const sec = Math.round(ts / 1000);
+  if (last) {
+    const moved = Math.abs(score - last[1]) >= TREND_STEP;
+    const flipped = bandOf(score) !== bandOf(last[1]);
+    if (!moved && !flipped) return pts;
+    // نقطتان في نفس اللحظة تعني تشغيلين في دقيقة — نُبقي الأحدث
+    if (last[0] === sec) { pts[pts.length - 1] = [sec, r2(score), price ?? null]; return pts; }
+  }
+  pts.push([sec, r2(score), price ?? null]);
+  return pts;
+}
+
+/* التشذيب بالعمر ثم بالسقف. لا يمسّ الترتيب: النقاط تُدفع زمنياً أصلاً. */
+export function trimTrend(pts, now) {
+  const cut = Math.round((now - TREND_DAYS * DAY) / 1000);
+  const fresh = (pts || []).filter(p => Array.isArray(p) && p[0] >= cut);
+  return fresh.length > TREND_MAX ? fresh.slice(-TREND_MAX) : fresh;
+}
+
+/* بوابة `trend.json`: النقاط تتقلّص بالتشذيب كل تشغيل فلا تصلح مقياساً،
+   أما **الرموز** فلا تختفي إلا بخلل — ملف قُرئ تالفاً أو ملخّص فارغ. */
+export function guardTrend(prevSyms, nextSyms) {
+  if (prevSyms > 0 && nextSyms < prevSyms * 0.8)
+    throw new Error(`رموز التسلسل تتقلّص ${prevSyms} ← ${nextSyms} — مرفوض`);
+  return true;
 }
 
 /* ---------- تجميع ---------- */
@@ -202,6 +263,12 @@ async function main() {
         // `dir` يُكتب حين يخالف +1 وحده — نفس أسلوب `mkt` الشرطي، فسجلّ
         // يتراكم بعشرات الآلاف لا يحمل حقلاً قيمته هي الافتراض
         ...(scan.dir === -1 ? { dir: -1 } : {}),
+        // لقطة اللحظة: النتيجة الفنية وحالة الفريمات كما كانت **حين ظهرت
+        // الإشارة**، لا كما تُحسب اليوم. لا تُحدَّث أبداً — إعادةُ حسابها
+        // لاحقاً ببيانات لم تكن متاحة تجعل السجلّ يدّعي أنه رأى ما لم يرَه.
+        ...(Number.isFinite(r.score) ? { sc: r2(r.score) } : {}),
+        ...(r.tfScore ? { tfs: Object.fromEntries(
+              Object.entries(r.tfScore).map(([k, v]) => [k, r2(v)])) } : {}),
         ...(r.mkt ? { mkt: r.mkt } : {})
       });
       openNow.add(key);
@@ -224,6 +291,27 @@ async function main() {
   fs.writeFileSync(path.join(OUT, "signals.json"),
     JSON.stringify({ updated: now, holdDays: HOLD_DAYS, count: records.length, records }));
 
+  // ٤) تسلسل النتيجة — ملف مستقل لأنه يُقرأ عند فتح سهم لا عند فتح
+  //    التطبيق. دمجُه في `signals.json` كان سيُثقل كل تحميل صفحة ببيانات
+  //    لا تُقرأ، ويكرّر تسلسل السهم بعدد شروطه المحقَّقة.
+  const prevTrend = readJSON(path.join(OUT, "trend.json"));
+  const syms = (prevTrend && prevTrend.syms) || {};
+  const prevSymCount = Object.keys(syms).length;
+  let added2 = 0;
+  for (const r of rows) {
+    if (!Number.isFinite(r.score)) continue;
+    const before = (syms[r.s] || []).length;
+    // السعر يُؤخذ كما هو من الملخّص: مقرَّبٌ أصلاً بالأرقام المعنوية هناك،
+    // وإعادة تقريبه بخانتين تمحو الأصول الرخيصة (شيبا إينو ← صفر)
+    const next = trimTrend(pushTrend(syms[r.s], now, r.score, r.p), now);
+    syms[r.s] = next;
+    if (next.length > before) added2++;
+  }
+  guardTrend(prevSymCount, Object.keys(syms).length);
+  fs.writeFileSync(path.join(OUT, "trend.json"), JSON.stringify({
+    updated: now, keepDays: TREND_DAYS, maxPoints: TREND_MAX,
+    minStep: TREND_STEP, bands: BANDS, syms }));
+
   const scans = aggregate(records);
   fs.writeFileSync(path.join(OUT, "archive.json"),
     JSON.stringify({ updated: now, holdDays: HOLD_DAYS,
@@ -235,10 +323,14 @@ async function main() {
   const prevMeta = readJSON(path.join(OUT, "meta.json"), {});
   fs.writeFileSync(path.join(OUT, "meta.json"), JSON.stringify({
     ...prevMeta, signalsUpdated: now,
-    signalsRun: { at: new Date(now).toISOString(), total: records.length, added, closed: closedNow }
+    signalsRun: { at: new Date(now).toISOString(), total: records.length, added, closed: closedNow,
+                  trendSyms: Object.keys(syms).length,
+                  trendPts: Object.values(syms).reduce((a, b) => a + b.length, 0) }
   }));
 
   console.log(`✔ ${records.length} إشارة (+${added} جديدة · ${closedNow} أُغلقت اليوم)`);
+  console.log(`  تسلسل النتيجة: ${Object.keys(syms).length} رمزاً · ${
+    Object.values(syms).reduce((a, b) => a + b.length, 0)} نقطة (+${added2} الآن)`);
   for (const s of scans)
     console.log(`  ${s.lbl}: ${s.open} مفتوحة · ${s.closed} مغلقة${s.closed ? ` · وسيط ${s.med}% · موجب ${s.win}%` : ""}`);
   return 0;
@@ -325,6 +417,62 @@ function selfCheck() {
     const g = aggregate(rec).find(x => x.id === "alignDn");
     eq([g.closed, g.med, g.win], [2, 5, 100], "القديم خارج الحساب");
     eq(g.dir, -1, "الاتجاه معلن في المخرَج");
+  });
+
+  t("bandOf يطابق حدود labelOf الخمسة", () => {
+    eq([bandOf(-100), bandOf(-45), bandOf(-14), bandOf(15), bandOf(90)], [0, 1, 2, 3, 4], "النطاقات");
+    eq(bandOf(-45.1), 0, "تحت الحدّ");
+    eq(bandOf(-45), 1, "على الحدّ داخله");
+  });
+
+  t("pushTrend يتجاهل الحركة التافهة ويحفظ المعنوية", () => {
+    const T = 1_700_000_000_000;
+    let p = pushTrend([], T, 70, 100);
+    eq(p.length, 1, "الأولى تُحفظ دائماً");
+    p = pushTrend(p, T + 6e5, 70.3, 101);
+    eq(p.length, 1, "0.3 نقطة ليست حدثاً");
+    p = pushTrend(p, T + 12e5, 76, 102);
+    eq(p.length, 2, "6 نقاط حدث");
+    eq(p[1][1], 76, "القيمة محفوظة");
+    eq(p[1][0], Math.round((T + 12e5) / 1000), "الزمن بالثواني");
+  });
+
+  t("pushTrend يحفظ انقلاب الاتجاه ولو بنقطة واحدة", () => {
+    const T = 1_700_000_000_000;
+    // 16 ← 14: حركة نقطتين لكنها تعبر ‎+15‎ فتُقرأ «صاعد» ← «عرضي»
+    let p = pushTrend([], T, 16, 100);
+    p = pushTrend(p, T + 6e5, 14, 100);
+    eq(p.length, 2, "عبور النطاق يُحفظ رغم صغر الحركة");
+    // وداخل النطاق نفسه تُهمَل نفس الحركة
+    let q = pushTrend([], T, 30, 100);
+    q = pushTrend(q, T + 6e5, 32, 100);
+    eq(q.length, 1, "نقطتان داخل النطاق تُهمَلان");
+  });
+
+  t("pushTrend يتجاهل النتيجة غير الرقمية ولا يكتب صفراً", () => {
+    const T = 1_700_000_000_000;
+    const p = pushTrend([[T / 1000, 50, 10]], T + 6e5, null, 11);
+    eq(p.length, 1, "بلا نقطة ملفّقة");
+    eq(pushTrend([], T, undefined, 1).length, 0, "بلا أولى ملفّقة");
+  });
+
+  t("trimTrend يقطع بالعمر ثم بالسقف ويُبقي الأحدث", () => {
+    const now = 1_700_000_000_000;
+    const old = Math.round((now - 30 * DAY) / 1000);
+    const fresh = Math.round((now - DAY) / 1000);
+    eq(trimTrend([[old, 1, 1], [fresh, 2, 2]], now), [[fresh, 2, 2]], "القديم يُقطع");
+    const many = Array.from({ length: TREND_MAX + 12 }, (_, i) => [fresh + i, i, i]);
+    const cut = trimTrend(many, now);
+    eq(cut.length, TREND_MAX, "السقف");
+    eq(cut[cut.length - 1][1], TREND_MAX + 11, "الأحدث باقٍ");
+  });
+
+  t("بوابة التسلسل ترفض اختفاء الرموز ولا تعاقب التشذيب", () => {
+    eq(guardTrend(96, 96), true, "ثبات");
+    eq(guardTrend(96, 120), true, "نموّ");
+    eq(guardTrend(0, 0), true, "أول تشغيل");
+    throws(() => guardTrend(96, 3), "ملخّص شبه فارغ");
+    throws(() => guardTrend(96, 0), "ملف قُرئ تالفاً");
   });
 
   t("openKey يمنع تكرار نفس الإشارة للرمز نفسه", () => {
