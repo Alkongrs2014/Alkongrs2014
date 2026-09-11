@@ -1969,6 +1969,9 @@ async function openSymbol(sym) {
   }
   state.sym = sym;
   state.hover = null;
+  // ثلاثة ملفات تقرأ منها بطاقات هذه الشاشة: الأساسيات والأخبار
+  // والأداء النسبي. تُطلب معاً لا متسلسلة، وكلٌّ يرسم بطاقته حين يصل
+  need("fundamentals.json"); need("news.json"); need("analytics.json");
   go("detail");
   $("#dHead").innerHTML = `<div class="skl" style="height:90px"></div>`;
   $("#tfTable").innerHTML = `<div class="skl" style="height:100px"></div>`;
@@ -3740,6 +3743,67 @@ function renderRSSym(sym) {
     "الأولى تصف السوق الذي تتداوله اليوم";
 }
 
+/* =======================================================================
+   التحميل عند الحاجة.
+
+   كان بدء التطبيق يسحب ~900 كيلوبايت دفعةً واحدة، منها 346 لملخّص
+   العقود و173 للأخبار و107 للأساسيات و89 للتحليلات — وأغلبها لا يُقرأ
+   في الزيارة الواحدة أصلاً. الآن يبدأ بـ`summary` و`market` وحدهما،
+   وكل ثقيلٍ يُجلب أول مرة تُفتح شاشته.
+
+   والوعد يُحفظ لا الملف: نداءان متزامنان على نفس الملف يعطيان طلباً
+   واحداً، وهو ما يحدث فعلاً حين يُفتح سهمٌ من شاشة التحليل.
+   ======================================================================= */
+const LAZY = {
+  "fundamentals.json": (f) => {
+    state.fund = f; fundCache = null;                 // الرتب تُبنى من هذا الملف
+    if (state.sym) { renderFund(); const r = state.symCache[state.sym]; if (r) renderLevels(r); }
+    if (state.view === "screen") { renderScreen(); renderEarnings(); }
+    if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
+  },
+  "news.json": (n) => { state.news = n; renderNews(); if (state.sym) renderSymNews(); },
+  "options.json": (j) => { state.opts = j; if (state.view === "opts") renderOpts(); },
+  "analytics.json": (j) => {
+    if (!j || !Array.isArray(j.rs)) return;
+    state.an = j; state.rsIdx = null;
+    if (state.view === "analysis") renderDerived();
+    if (state.view === "list" && /^rs/.test($("#qSort").value)) renderList();
+    if (state.sym) renderDetail();
+  },
+  /* الطبقة الواسعة: بقية S&P 500 بالفريم اليومي وحده. لا تلزم لأي
+     شاشة افتراضية — تُطلب أول مرة يكتب المستخدم بحثاً، أو يبدّل نطاق
+     القائمة، أو يفتح العقود (وأغلب رموزها منها). وبدونها يبقى التطبيق
+     كما كان على المرصودة، فغيابها تدهورٌ هادئ لا عطل. */
+  "wide.json": (w) => {
+    if (!w || !Array.isArray(w.rows)) return;
+    state.wide = w;
+    fillSymbolSelects();
+    if (state.view === "list") renderList();
+    if (state.view === "opts") renderOpts();
+  }
+};
+const lazyWait = {};
+
+function need(file) {
+  if (lazyWait[file]) return lazyWait[file];
+  lazyWait[file] = getJSON(file).then(j => { (LAZY[file] || (() => {}))(j); return j; })
+    .catch((e) => {
+      // الفشل لا يُخزَّن: محاولةٌ تالية عند فتح الشاشة مرةً أخرى
+      delete lazyWait[file];
+      diag("lazy", "تعذّر جلب " + file, e && e.message);
+      if (file === "news.json" && $("#newsList"))
+        $("#newsList").innerHTML = '<div class="note">تعذّر جلب الأخبار الآن.</div>';
+      return null;
+    });
+  return lazyWait[file];
+}
+
+// بعد كل تحديث: يُعاد جلب ما سبق جلبه وحده. إعادة الكل تُبطل الكسل،
+// وترك القديم تجعل «تحديث» لا يحدّث ما يراه المستخدم.
+function lazyReload() {
+  for (const f of Object.keys(lazyWait)) { delete lazyWait[f]; need(f); }
+}
+
 function symRow(sym) {
   return (state.summary && state.summary.rows.find(r => r.s === sym))
       || (state.wide && state.wide.rows.find(r => r.s === sym))
@@ -5467,10 +5531,15 @@ function go(view) {
     b.classList.toggle("on", b.dataset.go === (isDetail ? (state.from || "list") : view)));
   window.scrollTo({ top: 0, behavior: "instant" });
   if (isDetail) setTimeout(drawChart, 60);
+  // كل شاشة تطلب ما تحتاجه أول مرة تُفتح فيها
   if (view === "list") renderList();
-  if (view === "screen") { renderScreen(); renderEarnings(); renderArchive(); }
-  if (view === "opts") renderOpts();
-  if (view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); renderDerived(); }
+  if (view === "screen") { need("fundamentals.json"); renderScreen(); renderEarnings(); renderArchive(); }
+  if (view === "opts") { need("options.json"); need("wide.json"); renderOpts(); }
+  if (view === "news") need("news.json");
+  if (view === "analysis") {
+    need("fundamentals.json"); need("analytics.json");
+    renderAnalysis(); renderSectorMedians(); renderCompare(); renderDerived();
+  }
   // السجل يحمّل ملفه عند فتحه لا عند بدء التطبيق: المغلقات تتراكم بالآلاف
   // ولا تُقرأ إلا هنا
   if (view === "log") { renderLog(); loadHistory().then(() => { if (state.view === "log") renderLog(); }); }
@@ -5595,19 +5664,10 @@ async function refresh(force = false) {
   } finally {
     btn.textContent = "⟳"; state.busy = false;
   }
-  // الملفات الثانوية — لا توقف العرض إن فشلت
-  getJSON("fundamentals.json").then(f => {
-    state.fund = f; fundCache = null;                 // الرتب تُبنى من هذا الملف
-    if (state.sym) { renderFund(); const r = state.symCache[state.sym]; if (r) renderLevels(r); }
-    if (state.view === "screen") { renderScreen(); renderEarnings(); }
-    if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
-  }).catch(() => {});
-  getJSON("news.json").then(n => { state.news = n; renderNews(); if (state.sym) renderSymNews(); }).catch(() => {
-    $("#newsList").innerHTML = `<div class="note">تعذّر جلب الأخبار الآن.</div>`;
-  });
-  // الطبقة الواسعة: بقية S&P 500 بالفريم اليومي وحده. تُحمَّل بعد الرسم
-  // الأول لا قبله — بها يعمل البحث على الكون كاملاً، وبدونها يبقى التطبيق
-  // كما كان على المرصودة. لذلك فشلها صامت ولا يوقف شيئاً.
+  // الملفات الثانوية — لا توقف العرض إن فشلت.
+  // ما جُلب كسولاً يُعاد جلبه، وما لم يُطلب بعد يبقى غير مطلوب: نداءٌ
+  // صريح هنا بعد `lazyReload` كان يجلب نفس الملف مرتين في كل تحديث.
+  lazyReload();
   // الأرشيف التاريخي — يُبنى مع الدورة اليومية، وغيابه لا يعطّل الماسح
   getJSON("backtest.json").then(j => {
     state.arch = j;
@@ -5636,26 +5696,6 @@ async function refresh(force = false) {
   getJSON("archive.json").then(j => {
     state.live = j;
     if (state.view === "screen") renderArchive();
-  }).catch(() => {});
-  // ملخّص العقود — يُملأ محلياً فقط، فغيابه سحابياً حالة طبيعية
-  getJSON("options.json").then(j => {
-    state.opts = j;
-    if (state.view === "opts") renderOpts();
-  }).catch(() => {});
-  // التحليلات المشتقّة — 89 كيلوبايت لا تُقرأ إلا في شاشة التحليل
-  // وترتيبٍ واحد في القائمة، فتُحمَّل بعد الأساسي لا معه
-  getJSON("analytics.json").then(j => {
-    if (!j || !Array.isArray(j.rs)) return;
-    state.an = j; state.rsIdx = null;
-    if (state.view === "analysis") renderDerived();
-    if (state.view === "list" && /^rs/.test($("#qSort").value)) renderList();
-    if (state.sym) renderDetail();
-  }).catch(() => {});
-  getJSON("wide.json").then(w => {
-    if (!w || !Array.isArray(w.rows)) return;
-    state.wide = w;
-    fillSymbolSelects();
-    if (state.view === "list") renderList();
   }).catch(() => {});
 }
 
@@ -5727,10 +5767,22 @@ function boot() {
   });
 
   let deb;
-  $("#qSearch").oninput = () => { clearTimeout(deb); deb = setTimeout(renderList, 180); };
-  $("#qSort").onchange = renderList;
+  // البحث يعمّ الكون كاملاً، فأول حرفٍ يطلب الطبقة الواسعة
+  $("#qSearch").oninput = () => {
+    if ($("#qSearch").value.trim()) need("wide.json");
+    clearTimeout(deb); deb = setTimeout(renderList, 180);
+  };
+  $("#qSort").onchange = () => {
+    // الترتيب بالقوة النسبية يحتاج ملفها: نطلبه ونرسم بما عندنا الآن،
+    // ويُعاد الرسم حين يصل
+    if (/^rs/.test($("#qSort").value)) need("analytics.json");
+    renderList();
+  };
   $("#qSector").onchange = renderList;
-  $("#qMarket").onchange = renderList;
+  $("#qMarket").onchange = () => {
+    if ($("#qMarket").value !== "us") need("wide.json");
+    renderList();
+  };
   { const b = $("#btnPick"); if (b) b.onclick = () => runPicker(); }
   $$("#optSide button").forEach(b => b.onclick = () => { state.optSide = b.dataset.side; renderOptions(); });
 
