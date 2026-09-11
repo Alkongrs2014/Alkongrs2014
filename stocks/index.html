@@ -798,6 +798,14 @@ details[open]{background:var(--card2)}
     </p>
   </div>
 
+  <div class="card" id="cardRSSym" style="display:none">
+    <h2>📈 الأداء النسبي</h2>
+    <p class="hint">أداء السهم مطروحاً منه أداء السوق، وحساسيته له، وفجواته الليلية</p>
+    <div class="grid3" id="rsSymStats"></div>
+    <div id="rsSymCorr"></div>
+    <p class="srcline" id="rsSymNote"></p>
+  </div>
+
   <div class="card" id="cardStrat" style="display:none">
     <h2>🧩 باني الاستراتيجيات</h2>
     <p class="hint">اختر تركيبةً من عقود هذا الاستحقاق، فتُحسب من أسعارها الفعلية:
@@ -3675,6 +3683,63 @@ function scanExport() {
            "بيتا"], out));
 }
 
+/* ---------- الأداء النسبي لسهمٍ بعينه ---------- */
+function renderRSSym(sym) {
+  const card = $("#cardRSSym"); if (!card) return;
+  const a = state.an, x = rsOf(sym);
+  if (!a || !x) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  const cell = (k, v, note, col) => '<div class="stat"><div class="k">' + k + '</div>' +
+    '<div class="v num"' + (col ? ' style="color:' + col + '"' : "") + '>' + v + '</div>' +
+    '<div class="k" style="margin:4px 0 0;white-space:normal">' + note + "</div></div>";
+  const sg = (v) => v >= 0 ? "var(--up)" : "var(--dn)";
+
+  const g = (a.gaps || []).find(y => y.s === sym);
+  $("#rsSymStats").innerHTML =
+      cell("فائض شهر", bd(pct(x.x1, 1)), "السهم " + bd(pct(x.r1, 1)) + " · السوق " + bd(pct(a.mkt[1], 1)), sg(x.x1))
+    + cell("فائض ثلاثة أشهر", bd(pct(x.x3, 1)), "السهم " + bd(pct(x.r3, 1)) + " · السوق " + bd(pct(a.mkt[3], 1)), sg(x.x3))
+    + cell("فائض ستة أشهر", bd(pct(x.x6, 1)), "السهم " + bd(pct(x.r6, 1)) + " · السوق " + bd(pct(a.mkt[6], 1)), sg(x.x6))
+    + cell("رتبة القوة", Number.isFinite(x.rk) ? bd(fmt(x.rk, 0)) : "—",
+        Number.isFinite(x.rk) ? "أقوى من " + bd(fmt(x.rk, 0)) + "% من السوق" : "—",
+        x.rk >= 80 ? "var(--up)" : x.rk <= 20 ? "var(--dn)" : null)
+    + cell("بيتا", Number.isFinite(x.beta) ? bd(fmt(x.beta, 2)) : "—",
+        Number.isFinite(x.beta)
+          ? "هبوط السوق 10% يقابله نحو " + bd(fmt(Math.abs(x.beta) * 10, 0)) + "% " +
+            (x.beta < 0 ? "صعوداً" : "هبوطاً")
+          : "—",
+        Math.abs(x.beta) >= 1.5 ? "var(--neu)" : null)
+    + cell("متوسط الفجوة الليلية", g ? bd(fmt(g.avg, 2)) + "%" : "—",
+        g && g.top && g.top[0] ? "أكبرها " + bd(pct(g.top[0].v, 1)) + " " + bd(ago(g.top[0].t))
+                               : "ما لا يحميك منه وقف الخسارة",
+        g && g.avg >= 1.5 ? "var(--dn)" : null);
+
+  // الأكثر تحرّكاً معه: تنبيهٌ عملي لمن يفكّر في شرائهما معاً
+  const c = a.corr, i = c ? c.syms.indexOf(sym) : -1;
+  if (i < 0) { $("#rsSymCorr").innerHTML = ""; }
+  else {
+    const near = c.syms.map((s2, j) => ({ s: s2, v: corrAt(c, i, j) }))
+      .filter(y => y.s !== sym && y.v !== null).sort((p, q) => q.v - p.v).slice(0, 4);
+    $("#rsSymCorr").innerHTML = near.length
+      ? '<p class="hint" style="margin:12px 0 3px">الأكثر تحرّكاً معه — شراؤها معه مضاعفةُ مركز</p>' +
+        '<div class="slist">' + near.map(y => {
+          const r = symRow(y.s);
+          return '<div class="srow" data-open="' + esc(y.s) + '"><div class="id">' +
+            '<div class="t">' + esc(nm(r) || y.s) + '</div><div class="n">' +
+            '<span class="tick" style="font-size:11px">' + esc(y.s) + "</span>" +
+            (r && r.sec ? " · " + esc(r.sec) : "") + '</div></div><div class="px">' +
+            '<div class="p num" style="color:' + (y.v >= 80 ? "var(--dn)" : "var(--tx)") + '">' +
+            bd(fmt(y.v / 100, 2)) + "</div></div></div>";
+        }).join("") + "</div>"
+      : "";
+    $("#rsSymCorr").querySelectorAll("[data-open]").forEach(el => el.onclick = () => openSymbol(el.dataset.open));
+  }
+
+  $("#rsSymNote").innerHTML = "الفائض مقابل " + esc(a.market) + " · بيتا وارتباط على عوائد يومية لـ" +
+    bd(a.corrWin) + " يوماً — وهي تختلف عمداً عن رقم وسيطك (خمس سنوات شهرية): " +
+    "الأولى تصف السوق الذي تتداوله اليوم";
+}
+
 function symRow(sym) {
   return (state.summary && state.summary.rows.find(r => r.s === sym))
       || (state.wide && state.wide.rows.find(r => r.s === sym))
@@ -3742,6 +3807,7 @@ function renderDetail() {
                  ["الخطة", () => renderPlan(rec), "#planOut"],
                  ["المستويات", () => renderLevels(rec), "#levels"],
                  ["المؤشرات", () => renderIndicators(rec), "#indicators"],
+                 ["الأداء النسبي", () => renderRSSym(rec.s), "#rsSymStats"],
                  ["الأخبار", () => renderSymNews(), null],
                  ["الشارت", () => drawChart(), null]];
   prefillTrade();
@@ -5744,6 +5810,18 @@ function boot() {
   };
 
   renderAlerts();
+
+  /* عامل الخدمة: فتحٌ فوري وعملٌ بلا اتصال.
+
+     يُسجَّل **بعد** التحميل لا معه: تسجيله في أثنائه يزاحم طلبات
+     البيانات على نفس الاتصال فيؤخّر أول رسم، وهو عكس المقصود. ولا
+     يُسجَّل على `file://` لأن المتصفح يرفضه هناك أصلاً. */
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(e => diag("sw", "تعذّر تسجيل عامل الخدمة", e.message));
+    });
+  }
+
   window.addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(drawChart, 150); });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && Date.now() - state.lastOk > 60000) refresh(true);
