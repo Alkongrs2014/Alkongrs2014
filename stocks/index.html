@@ -424,6 +424,27 @@ details[open]{background:var(--card2)}
   .card.full{column-span:all}
 }
 
+/* ---------- الخريطة الحرارية ---------- */
+/* المربّعات تتقاسم السطر بـflex-grow لا بحسابٍ هندسي: المساحة تتناسب مع
+   جذر القيمة السوقية (الجذر لا القيمة — أبل تساوي مئة شركة، ومربّعها
+   بالقيمة الخام يبتلع الشاشة). */
+.heat-sec{margin-bottom:12px}
+.heat-sec h3{font-size:12.5px;color:var(--mut);margin:0 0 5px;font-weight:600;
+  display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.heat-row{display:flex;flex-wrap:wrap;gap:3px}
+.heat-t{flex:1 1 auto;min-width:52px;border-radius:7px;padding:7px 4px;text-align:center;
+  cursor:pointer;overflow:hidden;transition:transform .13s,outline-color .13s;
+  outline:1px solid transparent}
+.heat-t b{display:block;font-size:11.5px;font-weight:700;letter-spacing:.2px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr}
+.heat-t i{display:block;font-style:normal;font-size:10.5px;opacity:.92;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr}
+@media (pointer:fine){ .heat-t:hover{transform:scale(1.06);outline-color:#fff;z-index:2;position:relative} }
+
+/* ---------- شريط القوة النسبية ---------- */
+.rsbar{position:relative;height:7px;border-radius:99px;background:var(--card2);overflow:hidden}
+.rsbar b{position:absolute;top:0;bottom:0;border-radius:99px;display:block}
+
 /* ---------- لمسات صغيرة تفرق كثيراً ---------- */
 .hint{line-height:1.65}
 .verdict{letter-spacing:-.8px;font-size:26px}
@@ -563,6 +584,8 @@ details[open]{background:var(--card2)}
       <option value="chgAsc">الأعلى انخفاضاً</option>
       <option value="mc" selected>القيمة السوقية</option>
       <option value="vol">حجم التداول</option>
+      <option value="rs">الأقوى نسبياً</option>
+      <option value="rsAsc">الأضعف نسبياً</option>
       <option value="sym">الرمز أبجدياً</option>
     </select>
     <select id="qSector"><option value="">كل القطاعات</option></select>
@@ -898,6 +921,7 @@ details[open]{background:var(--card2)}
     <h2>📊 أرشيف النتائج</h2>
     <p class="hint" id="archHint"></p>
     <div id="archTable"></div>
+    <div id="archReg"></div>
     <div id="archLive"></div>
     <p class="srcline" id="archNote"></p>
     <details>
@@ -1108,6 +1132,93 @@ details[open]{background:var(--card2)}
     <div id="cmpOut"></div>
   </div>
 
+
+  <div class="card" id="cardRS" style="display:none">
+    <h2>📈 القوة النسبية</h2>
+    <p class="hint">أداء السهم <b>مطروحاً منه أداء السوق</b> — سهمٌ صعد 2% ويوم السوق +3% سهمٌ ضعيف
+    لا قوي، وهذا ما لا يقوله التغيّر اليومي</p>
+    <div class="toolbar">
+      <select id="rsSector"><option value="">كل القطاعات</option></select>
+      <select id="rsHz">
+        <option value="sc">التركيب المرجّح</option>
+        <option value="x1">شهر</option>
+        <option value="x3">ثلاثة أشهر</option>
+        <option value="x6">ستة أشهر</option>
+      </select>
+      <select id="rsLayer">
+        <option value="watch">المرصودة</option>
+        <option value="all">كل السوق</option>
+      </select>
+    </div>
+    <div id="rsList"></div>
+    <p class="srcline" id="rsNote"></p>
+    <details>
+      <summary>كيف تُحسب ولماذا الفائض لا العائد؟</summary>
+      <p>لكل سهم نقيس عائده على <b>شهر وثلاثة وستة أشهر</b>، ونطرح منه عائد السوق على المدة
+      نفسها. الناتج «الفائض»: كم تفوّق السهم على السوق أو تخلّف عنه.</p>
+      <p><b>لماذا لا العائد وحده:</b> في سوقٍ صعد 20% يبدو كل سهم قوياً، والسؤال أيّها أقوى
+      <b>من السوق</b>. وفي سوقٍ هابط قد يكون السهم الذي خسر 3% أقوى من كل شيء.</p>
+      <p><b>التركيب المرجّح</b> يجمع الثلاثة بأوزان 40% و35% و25% — الأقرب أثقل لأن القوة صفة
+      تتغيّر، وليس أثقل بكثير كي لا يتقلّب الترتيب كل أسبوع. و<b>الرتبة</b> موضعُ السهم بين
+      أسهم السوق: 92 تعني أقوى من 92% منها.</p>
+      <p><b>ما لا تقوله:</b> القوة النسبية وصفٌ لما مضى. السهم القوي قد يكون استنفد حركته،
+      والضعيف قد يرتد. هي مرشّحٌ للانتباه لا إشارةُ دخول.</p>
+    </details>
+  </div>
+
+  <div class="card" id="cardSecRS" style="display:none">
+    <h2>🧭 أي قطاع يقود السوق؟</h2>
+    <p class="hint">وسيط الفائض داخل كل قطاع — القطاع يقود أو يتخلّف قبل أسهمه غالباً</p>
+    <div id="secRS"></div>
+    <p class="srcline" id="secRSNote"></p>
+  </div>
+
+  <div class="card" id="cardHeat" style="display:none">
+    <h2>🔥 خريطة السوق</h2>
+    <p class="hint">كل مربّع سهم، حجمه بقيمته السوقية ولونه بتغيّره اليوم — مجموعةً بقطاعها</p>
+    <div class="toolbar">
+      <select id="heatBy">
+        <option value="chg">تغيّر اليوم</option>
+        <option value="sc">القوة النسبية</option>
+        <option value="score">النتيجة الفنية</option>
+        <option value="rsi">مؤشر القوة RSI</option>
+      </select>
+    </div>
+    <div id="heatMap"></div>
+    <p class="srcline" id="heatNote"></p>
+  </div>
+
+  <div class="card" id="cardCorr" style="display:none">
+    <h2>🕸️ الارتباط — هل محفظتك منوَّعة فعلاً؟</h2>
+    <p class="hint">خمسة أسهم مترابطة ليست تنويعاً بل مركزاً واحداً بخمسة أسماء</p>
+    <div class="toolbar">
+      <select id="corrSym"></select>
+    </div>
+    <div id="corrOut"></div>
+    <div class="sep"></div>
+    <div id="corrPairs"></div>
+    <p class="srcline" id="corrNote"></p>
+    <details>
+      <summary>كيف يُقرأ الرقم؟</summary>
+      <p>الارتباط بين ‎−1‎ و‎+1‎ على عوائد <b>يومية</b> لآخر 120 يوم تداول. <b>فوق 0.8</b>
+      السهمان يتحرّكان معاً عملياً — شراؤهما معاً مضاعفةُ مركزٍ لا تنويع. <b>حول الصفر</b>
+      مستقلّان. <b>تحت الصفر</b> يتحرّكان عكس بعضهما.</p>
+      <p><b>ما لا يقوله:</b> الارتباط يقيس ما مضى، ويرتفع بشدّة في الانهيارات — أسهمٌ بدت
+      مستقلّة تهبط معاً حين يهبط كل شيء. وهو يقيس <b>اتجاه</b> الحركة لا حجمها: سهمان
+      ارتباطهما 0.9 قد يتحرّك أحدهما ضعف الآخر (وذلك ما تقوله بيتا).</p>
+      <p>والعوائد لوغاريتمية لا نسبية، والأيام الناقصة تُسقَط ولا تُملأ بصفر — «لم يتداول»
+      ليس «لم يتحرك».</p>
+    </details>
+  </div>
+
+  <div class="card" id="cardGaps" style="display:none">
+    <h2>⛳ الفجوات الليلية</h2>
+    <p class="hint">الفتح مقابل إغلاق الأمس — ما <b>لا</b> يحميك منه وقف الخسارة، لأن السعر
+    يقفز فوقه لا عبره</p>
+    <div id="gapList"></div>
+    <p class="srcline" id="gapNote"></p>
+  </div>
+
   <p class="disclaimer">
     الأرقام الأساسية من مصادر عامة مجانية وقد تتأخر أو تنقص. هذه أداة قراءة ومقارنة،
     وليست توصية بيع أو شراء ولا نصيحة استثمارية.
@@ -1237,7 +1348,8 @@ const state = {
   favs: [], favOnly: false, hover: null, from: "list", scan: null,
   optCache: {}, opts: null, arch: null, live: null, events: null, signals: null,
   optExp: 0, optSide: "calls",
-  diag: [], trend: null, trendBusy: false, hist: null, histBusy: false, learn: null
+  diag: [], trend: null, trendBusy: false, hist: null, histBusy: false, learn: null,
+  an: null, rsIdx: null
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -1730,6 +1842,10 @@ function filteredRows() {
     chgAsc:   (a, b) => nz(a.chg) - nz(b.chg),
     mc:       (a, b) => nz(b.mc) - nz(a.mc),
     vol:      (a, b) => nz(b.vol) - nz(a.vol),
+    // القوة النسبية من ملفٍ آخر: رمزٌ بلا قراءة ينزل إلى القاع بدل أن
+    // يتصدّر بصفر
+    rs:       (a, b) => nz(rsOf(b.s) && rsOf(b.s).sc) - nz(rsOf(a.s) && rsOf(a.s).sc),
+    rsAsc:    (a, b) => nz(rsOf(a.s) && rsOf(a.s).sc) - nz(rsOf(b.s) && rsOf(b.s).sc),
     sym:      (a, b) => a.s.localeCompare(b.s)
   }[by] || ((a, b) => nz(b.mc) - nz(a.mc));
   return rows.sort(cmp);
@@ -1996,7 +2112,27 @@ function renderScanHistory(id) {
     (خط الأساس ${bd(pct(b.ret[20].med, 2))} و${bd(fmt(b.ret[20].win, 1))}% موجبة).
     ${a.note ? `<br><small style="color:var(--mut)">القياس التاريخي ${esc(a.note)}</small>` : ""}
     ${!good ? `<br><small style="color:var(--mut)">حافة سالبة: الشرط لم يتفوّق على السوق في هذه الفترة.
-      يبقى معروضاً لأن إخفاءه دعاية لا قياس.</small>` : ""}</div>`;
+      يبقى معروضاً لأن إخفاءه دعاية لا قياس.</small>` : ""}
+    ${regimeLine(a)}</div>`;
+}
+
+/* حالة السوق تقلب حكم الشرط أحياناً، فالرقم الذي يهمّك هو حافته في
+   الحالة **القائمة الآن** لا متوسّط الحالتين. «قرب قاع 52 أسبوعاً»
+   حافته 0.07 نقطة في سوقٍ صاعد و2.16 في هابط — والوسط يخفي كليهما. */
+function regimeLine(a) {
+  const now = state.an && state.an.regime;
+  if (!a || !a.reg || !now || !a.reg[now.state]) return "";
+  const cur = a.reg[now.state], other = a.reg[now.state === "up" ? "dn" : "up"];
+  if (!Number.isFinite(cur.edge[20])) return "";
+  const same = other && Number.isFinite(other.edge[20]);
+  // لا نُبرز الفرق إلا حين يكون فرقاً: نصف نقطة داخل ضجيج العيّنة
+  const gap = same ? Math.abs(cur.edge[20] - other.edge[20]) : 0;
+  const col = cur.edge[20] > 0 ? "var(--up)" : "var(--dn)";
+  return "<br><b style='color:" + col + "'>والسوق الآن " +
+    (now.state === "up" ? "فوق" : "تحت") + " متوسطه المئوي</b>، وفي هذه الحالة وحدها كانت حافته " +
+    '<span class="num">' + bd(fmt(cur.edge[20], 2)) + "</span> نقطة على " +
+    '<span class="num">' + bd(fmt(cur.n, 0)) + "</span> إشارة" +
+    (gap >= 0.5 ? " — مقابل <span class='num'>" + bd(fmt(other.edge[20], 2)) + "</span> في الحالة الأخرى" : "") + ".";
 }
 
 function renderArchive() {
@@ -2041,6 +2177,40 @@ function renderArchive() {
       ${baseRow(b, anyDn ? "خط الأساس صعوداً — أي يوم بلا شرط" : "خط الأساس — أي يوم بلا شرط")}
       ${anyDn && j.baselineDn ? baseRow(j.baselineDn, "خط الأساس هبوطاً — أي يوم بلا شرط") : ""}
     </tbody></table></div>`;
+
+  /* الحافة مقسومةً على حالة السوق — أقوى ما في الأرشيف. شرطٌ حافته
+     نصف نقطة في المتوسط قد تكون نقطتين في حالة وسالبةً في الأخرى،
+     فيُقرأ وسطُه «بلا حافة» ويُهمل وهو صالح نصف الوقت. */
+  const R = j.regime, rnow = state.an && state.an.regime;
+  if (!R || !j.scans.some(x => x.reg)) $("#archReg").innerHTML = "";
+  else {
+    const cellR = (v) => Number.isFinite(v)
+      ? '<td class="num" style="color:' + (v > 0 ? "var(--up)" : v < 0 ? "var(--dn)" : "var(--mut)") +
+        '">' + bd(fmt(v, 2)) + "</td>"
+      : '<td class="num">—</td>';
+    const rr = j.scans.filter(x => x.reg).map(x =>
+      '<tr><td style="text-align:right">' + esc(x.lbl) +
+        (x.dir === -1 ? ' <span class="chip dn" style="font-size:10px;padding:1px 5px">هابط</span>' : "") +
+        '</td><td class="num">' + bd(fmt(x.reg.up.n, 0)) + "</td>" + cellR(x.reg.up.edge[20]) +
+        '<td class="num">' + bd(fmt(x.reg.dn.n, 0)) + "</td>" + cellR(x.reg.dn.edge[20]) + "</tr>").join("");
+    const banner = rnow
+      ? '<div class="note" style="margin:0 0 8px">السوق (' + esc(rnow.src) + ") الآن <b>" +
+        (rnow.state === "up" ? "فوق" : "تحت") + '</b> متوسطه المئوي بـ<span class="num">' +
+        bd(pct(rnow.gap, 1)) + "</span> — فالعمود " +
+        (rnow.state === "up" ? "الأول" : "الثاني") + " هو المنطبق اليوم.</div>"
+      : "";
+    $("#archReg").innerHTML =
+      '<p class="hint" style="margin:14px 0 4px">الحافة بعد عشرين يوماً — مقسومةً على حالة السوق</p>' +
+      banner +
+      '<div class="otwrap"><table class="otbl"><thead>' +
+        '<tr><th style="text-align:right">الشرط</th><th colspan="2">سوقٌ صاعد</th>' +
+        '<th colspan="2">سوقٌ هابط</th></tr>' +
+        "<tr><th></th><th>إشارات</th><th>الحافة</th><th>إشارات</th><th>الحافة</th></tr>" +
+      "</thead><tbody>" + rr + "</tbody></table></div>" +
+      '<p class="srcline">' + bd(fmt(R.days.up, 0)) + " يوماً فوق المتوسط و" +
+        bd(fmt(R.days.dn, 0)) + " تحته خلال خمس سنوات · كل حافة تُقاس على خط أساس " +
+        "<b>حالتها</b> لا على خط أساس الفترة كلها، وإلا نُسب إلى الشرط ما هو للسوق</p>";
+  }
 
   // السجلّ الحيّ: ما ظهر فعلاً في هذا التطبيق منذ تشغيل التتبّع. يغطّي
   // حتى الشرطين اللذين لا يُقاسان تاريخياً، لكنه يحتاج وقتاً ليقول شيئاً.
@@ -2917,6 +3087,256 @@ function drawPayoff(prof, spot, mul) {
   g.textAlign = "center";
   [lo, (lo + hi) / 2, hi].forEach(p => g.fillText("$" + Math.round(p), X(p), H - 6));
 }
+
+
+/* =======================================================================
+   التحليلات المشتقّة — قوة نسبية وقطاعات وخريطة وارتباط وفجوات.
+
+   المصدر ملفٌّ واحد (\`analytics.json\`) يُحسب على الخادم من شمعاتٍ عندنا
+   أصلاً. لا يُحمَّل مع بدء التطبيق: 89 كيلوبايت لا تُقرأ إلا في شاشة
+   التحليل وترتيبٍ واحد في القائمة.
+   ======================================================================= */
+
+function rsOf(sym) {
+  const a = state.an;
+  if (!a) return null;
+  if (!state.rsIdx) state.rsIdx = new Map(a.rs.map(r => [r.s, r]));
+  return state.rsIdx.get(sym) || null;
+}
+
+/* تدرّج لونٍ واحد من الأحمر إلى الأخضر عبر رمادٍ في الوسط. القيمة
+   تُشبَع عند حدٍّ معلن: بلا سقف يبتلع سهمٌ قفز 40% كل تدرّج البقية. */
+function heatColor(v, cap) {
+  if (!Number.isFinite(v)) return "var(--card2)";
+  const t = Math.max(-1, Math.min(1, v / cap));
+  const a = 0.13 + Math.abs(t) * 0.5;
+  return t >= 0 ? "rgba(0,209,155," + a.toFixed(3) + ")" : "rgba(255,77,94," + a.toFixed(3) + ")";
+}
+
+function renderDerived() {
+  renderRS(); renderSecRS(); renderHeat(); renderCorr(); renderGaps();
+}
+
+/* ---------- القوة النسبية ---------- */
+function renderRS() {
+  const card = $("#cardRS"), a = state.an;
+  if (!a || !a.rs || !a.rs.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  // قائمة القطاعات تُعاد في كل رسم مع حفظ الاختيار: <select> يُبنى مرة
+  // يتجمّد على بيانات أول رسم
+  const secSel = $("#rsSector"), keep = secSel.value;
+  const secs = [...new Set(a.rs.map(r => r.sec).filter(Boolean))].sort();
+  secSel.innerHTML = '<option value="">كل القطاعات</option>' +
+    secs.map(x => '<option value="' + esc(x) + '">' + esc(x) + "</option>").join("");
+  secSel.value = keep;
+
+  const hz = $("#rsHz").value || "sc";
+  const layer = $("#rsLayer").value || "watch";
+  const watch = new Set(((state.summary && state.summary.rows) || []).map(r => r.s));
+
+  let rows = a.rs.filter(r => Number.isFinite(r[hz])
+    && (!keep || r.sec === keep)
+    && (layer === "all" || watch.has(r.s)));
+  rows.sort((x, y) => y[hz] - x[hz]);
+
+  const top = rows.slice(0, 8), bot = rows.slice(-8).reverse();
+  const cap = Math.max(5, ...rows.slice(0, 3).concat(rows.slice(-3)).map(r => Math.abs(r[hz])));
+
+  const line = (r) => {
+    const v = r[hz];
+    const w = Math.min(100, Math.abs(v) / cap * 100);
+    const pos = v >= 0;
+    return '<div class="srow" data-open="' + esc(r.s) + '">' +
+      '<div class="id"><div class="t">' + esc(nm(symRow(r.s) || r)) +
+        (r.cx ? ' <span class="chip off" style="font-size:10px;padding:1px 6px">كريبتو</span>' : "") + '</div>' +
+        '<div class="n"><span class="tick" style="font-size:11px">' + esc(r.s) + "</span>" +
+          (r.sec ? " · " + esc(r.sec) : "") +
+          (Number.isFinite(r.beta) ? " · بيتا " + bd(fmt(r.beta, 2)) : "") + '</div>' +
+        '<div class="rsbar" style="margin-top:5px"><b style="' +
+          (pos ? "right:50%;" : "left:50%;") + "width:" + (w / 2) + "%;background:" +
+          (pos ? "var(--up)" : "var(--dn)") + '"></b>' +
+          '<b style="right:50%;width:1px;background:var(--dim)"></b></div></div>' +
+      '<div class="px"><div class="p num" style="color:' + (pos ? "var(--up)" : "var(--dn)") + '">' +
+        bd(pct(v, 1)) + '</div>' +
+      '<div class="c num" style="font-size:11px;color:var(--mut)">رتبة ' +
+        (Number.isFinite(r.rk) ? bd(fmt(r.rk, 0)) : "—") + "</div></div></div>";
+  };
+
+  const sec = (t, html) => '<p class="hint" style="margin:10px 0 3px">' + t + '</p><div class="slist">' + html + "</div>";
+  $("#rsList").innerHTML = rows.length
+    ? sec("الأقوى من السوق", top.map(line).join("")) + sec("الأضعف من السوق", bot.map(line).join(""))
+    : '<div class="empty">لا رموز بهذا المرشّح</div>';
+  $("#rsList").querySelectorAll("[data-open]").forEach(el => el.onclick = () => openSymbol(el.dataset.open));
+
+  const lbl = { sc: "التركيب المرجّح", x1: "شهر", x3: "ثلاثة أشهر", x6: "ستة أشهر" }[hz];
+  const mk = { sc: null, x1: a.mkt[1], x3: a.mkt[3], x6: a.mkt[6] }[hz];
+  $("#rsNote").innerHTML = bd(rows.length) + " رمزاً · " + esc(lbl) +
+    (Number.isFinite(mk) ? " · السوق (" + esc(a.market) + ") " + bd(pct(mk, 1)) + " في المدة نفسها" : "") +
+    " · محدَّث " + bd(ago(a.updated));
+}
+
+/* ---------- قوة القطاعات ---------- */
+function renderSecRS() {
+  const card = $("#cardSecRS"), a = state.an;
+  if (!a || !a.sectors || !a.sectors.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  const cap = Math.max(3, ...a.sectors.map(x => Math.abs(x.sc || 0)));
+  $("#secRS").innerHTML = a.sectors.map(x => {
+    const v = x.sc, pos = v >= 0, w = Math.min(100, Math.abs(v) / cap * 100);
+    return '<div class="tf"><div class="tf-name" style="width:92px;font-size:12.5px;font-weight:600">' +
+      esc(x.sec) + '</div>' +
+      '<div class="tf-bar"><div class="tf-fill" style="' + (pos ? "right:50%;" : "left:50%;") +
+        "width:" + (w / 2) + "%;background:" + (pos ? "var(--up)" : "var(--dn)") + '"></div></div>' +
+      '<div class="tf-val" style="color:' + (pos ? "var(--up)" : "var(--dn)") + '">' +
+        bd(pct(v, 1)) + '<small style="display:block;color:var(--dim);font-weight:400">' +
+        bd(x.n) + " سهماً</small></div></div>";
+  }).join("");
+  $("#secRSNote").innerHTML = "وسيط الفائض المرجّح · شهر " + bd(pct(a.mkt[1], 1)) +
+    " للسوق · الوسيط لا المتوسط كي لا يزيح القطاعَ سهمٌ واحد";
+}
+
+/* ---------- الخريطة الحرارية ---------- */
+function renderHeat() {
+  const card = $("#cardHeat");
+  const rows = ((state.summary && state.summary.rows) || []).filter(r => Number.isFinite(r.p));
+  if (!rows.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  const by = $("#heatBy").value || "chg";
+  const valOf = (r) => {
+    if (by === "chg") return r.chg;
+    if (by === "score") return r.score;
+    if (by === "rsi") return Number.isFinite(r.rsi) ? r.rsi - 50 : null;   // مركزُه 50 لا صفر
+    const x = rsOf(r.s); return x ? x.sc : null;
+  };
+  const cap = { chg: 3, score: 60, rsi: 25, sc: 15 }[by];
+
+  const bySec = new Map();
+  for (const r of rows) {
+    const k = r.sec || "غير مصنّف";
+    if (!bySec.has(k)) bySec.set(k, []);
+    bySec.get(k).push(r);
+  }
+  // القطاعات مرتّبة بوسيط قيمتها: الأقوى أعلى الخريطة
+  const secs = [...bySec.entries()].map(([sec, list]) => {
+    const vals = list.map(valOf).filter(Number.isFinite).sort((a, b) => a - b);
+    const med = vals.length ? (vals.length % 2 ? vals[vals.length >> 1]
+      : (vals[(vals.length >> 1) - 1] + vals[vals.length >> 1]) / 2) : null;
+    return { sec, list, med };
+  }).sort((a, b) => (b.med ?? -1e9) - (a.med ?? -1e9));
+
+  // `pct` تُلحق العلامة بنفسها، فالوحدة هنا للعنوان وحده — إضافتها إلى
+  // ناتجها كانت تطبع «+3.1%%»
+  const unit = (by === "chg" || by === "sc") ? "%" : "";
+  $("#heatMap").innerHTML = secs.map(g => {
+    const tiles = g.list
+      .sort((a, b) => (b.mc || 0) - (a.mc || 0))
+      .map(r => {
+        const v = valOf(r);
+        // جذر القيمة السوقية: أبل تساوي مئة شركة، ومربّعها بالقيمة الخام
+        // يبتلع الصف كله
+        const gr = Math.max(1, Math.sqrt((r.mc || 1) / 1e9));
+        const shown = by === "rsi" ? (Number.isFinite(r.rsi) ? fmt(r.rsi, 0) : "—")
+          : by === "score" ? (Number.isFinite(v) ? fmt(v, 0) : "—")
+          : pct(v, 1);
+        return '<div class="heat-t" data-open="' + esc(r.s) + '" title="' + esc(nm(r)) + '"' +
+          ' style="flex-grow:' + gr.toFixed(2) + ";background:" + heatColor(v, cap) + '">' +
+          "<b>" + esc(r.s) + "</b><i>" + bd(shown) + "</i></div>";
+      }).join("");
+    return '<div class="heat-sec"><h3><span>' + esc(g.sec) + "</span><span class='num' style='color:" +
+      ((g.med ?? 0) >= 0 ? "var(--up)" : "var(--dn)") + "'>" +
+      bd(by === "rsi" || by === "score" ? fmt(g.med, 0) : pct(g.med, 1)) + "</span></h3>" +
+      '<div class="heat-row">' + tiles + "</div></div>";
+  }).join("");
+  $("#heatMap").querySelectorAll("[data-open]").forEach(el => el.onclick = () => openSymbol(el.dataset.open));
+  $("#heatNote").innerHTML = bd(rows.length) + " رمزاً · مساحة المربّع بجذر القيمة السوقية · " +
+    (by === "sc" && !state.an ? "القوة النسبية لم تُحمَّل بعد" : "اللون يُشبَع عند " + bd(cap) + unit);
+}
+
+/* ---------- الارتباط ---------- */
+/* المصفوفة مثلثٌ أعلى مسطَّح: n(n−1)/2 قيمة بدل n². الموضع يُحسب ولا
+   يُبحث عنه. */
+function corrAt(c, i, j) {
+  if (i === j) return 100;
+  const [a, b] = i < j ? [i, j] : [j, i];
+  const n = c.syms.length;
+  const v = c.m[a * n - a * (a + 1) / 2 + (b - a - 1)];
+  return v === -128 ? null : v;      // ‎−128‎ علامة «لا عيّنة» لا ارتباطٌ سالب
+}
+
+function renderCorr() {
+  const card = $("#cardCorr"), a = state.an;
+  const c = a && a.corr;
+  if (!c || !c.syms || c.syms.length < 3) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  const sel = $("#corrSym"), keep = sel.value;
+  sel.innerHTML = c.syms.map(x => {
+    const r = symRow(x);
+    return '<option value="' + esc(x) + '">' + esc(nm(r) || x) + " (" + esc(x) + ")</option>";
+  }).join("");
+  sel.value = (keep && c.syms.includes(keep)) ? keep
+    : (state.favs.find(f => c.syms.includes(f)) || c.syms[0]);
+
+  const i = c.syms.indexOf(sel.value);
+  const list = c.syms.map((s2, j) => ({ s: s2, v: corrAt(c, i, j) }))
+    .filter(x => x.s !== sel.value && x.v !== null)
+    .sort((x, y) => y.v - x.v);
+
+  const line = (x) => {
+    const v = x.v / 100;
+    const col = v >= 0.8 ? "var(--dn)" : v >= 0.5 ? "var(--neu)" : v <= 0 ? "var(--acc)" : "var(--up)";
+    const r = symRow(x.s);
+    return '<div class="srow" data-open="' + esc(x.s) + '">' +
+      '<div class="id"><div class="t">' + esc(nm(r) || x.s) + '</div>' +
+        '<div class="n"><span class="tick" style="font-size:11px">' + esc(x.s) + "</span>" +
+        (r && r.sec ? " · " + esc(r.sec) : "") + "</div></div>" +
+      '<div class="px"><div class="p num" style="color:' + col + '">' + bd(fmt(v, 2)) + "</div></div></div>";
+  };
+  const sec = (t, html) => '<p class="hint" style="margin:8px 0 3px">' + t + '</p><div class="slist">' + html + "</div>";
+  $("#corrOut").innerHTML =
+      sec("الأكثر تحرّكاً معه — شراؤهما معاً مضاعفةُ مركز", list.slice(0, 6).map(line).join(""))
+    + sec("الأقل ارتباطاً به — تنويعٌ فعلي", list.slice(-6).reverse().map(line).join(""));
+  $("#corrOut").querySelectorAll("[data-open]").forEach(el => el.onclick = () => openSymbol(el.dataset.open));
+
+  const pl = (p) => {
+    const v = p[2] / 100;
+    return '<div class="cmp"><div class="side a">' + esc(p[0]) + '</div>' +
+      '<div class="mid num" style="color:' + (v >= 0.8 ? "var(--dn)" : v <= 0 ? "var(--acc)" : "var(--tx)") +
+      '">' + bd(fmt(v, 2)) + '</div><div class="side b">' + esc(p[1]) + "</div></div>";
+  };
+  $("#corrPairs").innerHTML = '<p class="hint" style="margin:0 0 3px">أقوى الأزواج ترابطاً في المرصودة</p>' +
+    (a.pairs.high || []).slice(0, 6).map(pl).join("") +
+    '<p class="hint" style="margin:10px 0 3px">وأقلّها — أو أعكسها</p>' +
+    (a.pairs.low || []).slice(0, 6).map(pl).join("");
+
+  $("#corrNote").innerHTML = "على عوائد يومية لآخر " + bd(c.win) + " يوم تداول · " +
+    bd(c.syms.length) + " رمزاً مرصوداً";
+}
+
+/* ---------- الفجوات ---------- */
+function renderGaps() {
+  const card = $("#cardGaps"), a = state.an;
+  if (!a || !a.gaps || !a.gaps.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  $("#gapList").innerHTML = '<div class="slist">' + a.gaps.slice(0, 10).map(g => {
+    const r = symRow(g.s);
+    const worst = g.top && g.top[0];
+    return '<div class="srow" data-open="' + esc(g.s) + '">' +
+      '<div class="id"><div class="t">' + esc(nm(r) || g.s) + '</div>' +
+        '<div class="n"><span class="tick" style="font-size:11px">' + esc(g.s) + "</span> · وسيط " +
+        bd(fmt(g.med, 2)) + "% · أكبرها " + bd(pct(worst ? worst.v : null, 1)) +
+        (worst ? " " + bd(ago(worst.t)) : "") + "</div></div>" +
+      '<div class="px"><div class="p num" style="color:' +
+        (g.avg >= 1.5 ? "var(--dn)" : g.avg >= 0.8 ? "var(--neu)" : "var(--mut)") + '">' +
+        bd(fmt(g.avg, 2)) + "%</div>" +
+      '<div class="c num" style="font-size:11px;color:var(--mut)">متوسط</div></div></div>';
+  }).join("") + "</div>";
+  $("#gapList").querySelectorAll("[data-open]").forEach(el => el.onclick = () => openSymbol(el.dataset.open));
+  $("#gapNote").innerHTML = "متوسط القيمة المطلقة للفجوة على " + bd(a.gaps[0].n) +
+    " يوماً تقريباً · سهمٌ متوسط فجوته 2% يقفز فوق وقفك مرتين في الشهر";
+}
+
 
 function symRow(sym) {
   return (state.summary && state.summary.rows.find(r => r.s === sym))
@@ -4642,7 +5062,7 @@ function go(view) {
   if (view === "list") renderList();
   if (view === "screen") { renderScreen(); renderEarnings(); renderArchive(); }
   if (view === "opts") renderOpts();
-  if (view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
+  if (view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); renderDerived(); }
   // السجل يحمّل ملفه عند فتحه لا عند بدء التطبيق: المغلقات تتراكم بالآلاف
   // ولا تُقرأ إلا هنا
   if (view === "log") { renderLog(); loadHistory().then(() => { if (state.view === "log") renderLog(); }); }
@@ -4723,7 +5143,7 @@ function renderAbout() {
 function renderAll() {
   renderTop(); renderNow(); renderList(); fillSymbolSelects(); renderAbout();
   if (state.view === "screen") { renderScreen(); renderEarnings(); }
-  if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
+  if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); renderDerived(); }
   if (state.sym && state.symCache[state.sym]) renderDetail();
   layoutWide();
 }
@@ -4811,6 +5231,15 @@ async function refresh(force = false) {
   getJSON("options.json").then(j => {
     state.opts = j;
     if (state.view === "opts") renderOpts();
+  }).catch(() => {});
+  // التحليلات المشتقّة — 89 كيلوبايت لا تُقرأ إلا في شاشة التحليل
+  // وترتيبٍ واحد في القائمة، فتُحمَّل بعد الأساسي لا معه
+  getJSON("analytics.json").then(j => {
+    if (!j || !Array.isArray(j.rs)) return;
+    state.an = j; state.rsIdx = null;
+    if (state.view === "analysis") renderDerived();
+    if (state.view === "list" && /^rs/.test($("#qSort").value)) renderList();
+    if (state.sym) renderDetail();
   }).catch(() => {});
   getJSON("wide.json").then(w => {
     if (!w || !Array.isArray(w.rows)) return;
@@ -4928,6 +5357,10 @@ function boot() {
     // يصف نفس الساق في أخرى
     if (k) k.onchange = () => { stratOverride = []; renderStrat(); };
     if (q) q.onchange = renderStrat; }
+
+  ["#rsSector", "#rsHz", "#rsLayer"].forEach(id => { const e = $(id); if (e) e.onchange = renderRS; });
+  { const e = $("#heatBy"); if (e) e.onchange = renderHeat; }
+  { const e = $("#corrSym"); if (e) e.onchange = renderCorr; }
 
   $("#fSector").onchange = renderAnalysis;
   $("#fSort").onchange = renderAnalysis;

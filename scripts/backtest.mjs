@@ -43,6 +43,9 @@ const MAX_H = Math.max(...HORIZONS);
 const WARMUP = 260;                       // EMA200 + نافذة 52 أسبوعاً
 const COOLDOWN = 5;                       // شمعات قبل تسجيل نفس الشرط للرمز نفسه
 const W52 = 252;
+// مرجع حالة السوق. SPY لا ‎^GSPC‎: الأخير مؤشّرٌ لا يُتداول وبعض المصادر
+// ترفضه، والفرق بينهما في اتجاه المتوسط المئوي معدوم عملياً.
+const MARKET = process.env.BT_MARKET || "SPY";
 const AVGVOL = 10;
 
 const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return d; } };
@@ -181,6 +184,32 @@ export function snapshots(meta, k) {
   return out;
 }
 
+/* =====================================================================
+   حالة السوق — فوق متوسطه المئتين أم تحته.
+
+   شرطٌ يعمل في الصعود وحده **ليس شرطاً فاشلاً**، بل شرطٌ مشروط. وخلط
+   الحالتين في رقمٍ واحد يخفي أيّهما: حافةُ نصف نقطة قد تكون نقطتين في
+   سوقٍ صاعد وسالبةَ نقطة في هابط، فيُقرأ الوسط «بلا حافة» ويُهمل الشرط
+   وهو صالح نصف الوقت.
+
+   المتوسط سببٌ لا اصطلاح: هو أبطأ ما يُستعمل، فلا يقلب الحالة مع كل
+   تصحيح أسبوعي. و**سببيٌّ بالكامل** — قيمته عند شمعةٍ تُحسب من شمعاتها
+   السابقة وحدها، فلا تسرّب معرفةً بالمستقبل إلى تصنيفٍ يُستعمل وقتها.
+   ===================================================================== */
+export function regimeMap(k, win = 200) {
+  if (!Array.isArray(k) || k.length < win + 10) return null;
+  const c = k.map(x => x.c);
+  const e = ema(c, win);
+  const m = new Map();
+  for (let i = 0; i < k.length; i++) {
+    if (e[i] === null || !(c[i] > 0) || !Number.isFinite(k[i].t)) continue;
+    // اليوم هو المفتاح لا الطابع الزمني: شمعات الرموز المختلفة تحمل
+    // أختاماً مختلفة الدقائق لليوم نفسه
+    m.set(Math.floor(k[i].t / 86400000), c[i] >= e[i] ? "up" : "dn");
+  }
+  return m.size ? m : null;
+}
+
 /* ---------- تجميع ---------- */
 function summarize(list) {
   const s = { n: list.length, ret: {} };
@@ -207,6 +236,16 @@ async function main() {
   // EMA200 وتُبقي الملفات خفيفة)، وهو أقصر من فترة التسخين نفسها. وحفظ
   // خمس سنوات لخمسمئة رمز ~25 ميغابايت تُنشر بلا أن يقرأها أحد، بينما
   // مخرَج القياس بضعة كيلوبايتات. فنجلب في الذاكرة ونرمي.
+  /* سلسلة السوق أولاً: طلبٌ واحد يصنّف كل شمعة في القياس كله. لو سقط
+     فالقياس يمضي بلا تقسيم — التقسيم إضافة لا شرط. */
+  let regime = null, regCount = { up: 0, dn: 0 };
+  try {
+    const { candles } = await fetchChart(MARKET, { range: "5y", interval: "1d" });
+    regime = regimeMap(candles);
+    if (regime) for (const v of regime.values()) regCount[v]++;
+    console.log(`  حالة السوق من ${MARKET}: ${regCount.up} يوماً فوق متوسطه و${regCount.dn} تحته`);
+  } catch (e) { console.warn(`  ⚠ تعذّر جلب ${MARKET} — القياس بلا تقسيم حالة: ${e.message}`); }
+
   console.log(`▶ جلب تاريخ ${chosen.length} رمزاً (خمس سنوات يومية) …`);
   const fetched = await pool(chosen, 3, async (m) => {
     const { candles } = await fetchChart(m.s, { range: "5y", interval: "1d" });
@@ -221,8 +260,9 @@ async function main() {
   console.log(`  قياس ${SCANS.filter(s => s.btTest).length} شروط على ${series.length} رمزاً …`);
 
   const hits = {};                       // id -> [outcome]
-  for (const s of SCANS) if (s.btTest) hits[s.id] = [];
-  const baseline = [];
+  const hitsReg = {};                    // id -> { up:[], dn:[] }
+  for (const s of SCANS) if (s.btTest) { hits[s.id] = []; hitsReg[s.id] = { up: [], dn: [] }; }
+  const baseline = [], baseReg = { up: [], dn: [] };
   let bars = 0, symbols = 0, skipped = 0;
 
   let trimmedSyms = 0;
@@ -242,6 +282,10 @@ async function main() {
       const o = outcome(k, i);
       if (!o) continue;
       baseline.push(o);
+      // شمعةٌ خارج مدى سلسلة السوق (عطلة، أو رمزٌ أقدم منها) لا تُنسب
+      // إلى حالة — ولا تُخمَّن
+      const rg = regime ? regime.get(Math.floor(k[i].t / 86400000)) : undefined;
+      if (rg) baseReg[rg].push(o);
       for (const scan of SCANS) {
         if (!scan.btTest) continue;
         let hit = false;
@@ -250,6 +294,7 @@ async function main() {
         if (lastHit[scan.id] !== undefined && i - lastHit[scan.id] < COOLDOWN) continue;
         lastHit[scan.id] = i;
         hits[scan.id].push(o);
+        if (rg) hitsReg[scan.id][rg].push(o);
       }
     }
   }
@@ -260,13 +305,31 @@ async function main() {
   // هابطة بخط أساس صاعد تُخرج حافة كاذبة مهما صحّ باقي الحساب.
   const base = summarize(baseline);
   const baseDn = summarize(baseline.map(o => signOutcome(o, -1)));
+  // خط أساسٍ لكل حالة وكل اتجاه: مقارنة إشارةٍ ظهرت في سوقٍ صاعد بخط
+  // أساس الفترة كلها تنسب إليها ما هو للسوق
+  const baseByReg = {
+    up: { 1: summarize(baseReg.up), "-1": summarize(baseReg.up.map(o => signOutcome(o, -1))) },
+    dn: { 1: summarize(baseReg.dn), "-1": summarize(baseReg.dn.map(o => signOutcome(o, -1))) }
+  };
+  const edgeOf = (g, b) => ({
+    edge: Object.fromEntries(HORIZONS.map(h => [h,
+      (Number.isFinite(g.ret[h].med) && Number.isFinite(b.ret[h].med)) ? r2(g.ret[h].med - b.ret[h].med) : null])),
+    edgeWin: Object.fromEntries(HORIZONS.map(h => [h,
+      (Number.isFinite(g.ret[h].win) && Number.isFinite(b.ret[h].win)) ? r2(g.ret[h].win - b.ret[h].win) : null]))
+  });
 
   const scans = SCANS.filter(s => s.btTest).map(s => {
     const d = s.dir === -1 ? -1 : 1;
     const g = summarize(d === -1 ? hits[s.id].map(o => signOutcome(o, -1)) : hits[s.id]);
     const b = d === -1 ? baseDn : base;
+    // الحافة في كل حالة على حدة، بخط أساس تلك الحالة وبإشارة الشرط
+    const reg = regime ? Object.fromEntries(["up", "dn"].map(rk => {
+      const list = hitsReg[s.id][rk];
+      const gg = summarize(d === -1 ? list.map(o => signOutcome(o, -1)) : list);
+      return [rk, { ...gg, ...edgeOf(gg, baseByReg[rk][String(d)]) }];
+    })) : null;
     return {
-      id: s.id, lbl: s.lbl, dir: d, note: s.btNote || null, ...g,
+      id: s.id, lbl: s.lbl, dir: d, note: s.btNote || null, ...g, reg,
       // الحافة على خط الأساس هي المعلومة، لا الرقم المطلق.
       // **على الوسيط لا المتوسط**: توزيع العوائد ملتوٍ بشدّة، وسهم واحد
       // تضاعف عشر مرات يزيح متوسط آلاف الملاحظات ولا يزيح وسيطها.
@@ -283,7 +346,11 @@ async function main() {
 
   const out = { updated: now, symbols, bars, horizons: HORIZONS, cooldown: COOLDOWN,
                 trimmed: trimmedSyms, maxDayMove: MAX_DAY_MOVE, cryptoExcluded: true,
-                baseline: base, baselineDn: baseDn, scans, excluded };
+                baseline: base, baselineDn: baseDn,
+                regime: regime ? { src: MARKET, days: regCount,
+                                   bars: { up: baseReg.up.length, dn: baseReg.dn.length },
+                                   base: baseByReg } : null,
+                scans, excluded };
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(path.join(OUT, "backtest.json"), JSON.stringify(out));
 
@@ -298,11 +365,35 @@ async function main() {
   console.log(`  خط الأساس بعد 20 يوماً: وسيط ${base.ret[20].med}% · نسبة موجبة ${base.ret[20].win}%`);
   for (const s of scans)
     console.log(`  ${s.lbl}: ${s.n} إشارة · وسيط ${s.ret[20].med}% · موجب ${s.ret[20].win}% · حافة ${s.edge[20] > 0 ? "+" : ""}${s.edge[20]} نقطة`);
+  if (regime) {
+    console.log("  الحافة بعد 20 يوماً حسب حالة السوق:");
+    for (const s of scans) {
+      if (!s.reg) continue;
+      const u = s.reg.up, d2 = s.reg.dn;
+      console.log(`    ${s.lbl}: صاعد ${u.n} إشارة حافة ${u.edge[20] ?? "—"} · هابط ${d2.n} إشارة حافة ${d2.edge[20] ?? "—"}`);
+    }
+  }
   if (excluded.length) console.log(`  خارج القياس (لا نملك تاريخ مدخلاتها): ${excluded.map(e => e.lbl).join(" · ")}`);
   return 0;
 }
 
 /* ---------- فحص ذاتي بلا شبكة ---------- */
+function selfCheckRegime(t, eq) {
+  t("regimeMap يصنّف بالمتوسط لا بالسعر المطلق", () => {
+    const day = 86400000;
+    // سلسلة هابطة ثم صاعدة: الذيل الصاعد يجب أن يعبر المتوسط
+    const k = [];
+    for (let i = 0; i < 300; i++) k.push({ t: i * day, c: 100 - i * 0.2 });
+    for (let i = 0; i < 120; i++) k.push({ t: (300 + i) * day, c: 40 + i * 1.5 });
+    const m = regimeMap(k);
+    if (!m) throw new Error("لم تُبنَ الخريطة");
+    eq(m.get(290), "dn", "في الهبوط تحت متوسطه");
+    eq(m.get(415), "up", "وبعد ارتداد طويل فوقه");
+    eq(m.get(50), undefined, "قبل اكتمال المتوسط لا تصنيف");
+    eq(regimeMap([{ t: 0, c: 1 }]), null, "سلسلة أقصر من النافذة");
+  });
+}
+
 function selfCheck() {
   console.log("▶ فحص ذاتي (بلا شبكة)\n");
   let pass = 0, fail = 0;
@@ -449,6 +540,8 @@ function selfCheck() {
     if (!(b < -90)) throw new Error(`كل الشروط سالبة: ${b}`);
     eq(scoreFrom({ px: 100 }), 0, "بلا مؤشرات");
   });
+
+  selfCheckRegime(t, eq);
 
   console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل`);
   process.exit(fail ? 1 : 0);
