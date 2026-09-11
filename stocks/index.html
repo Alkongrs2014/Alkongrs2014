@@ -2580,6 +2580,10 @@ function renderOptVol() {
 
 /* ---------- عقود الخيارات ---------- */
 async function loadOptions(sym) {
+  // لا خيارات على العملات الرقمية: الطلب يعود 404 في كل فتحة وتمتلئ
+  // شاشة المطوّر بخطأٍ سببه أننا سألنا عمّا لا وجود له
+  const r0 = symRow(sym);
+  if ((r0 && r0.mkt === "crypto") || /-USD$/.test(sym)) { renderOptions(); return; }
   if (!state.optCache[sym]) state.optCache[sym] = await getJSON(`options/${sym}.json`);
   if (state.sym !== sym) return;                 // انتقل المستخدم أثناء الجلب
   state.optExp = 0; state.optSide = "calls";
@@ -3782,11 +3786,29 @@ const LAZY = {
     if (state.view === "opts") renderOpts();
   }
 };
+/* صلاحيةُ كل ملف من **دورة كتابته** لا من دورة التحديث.
+
+   التحديث كل دقيقتين، وملخّص العقود يُكتب كل نصف ساعة والتحليلات
+   والأساسيات مرةً يومياً. إعادةُ جلبها مع كل دورة تسحب 346 كيلوبايت
+   كل دقيقتين لملفٍ لم يتغيّر — ظهر في سجل الشبكة: عشرون طلباً لنفس
+   الملف في نصف ساعة، كلها متطابقة. */
+const LAZY_TTL = {
+  "options.json": 15 * 60e3,        // يُكتب كل 30 دقيقة
+  "analytics.json": 3 * 3600e3,     // يومي
+  "fundamentals.json": 3 * 3600e3,  // يومي
+  "wide.json": 5 * 60e3,            // اليوميّ فيه يتجدّد بالتدوير
+  "news.json": 5 * 60e3             // مع كل دورة سوق
+};
 const lazyWait = {};
+const lazyAt = {};
 
 function need(file) {
   if (lazyWait[file]) return lazyWait[file];
-  lazyWait[file] = getJSON(file).then(j => { (LAZY[file] || (() => {}))(j); return j; })
+  lazyWait[file] = getJSON(file).then(j => {
+    lazyAt[file] = Date.now();
+    (LAZY[file] || (() => {}))(j);
+    return j;
+  })
     .catch((e) => {
       // الفشل لا يُخزَّن: محاولةٌ تالية عند فتح الشاشة مرةً أخرى
       delete lazyWait[file];
@@ -3798,10 +3820,15 @@ function need(file) {
   return lazyWait[file];
 }
 
-// بعد كل تحديث: يُعاد جلب ما سبق جلبه وحده. إعادة الكل تُبطل الكسل،
-// وترك القديم تجعل «تحديث» لا يحدّث ما يراه المستخدم.
+// بعد كل تحديث: يُعاد جلب ما سبق جلبه **وانقضت صلاحيته** وحده. إعادة
+// الكل تُبطل الكسل، وترك القديم تجعل «تحديث» لا يحدّث ما يراه المستخدم.
 function lazyReload() {
-  for (const f of Object.keys(lazyWait)) { delete lazyWait[f]; need(f); }
+  const now = Date.now();
+  for (const f of Object.keys(lazyWait)) {
+    const ttl = LAZY_TTL[f] ?? 0;
+    if (now - (lazyAt[f] || 0) < ttl) continue;
+    delete lazyWait[f]; need(f);
+  }
 }
 
 function symRow(sym) {
