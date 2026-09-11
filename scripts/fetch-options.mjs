@@ -156,8 +156,14 @@ export function atmIVfrom(calls, puts, spot) {
 
 /* اختيار الاستحقاقات: الأقرب دائماً، ثم الأقرب إلى ثلاثين يوماً.
    الأسبوعي يكشف رهان الحدث، والشهري هو ما يتداوله أغلب الناس. */
+/* `EXP_END`: ياهو يعطي تاريخ الانتهاء عند منتصف ليل UTC، والعقد يعيش
+   حتى إغلاق نيويورك (~21:00 UTC). المقارنة بمنتصف الليل تُسقط استحقاق
+   **اليوم** من الظهيرة فصاعداً — وهو أكثر الاستحقاقات تداولاً. وهي نفس
+   إزاحة `yearsToExpiry` كي لا تختلف دالتان في تعريف «منتهٍ». */
+const EXP_END = 21 * 3600 * 1000;
+
 export function pickExpiries(list, now, want = EXPIRIES) {
-  const future = (list || []).filter(e => e * 1000 > now).sort((a, b) => a - b);
+  const future = (list || []).filter(e => e * 1000 + EXP_END > now).sort((a, b) => a - b);
   if (!future.length) return [];
   const out = [future[0]];
   const targets = [30, 60, 90];
@@ -169,6 +175,19 @@ export function pickExpiries(list, now, want = EXPIRIES) {
     if (best) out.push(best);
   }
   return out.slice(0, want).sort((a, b) => a - b);
+}
+
+/* تاريخ السلسلة يُؤخذ من عقودها لا من التاريخ المطلوب.
+
+   ياهو يردّ بأقرب سلسلة حين لا يطابق المطلوبُ استحقاقاً قائماً، فكانت
+   عقود اليوم تُلصَق بتاريخ الاثنين: العقود صحيحة (كل عقد يحمل انتهاءه)
+   لكن ترويسة الاستحقاق تقول «بعد 3 أيام» وهي صفر. ومعها كل ما يُحسب
+   على مستوى الاستحقاق — الحركة المتوقّعة واحتمال الربح في باني
+   الاستراتيجيات — يُحسب بزمنٍ يفوق الحقيقي ثلاثة أضعاف. */
+function asChain(requested, res) {
+  const exps = [...new Set([...(res.calls || []), ...(res.puts || [])]
+    .map(c => c.expiration).filter(Number.isFinite))];
+  return { e: exps.length === 1 ? exps[0] : requested, calls: res.calls, puts: res.puts };
 }
 
 async function buildSymbol(meta, now, r, fund) {
@@ -183,12 +202,12 @@ async function buildSymbol(meta, now, r, fund) {
   for (const e of exps) {
     // النداء الأول جاء بأقرب استحقاق أصلاً — لا نعيد طلبه
     if (chains.length === 0 && first.calls.length && exps[0] === e) {
-      chains.push({ e, calls: first.calls, puts: first.puts });
+      chains.push(asChain(e, first));
       continue;
     }
     try {
       const c = await fetchOptions(sym, e);
-      chains.push({ e, calls: c.calls, puts: c.puts });
+      chains.push(asChain(e, c));
     } catch (err) { /* استحقاق واحد سقط — البقية تكفي */ }
   }
   if (!chains.length) throw new Error("لا سلاسل");
@@ -222,6 +241,10 @@ async function buildSymbol(meta, now, r, fund) {
     out.exp.push({
       e: ch.e,
       days: Math.round(yearsToExpiry(ch.e, now) * 365),
+      // الزمن بالسنوات بدقّةٍ كاملة إلى جانب الأيام المقرَّبة: عقد اليوم
+      // `days` صفر، وقسمةُ أي احتمالٍ على صفرٍ تُسقط الحساب — بينما زمنه
+      // الحقيقي ساعات. ستّ خانات تكفي لساعةٍ واحدة (0.000114)
+      t: Math.round(yearsToExpiry(ch.e, now) * 1e6) / 1e6,
       // والسوق مغلق يأتي التقلّب من عقودنا المستخرَجة لا من حقل مصفَّر
       iv: r4(mode === "live" ? atmIV(ch.calls, ch.puts, spot) : atmIVfrom(calls, puts, spot)),
       mp: r2(maxPain(ch.calls, ch.puts)),
@@ -573,6 +596,28 @@ function selfCheck() {
     eq(pickExpiries(list, now, 2), [d(3), d(28)], "استحقاقان");
     eq(pickExpiries(list, now, 1), [d(3)], "واحد");
     eq(pickExpiries([d(-9)], now, 2), [], "كلها منتهية");
+  });
+
+  t("استحقاق اليوم لا يسقط بعد منتصف الليل", () => {
+    // 2026-09-11 ظهراً بتوقيت UTC، واستحقاق اليوم مختومٌ بمنتصف ليله
+    const noon = Date.UTC(2026, 8, 11, 12);
+    const today = Math.floor(Date.UTC(2026, 8, 11) / 1000);
+    const next = Math.floor(Date.UTC(2026, 8, 14) / 1000);
+    eq(pickExpiries([today, next], noon, 1), [today], "0DTE هو الأقرب لا التالي");
+    // وبعد الإغلاق (21:00 UTC) يسقط فعلاً
+    eq(pickExpiries([today, next], Date.UTC(2026, 8, 11, 21, 30), 1), [next], "بعد الإغلاق");
+  });
+
+  t("asChain يأخذ التاريخ من العقود لا من المطلوب", () => {
+    const exp = Math.floor(Date.UTC(2026, 8, 11) / 1000);
+    const asked = Math.floor(Date.UTC(2026, 8, 14) / 1000);
+    // ياهو ردّ بسلسلة اليوم على طلب الاثنين
+    eq(asChain(asked, { calls: [{ expiration: exp }], puts: [{ expiration: exp }] }).e, exp,
+       "التاريخ من العقود");
+    // تاريخان في الردّ الواحد لا يُصدَّقان — نُبقي المطلوب
+    eq(asChain(asked, { calls: [{ expiration: exp }], puts: [{ expiration: asked }] }).e, asked,
+       "ردٌّ مختلط يبقى على المطلوب");
+    eq(asChain(asked, { calls: [], puts: [] }).e, asked, "ردٌّ فارغ");
   });
 
   t("realizedVol يقيس تقلّباً معروفاً", () => {

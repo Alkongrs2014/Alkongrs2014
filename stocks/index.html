@@ -696,11 +696,22 @@ details[open]{background:var(--card2)}
     <div id="optVol"></div>
     <div id="optBest"></div>
     <div class="tf-picker" id="optExp"></div>
+    <div id="optStruct"></div>
     <div class="tf-picker" id="optSide">
       <button data-side="calls" class="on">كول (صعود)</button>
       <button data-side="puts">بوت (هبوط)</button>
     </div>
     <div id="optTable"></div>
+
+    <div id="optGammaWrap" style="display:none;margin-top:14px">
+      <p class="hint" style="margin:0 0 6px">أين تتركّز الجاما — سترايكاتٌ يصير السعر
+      عندها أكثر حساسية لحركته</p>
+      <div class="chart-wrap"><canvas id="optGamma" style="height:150px"></canvas></div>
+      <div class="legend"><span><i style="background:var(--up)"></i>كول</span>
+        <span><i style="background:var(--dn)"></i>بوت</span>
+        <span><i style="background:var(--acc)"></i>السعر الآن</span></div>
+    </div>
+
     <details>
       <summary>كيف تُقرأ هذه الأرقام؟</summary>
       <p><b>الاحتمال:</b> احتمال أن ينتهي العقد داخل المال عند الاستحقاق، محسوباً
@@ -724,6 +735,60 @@ details[open]{background:var(--card2)}
       كاملاً. هذه أرقام محسوبة من بيانات عامة قد تتأخر، للقراءة والتعلّم فقط،
       وليست توصية بيع أو شراء ولا نصيحة استثمارية.
     </p>
+  </div>
+
+  <div class="card" id="cardStrat" style="display:none">
+    <h2>🧩 باني الاستراتيجيات</h2>
+    <p class="hint">اختر تركيبةً من عقود هذا الاستحقاق، فتُحسب من أسعارها الفعلية:
+    التكلفة وأقصى ربح وأقصى خسارة ونقاط التعادل واحتمال الربح — ويُرسم منحنى العائد</p>
+
+    <div class="toolbar">
+      <select id="stKind">
+        <option value="callBuy">شراء كول</option>
+        <option value="putBuy">شراء بوت</option>
+        <option value="bullCall">سبريد كول مدين — صعود محدود</option>
+        <option value="bearPut">سبريد بوت مدين — هبوط محدود</option>
+        <option value="bullPut">سبريد بوت دائن — صعود أو ثبات</option>
+        <option value="bearCall">سبريد كول دائن — هبوط أو ثبات</option>
+        <option value="straddle">ستراد — حركة عنيفة بأي اتجاه</option>
+        <option value="strangle">خنق — حركة عنيفة أرخص</option>
+        <option value="condor">آيرون كوندور — ثبات داخل نطاق</option>
+      </select>
+      <select id="stQty">
+        <option value="1">عقد واحد</option><option value="2">عقدان</option>
+        <option value="5">٥ عقود</option><option value="10">١٠ عقود</option>
+      </select>
+    </div>
+    <div class="toolbar" id="stLegs"></div>
+
+    <div class="grid2" id="stStats"></div>
+    <div class="chart-wrap" style="margin-top:10px"><canvas id="stChart" style="height:210px"></canvas></div>
+    <div class="legend">
+      <span><i style="background:var(--up)"></i>ربح عند الاستحقاق</span>
+      <span><i style="background:var(--dn)"></i>خسارة</span>
+      <span><i style="background:var(--acc)"></i>السعر الآن</span>
+      <span><i style="background:var(--neu)"></i>تعادل</span>
+    </div>
+    <div id="stLegList"></div>
+    <p class="srcline" id="stNote"></p>
+
+    <details>
+      <summary>ماذا يحسب هذا ومن أين؟</summary>
+      <p>كل ساقٍ تُسعَّر بـ<b>وسط العرض والطلب</b> من السلسلة نفسها المعروضة أعلاه —
+      لا بسعرٍ نموذجي. فما تراه هو ما يكلّفك تقريباً عند التنفيذ، قبل العمولة
+      وانزلاق التنفيذ.</p>
+      <p><b>منحنى العائد عند الاستحقاق</b> لا قبله: قبله يتحرك سعر التركيبة بالتقلّب
+      والزمن أيضاً، وقد تكون رابحاً أو خاسراً عند سعرٍ يقول المنحنى غيره. المنحنى
+      يصف <b>نهاية</b> الصفقة لا مسارها.</p>
+      <p><b>احتمال الربح</b> مساحةُ توزيعٍ لوغاريتمي طبيعي فوق مناطق الربح، بتقلّبٍ
+      ضمني من الاستحقاق نفسه. وهو احتمالٌ <b>محايد للمخاطر</b> — تسعيرُ السوق لا
+      تنبؤٌ باتجاه، ويفترض تقلّباً ثابتاً حتى الاستحقاق وهو ما لا يحدث.</p>
+      <p><b>الأرقام لعقدٍ واحد = 100 سهم.</b> وبيع العقود المكشوفة (سيقان البيع في
+      السبريدات مغطّاة بالساق الأخرى) قد يرتّب خسارةً تفوق القسط بكثير، ويحتاج
+      هامشاً لدى وسيطك.</p>
+    </details>
+    <p class="disclaimer">هذه حاسبة تعليمية تُظهر رياضيات التركيبة من أسعار معلنة،
+    وليست توصية ولا عرض تنفيذ. تحقّق من الأسعار والهوامش لدى وسيطك قبل أي أمر.</p>
   </div>
 
   <div class="card">
@@ -2298,11 +2363,16 @@ function renderOptions() {
   ex.innerHTML = o.exp.map((e, i) =>
     `<button data-exp="${i}"${i === state.optExp ? ' class="on"' : ""}>${bd(e.days)} يوم</button>`).join("");
   ex.querySelectorAll("button").forEach(b => b.onclick = () => {
-    state.optExp = +b.dataset.exp; renderOptions();
+    // اختيار السترايك يسقط مع الاستحقاق: سترايك 220 على استحقاقٍ قد لا
+    // يوجد على آخر، والإبقاء عليه يبني تركيبةً بساقٍ ناقصة بلا إنذار
+    state.optExp = +b.dataset.exp; stratOverride = []; renderOptions();
   });
   $$("#optSide button").forEach(b => b.classList.toggle("on", b.dataset.side === state.optSide));
 
   const e = o.exp[state.optExp] || o.exp[0];
+  renderOptStruct(o, e);
+  drawGamma(e, o.spot);
+  renderStrat();
   const rows = (e[state.optSide] || []);
   if (!rows.length) { $("#optTable").innerHTML = `<div class="empty">لا عقود سائلة على هذا الاستحقاق</div>`; return; }
 
@@ -2323,6 +2393,529 @@ function renderOptions() {
     }).join("")}</tbody></table></div>
     <p class="srcline">الصفوف الباهتة عقود داخل المال أصلاً · محسوبة بـBlack–Scholes
     عند فائدة ${bd(fmt(o.r * 100, 2))}%${o.q ? ` وعائد توزيعات ${bd(fmt(o.q * 100, 2))}%` : ""}</p>`;
+}
+
+
+/* =======================================================================
+   بنية الاستحقاق وباني الاستراتيجيات.
+
+   كل ما هنا يُحسب من السلسلة المعروضة نفسها: أسعار وسط العرض والطلب
+   التي يراها المستخدم في الجدول أعلاه، لا سعرٌ نموذجي موازٍ. تركيبةٌ
+   تُسعَّر بغير ما يُعرض تجعل الحاسبة تكذب على من يقارن.
+   ======================================================================= */
+
+/* التوزيع الطبيعي التراكمي. نسخةٌ للعرض تُطابق نسخة الخادم في
+   scripts/lib/options.mjs بالقيم المرجعية — وليست منطق تداول: الخطة
+   والسجل لا يمرّان بها، فلا تتباعد نتيجةٌ محفوظة عمّا رآه المستخدم. */
+function bsErf(x) {
+  const t = 1 / (1 + 0.5 * Math.abs(x));
+  const y = 1 - t * Math.exp(-x * x - 1.26551223 + t * (1.00002368 + t * (0.37409196 +
+    t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 +
+    t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+  return x >= 0 ? y : -y;
+}
+const bsN = (x) => 0.5 * (1 + bsErf(x / Math.SQRT2));
+
+/* ---------- بنية الاستحقاق المختار ---------- */
+function renderOptStruct(o, e) {
+  const box = $("#optStruct");
+  if (!box) return;
+  if (!e) { box.innerHTML = ""; return; }
+  const spot = o.spot;
+  const cell = (k, v, note, col) => '<div class="stat"><div class="k">' + k + '</div>' +
+    '<div class="v num"' + (col ? ' style="color:' + col + '"' : '') + '>' + v + '</div>' +
+    '<div class="k" style="margin:4px 0 0;white-space:normal">' + note + '</div></div>';
+
+  const parts = [];
+  if (e.em) {
+    // الحركة المتوقّعة نطاقٌ لا رقم: ‎±‎ حول السعر، وهو ما يسعّره السوق
+    const lo = spot - e.em.abs, hi = spot + e.em.abs;
+    parts.push(cell("الحركة المتوقّعة حتى الاستحقاق", "±" + bd(fmt(e.em.pct, 1)) + "%",
+      "نطاق " + bd(money(lo)) + " إلى " + bd(money(hi)) + " — من ستراد المال، رقمٌ يقوله السوق",
+      "var(--acc)"));
+  }
+  if (Number.isFinite(e.mp)) {
+    const d = spot > 0 ? (e.mp - spot) / spot * 100 : null;
+    parts.push(cell("أقصى الألم", money(e.mp),
+      (d === null ? "" : (Math.abs(d) < 0.05 ? "عند السعر تقريباً"
+        : bd(pct(d, 1)) + " عن السعر الحالي")) +
+      " — السترايك الأقل دفعاً لحملة العقود، وصفُ تمركزٍ لا تنبؤ"));
+  }
+  if (e.wl && (e.wl.c || e.wl.p)) {
+    const w = [];
+    if (e.wl.c) w.push("كول " + money(e.wl.c.k) + " (" + bd(compact(e.wl.c.oi, "")) + ")");
+    if (e.wl.p) w.push("بوت " + money(e.wl.p.k) + " (" + bd(compact(e.wl.p.oi, "")) + ")");
+    parts.push(cell("الجداران", (e.wl.c ? money(e.wl.c.k) : "—") + " / " + (e.wl.p ? money(e.wl.p.k) : "—"),
+      "أثقل سترايك مراكزَ قائمة: " + w.join(" · ")));
+  }
+  if (e.pc && (Number.isFinite(e.pc.v) || Number.isFinite(e.pc.o))) {
+    parts.push(cell("بوت / كول على هذا الاستحقاق",
+      Number.isFinite(e.pc.v) ? bd(fmt(e.pc.v, 2)) : "—",
+      "بالمراكز القائمة " + (Number.isFinite(e.pc.o) ? bd(fmt(e.pc.o, 2)) : "—"),
+      (e.pc.v ?? 1) >= 1.1 ? "var(--dn)" : (e.pc.v ?? 1) <= 0.7 ? "var(--up)" : null));
+  }
+  box.innerHTML = parts.length ? '<div class="grid2" style="margin:10px 0 4px">' + parts.join("") + "</div>" : "";
+}
+
+/* ---------- توزيع الجاما ---------- */
+function drawGamma(e, spot) {
+  const wrap = $("#optGammaWrap"), cv = $("#optGamma");
+  if (!wrap || !cv) return;
+  const g0 = e && e.gx;
+  if (!g0 || g0.length < 2) { wrap.style.display = "none"; return; }
+  wrap.style.display = "";
+
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (!W) return;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+
+  const padT = 8, padB = 22, padX = 10;
+  const ch = H - padT - padB, cw = W - padX * 2;
+  const max = Math.max(...g0.map(r => Math.max(r.c, r.p))) || 1;
+  const n = g0.length;
+  const slot = cw / n, bw = Math.max(2, Math.min(14, slot / 2 - 1.5));
+  // RTL: أصغر سترايك إلى اليمين كي يوافق اتجاه القراءة وبقية الشارتات
+  const xOf = (i) => W - padX - (i + 0.5) * slot;
+
+  g.font = "10px system-ui";
+  g0.forEach((r, i) => {
+    const x = xOf(i);
+    const hc = (r.c / max) * ch, hp = (r.p / max) * ch;
+    g.fillStyle = "rgba(0,209,155,.85)";
+    g.fillRect(x - bw - 1, padT + ch - hc, bw, hc);
+    g.fillStyle = "rgba(255,77,94,.85)";
+    g.fillRect(x + 1, padT + ch - hp, bw, hp);
+    // سترايك واحد من كل ثلاثة كي لا تتراكب الأرقام
+    if (n <= 8 || i % Math.ceil(n / 7) === 0) {
+      g.fillStyle = "#5e6b7e"; g.textAlign = "center";
+      g.fillText(String(r.k), x, H - 7);
+    }
+  });
+
+  // خط السعر الحالي في موضعه بين السترايكات لا عند أقربها
+  const ks = g0.map(r => r.k);
+  if (spot >= ks[0] && spot <= ks[n - 1]) {
+    let i = 0;
+    while (i < n - 1 && ks[i + 1] < spot) i++;
+    const t = (spot - ks[i]) / ((ks[i + 1] - ks[i]) || 1);
+    const x = xOf(i) + (xOf(i + 1) - xOf(i)) * t;
+    g.strokeStyle = "#4f8cff"; g.lineWidth = 1.5; g.setLineDash([4, 3]);
+    g.beginPath(); g.moveTo(x, padT); g.lineTo(x, padT + ch); g.stroke();
+    g.setLineDash([]);
+  }
+}
+
+/* =======================================================================
+   باني الاستراتيجيات
+   ======================================================================= */
+
+// وصفُ كل تركيبة: سيقانها، والدلتا المستهدفة لكل ساق. الدلتا هي
+// المُحدِّد لا المسافة بالدولار — 5$ عن السعر في سهم بـ30$ تركيبةٌ
+// مختلفة تماماً عنها في سهم بـ600$.
+const STRATS = {
+  callBuy:  { ar: "شراء كول", legs: [{ t: "c", d: 1, tgt: 0.45 }] },
+  putBuy:   { ar: "شراء بوت", legs: [{ t: "p", d: 1, tgt: -0.45 }] },
+  bullCall: { ar: "سبريد كول مدين", legs: [{ t: "c", d: 1, tgt: 0.50 }, { t: "c", d: -1, tgt: 0.25 }] },
+  bearPut:  { ar: "سبريد بوت مدين", legs: [{ t: "p", d: 1, tgt: -0.50 }, { t: "p", d: -1, tgt: -0.25 }] },
+  bullPut:  { ar: "سبريد بوت دائن", legs: [{ t: "p", d: -1, tgt: -0.30 }, { t: "p", d: 1, tgt: -0.15 }] },
+  bearCall: { ar: "سبريد كول دائن", legs: [{ t: "c", d: -1, tgt: 0.30 }, { t: "c", d: 1, tgt: 0.15 }] },
+  straddle: { ar: "ستراد", legs: [{ t: "c", d: 1, tgt: 0.50 }, { t: "p", d: 1, tgt: -0.50 }] },
+  strangle: { ar: "خنق", legs: [{ t: "c", d: 1, tgt: 0.25 }, { t: "p", d: 1, tgt: -0.25 }] },
+  condor:   { ar: "آيرون كوندور", legs: [{ t: "p", d: -1, tgt: -0.20 }, { t: "p", d: 1, tgt: -0.10 },
+                                         { t: "c", d: -1, tgt: 0.20 }, { t: "c", d: 1, tgt: 0.10 }] }
+};
+
+/* أقرب عقدٍ إلى دلتا مستهدفة. حين تغيب الدلتا (سلسلة بلا تقلّب ضمني
+   موثوق) نسقط إلى المسافة عن السعر — تقريبٌ معلنٌ خيرٌ من صفٍّ فارغ. */
+function legPick(list, tgt, spot) {
+  const has = list.filter(c => Number.isFinite(c.delta) && Number.isFinite(c.mid) && c.mid > 0);
+  if (has.length) return has.reduce((b, c) => Math.abs(c.delta - tgt) < Math.abs(b.delta - tgt) ? c : b);
+  const any = list.filter(c => Number.isFinite(c.mid) && c.mid > 0);
+  return any.length ? any.reduce((b, c) => Math.abs(c.k - spot) < Math.abs(b.k - spot) ? c : b) : null;
+}
+
+function stratLegs(kind, e, spot, override) {
+  const def = STRATS[kind]; if (!def || !e) return null;
+  const out = [];
+  for (let i = 0; i < def.legs.length; i++) {
+    const L = def.legs[i];
+    const list = L.t === "c" ? (e.calls || []) : (e.puts || []);
+    let c = null;
+    const ov = override && override[i];
+    if (ov !== undefined && ov !== null && ov !== "") c = list.find(x => x.k === +ov) || null;
+    if (!c) c = legPick(list, L.tgt, spot);
+    if (!c) return null;
+    out.push({ type: L.t === "c" ? "call" : "put", dir: L.d, k: c.k, prem: c.mid,
+               iv: c.iv, delta: c.delta, oi: c.oi, idx: i });
+  }
+  return out;
+}
+
+/* العائد عند الاستحقاق لعقدٍ واحد من كل ساق (×100 سهم). */
+function payoffAt(legs, S) {
+  let v = 0;
+  for (const L of legs) {
+    const intr = L.type === "call" ? Math.max(0, S - L.k) : Math.max(0, L.k - S);
+    v += L.dir * (intr - L.prem);
+  }
+  return v * 100;
+}
+
+/* أقصى ربح وخسارة ونقاط التعادل — من مسحٍ على شبكة، لا من صيغة لكل
+   تركيبة على حدة. الصيغ تختلف بين التركيبات فتتكاثر الحالات الخاصة،
+   والمسح واحدٌ يصحّ على أي مجموعة سيقان بما فيها ما يبنيه المستخدم. */
+function payoffProfile(legs, spot) {
+  const hiK = Math.max(...legs.map(L => L.k)), loK = Math.min(...legs.map(L => L.k));
+  const lo = 0, hi = Math.max(hiK, spot) * 2.2;
+  const STEP = 1200;
+  /* الشبكة تمرّ بالسترايكات نفسها لا بجوارها. منحنى العائد مضلَّعٌ
+     رؤوسه عند السترايكات، وشبكةٌ منتظمة تقفز فوقها: الستراد أقصى
+     خسارته **عند** سترايكه بالضبط، فخرجت 370.74 بدل 383 لأن أقرب
+     نقطتين كانتا على جانبيه. */
+  const grid = new Set();
+  for (let i = 0; i <= STEP; i++) grid.add(lo + (hi - lo) * i / STEP);
+  for (const L of legs) grid.add(L.k);
+  grid.add(spot);
+  const xs = [...grid].sort((a, b) => a - b);
+  const ys = xs.map(S => payoffAt(legs, S));
+  const LAST = xs.length - 1;
+  let max = -Infinity, min = Infinity;
+  for (const y of ys) { if (y > max) max = y; if (y < min) min = y; }
+  // موضع كل حدٍّ: نقطةٌ واحدة أم مسطّحٌ ممتد — الكوندور أقصى ربحه بين
+  // سترايكيه المباعين لا فوق أعلى سترايك
+  const spanOf = (v) => {
+    const eps = Math.max(1e-6, Math.abs(v) * 1e-9);
+    const idx = ys.map((y, i) => Math.abs(y - v) <= eps ? i : -1).filter(i => i >= 0);
+    if (!idx.length) return null;
+    // منطقتان منفصلتان لا واحدة ممتدة: خسارة الكوندور القصوى تقع تحت
+    // جناحه الأدنى **و** فوق الأعلى، ووصفها بـ«من الصفر إلى اللانهاية»
+    // يجعلها تبدو حالةً واحدة تشمل كل سعر
+    const split = idx[idx.length - 1] - idx[0] !== idx.length - 1;
+    return { a: xs[idx[0]], b: xs[idx[idx.length - 1]], split };
+  };
+  const maxAt = spanOf(max), minAt = spanOf(min);
+  /* «مفتوح» يُقاس صعوداً وحده. السهم لا يهبط تحت الصفر، فكل طرفٍ هابط
+     محدودٌ بحكم الرياضيات: أقصى ربح البوت المشترى سترايكه ناقص قسطه،
+     وأقصى خسارة البوت المباع مثلها. قياسُ الميل عند الطرف الأدنى كان
+     يقلب ذلك: البوت المشترى يرتفع عائده كلما هبط السهم، فيُقرأ الميل
+     السالب «خسارة غير محدودة» — وهي في الحقيقة أعلى ربحه.
+     أما صعوداً فالسعر بلا سقف: كولٌ مشترى ربحه مفتوح، وكولٌ مكشوف
+     خسارته مفتوحة. */
+  const slopeHi = ys[LAST] - ys[LAST - 1];
+  const openUp = slopeHi > 1e-6;        // ربحٌ بلا سقف
+  const openDn = slopeHi < -1e-6;       // خسارةٌ بلا قاع — من كولٍ مكشوف
+
+  const be = [];
+  for (let i = 1; i <= LAST; i++) {
+    const a = ys[i - 1], b = ys[i];
+    if ((a < 0 && b >= 0) || (a > 0 && b <= 0)) {
+      const t = a / (a - b);
+      be.push(xs[i - 1] + (xs[i] - xs[i - 1]) * t);
+    }
+  }
+  const net = legs.reduce((a, L) => a + L.dir * L.prem, 0) * 100;
+  return { xs, ys, max, min, maxAt, minAt, openUp, openDn, be, net, loK, hiK };
+}
+
+/* احتمال الربح: مساحةُ توزيعٍ لوغاريتمي طبيعي فوق مناطق الربح.
+
+   احتمالٌ محايد للمخاطر — تسعيرُ السوق لا تنبؤٌ باتجاه — ويفترض تقلّباً
+   ثابتاً حتى الاستحقاق. نقوله كما هو ولا نسمّيه «نسبة نجاح». */
+function stratPOP(prof, spot, sigma, T, r, q) {
+  if (!(spot > 0) || !(sigma > 0) || !(T > 0)) return null;
+  const sT = sigma * Math.sqrt(T);
+  const drift = ((r || 0) - (q || 0) - sigma * sigma / 2) * T;
+  const cdf = (x) => x <= 0 ? 0 : bsN((Math.log(x / spot) - drift) / sT);
+  // حدود المناطق: نقاط التعادل، والطرفان
+  const cuts = [0, ...prof.be.slice().sort((a, b) => a - b), Infinity];
+  let p = 0;
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const a = cuts[i], b = cuts[i + 1];
+    const mid = b === Infinity ? a * 1.5 + 1 : (a + b) / 2;
+    if (prof.at(mid) <= 0) continue;            // منطقة خسارة أو تعادل
+    p += (b === Infinity ? 1 : cdf(b)) - cdf(a);
+  }
+  return Math.max(0, Math.min(1, p));
+}
+
+let stratOverride = [];
+
+function renderStrat() {
+  const card = $("#cardStrat");
+  const o = state.sym && state.optCache[state.sym];
+  const e = o && o.exp && (o.exp[state.optExp] || o.exp[0]);
+  if (!card) return;
+  if (!o || !e || !(e.calls || []).length || !(e.puts || []).length) {
+    card.style.display = "none"; return;
+  }
+  card.style.display = "";
+
+  const kind = ($("#stKind") && $("#stKind").value) || "bullCall";
+  const qty = Math.max(1, +(($("#stQty") && $("#stQty").value) || 1));
+  const legs = stratLegs(kind, e, o.spot, stratOverride);
+  if (!legs) {
+    $("#stStats").innerHTML = '<div class="empty">لا عقود كافية على هذا الاستحقاق لبناء التركيبة</div>';
+    $("#stLegs").innerHTML = ""; $("#stLegList").innerHTML = ""; $("#stNote").textContent = "";
+    return;
+  }
+
+  // مبدّلات السترايك: تُعاد في كل رسم لأن الاستحقاق قد تغيّر وسترايكاته
+  // معه — <select> يُبنى مرةً يتجمّد على سترايكات استحقاقٍ آخر
+  $("#stLegs").innerHTML = legs.map((L, i) => {
+    const list = L.type === "call" ? e.calls : e.puts;
+    return '<select data-leg="' + i + '">' + list.map(c =>
+      '<option value="' + c.k + '"' + (c.k === L.k ? " selected" : "") + '>' +
+      (L.dir > 0 ? "شراء " : "بيع ") + (L.type === "call" ? "كول " : "بوت ") + c.k +
+      " · " + money(c.mid) + "</option>").join("") + "</select>";
+  }).join("");
+  $("#stLegs").querySelectorAll("select").forEach(sel => sel.onchange = () => {
+    stratOverride[+sel.dataset.leg] = sel.value; renderStrat();
+  });
+
+  const prof = payoffProfile(legs, o.spot);
+  prof.legs = legs;
+  prof.at = (S) => payoffAt(legs, S);
+  // الزمن من الحقل الدقيق لا من الأيام المقرَّبة: عقد اليوم أيامه صفر
+  // وزمنه ساعات، والقسمة على صفر تُسقط احتمال الربح كله
+  const tY = Number.isFinite(e.t) ? e.t : (e.days > 0 ? e.days / 365 : null);
+  const pop = stratPOP(prof, o.spot, e.iv, tY, o.r, o.q);
+
+  const mul = qty;
+  const fmtMoney = (v, open) => open ? "غير محدود" : bd(money(Math.abs(v) * mul));
+  const risk = prof.openDn ? null : Math.abs(Math.min(0, prof.min)) * mul;
+  const rew = prof.openUp ? null : Math.max(0, prof.max) * mul;
+  const rr = (risk && rew) ? rew / risk : null;
+  // أقصى ربح البوت المشترى يقع عند سعرٍ صفر: رقمٌ صحيح حسابياً لا يصف
+  // احتمالاً، فيُقال ذلك بدل عرض «151×» كأنها فرصة
+  const zeroMax = !!(prof.maxAt && prof.maxAt.a <= 1e-9 && !prof.openUp);
+
+  const cell = (k, v, note, col) => '<div class="stat"><div class="k">' + k + '</div>' +
+    '<div class="v num"' + (col ? ' style="color:' + col + '"' : '') + '>' + v + '</div>' +
+    '<div class="k" style="margin:4px 0 0;white-space:normal">' + note + '</div></div>';
+
+  const netTxt = prof.net > 0 ? "مدين — تدفع" : "دائن — تقبض";
+  $("#stStats").innerHTML =
+      cell(netTxt, bd(money(Math.abs(prof.net) * mul)),
+        mul > 1 ? bd(money(Math.abs(prof.net))) + " للعقد الواحد × " + bd(mul) : "لعقدٍ واحد = 100 سهم")
+    + cell("أقصى ربح", fmtMoney(prof.max, prof.openUp),
+        prof.openUp ? "مفتوح مع صعود السهم"
+          : prof.max <= 0 ? "لا ربح في أي سعر" : "يتحقّق " + whereTxt(prof.maxAt, prof), "var(--up)")
+    + cell("أقصى خسارة", fmtMoney(prof.min, prof.openDn),
+        prof.openDn ? "مفتوحة مع صعود السهم — عقدٌ مكشوف يحتاج هامشاً"
+          : prof.min >= 0 ? "لا خسارة في أي سعر" : "تقع " + whereTxt(prof.minAt, prof), "var(--dn)")
+    + cell("العائد على المخاطرة", rr ? bd(fmt(rr, 2)) + "×" : "—",
+        !rr ? "طرفٌ مفتوح فلا نسبة"
+          : zeroMax ? "أقصى ربحه لو بلغ السهم صفراً — نسبةٌ صحيحة حسابياً لا تصف احتمالاً"
+          : "كل دولار مخاطرة يقابله " + bd(fmt(rr, 2)) + " ربحاً")
+    + cell("نقاط التعادل", prof.be.length ? prof.be.map(b => money(b)).join(" · ") : "—",
+        prof.be.length === 1
+          ? "يحتاج " + bd(pct((prof.be[0] - o.spot) / o.spot * 100, 1)) + " من السعر الحالي"
+          : prof.be.length ? "الربح بين النقطتين أو خارجهما حسب التركيبة" : "بلا تعادل في المدى")
+    + cell("احتمال الربح عند الاستحقاق", pop === null ? "—" : bd(fmt(pop * 100, 0)) + "%",
+        "محايدٌ للمخاطر بتقلّب ضمني " + (Number.isFinite(e.iv) ? bd(fmt(e.iv * 100, 0)) + "%" : "—") +
+        " — تسعيرُ السوق لا تنبؤ", pop === null ? null : pop >= 0.5 ? "var(--up)" : "var(--neu)");
+
+  $("#stLegList").innerHTML = '<div class="slist" style="margin-top:10px">' + legs.map(L =>
+    '<div class="srow" style="cursor:default">' +
+      '<div class="id"><div class="t">' + (L.dir > 0 ? "شراء" : "بيع") + " " +
+        (L.type === "call" ? "كول" : "بوت") + " " + money(L.k) + '</div>' +
+        '<div class="n">دلتا ' + (Number.isFinite(L.delta) ? bd(fmt(L.delta, 2)) : "—") +
+        " · مراكز قائمة " + bd(compact(L.oi, "")) +
+        " · ضمني " + (Number.isFinite(L.iv) ? bd(fmt(L.iv * 100, 0)) + "%" : "—") + '</div></div>' +
+      '<div class="px"><div class="p num" style="color:' + (L.dir > 0 ? "var(--dn)" : "var(--up)") + '">' +
+        (L.dir > 0 ? "−" : "+") + money(L.prem) + '</div></div></div>').join("") + "</div>";
+
+  $("#stNote").innerHTML = "استحقاق بعد " + bd(e.days) + " يوماً · " +
+    (o.mode === "live" ? "أسعار لحظية" : "<b>أسعار إغلاق آخر جلسة</b>") +
+    " · قبل العمولة وانزلاق التنفيذ";
+
+  drawPayoff(prof, o.spot, mul);
+}
+
+/* «فوق 222.5» و«بين 215 و222.5» و«عند 217.5» — ثلاث حالات، وأخذُ أعلى
+   سترايك في كلها يكذب على الكوندور والستراد معاً. */
+function whereTxt(span, prof) {
+  if (!span) return "—";
+  const last = prof.xs[prof.xs.length - 1];
+  if (span.split) return "عند طرفَي النطاق — خارج الجناحين";
+  if (span.a <= 1e-9 && span.b < last) return "لو هبط السهم إلى الصفر";
+  if (span.b >= last - 1e-9) return "فوق " + bd(money(span.a));
+  if (Math.abs(span.b - span.a) < 1e-9) return "عند " + bd(money(span.a));
+  return "بين " + bd(money(span.a)) + " و" + bd(money(span.b));
+}
+
+
+/* =======================================================================
+   فحص رياضيات التركيبات — قيمٌ مرجعية تُحسب باليد.
+
+   منحنى العائد مضلَّعٌ رؤوسه عند السترايكات، وكل خطأٍ فيه يظهر رقماً
+   معقولاً لا استثناءً: «أقصى خسارة 370.74» بدل 383 تبدو صحيحة تماماً
+   لمن لا يحسبها بنفسه. لذلك القيم هنا محسوبة يدوياً لا مأخوذة من
+   تشغيلٍ سابق.
+   ======================================================================= */
+function optSelfTest() {
+  let pass = 0, fail = 0;
+  const t = (name, fn) => { try { fn(); pass++; } catch (e) { fail++; console.error("  ✗ " + name + " — " + e.message); } };
+  const near = (a, b, tol, m) => { if (!(Math.abs(a - b) <= tol)) throw new Error(m + ": " + a + " ≠ " + b); };
+  const eq = (a, b, m) => { if (a !== b) throw new Error(m + ": " + a + " ≠ " + b); };
+  const L = (type, dir, k, prem) => ({ type, dir, k, prem });
+
+  t("bsN يطابق قيماً مرجعية", () => {
+    // دقّة التقريب ~1.2e-7، فالتفاوت يقاس بها لا بصفرٍ مطلق
+    near(bsN(0), 0.5, 1.5e-7, "N(0)");
+    near(bsN(1), 0.8413447461, 1e-7, "N(1)");
+    near(bsN(-1), 0.1586552539, 1e-7, "N(-1)");
+    near(bsN(1.96), 0.9750021049, 1e-7, "N(1.96)");
+  });
+
+  t("سبريد كول مدين", () => {
+    // شراء 100 بـ5 وبيع 110 بـ2: مدين 3، أقصى ربح 7، تعادل 103
+    const p = payoffProfile([L("call", 1, 100, 5), L("call", -1, 110, 2)], 100);
+    near(p.net, 300, 1e-9, "الصافي");
+    near(p.max, 700, 1e-6, "أقصى ربح");
+    near(p.min, -300, 1e-6, "أقصى خسارة");
+    eq(p.be.length, 1, "تعادل واحد");
+    near(p.be[0], 103, 0.05, "نقطة التعادل");
+    eq(p.openUp, false, "الربح محدود");
+    eq(p.openDn, false, "الخسارة محدودة");
+    near(p.maxAt.a, 110, 1e-9, "الربح الأقصى يبدأ عند السترايك الأعلى");
+  });
+
+  t("ستراد مشترى — أقصى الخسارة عند السترايك بالضبط", () => {
+    // شراء كول 100 بـ5 وبوت 100 بـ4: الخسارة القصوى 9 عند 100 تماماً،
+    // وهي النقطة التي كانت الشبكة المنتظمة تقفز فوقها
+    const p = payoffProfile([L("call", 1, 100, 5), L("put", 1, 100, 4)], 100);
+    near(p.min, -900, 1e-6, "أقصى خسارة عند السترايك");
+    near(p.minAt.a, 100, 1e-9, "موضعها");
+    eq(p.be.length, 2, "تعادلان");
+    near(p.be[0], 91, 0.05, "التعادل الأدنى");
+    near(p.be[1], 109, 0.05, "التعادل الأعلى");
+    eq(p.openUp, true, "الربح مفتوح صعوداً");
+    eq(p.openDn, false, "والهبوط محدود بالصفر");
+  });
+
+  t("آيرون كوندور — الربح الأقصى مسطَّحٌ بين المباعين", () => {
+    // بيع بوت 95 بـ2 وشراء 90 بـ1 · بيع كول 105 بـ2 وشراء 110 بـ1
+    const p = payoffProfile([L("put", -1, 95, 2), L("put", 1, 90, 1),
+                             L("call", -1, 105, 2), L("call", 1, 110, 1)], 100);
+    near(p.net, -200, 1e-9, "دائن 2");
+    near(p.max, 200, 1e-6, "أقصى ربح هو الائتمان");
+    near(p.min, -300, 1e-6, "أقصى خسارة عرضُ الجناح ناقص الائتمان");
+    near(p.maxAt.a, 95, 1e-9, "المسطَّح يبدأ عند 95");
+    near(p.maxAt.b, 105, 1e-9, "وينتهي عند 105");
+    eq(p.be.length, 2, "تعادلان");
+    near(p.be[0], 93, 0.05, "التعادل الأدنى");
+    near(p.be[1], 107, 0.05, "التعادل الأعلى");
+  });
+
+  t("بوت مشترى — ربحه الأقصى عند الصفر والخسارة محدودة", () => {
+    const p = payoffProfile([L("put", 1, 100, 4)], 100);
+    near(p.max, 9600, 1e-6, "سترايك ناقص القسط");
+    near(p.min, -400, 1e-6, "القسط وحده");
+    eq(p.openDn, false, "الخسارة ليست مفتوحة — السهم لا يهبط تحت الصفر");
+    near(p.maxAt.a, 0, 1e-9, "عند الصفر");
+  });
+
+  t("كول مكشوف — الخسارة وحدها مفتوحة", () => {
+    const p = payoffProfile([L("call", -1, 100, 5)], 100);
+    eq(p.openDn, true, "خسارة مفتوحة صعوداً");
+    eq(p.openUp, false, "لا ربح مفتوح");
+    near(p.max, 500, 1e-6, "القسط هو كل الربح");
+  });
+
+  t("احتمال الربح مساحةٌ لا رقمٌ اعتباطي", () => {
+    // كولٌ عند السعر بقسطٍ ضئيل: التعادل يكاد يكون السعر نفسه، فالاحتمال
+    // يقارب نصفاً (مع انحراف طفيف من الانجراف)
+    const p = payoffProfile([L("call", 1, 100, 0.01)], 100);
+    p.at = (S) => payoffAt([L("call", 1, 100, 0.01)], S);
+    const pop = stratPOP(p, 100, 0.3, 30 / 365, 0, 0);
+    if (!(pop > 0.4 && pop < 0.6)) throw new Error("احتمال غير معقول: " + pop);
+    // وبلا زمنٍ أو تقلّب لا احتمال — لا صفر
+    eq(stratPOP(p, 100, 0.3, 0, 0, 0), null, "زمن صفر");
+    eq(stratPOP(p, 100, 0, 0.1, 0, 0), null, "تقلّب صفر");
+  });
+
+  console.log("%cفحص رياضيات التركيبات: " + pass + "/" + (pass + fail),
+    "font-weight:700;color:" + (fail ? "#ff4d5e" : "#00d19b"));
+  return !fail;
+}
+
+function drawPayoff(prof, spot, mul) {
+  const cv = $("#stChart"); if (!cv) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (!W) return;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+
+  // نطاق العرض: حول السعر والسترايكات لا كل الشبكة — الشبكة تمتد إلى
+  // ضعفين ليُكتشف الميل عند الحافة، وعرضها كلها يسحق المنحنى في الوسط
+  const span = Math.max(prof.hiK - prof.loK, spot * 0.12) * 1.9;
+  const lo = Math.max(0, Math.min(prof.loK, spot) - span * 0.5);
+  const hi = Math.max(prof.hiK, spot) + span * 0.5;
+  const padL = 8, padR = 58, padT = 10, padB = 22;
+  const cw = W - padL - padR, ch = H - padT - padB;
+
+  const vis = [];
+  for (let i = 0; i < prof.xs.length; i++) {
+    if (prof.xs[i] >= lo && prof.xs[i] <= hi) vis.push([prof.xs[i], prof.ys[i] * mul]);
+  }
+  if (vis.length < 2) return;
+  let yMax = -Infinity, yMin = Infinity;
+  for (const [, y] of vis) { if (y > yMax) yMax = y; if (y < yMin) yMin = y; }
+  const pad = Math.max(1, (yMax - yMin) * 0.12);
+  yMax += pad; yMin -= pad;
+
+  // RTL: السعر الأدنى يميناً
+  const X = (p) => W - padR - ((p - lo) / (hi - lo)) * cw;
+  const Y = (v) => padT + (1 - (v - yMin) / (yMax - yMin)) * ch;
+
+  // خط الصفر
+  const y0 = Y(0);
+  g.strokeStyle = "#2e3a4b"; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(padL, y0); g.lineTo(W - padR, y0); g.stroke();
+
+  // تعبئة الربح والخسارة كلٌّ بلونه
+  const fill = (positive) => {
+    g.beginPath(); let open = false;
+    for (const [p, v] of vis) {
+      const ok = positive ? v >= 0 : v <= 0;
+      if (ok) { if (!open) { g.moveTo(X(p), y0); open = true; } g.lineTo(X(p), Y(v)); }
+      else if (open) { g.lineTo(X(p), y0); g.closePath(); g.fill(); g.beginPath(); open = false; }
+    }
+    if (open) { g.lineTo(X(vis[vis.length - 1][0]), y0); g.closePath(); g.fill(); }
+  };
+  g.fillStyle = "rgba(0,209,155,.22)"; fill(true);
+  g.fillStyle = "rgba(255,77,94,.20)"; fill(false);
+
+  // المنحنى
+  g.beginPath();
+  vis.forEach(([p, v], i) => i ? g.lineTo(X(p), Y(v)) : g.moveTo(X(p), Y(v)));
+  g.strokeStyle = "#e9eef7"; g.lineWidth = 2; g.stroke();
+
+  // السعر الآن ونقاط التعادل
+  const vline = (p, col, dash) => {
+    if (p < lo || p > hi) return;
+    g.strokeStyle = col; g.lineWidth = 1.4; g.setLineDash(dash);
+    g.beginPath(); g.moveTo(X(p), padT); g.lineTo(X(p), padT + ch); g.stroke(); g.setLineDash([]);
+  };
+  prof.be.forEach(b => vline(b, "#f5b912", [3, 3]));
+  vline(spot, "#4f8cff", [5, 3]);
+
+  // محور القيمة على اليسار
+  g.font = "10px system-ui"; g.textAlign = "left"; g.fillStyle = "#5e6b7e";
+  [yMax, 0, yMin].forEach(v => {
+    const y = Y(v);
+    if (y < padT - 2 || y > padT + ch + 2) return;
+    g.fillText((v >= 0 ? "+" : "−") + "$" + Math.round(Math.abs(v)), W - padR + 6, y + 3);
+  });
+  // محور السعر
+  g.textAlign = "center";
+  [lo, (lo + hi) / 2, hi].forEach(p => g.fillText("$" + Math.round(p), X(p), H - 6));
 }
 
 function symRow(sym) {
@@ -4232,6 +4825,7 @@ function boot() {
   // نبني عليها أرقاماً خاطئة. لا يعمل إلا بـ‎?selftest=1‎ صريحاً.
   if (/[?&]selftest=1\b/.test(location.search)) {
     try { planSelfTest(); } catch (e) { console.error("سقط الفحص الذاتي نفسه", e); }
+    try { optSelfTest(); } catch (e) { console.error("سقط فحص التركيبات نفسه", e); }
   }
 
   // أيقونة وملف تعريف للتثبيت على الشاشة الرئيسية
@@ -4328,6 +4922,12 @@ function boot() {
       if (el.tagName === "INPUT") el.oninput = () => { clearTimeout(osT); osT = setTimeout(pull, 250); };
     });
   }
+
+  { const k = $("#stKind"), q = $("#stQty");
+    // تغيير التركيبة يُسقط اختيار السترايك: سترايك ساقٍ في تركيبةٍ لا
+    // يصف نفس الساق في أخرى
+    if (k) k.onchange = () => { stratOverride = []; renderStrat(); };
+    if (q) q.onchange = renderStrat; }
 
   $("#fSector").onchange = renderAnalysis;
   $("#fSort").onchange = renderAnalysis;
