@@ -18,7 +18,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchOptions, fetchChart, pool, stats, num } from "./lib/yahoo.mjs";
 import { bs, erf, N, evaluate, liquid, rank, yearsToExpiry, impliedVol,
-         chainMode, flowRatio, flowLabel, PROB_BAND, FILTER, FLOW } from "./lib/options.mjs";
+         chainMode, flowRatio, flowLabel, PROB_BAND, FILTER, FLOW,
+         maxPain, putCall, walls, expectedMove, gammaByStrike, ivRank } from "./lib/options.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -39,6 +40,9 @@ const DAY = 86400e3;
 const WIDE_PER_RUN = Number(process.env.OPT_WIDE_PER_RUN || 40);
 // صلاحية عقود الطبقة الواسعة: أطول من الأساسية لأنها ليست تحت المراقبة
 const WIDE_MAX_AGE = Number(process.env.OPT_WIDE_AGE_H || 6) * 3600e3;
+// طول تاريخ التقلّب الضمني المحفوظ. سنة تداول هي العرف في رتبة التقلّب،
+// ونقطةٌ واحدة لكل يوم لا لكل تشغيل — ستّ عشرة نقطة يومياً تصف نفس اليوم.
+const IV_KEEP = Number(process.env.OPT_IV_KEEP || 252);
 
 const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return d; } };
 function writeJSON(rel, obj) {
@@ -82,6 +86,26 @@ export function realizedVol(closes, days = 20) {
   const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
   const varr = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / (rets.length - 1);
   return Math.sqrt(varr) * Math.sqrt(252);
+}
+
+/* =====================================================================
+   رتبة التقلّب المحقَّق — من شمعاتنا، متاحة اليوم لا بعد سنة.
+
+   رتبة التقلّب **الضمني** تحتاج تاريخاً لا نملكه بعد (نبدأ تجميعه من
+   هذا التشغيل)، أما المحقَّق فتاريخه في شمعاتنا اليومية أصلاً. والسؤال
+   الذي يجيب عنه مختلف لكنه مفيد بذاته: هل يتحرّك هذا السهم الآن أكثر
+   من عادته؟ سهمٌ تقلّبه المحقَّق في المئين التسعين يتحرّك كما لم يتحرّك
+   في سنته — وهو سياقٌ لا يعطيه رقم التقلّب وحده.
+   ===================================================================== */
+export function hvSeries(closes, win = 20, look = 252) {
+  if (!Array.isArray(closes) || closes.length < win + 12) return null;
+  const out = [];
+  // نافذةٌ متدحرجة: كل نقطة تقلّبُ العشرين يوماً المنتهية عندها
+  for (let i = win + 1; i <= closes.length; i++) {
+    const v = realizedVol(closes.slice(0, i), win);
+    if (Number.isFinite(v)) out.push(v);
+  }
+  return out.length >= 12 ? out.slice(-look) : null;
 }
 
 /* التقلّب الضمني عند المال: وسيط IV لأقرب سترايكين للسعر من الجانبين.
@@ -176,6 +200,7 @@ async function buildSymbol(meta, now, r, fund) {
   const out = { s: sym, ar: meta.ar, en: meta.en, spot: r2(spot), r: r4(r), q: r4(q),
                 updated: now, mode, exp: [] };
   const allCalls = [], allPuts = [];
+  const pcAll = { cv: 0, pv: 0, co: 0, po: 0 };
 
   for (const ch of chains) {
     const side = (raw, type) => {
@@ -187,11 +212,23 @@ async function buildSymbol(meta, now, r, fund) {
     const calls = side(ch.calls, "call");
     const puts = side(ch.puts, "put");
     allCalls.push(...calls); allPuts.push(...puts);
+    // المقاييس البنيوية تُقاس على السلسلة **الخام** لا على المرشَّحة
+    // سيولةً: أطراف السلسلة حيث تتراكم المراكز الكبيرة، وحذفها يزيح
+    // أقصى الألم والجدران معاً
+    const pc = putCall(ch.calls, ch.puts);
+    const wl = walls(ch.calls, ch.puts);
+    pcAll.cv += pc.cv; pcAll.pv += pc.pv; pcAll.co += pc.co; pcAll.po += pc.po;
+
     out.exp.push({
       e: ch.e,
       days: Math.round(yearsToExpiry(ch.e, now) * 365),
       // والسوق مغلق يأتي التقلّب من عقودنا المستخرَجة لا من حقل مصفَّر
       iv: r4(mode === "live" ? atmIV(ch.calls, ch.puts, spot) : atmIVfrom(calls, puts, spot)),
+      mp: r2(maxPain(ch.calls, ch.puts)),
+      pc: { v: r2(pc.vol), o: r2(pc.oi) },
+      wl: { c: wl.call, p: wl.put },
+      em: expectedMove(calls, puts, spot),
+      gx: gammaByStrike(calls, puts, spot),
       calls: calls.sort((a, b) => a.k - b.k),
       puts: puts.sort((a, b) => a.k - b.k)
     });
@@ -201,6 +238,15 @@ async function buildSymbol(meta, now, r, fund) {
   const d1 = readJSON(path.join(OUT, "sym", `${sym}.json`))?.tf?.["1d"]?.c;
   const closes = Array.isArray(d1) ? d1.map(x => Array.isArray(x) ? x[4] : x.c) : null;
   out.hv20 = r4(realizedVol(closes, 20));
+  // رتبة المحقَّق: موضع تقلّب اليوم من سنته. العتبة اثنتا عشرة نقطة لا
+  // عشرون — السلسلة هنا مشتقّة من شمعاتنا ونملك 260 منها، فالنقص يعني
+  // رمزاً جديداً لا عيّنة قصيرة
+  const hvs = hvSeries(closes);
+  out.hvR = (hvs && out.hv20) ? ivRank(hvs, out.hv20, 12) : null;
+  // نسبة البوت إلى الكول على الاستحقاقات كلها
+  out.pc = { v: pcAll.cv > 0 ? r2(pcAll.pv / pcAll.cv) : null,
+             o: pcAll.co > 0 ? r2(pcAll.po / pcAll.co) : null,
+             cv: pcAll.cv, pv: pcAll.pv, co: pcAll.co, po: pcAll.po };
   // التقلّب الضمني المُقارَن يُؤخذ من الاستحقاق الأقرب إلى ثلاثين يوماً لا
   // من أقرب استحقاق مطلقاً: عقد اليوم الواحد تقلّبه الضمني منتفخ بطبيعته
   // (48% مقابل 26% للشهري على أبل)، فمقارنته بتقلّب محقَّق لعشرين يوماً
@@ -272,10 +318,42 @@ async function main() {
   let bytes = 0;
   for (const o of ok) bytes += writeJSON(`options/${o.s}.json`, o);
 
+  /* تاريخ التقلّب الضمني — نقطةٌ واحدة لكل رمز في اليوم الواحد.
+
+     الدورة نصف ساعة، فالكتابة في كل تشغيل تعطي ستّ عشرة نقطة تصف نفس
+     اليوم: «رتبة سنة» تصير عندها رتبة ستة عشر يوماً بينما يقول العدّاد
+     252. اليوم هو الوحدة، وآخر قراءة فيه تغلب — فهي أقرب إلى الإغلاق. */
+  const day = Math.floor(now / 86400e3);
+  const hist = readJSON(path.join(OUT, "ivhist.json"), null) || { keep: IV_KEEP, h: {} };
+  if (!hist.h) hist.h = {};
+  for (const o of ok) {
+    if (!Number.isFinite(o.ivAtm)) continue;
+    const arr = hist.h[o.s] || (hist.h[o.s] = []);
+    const last = arr[arr.length - 1];
+    // بالألف كعدد صحيح: 0.3363 → 336. الدقة كافية لرتبةٍ مئوية،
+    // والكسور العشرية تضاعف حجم ملفٍ يحمل مئة ألف رقم
+    const v = Math.round(o.ivAtm * 1000);
+    if (last && last[0] === day) last[1] = v; else arr.push([day, v]);
+    if (arr.length > IV_KEEP) arr.splice(0, arr.length - IV_KEEP);
+  }
+  hist.updated = now; hist.keep = IV_KEEP;
+
+  const ivR = (sym, iv) => {
+    const arr = hist.h[sym];
+    return (arr && Number.isFinite(iv)) ? ivRank(arr.map(x => x[1] / 1000), iv, 20) : null;
+  };
+
   // الملخّص: أفضل عقد لكل جانب + قراءة غلاء العقود، بلا السلاسل
   const fresh = ok.map(o => ({
     s: o.s, ar: o.ar, en: o.en, spot: o.spot, updated: o.updated,
     ivAtm: o.ivAtm, hv20: o.hv20, ivHv: o.ivHv,
+    // رتبتان لا واحدة: الضمنية تحتاج تاريخاً نبنيه من اليوم، والمحقَّقة
+    // متاحة الآن من شمعاتنا. عرضُ الثانية بينما الأولى تُبنى أصدق من
+    // إخفاء القسم شهراً
+    ivR: ivR(o.s, o.ivAtm), hvR: o.hvR || null, pc: o.pc || null,
+    // أقرب استحقاق له مقاييس بنيوية: تُقرأ في القائمة بلا فتح ملف الرمز
+    nx: o.exp?.[0] ? { days: o.exp[0].days, mp: o.exp[0].mp,
+                       em: o.exp[0].em, pc: o.exp[0].pc } : null,
     call: o.bestCalls[0] || null, put: o.bestPuts[0] || null, n: o.n,
     // أقوى نشاط غير معتاد في سلسلة الرمز — يجعل الملخّص قابلاً للفرز عليه
     flow: o.flow || null
@@ -289,9 +367,32 @@ async function main() {
   if (rows.length < prev.length)
     throw new Error(`ملخّص العقود تقلّص ${prev.length}→${rows.length} — لن نكتب`);
 
+  /* قراءة السوق من سوق العقود نفسه — لا من الأسهم.
+
+     نسبة البوت إلى الكول تُجمع بالأعداد لا بمتوسط النسب: متوسّطُ نسبٍ
+     يعطي رمزاً حجمه مئة عقد وزنَ رمزٍ حجمه مئة ألف. */
+  const agg = rows.reduce((a, x) => {
+    if (x.pc) { a.cv += x.pc.cv || 0; a.pv += x.pc.pv || 0; a.co += x.pc.co || 0; a.po += x.pc.po || 0; a.nPc++; }
+    if (Number.isFinite(x.ivHv)) { a.iv.push(x.ivHv); if (x.ivHv >= 1.3) a.rich++; else if (x.ivHv <= 0.8) a.cheap++; }
+    if (x.flow) { a.flow++; if (x.flow.side === "call") a.flowC++; else a.flowP++; }
+    return a;
+  }, { cv: 0, pv: 0, co: 0, po: 0, nPc: 0, iv: [], rich: 0, cheap: 0, flow: 0, flowC: 0, flowP: 0 });
+  // الوسيط لا المتوسط: رمزٌ واحد نسبته 6× يزيح المتوسط ولا يزيح الوسيط
+  const median = (a) => { if (!a.length) return null; const q = [...a].sort((x, y) => x - y);
+    const m = q.length >> 1; return q.length % 2 ? q[m] : (q[m - 1] + q[m]) / 2; };
+  const mkt = {
+    n: agg.nPc,
+    pcv: agg.cv > 0 ? r2(agg.pv / agg.cv) : null,
+    pco: agg.co > 0 ? r2(agg.po / agg.co) : null,
+    vol: agg.cv + agg.pv, oi: agg.co + agg.po,
+    ivHvMed: r2(median(agg.iv)), rich: agg.rich, cheap: agg.cheap, ivN: agg.iv.length,
+    flow: agg.flow, flowC: agg.flowC, flowP: agg.flowP
+  };
+
+  bytes += writeJSON("ivhist.json", hist);
   bytes += writeJSON("options.json", {
     updated: now, count: rows.length, r: r4(r),
-    band: PROB_BAND, filter: FILTER, flow: FLOW, rows
+    band: PROB_BAND, filter: FILTER, flow: FLOW, mkt, ivKeep: IV_KEEP, rows
   });
 
   const prevMeta = readJSON(path.join(OUT, "meta.json"), {});
@@ -305,6 +406,9 @@ async function main() {
   const flowN = rows.filter(x => x.flow).length;
   console.log(`✔ ${ok.length} / ${chosen.length} رمزاً · ${rows.length} في الملخّص · ${fresh.reduce((a, x) => a + x.n, 0)} عقداً سائلاً · ${(bytes / 1024).toFixed(0)} ك.ب`);
   if (flowN) console.log(`  نشاط غير معتاد على ${flowN} رمزاً`);
+  console.log(`  بوت/كول ${mkt.pcv ?? "—"} حجماً و${mkt.pco ?? "—"} مراكزَ · وسيط ضمني/محقَّق ${mkt.ivHvMed ?? "—"}`);
+  const ivDays = Math.max(0, ...Object.values(hist.h).map(a => a.length));
+  console.log(`  تاريخ التقلّب الضمني: ${Object.keys(hist.h).length} رمزاً · أطولها ${ivDays} يوماً من ${IV_KEEP}`);
   console.log(`  طلبات: ${stats.requests} · إخفاقات: ${stats.failures}`);
   return 0;
 }
@@ -534,6 +638,78 @@ function selfCheck() {
     const mk = (probITM, eff) => ({ probITM, eff });
     const r = rank([mk(0.9, 9), mk(0.4, 1), mk(0.5, 5), mk(0.05, 99)], PROB_BAND, 3);
     eq(r.map(x => x.eff), [5, 1], "المستبعدان خارج النطاق");
+  });
+
+  t("maxPain يجد السترايك الأقل دفعاً", () => {
+    // كل المراكز على كول 100 وبوت 100: الألم الأقصى عندهما معاً
+    const calls = [{ strike: 90, openInterest: 0 }, { strike: 100, openInterest: 1000 }, { strike: 110, openInterest: 0 }];
+    const puts  = [{ strike: 90, openInterest: 0 }, { strike: 100, openInterest: 1000 }, { strike: 110, openInterest: 0 }];
+    eq(maxPain(calls, puts), 100, "التقاء الجانبين");
+    // مراكز الكول كلها عند 90: كل سترايك فوقها يدفع، فالأقل هو الأدنى
+    eq(maxPain([{ strike: 90, openInterest: 500 }, { strike: 100, openInterest: 0 }, { strike: 110, openInterest: 0 }],
+               [{ strike: 90, openInterest: 0 }, { strike: 100, openInterest: 0 }, { strike: 110, openInterest: 0 }]),
+       90, "كولٌ وحده");
+    eq(maxPain([{ strike: 1, openInterest: 5 }], []), null, "سترايك واحد لا يكفي");
+  });
+
+  t("putCall يجمع الأعداد لا النسب", () => {
+    const c = [{ volume: 100, openInterest: 200 }, { volume: 300, openInterest: 100 }];
+    const p = [{ volume: 200, openInterest: 600 }];
+    const r = putCall(c, p);
+    near(r.vol, 0.5, 1e-12, "200/400");
+    near(r.oi, 2, 1e-12, "600/300");
+    eq(putCall([], []).vol, null, "بلا كول لا نسبة");
+    // حقلٌ غائب يُعدّ صفراً لا يُسقط الصفّ
+    near(putCall([{ volume: 10 }], [{ volume: 5 }]).vol, 0.5, 1e-12, "بلا مراكز قائمة");
+  });
+
+  t("walls يجد أثقل سترايك على كل جانب", () => {
+    const w = walls([{ strike: 100, openInterest: 50 }, { strike: 120, openInterest: 900 }],
+                    [{ strike: 80, openInterest: 700 }, { strike: 90, openInterest: 30 }]);
+    eq([w.call.k, w.put.k], [120, 80], "الجداران");
+    eq(walls([], []), { call: null, put: null }, "سلسلة فارغة");
+  });
+
+  t("expectedMove ستراد لا خنق", () => {
+    const em = expectedMove([{ k: 100, mid: 3 }], [{ k: 100, mid: 2 }], 100);
+    near(em.abs, 5, 1e-12, "مجموع القسطين");
+    near(em.pct, 5, 1e-12, "نسبةً إلى السعر");
+    // سترايكان مختلفان: خنقٌ لا ستراد، ورقمه لا يصف الحركة المتوقّعة
+    eq(expectedMove([{ k: 105, mid: 3 }], [{ k: 95, mid: 2 }], 100), null, "سترايكان مختلفان");
+    eq(expectedMove([], [], 100), null, "سلسلة فارغة");
+  });
+
+  t("gammaByStrike يعدّ ولا يطرح", () => {
+    const g = gammaByStrike([{ k: 100, gamma: 0.05, oi: 100 }, { k: 105, gamma: 0.03, oi: 400 }],
+                            [{ k: 100, gamma: 0.04, oi: 200 }], 100);
+    eq(g.map(x => x.k), [100, 105], "مرتّب بالسترايك");
+    eq([g[0].c, g[0].p], [500, 800], "الجانبان منفصلان لا محصّلة");
+    eq(g[1].p, 0, "جانبٌ بلا عقود يبقى صفراً لا يُحذف");
+    eq(gammaByStrike([], [], 100), null, "بلا عقود");
+    eq(gammaByStrike([{ k: 100, gamma: 0.05, oi: 100 }], [], 100), null, "سترايك واحد ليس توزيعاً");
+  });
+
+  t("ivRank موضعٌ في المدى ومئينٌ في التوزيع", () => {
+    const h = Array.from({ length: 30 }, (_, i) => 0.2 + i * 0.01);   // 0.20 … 0.49
+    const r = ivRank(h, 0.35);
+    // القيم مقرَّبة لخانتين — الرتبة مئوية ولا معنى لخانة ثالثة
+    near(r.rank, (0.35 - 0.20) / (0.49 - 0.20) * 100, 0.005, "الموضع في المدى");
+    near(r.pct, 15 / 30 * 100, 0.005, "المئين");
+    eq(r.n, 30, "حجم العيّنة");
+    // عيّنة قصيرة: نعيد العدد ولا نعيد رقماً — «يُبنى» لا «صفر»
+    const short = ivRank([0.2, 0.3], 0.25);
+    eq([short.rank, short.pct, short.n], [null, null, 2], "أقصر من الحد الأدنى");
+    eq(ivRank(null, 0.3), null, "بلا تاريخ");
+  });
+
+  t("hvSeries نافذةٌ متدحرجة لا رقمٌ واحد", () => {
+    // تقلّبٌ يتصاعد: آخر نقطة يجب أن تفوق أولاها
+    const cl = [];
+    for (let i = 0; i < 120; i++) cl.push(100 * (1 + 0.002 * i * Math.sin(i)));
+    const ser = hvSeries(cl.map(x => Math.max(1, x)));
+    if (!ser || ser.length < 12) throw new Error("سلسلة قصيرة: " + (ser && ser.length));
+    if (ser.some(v => !Number.isFinite(v) || v < 0)) throw new Error("قيمة غير صالحة");
+    eq(hvSeries([1, 2, 3]), null, "أقصر من النافذة");
   });
 
   console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل`);

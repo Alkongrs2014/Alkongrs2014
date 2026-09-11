@@ -853,14 +853,6 @@ details[open]{background:var(--card2)}
     </details>
   </div>
 
-  <div class="card" id="cardOptScan" style="display:none">
-    <h2>📑 غلاء العقود عبر السوق</h2>
-    <p class="hint">التقلّب الضمني الذي يسعّره سوق الخيارات مقابل ما يتحرّكه السهم فعلاً في
-    عشرين يوماً — أعلى القائمة عقود غالية، وأسفلها رخيصة</p>
-    <div id="optScan"></div>
-    <p class="srcline" id="optScanNote"></p>
-  </div>
-
   <div class="card">
     <h2>📅 رزنامة الأرباح</h2>
     <p class="hint">إعلانات الأرباح القادمة — السهم يتحرك بعنف بعدها وغالباً بفجوة لا يحميك منها وقف الخسارة</p>
@@ -882,6 +874,123 @@ details[open]{background:var(--card2)}
   </div>
   <p class="disclaimer">الأخبار من مصادر خارجية ولا نتحمل مسؤولية دقتها. التصنيف (إيجابي/سلبي) آلي بحسب كلمات العنوان وقد يخطئ،
   والترجمة آلية كذلك — الأصل الإنجليزي مكتوب تحت كل عنوان مترجَم فارجع إليه عند أي التباس.</p>
+</section>
+
+
+<!-- ================= العقود ================= -->
+<section data-view="opts">
+
+  <div class="card" id="cardOptPulse">
+    <h2>🫀 نبض سوق العقود</h2>
+    <p class="hint">قراءةٌ من سوق العقود نفسه لا من الأسهم: ما يشتريه المتداولون، وبأي سعر مقارنةً
+    بحركة السهم الفعلية</p>
+    <div class="verdict" id="optVerdict">—</div>
+    <div class="verdict-sub" id="optVerdictSub">—</div>
+    <div class="sep"></div>
+    <div class="grid2" id="optPulse">
+      <div class="stat"><div class="k">…</div><div class="v skl"></div></div>
+      <div class="stat"><div class="k">…</div><div class="v skl"></div></div>
+    </div>
+    <details>
+      <summary>ماذا تعني نسبة البوت إلى الكول؟</summary>
+      <p>لكل عقد كول مُتداول اليوم، كم عقد بوت تُدووِل؟ <b>فوق الواحد</b> يعني أن المال يميل إلى
+      البوت — حمايةً من هبوط أو رهاناً عليه. <b>تحت الواحد</b> ميلٌ إلى الكول.</p>
+      <p><b>ما لا يقوله الرقم:</b> لا يميّز من يشتري البوت خوفاً على محفظته ممن يراهن على انهيار،
+      ولا يعرف من في الجانب الآخر من كل عقد. وهو نسبةٌ إلى الكول لا رقمٌ مطلق: سوقٌ هادئ
+      نسبته 0.9 ليس أكثر تشاؤماً من سوقٍ محموم نسبته 0.7.</p>
+      <p><b>النسبتان مختلفتان:</b> نسبة الحجم تصف <b>اليوم</b>، ونسبة المراكز القائمة تصف ما
+      <b>تراكم</b> قبله. تباعدُهما هو المعلومة: حجمٌ متحيّز للبوت فوق مراكز متحيّزة للكول يعني
+      تغيّراً في التموضع لا استمراراً له.</p>
+    </details>
+    <p class="srcline" id="optPulseNote"></p>
+  </div>
+
+  <div class="card full" id="cardOptScanner">
+    <h2>🎯 ماسح العقود</h2>
+    <p class="hint">أفضل عقد كول وبوت على كل رمز — بمعاييرك أنت، والمعيار معلن ومحسوب لا «ذكاء
+    اصطناعي» بلا تعريف</p>
+
+    <div class="toolbar">
+      <select id="osSide">
+        <option value="all">كول وبوت</option>
+        <option value="call">كول فقط</option>
+        <option value="put">بوت فقط</option>
+      </select>
+      <select id="osSort">
+        <option value="eff">الأعلى تعرّضاً للدولار</option>
+        <option value="prob">الأعلى احتمالاً</option>
+        <option value="be">الأقل حركةً للتعادل</option>
+        <option value="vx">الأعلى نشاطاً</option>
+        <option value="mid">الأقل قسطاً</option>
+        <option value="decay">الأقل تآكلاً يومياً</option>
+        <option value="oi">الأكثر مراكزَ قائمة</option>
+      </select>
+      <select id="osLayer">
+        <option value="watch">المرصودة</option>
+        <option value="all">كل السوق</option>
+      </select>
+    </div>
+    <div class="toolbar">
+      <input id="osMax" type="number" inputmode="decimal" placeholder="أقصى قسط $" min="0" step="0.5">
+      <input id="osProb" type="number" inputmode="numeric" placeholder="أدنى احتمال %" min="0" max="100" step="5">
+      <input id="osDays" type="number" inputmode="numeric" placeholder="أقصى أيام" min="0" step="1">
+      <input id="osOI" type="number" inputmode="numeric" placeholder="أدنى مراكز" min="0" step="100">
+    </div>
+
+    <div id="osTable"><div class="skl" style="height:200px"></div></div>
+    <p class="srcline" id="osCount"></p>
+
+    <details>
+      <summary>كيف اختير «أفضل عقد» لكل رمز؟</summary>
+      <p>من كل سلسلة نُبقي العقود السائلة فقط: مراكز قائمة ≥ 50، وسعرٌ حقيقي، وفارق عرضٍ وطلب
+      لا يتجاوز 25% من وسطهما. ثم نستبعد الطرفين: احتمال انتهاءٍ داخل المال تحت <b>25%</b>
+      تذكرةُ يانصيب، وفوق <b>65%</b> عقدٌ عميق داخل المال ثمنه قريب من سعر السهم بلا رافعة
+      تُذكر. وما بقي يُرتَّب بـ<b>التعرّض لكل دولار</b> = دلتا ÷ القسط: كم حركةً في السهم
+      يشتريها كل دولار تدفعه.</p>
+      <p><b>وهذا ترتيبٌ لا توصية.</b> أفضلُ عقدٍ على سهمٍ اتجاهه ضدك عقدٌ خاسر مهما حسُن
+      تسعيره. اقرأ خطة الصفقة على السهم أولاً — الماسح يختار <b>الأداة</b>، لا <b>الاتجاه</b>.</p>
+      <p><b>«التآكل اليومي»</b> ثيتا نسبةً إلى القسط: كم في المئة من قيمة العقد يأكلها مرور
+      يومٍ واحد وحده لو لم يتحرك السهم. عقدٌ يتآكل 8% يومياً يحتاج حركةً سريعة لا صحيحة فقط.</p>
+    </details>
+  </div>
+
+  <div class="card" id="cardOptFlow" style="display:none">
+    <h2>⚡ النشاط غير المعتاد</h2>
+    <p class="hint">عقودٌ حجم تداولها اليوم يفوق مراكزها القائمة — أي أن أغلب التداول مراكز
+    <b>جديدة</b> لا إغلاق قديمة</p>
+    <div id="optFlow"></div>
+    <p class="srcline" id="optFlowNote"></p>
+    <details>
+      <summary>ما الذي يقوله هذا الرقم وما الذي لا يقوله؟</summary>
+      <p>الفائدة المفتوحة عدد العقود القائمة من الأمس، والحجم عدد ما تُدووِل اليوم. تجاوزُ
+      الحجم للفائدة المفتوحة يعني أن مالاً <b>يدخل</b> الآن لا يخرج.</p>
+      <p><b>ولا يقول أكثر من ذلك:</b> لا من اشترى، ولا لماذا، ولا إن كان محقاً، ولا يميّز
+      مضارباً من صندوقٍ يتحوّط. من يسمّيه «تدفّق المال الذكي» يضيف إلى البيانات ما ليس فيها.</p>
+      <p>ولا يشمل ما ينتهي خلال أسبوع: عقدٌ يبقى له يوم حجمُه يفوق مراكزه <b>بطبيعته</b> لأن
+      المراكز تُغلق قبل الانتهاء — تحيّزٌ بنيوي لا إشارة.</p>
+    </details>
+  </div>
+
+  <div class="card" id="cardOptVol" style="display:none">
+    <h2>🌡️ غلاء العقود وتقلّبها</h2>
+    <p class="hint">التقلّب الضمني الذي يسعّره سوق الخيارات مقابل ما يتحرّكه السهم فعلاً</p>
+    <div id="optVolList"></div>
+    <p class="srcline" id="optVolNote"></p>
+    <details>
+      <summary>لماذا رتبتان للتقلّب؟</summary>
+      <p><b>الضمني مقابل المحقَّق</b> يقارن سعر العقد بحركة السهم: فوق الواحد العقود أغلى مما
+      يتحرّكه السهم فعلاً — بيعُ التقلّب أجدى من شرائه، والعكس بالعكس.</p>
+      <p><b>رتبة التقلّب المحقَّق</b> سؤالٌ آخر: أين تقلّب هذا السهم <b>اليوم</b> من تقلّبه في
+      سنته؟ سهمٌ في المئين التسعين يتحرّك كما لم يتحرّك في سنة. وهي متاحةٌ الآن لأن تاريخها
+      في شمعاتنا.</p>
+      <p><b>ورتبة التقلّب الضمني</b> تحتاج تاريخاً لا نملكه بعد — بدأ تجميعه بنقطةٍ لكل يوم،
+      ولن تظهر قبل عشرين يوم تداول. عرضُ رقمٍ قبلها يعني ادّعاء ذاكرةٍ لا وجود لها.</p>
+    </details>
+  </div>
+
+  <p class="disclaimer">عقود الخيارات أدوات ذات رافعة: قد تخسر كامل القسط، وقد يصل فرق العرض
+  والطلب إلى جزء كبير من قيمة العقد على الأسهم قليلة السيولة. الأرقام هنا محسوبة بنموذج
+  Black–Scholes من بيانات معلنة، وهي وصفٌ لتسعير السوق لا توصية بشراء أو بيع.</p>
 </section>
 
 <!-- ================= تحليل ================= -->
@@ -1024,6 +1133,7 @@ details[open]{background:var(--card2)}
   <button data-go="now" class="on"><em>⚡</em>الآن</button>
   <button data-go="list"><em>📋</em>الأسهم</button>
   <button data-go="screen"><em>🎯</em>الفرص</button>
+  <button data-go="opts"><em>🧾</em>العقود</button>
   <button data-go="analysis"><em>⚖️</em>تحليل</button>
   <button data-go="log"><em>📜</em>السجل</button>
   <button data-go="news"><em>📰</em>الأخبار</button>
@@ -1901,54 +2011,231 @@ function renderArchive() {
 }
 
 /* ملخّص العقود عبر السوق — قراءة واحدة تقول أين الخيارات غالية وأين رخيصة */
-function renderOptScan() {
-  const card = $("#cardOptScan");
-  const j = state.opts;
-  if (!card) return;
-  const rows = (j?.rows || []).filter(r => Number.isFinite(r.ivHv));
+/* =======================================================================
+   تبويب العقود — أربع بطاقات فوق ملفٍّ واحد (`options.json`).
+
+   الملخّص يحمل أفضل عقد كول وبوت لكل رمز من 483، فالماسح يعمل في
+   المتصفح بلا طلب إضافي. فتحُ 483 ملف سلسلة لبناء القائمة كان البديل.
+   ======================================================================= */
+
+const OS_DEF = { side: "all", sort: "eff", layer: "watch", max: "", prob: "", days: "", oi: "" };
+
+function renderOpts() {
+  renderOptPulse(); renderOptScanner(); renderOptFlow(); renderOptVol();
+}
+
+/* ---------- نبض السوق ---------- */
+function renderOptPulse() {
+  const m = state.opts && state.opts.mkt;
+  const box = $("#optPulse");
+  if (!m) {
+    $("#optVerdict").textContent = "—";
+    $("#optVerdictSub").textContent = "ملخّص العقود غير متاح — يُجلب محلياً فقط";
+    box.innerHTML = ""; $("#optPulseNote").textContent = ""; return;
+  }
+  const pcv = m.pcv, pco = m.pco;
+  let lbl = "متوازن", col = "var(--neu)", sub = "لا ميلَ واضحاً في أي اتجاه";
+  if (Number.isFinite(pcv)) {
+    const per = Math.round(pcv * 100);
+    if (pcv >= 1.1) { lbl = "ميلٌ إلى البوت"; col = "var(--dn)";
+      sub = `لكل 100 عقد كول تُدووِل ${per} عقد بوت — حمايةً من هبوط أو رهاناً عليه`; }
+    else if (pcv <= 0.7) { lbl = "ميلٌ إلى الكول"; col = "var(--up)";
+      sub = `لكل 100 عقد كول تُدووِل ${per} عقد بوت فقط`; }
+    else sub = `لكل 100 عقد كول ${per} عقد بوت — بلا ميلٍ واضح`;
+  }
+  $("#optVerdict").innerHTML = `<span style="color:${col}">${lbl}</span>`;
+  $("#optVerdictSub").innerHTML = bd(sub);
+
+  const rich = m.ivHvMed;
+  const richTxt = Number.isFinite(rich)
+    ? (rich >= 1 ? `أغلى بـ${bd(fmt((rich - 1) * 100, 0))}% من حركة السهم`
+                 : `أرخص بـ${bd(fmt((1 - rich) * 100, 0))}% من حركة السهم`)
+    : "—";
+  const st = (k, v, note, color) => `<div class="stat"><div class="k">${k}</div>
+    <div class="v num"${color ? ` style="color:${color}"` : ""}>${v}</div>
+    <div class="k" style="margin:4px 0 0;white-space:normal">${note}</div></div>`;
+
+  box.innerHTML =
+    st("بوت / كول — حجم اليوم", bd(fmt(pcv, 2)),
+       `${bd(compact(m.vol, ""))} عقداً تُدووِلت`,
+       pcv >= 1.1 ? "var(--dn)" : pcv <= 0.7 ? "var(--up)" : null)
+  + st("بوت / كول — المراكز القائمة", bd(fmt(pco, 2)),
+       `${bd(compact(m.oi, ""))} عقداً قائماً من قبل`,
+       pco >= 1.1 ? "var(--dn)" : pco <= 0.7 ? "var(--up)" : null)
+  + st("وسيط الضمني ÷ المحقَّق", bd(fmt(rich, 2)) + "×", richTxt,
+       rich >= 1.3 ? "var(--dn)" : rich <= 0.8 ? "var(--up)" : null)
+  + st("عقود غالية مقابل رخيصة", `${bd(m.rich)} / ${bd(m.cheap)}`,
+       `من ${bd(m.ivN)} رمزاً لها قراءة تقلّب`)
+  + st("رموز بنشاط غير معتاد", bd(m.flow),
+       `${bd(m.flowC)} على الكول · ${bd(m.flowP)} على البوت`)
+  + st("اتساع القراءة", bd(m.n) + " رمزاً",
+       "نسبة البوت إلى الكول تُجمع بالأعداد لا بمتوسط النسب");
+
+  $("#optPulseNote").innerHTML = `آخر دورة عقود ${bd(ago(state.opts.updated))} ·
+    ${bd(state.opts.count)} رمزاً في الملخّص`;
+}
+
+/* ---------- الماسح ---------- */
+/* كل عقد صفّ: الملخّص يحمل أفضل كول وأفضل بوت لكل رمز، فالمصفوفة
+   ضعف عدد الرموز على الأكثر — مئات لا عشرات آلاف، فالفرز في المتصفح. */
+function optContracts() {
+  const rows = (state.opts && state.opts.rows) || [];
+  const watch = new Set(((state.summary && state.summary.rows) || []).map(r => r.s));
+  const out = [];
+  for (const r of rows) {
+    for (const side of ["call", "put"]) {
+      const c = r[side];
+      if (!c || !Number.isFinite(c.mid) || c.mid <= 0) continue;
+      out.push({
+        s: r.s, ar: r.ar, en: r.en, spot: r.spot, ivHv: r.ivHv, side,
+        watch: watch.has(r.s),
+        // التآكل نسبةً إلى القسط لا بالدولار: ثيتا 0.85 على عقد بـ1.16
+        // تأكل 73% في يوم، وعلى عقد بـ12 تأكل 7% — الرقم المطلق يخفي ذلك
+        decay: (Number.isFinite(c.theta) && c.mid > 0) ? Math.abs(c.theta) / c.mid * 100 : null,
+        ...c
+      });
+    }
+  }
+  return out;
+}
+
+function renderOptScanner() {
+  const st = state.os || (state.os = { ...OS_DEF, ...load("optscan", {}) });
+  // القيم تُعاد إلى الحقول في كل رسم: الاختيار يبقى بعد تحديث البيانات
+  const set = (id, v) => { const e = $(id); if (e && e.value !== String(v)) e.value = v; };
+  set("#osSide", st.side); set("#osSort", st.sort); set("#osLayer", st.layer);
+  set("#osMax", st.max); set("#osProb", st.prob); set("#osDays", st.days); set("#osOI", st.oi);
+
+  let all = optContracts();
+  const total = all.length;
+  if (!total) {
+    $("#osTable").innerHTML = `<div class="empty">لا بيانات عقود بعد — تُجلب محلياً كل نصف ساعة</div>`;
+    $("#osCount").textContent = ""; return;
+  }
+
+  const numOr = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
+  const maxP = numOr(st.max, Infinity), minProb = numOr(st.prob, 0) / 100;
+  const maxD = numOr(st.days, Infinity), minOI = numOr(st.oi, 0);
+
+  let rows = all.filter(c =>
+    (st.side === "all" || c.side === st.side) &&
+    (st.layer === "all" || c.watch) &&
+    c.mid <= maxP && (c.probITM ?? 0) >= minProb &&
+    (c.days ?? 0) <= maxD && (c.oi ?? 0) >= minOI);
+
+  const key = {
+    eff: (c) => -(c.eff ?? -1),
+    prob: (c) => -(c.probITM ?? -1),
+    be: (c) => Math.abs(c.beMove ?? 999),
+    vx: (c) => -(c.vx ?? -1),
+    mid: (c) => c.mid,
+    decay: (c) => (c.decay ?? 1e9),
+    oi: (c) => -(c.oi ?? -1)
+  }[st.sort] || ((c) => -(c.eff ?? -1));
+  rows.sort((a, b) => key(a) - key(b));
+
+  const shown = rows.slice(0, 40);
+  const head = ["الرمز", "", "تنفيذ", "أيام", "قسط", "تعادل", "احتمال", "دلتا",
+                "تآكل/يوم", "ضمني", "مراكز", "نشاط"];
+  $("#osTable").innerHTML = shown.length ? `<div class="otwrap"><table class="otbl">
+    <thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>
+    ${shown.map(c => `<tr data-open="${esc(c.s)}" style="cursor:pointer">
+      <td style="text-align:right">
+        <span class="tick">${esc(c.s)}</span>
+        <small style="display:block;color:var(--mut);font-size:10px">${esc(nm(c))}</small></td>
+      <td><span class="chip ${c.side === "call" ? "up" : "dn"}" style="font-size:10px;padding:1px 6px">${
+        c.side === "call" ? "كول" : "بوت"}</span></td>
+      <td class="num"><b>${money(c.k)}</b><small style="display:block;color:var(--dim);font-size:10px">من ${money(c.spot)}</small></td>
+      <td class="num">${bd(c.days)}</td>
+      <td class="num">${money(c.mid)}</td>
+      <td class="num">${money(c.be)}<small style="display:block;color:var(--mut);font-size:10px">${bd(pct(c.beMove, 1))}</small></td>
+      <td class="num">${bd(fmt((c.probITM ?? 0) * 100, 0))}%</td>
+      <td class="num">${bd(fmt(c.delta, 2))}</td>
+      <td class="num" style="color:${(c.decay ?? 0) >= 8 ? "var(--dn)" : "var(--mut)"}">${
+        c.decay === null ? "—" : bd(fmt(c.decay, 1)) + "%"}</td>
+      <td class="num">${c.iv === null || c.iv === undefined ? "—" : bd(fmt(c.iv * 100, 0)) + "%"}</td>
+      <td class="num">${bd(compact(c.oi, ""))}</td>
+      <td class="num" style="color:${(c.vx ?? 0) >= 1 ? "var(--neu)" : "var(--dim)"}">${
+        Number.isFinite(c.vx) ? bd(fmt(c.vx, 1)) + "×" : "—"}</td>
+    </tr>`).join("")}</tbody></table></div>`
+    : `<div class="empty">لا عقد يطابق هذه المعايير — وسّع القسط أو الأيام</div>`;
+
+  $("#osTable").querySelectorAll("tr[data-open]").forEach(tr =>
+    tr.onclick = () => openSymbol(tr.dataset.open));
+
+  $("#osCount").innerHTML = `${bd(shown.length)} من ${bd(rows.length)} عقداً مطابقاً
+    (من ${bd(total)} في الملخّص) · الأسعار وسط العرض والطلب، أو آخر صفقة حين يكون السوق مغلقاً`;
+}
+
+/* ---------- النشاط غير المعتاد ---------- */
+function renderOptFlow() {
+  const rows = ((state.opts && state.opts.rows) || [])
+    .filter(r => r.flow && Number.isFinite(r.flow.vx))
+    .sort((a, b) => b.flow.vx - a.flow.vx).slice(0, 10);
+  const card = $("#cardOptFlow");
+  if (!rows.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  $("#optFlow").innerHTML = `<div class="slist">${rows.map(r => `
+    <div class="srow" data-open="${esc(r.s)}">
+      <div class="id">
+        <div class="t">${esc(nm(r))}
+          <span class="chip ${r.flow.side === "call" ? "up" : "dn"}" style="font-size:10px;padding:1px 6px">${
+            r.flow.side === "call" ? "كول" : "بوت"}</span></div>
+        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> ·
+          تنفيذ ${money(r.flow.k)} · بعد ${bd(r.flow.days)} يوماً ·
+          ${bd(compact(r.flow.vol, ""))} مقابل ${bd(compact(r.flow.oi, ""))} قائماً</div>
+      </div>
+      <div class="px">
+        <div class="p num" style="color:${r.flow.side === "call" ? "var(--up)" : "var(--dn)"}">${
+          bd(fmt(r.flow.vx, 1))}×</div>
+        <div class="c num" style="font-size:11px;color:var(--mut)">${esc(r.flow.lbl || "")}</div>
+      </div></div>`).join("")}</div>`;
+  $("#optFlow").querySelectorAll("[data-open]").forEach(el =>
+    el.onclick = () => openSymbol(el.dataset.open));
+  const c = rows.filter(r => r.flow.side === "call").length;
+  $("#optFlowNote").innerHTML = `${bd(c)} على الكول و${bd(rows.length - c)} على البوت من أقوى عشرة`;
+}
+
+/* ---------- الغلاء والتقلّب ---------- */
+function renderOptVol() {
+  const rows = ((state.opts && state.opts.rows) || []).filter(r => Number.isFinite(r.ivHv));
+  const card = $("#cardOptVol");
   if (!rows.length) { card.style.display = "none"; return; }
   card.style.display = "";
 
-  const line = (r) => `<div class="srow" data-open="${esc(r.s)}">
-    <div class="id">
-      <div class="t">${esc(nm(r))}</div>
-      <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> ·
-        ضمني ${bd(fmt(r.ivAtm * 100, 1))}% · محقَّق ${bd(fmt(r.hv20 * 100, 1))}%</div>
-    </div>
-    <div class="px">
-      <div class="p num" style="color:${r.ivHv >= 1.3 ? "var(--dn)" : r.ivHv <= 0.8 ? "var(--up)" : "var(--tx)"}">
-        ${bd(fmt(r.ivHv, 2))}×</div>
-      <div class="c num" style="font-size:11px;color:var(--mut)">${r.ivHv >= 1 ? "غالية" : "رخيصة"}</div>
-    </div></div>`;
+  const byIv = [...rows].sort((a, b) => b.ivHv - a.ivHv);
+  const line = (r, right, sub, col) => `<div class="srow" data-open="${esc(r.s)}">
+    <div class="id"><div class="t">${esc(nm(r))}</div>
+      <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${sub}</div></div>
+    <div class="px"><div class="p num" style="color:${col}">${right}</div></div></div>`;
 
-  const top = rows.slice(0, 5), bottom = rows.slice(-5).reverse();
+  const ivLine = (r) => line(r, bd(fmt(r.ivHv, 2)) + "×",
+    `ضمني ${bd(fmt(r.ivAtm * 100, 1))}% · محقَّق ${bd(fmt(r.hv20 * 100, 1))}%`,
+    r.ivHv >= 1.3 ? "var(--dn)" : r.ivHv <= 0.8 ? "var(--up)" : "var(--tx)");
 
-  // النشاط غير المعتاد — أين يدخل مال جديد على العقود اليوم
-  const flows = (j.rows || []).filter(r => r.flow && Number.isFinite(r.flow.vx))
-    .sort((a, b) => b.flow.vx - a.flow.vx).slice(0, 6);
-  const flowLine = (r) => `<div class="srow" data-open="${esc(r.s)}">
-    <div class="id">
-      <div class="t">${esc(nm(r))}
-        <span class="chip ${r.flow.side === "call" ? "pre" : "off"}" style="font-size:10px;padding:1px 6px">${
-          r.flow.side === "call" ? "كول" : "بوت"}</span></div>
-      <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> ·
-        تنفيذ ${money(r.flow.k)} · بعد ${bd(r.flow.days)} يوماً</div>
-    </div>
-    <div class="px">
-      <div class="p num" style="color:${r.flow.side === "call" ? "var(--up)" : "var(--dn)"}">${bd(fmt(r.flow.vx, 1))}×</div>
-      <div class="c num" style="font-size:11px;color:var(--mut)">${bd(compact(r.flow.vol, ""))} عقداً</div>
-    </div></div>`;
+  // رتبة المحقَّق: متاحة اليوم لأن تاريخها في شمعاتنا
+  const byHv = rows.filter(r => r.hvR && Number.isFinite(r.hvR.rank))
+    .sort((a, b) => b.hvR.rank - a.hvR.rank);
+  const hvLine = (r) => line(r, bd(fmt(r.hvR.rank, 0)),
+    `تقلّبه اليوم ${bd(fmt(r.hv20 * 100, 1))}% · مداه السنوي ${
+      bd(fmt(r.hvR.lo * 100, 0))}–${bd(fmt(r.hvR.hi * 100, 0))}%`,
+    r.hvR.rank >= 70 ? "var(--neu)" : r.hvR.rank <= 20 ? "var(--acc)" : "var(--tx)");
 
-  $("#optScan").innerHTML =
-    (flows.length ? `<p class="hint" style="margin:6px 0 2px">⚡ نشاط غير معتاد — حجم اليوم يفوق المراكز القائمة</p>
-      <div class="slist">${flows.map(flowLine).join("")}</div>
-      <p class="srcline" style="margin-bottom:10px">مالٌ يدخل الآن لا يخرج. الجانب هو المعلومة:
-        نشاط على البوت ليس نشاطاً على الكول. ولا يشمل ما ينتهي خلال أسبوع — حجمُ العقد
-        المنتهي قريباً يفوق مراكزه بطبيعته، وهو تحيّز لا إشارة.</p>` : "")
-    + `<p class="hint" style="margin:6px 0 2px">الأغلى</p><div class="slist">${top.map(line).join("")}</div>
-       <p class="hint" style="margin:12px 0 2px">الأرخص</p><div class="slist">${bottom.map(line).join("")}</div>`;
-  $("#optScanNote").textContent =
-    `${rows.length} رمزاً · النسبة فوق الواحد تعني أن السوق يسعّر تقلّباً أعلى مما تحقّق فعلاً`;
+  const sec = (t, html) => `<p class="hint" style="margin:10px 0 3px">${t}</p><div class="slist">${html}</div>`;
+  $("#optVolList").innerHTML =
+      sec("الأغلى عقوداً — الضمني يفوق المحقَّق", byIv.slice(0, 5).map(ivLine).join(""))
+    + sec("الأرخص عقوداً", byIv.slice(-5).reverse().map(ivLine).join(""))
+    + (byHv.length ? sec("الأعلى رتبةً في تقلّبه المحقَّق — يتحرّك كما لم يتحرّك في سنته",
+        byHv.slice(0, 5).map(hvLine).join("")) : "")
+    + (byHv.length ? sec("الأهدأ مقارنةً بسنته", byHv.slice(-5).reverse().map(hvLine).join("")) : "");
+  $("#optVolList").querySelectorAll("[data-open]").forEach(el =>
+    el.onclick = () => openSymbol(el.dataset.open));
+
+  // حالة رتبة التقلّب الضمني: نقولها ولا نعرض رقماً قبل أوانه
+  const ivN = Math.max(0, ...rows.map(r => (r.ivR && r.ivR.n) || 0));
+  const keep = (state.opts && state.opts.ivKeep) || 252;
+  $("#optVolNote").innerHTML = `${bd(rows.length)} رمزاً لها قراءة تقلّب · رتبة التقلّب
+    <b>الضمني</b> تُبنى الآن: ${bd(ivN)} يوماً من ${bd(keep)} — تظهر بعد ${bd(20)} يوماً`;
 }
 
 /* ---------- عقود الخيارات ---------- */
@@ -3760,7 +4047,8 @@ function go(view) {
   window.scrollTo({ top: 0, behavior: "instant" });
   if (isDetail) setTimeout(drawChart, 60);
   if (view === "list") renderList();
-  if (view === "screen") { renderScreen(); renderEarnings(); renderOptScan(); renderArchive(); }
+  if (view === "screen") { renderScreen(); renderEarnings(); renderArchive(); }
+  if (view === "opts") renderOpts();
   if (view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
   // السجل يحمّل ملفه عند فتحه لا عند بدء التطبيق: المغلقات تتراكم بالآلاف
   // ولا تُقرأ إلا هنا
@@ -3929,7 +4217,7 @@ async function refresh(force = false) {
   // ملخّص العقود — يُملأ محلياً فقط، فغيابه سحابياً حالة طبيعية
   getJSON("options.json").then(j => {
     state.opts = j;
-    if (state.view === "screen") renderOptScan();
+    if (state.view === "opts") renderOpts();
   }).catch(() => {});
   getJSON("wide.json").then(w => {
     if (!w || !Array.isArray(w.rows)) return;
@@ -4020,6 +4308,26 @@ function boot() {
   ["#lgStatus", "#lgDir", "#lgScan", "#lgTf", "#lgSort", "#lgDays"].forEach(id => {
     const el = $(id); if (el) el.onchange = () => renderLogList(allTrades());
   });
+
+  // ماسح العقود: الاختيار يُحفظ محلياً — من ضبط «أقصى قسط 200$» مرة
+  // يريده في كل زيارة، وإعادة ضبطه في كل مرة تجعل الأداة عبئاً
+  {
+    const os = ["#osSide", "#osSort", "#osLayer", "#osMax", "#osProb", "#osDays", "#osOI"];
+    let osT;
+    const pull = () => {
+      const st = state.os || (state.os = { ...OS_DEF });
+      st.side = $("#osSide").value; st.sort = $("#osSort").value; st.layer = $("#osLayer").value;
+      st.max = $("#osMax").value; st.prob = $("#osProb").value;
+      st.days = $("#osDays").value; st.oi = $("#osOI").value;
+      save("optscan", st); renderOptScanner();
+    };
+    os.forEach(id => {
+      const el = $(id); if (!el) return;
+      el.onchange = pull;
+      // الكتابة في حقل رقمي تُمهَل: كل ضغطة مفتاح تعيد فرز مئات الصفوف
+      if (el.tagName === "INPUT") el.oninput = () => { clearTimeout(osT); osT = setTimeout(pull, 250); };
+    });
+  }
 
   $("#fSector").onchange = renderAnalysis;
   $("#fSort").onchange = renderAnalysis;

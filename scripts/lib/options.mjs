@@ -261,3 +261,129 @@ export function rank(evaluated, band = PROB_BAND, limit = 5) {
     .sort((a, b) => b.eff - a.eff)
     .slice(0, limit);
 }
+
+/* =====================================================================
+   مقاييس السلسلة كاملةً — لا العقود السائلة وحدها.
+
+   أقصى الألم ونسبة البوت إلى الكول والجدران تُقاس على **كل** عقود
+   الاستحقاق: حصرها في المرشَّحة سيولةً يحذف أطراف السلسلة، وهي بالضبط
+   حيث تتراكم المراكز الكبيرة. أما ما يحتاج جريكس (الجاما والحركة
+   المتوقّعة) فيُقاس على المقيَّمة وحدها، لأن الجريكس لا تُحسب إلا حيث
+   وُجد تقلّبٌ ضمني موثوق.
+   ===================================================================== */
+
+/* أقصى الألم: السترايك الذي يجعل مجموع ما يقبضه حملةُ العقود عند
+   الاستحقاق أقلَّ ما يمكن.
+
+   ليس تنبؤاً ولا يُقدَّم كذلك. هو وصفٌ لمكان تمركز الفائدة المفتوحة،
+   وقيمته أنه يُقاس من المراكز القائمة لا من رأي أحد. يتحرّك كل يوم
+   بتحرّكها، ولا يلزم السعر بشيء. */
+export function maxPain(calls, puts) {
+  const ks = [...new Set([...calls, ...puts].map(c => num(c.strike)).filter(k => k !== null))]
+    .sort((a, b) => a - b);
+  if (ks.length < 3) return null;
+  let best = null, low = Infinity;
+  for (const K of ks) {
+    let pay = 0;
+    for (const c of calls) {
+      const k = num(c.strike), oi = num(c.openInterest);
+      if (k !== null && oi && K > k) pay += (K - k) * oi;
+    }
+    for (const p of puts) {
+      const k = num(p.strike), oi = num(p.openInterest);
+      if (k !== null && oi && K < k) pay += (k - K) * oi;
+    }
+    if (pay < low) { low = pay; best = K; }
+  }
+  return best;
+}
+
+/* نسبة البوت إلى الكول — بالحجم وبالمراكز القائمة معاً، وهما سؤالان
+   مختلفان: الحجم يقول ماذا يفعل السوق **اليوم**، والمراكز تقول ما
+   تراكم قبله. فوق الواحد ميلٌ إلى الحماية أو الهبوط. */
+export function putCall(calls, puts) {
+  const sum = (arr, f) => arr.reduce((a, c) => a + (num(c[f]) || 0), 0);
+  const cv = sum(calls, "volume"), pv = sum(puts, "volume");
+  const co = sum(calls, "openInterest"), po = sum(puts, "openInterest");
+  return { cv, pv, co, po, vol: cv > 0 ? pv / cv : null, oi: co > 0 ? po / co : null };
+}
+
+/* الجداران: أعلى سترايك مراكزَ قائمة على كل جانب. سقفٌ وأرضية بحكم
+   التموضع لا بحكم الرسم البياني — والفرق أن هذا يُعدّ لا يُرسم. */
+export function walls(calls, puts) {
+  const top = (arr) => arr.reduce((b, c) => {
+    const k = num(c.strike), oi = num(c.openInterest);
+    if (k === null || !oi) return b;
+    return (!b || oi > b.oi) ? { k, oi } : b;
+  }, null);
+  return { call: top(calls), put: top(puts) };
+}
+
+/* الحركة المتوقّعة من ستراد المال: قسط الكول + قسط البوت عند أقرب
+   سترايك للسعر. هذا رقمٌ **يقوله السوق** لا نموذجٌ يقدّره — وهو أصدق
+   جواب على «كم يتوقّع السوق أن يتحرّك هذا السهم حتى الاستحقاق؟».
+
+   يُشترط أن يكون الجانبان على نفس السترايك: جمع قسطين على سترايكين
+   مختلفين ليس ستراداً بل خنقاً، ورقمه أكبر بلا معنى. */
+export function expectedMove(evalCalls, evalPuts, spot) {
+  if (!(spot > 0)) return null;
+  const near = (arr) => arr.reduce((b, c) =>
+    (!b || Math.abs(c.k - spot) < Math.abs(b.k - spot)) ? c : b, null);
+  const c = near(evalCalls), p = near(evalPuts);
+  if (!c || !p || c.k !== p.k) return null;
+  const cm = num(c.mid), pm = num(p.mid);
+  if (cm === null || pm === null) return null;
+  const abs = cm + pm;
+  return { k: c.k, abs: r2(abs), pct: r2(abs / spot * 100) };
+}
+
+/* أين تتركّز الجاما: مجموع (جاما × المراكز القائمة × 100) عند كل
+   سترايك، للكول والبوت **منفصلين**.
+
+   لا نطرح أحدهما من الآخر ولا نسمّيه «تعرّض صنّاع السوق»: ذلك يقتضي
+   معرفة من في الجانب الآخر من كل عقد، وهي معلومة لا يملكها أحد خارج
+   المقاصّة. ما نعرضه عدٌّ لا تفسير: السترايكات التي يلتصق بها أكبر
+   قدر من الجاما هي التي يصير السعر عندها أكثر حساسية. */
+export function gammaByStrike(evalCalls, evalPuts, spot, keep = 14) {
+  const at = new Map();
+  const add = (arr, side) => {
+    for (const c of arr) {
+      const g = num(c.gamma), oi = num(c.oi);
+      if (g === null || !oi) continue;
+      const row = at.get(c.k) || { k: c.k, c: 0, p: 0 };
+      row[side] += g * oi * 100;
+      at.set(c.k, row);
+    }
+  };
+  add(evalCalls, "c"); add(evalPuts, "p");
+  if (at.size < 2) return null;
+  return [...at.values()]
+    .sort((a, b) => Math.abs(a.k - spot) - Math.abs(b.k - spot))
+    .slice(0, keep)
+    .sort((a, b) => a.k - b.k)
+    .map(r => ({ k: r.k, c: Math.round(r.c), p: Math.round(r.p) }));
+}
+
+/* =====================================================================
+   رتبة التقلّب الضمني.
+
+   «التقلّب الضمني 34%» لا يعني شيئاً وحده. المعنى في موضعه من تاريخ
+   السهم نفسه: 34% على سهمٍ مداه بين 20% و40% غالٍ، وعلى آخر مداه بين
+   60% و120% رخيصٌ جداً. الرتبة موضعٌ في المدى، والمئين نسبةُ الأيام
+   التي كان فيها أدنى — وهما يختلفان حين يكون التوزيع ملتوياً.
+
+   `min` عشرون يوماً: أقل من ذلك مدىً يصنعه يومان شاذّان.
+   ===================================================================== */
+export function ivRank(hist, iv, min = 20) {
+  if (!Array.isArray(hist) || !Number.isFinite(iv)) return null;
+  const v = hist.filter(Number.isFinite);
+  if (v.length < min) return { n: v.length, rank: null, pct: null, lo: null, hi: null };
+  const lo = Math.min(...v), hi = Math.max(...v);
+  const below = v.filter(x => x < iv).length;
+  return {
+    n: v.length,
+    rank: hi > lo ? r2((iv - lo) / (hi - lo) * 100) : null,
+    pct: r2(below / v.length * 100),
+    lo: r4(lo), hi: r4(hi)
+  };
+}
