@@ -487,6 +487,44 @@ details[open]{background:var(--card2)}
 <!-- ================= الآن ================= -->
 <section data-view="now" class="on">
 
+  <div class="card" id="cardPort">
+    <h2>💼 محفظتي</h2>
+    <p class="hint">مراكزك الفعلية وربحها الحيّ — تُحفظ في متصفّحك وحده، بلا خادم ولا حساب</p>
+    <div id="portSum"></div>
+    <div id="portList"></div>
+    <div id="portRisk"></div>
+    <details class="plain" id="portAdd">
+      <summary>إضافة مركز</summary>
+      <div class="grid2">
+        <div class="fld"><label>السهم</label><select id="pSym"></select></div>
+        <div class="fld"><label>الكمية</label>
+          <input id="pQty" type="number" inputmode="decimal" min="0" step="any" placeholder="100"></div>
+        <div class="fld"><label>سعر الدخول</label>
+          <input id="pPx" type="number" inputmode="decimal" min="0" step="any" placeholder="0.00"></div>
+        <div class="fld"><label>&nbsp;</label><button class="btn" id="pAdd">أضف المركز</button></div>
+      </div>
+      <p class="srcline" style="padding-top:0">اتركْ سعر الدخول فارغاً ليُؤخذ السعر الحالي</p>
+    </details>
+    <div class="toolbar" id="portTools" style="display:none;margin-top:10px">
+      <button class="btn gray" id="pExport">⬇ تصدير CSV</button>
+      <button class="btn gray" id="pClear">مسح الكل</button>
+    </div>
+    <p class="srcline" id="portNote"></p>
+    <details>
+      <summary>ماذا يقيس «تركّز المخاطرة»؟</summary>
+      <p><b>القطاع:</b> نسبة أكبر قطاع من قيمة محفظتك. أربعة أسهم تقنية ليست أربعة مراكز
+      بل مركزٌ واحد بأربعة أسماء — وهي تهبط معاً حين يهبط القطاع.</p>
+      <p><b>الارتباط:</b> متوسط ارتباط مراكزك ببعضها على عوائد 120 يوماً. <b>فوق 0.7</b>
+      محفظتك تتحرّك كسهمٍ واحد مهما بلغ عددها. والأزواج التي تتجاوز 0.8 تُذكر بالاسم.</p>
+      <p><b>بيتا المحفظة:</b> مجموع بيتا كل مركز مرجّحاً بوزنه، محسوبةً على <b>عوائد يومية
+      لـ120 يوماً مقابل SPY</b> — وهي تختلف عمداً عن رقم وسيطك (خمس سنوات شهرية)، فالأولى
+      تصف السوق الذي تتداوله اليوم والثانية تصف عقداً مضى. <b>1.4</b> تعني أن هبوط
+      السوق 10% يقابله هبوطك 14% تقريباً — قبل أي حركةٍ خاصة بأسهمك.</p>
+      <p><b>ما لا يقيسه:</b> هذه أوصافٌ لما مضى. الارتباطات ترتفع في الانهيارات، وبيتا
+      تتغيّر. ولا يعرف شيئاً عن عقودك أو مراكزك خارج هذه القائمة.</p>
+    </details>
+  </div>
+
   <div class="card">
     <h2>⚖️ ميزان السوق الآن</h2>
     <p class="hint">متوسط القراءة الفنية لأكبر 70 شركة على 4 فريمات زمنية</p>
@@ -869,6 +907,7 @@ details[open]{background:var(--card2)}
     <div id="scanHist"></div>
     <div class="slist" id="scanList"><div class="skl" style="height:200px;border-radius:0"></div></div>
     <p class="srcline" id="scanCount"></p>
+    <button class="btn gray" id="scanExport" style="display:none">⬇ تصدير نتائج الماسح CSV</button>
   </div>
 
   <div class="card">
@@ -1057,6 +1096,26 @@ details[open]{background:var(--card2)}
       مضارباً من صندوقٍ يتحوّط. من يسمّيه «تدفّق المال الذكي» يضيف إلى البيانات ما ليس فيها.</p>
       <p>ولا يشمل ما ينتهي خلال أسبوع: عقدٌ يبقى له يوم حجمُه يفوق مراكزه <b>بطبيعته</b> لأن
       المراكز تُغلق قبل الانتهاء — تحيّزٌ بنيوي لا إشارة.</p>
+    </details>
+  </div>
+
+  <div class="card" id="cardOptER" style="display:none">
+    <h2>📅 الأرباح وما يسعّره السوق لها</h2>
+    <p class="hint">قبل إعلان الأرباح يرتفع التقلّب الضمني، وبعده ينهار في دقائق —
+    فالعقد قد يخسر وأنت على صواب في الاتجاه</p>
+    <div id="optER"></div>
+    <p class="srcline" id="optERNote"></p>
+    <details>
+      <summary>ما «انهيار التقلّب» ولماذا يخسر المحق؟</summary>
+      <p>قبل الإعلان يعرف السوق أن حركةً كبيرة قادمة ولا يعرف اتجاهها، فيرفع سعر كل
+      العقود — التقلّب الضمني يتضخّم. وبعد الإعلان يزول المجهول <b>في لحظة</b>، فينهار
+      التقلّب وتفقد العقود جزءاً كبيراً من قيمتها بغضّ النظر عن الاتجاه.</p>
+      <p><b>النتيجة العملية:</b> سهمٌ تحرّك 4% في اتجاهك بينما كان السوق يسعّر ±7% قد
+      يترك الكول خاسراً. المقارنة ليست بين حركتك وصفر، بل بين حركتك و<b>الحركة المسعّرة</b>.</p>
+      <p>و<b>الحركة المتوقّعة</b> هنا من ستراد أول استحقاق <b>يغطّي</b> تاريخ الإعلان:
+      استحقاقٌ ينتهي قبله لا يسعّره أصلاً، وحركته تصف أسبوعاً عادياً.</p>
+      <p><b>وتاريخ الإعلان قد يكون تقديرياً</b> حين لا تعلنه الشركة بعد — يُوسم بذلك،
+      وقد يزحف يوماً أو يومين.</p>
     </details>
   </div>
 
@@ -1277,6 +1336,7 @@ details[open]{background:var(--card2)}
     </div>
     <div id="logCount" class="hint"></div>
     <div id="logList"><div class="skl" style="height:200px"></div></div>
+    <button class="btn gray" id="logExport" style="margin-top:10px">⬇ تصدير السجل CSV</button>
   </div>
 
   <div class="card" id="cardLearn" style="display:none">
@@ -1728,6 +1788,7 @@ function renderTop() {
 
 /* ---------- تبويب: الآن ---------- */
 function renderNow() {
+  renderPort();
   const m = state.market, s = state.summary;
   if (!m || !s) return;
 
@@ -2256,7 +2317,7 @@ function renderArchive() {
 const OS_DEF = { side: "all", sort: "eff", layer: "watch", max: "", prob: "", days: "", oi: "" };
 
 function renderOpts() {
-  renderOptPulse(); renderOptScanner(); renderOptFlow(); renderOptVol();
+  renderOptPulse(); renderOptScanner(); renderOptER(); renderOptFlow(); renderOptVol();
 }
 
 /* ---------- نبض السوق ---------- */
@@ -2429,6 +2490,39 @@ function renderOptFlow() {
     el.onclick = () => openSymbol(el.dataset.open));
   const c = rows.filter(r => r.flow.side === "call").length;
   $("#optFlowNote").innerHTML = `${bd(c)} على الكول و${bd(rows.length - c)} على البوت من أقوى عشرة`;
+}
+
+/* ---------- الأرباح وما يسعّره السوق ---------- */
+function renderOptER() {
+  const card = $("#cardOptER");
+  const rows = ((state.opts && state.opts.rows) || [])
+    .filter(r => r.er && Number.isFinite(r.er.days) && r.er.days >= 0 && r.er.days <= 35)
+    .sort((a, b) => a.er.days - b.er.days);
+  if (!rows.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  $("#optER").innerHTML = '<div class="slist">' + rows.slice(0, 14).map(r => {
+    const em = r.er.em, iv = r.ivHv;
+    // الغلاء يُلوَّن لأنه الخطر: عقودٌ مسعَّرة بضعف حركة السهم تنهار بعد
+    // الإعلان مهما كان الاتجاه
+    const col = !Number.isFinite(iv) ? "var(--mut)" : iv >= 1.5 ? "var(--dn)" : iv <= 0.9 ? "var(--up)" : "var(--neu)";
+    return '<div class="srow" data-open="' + esc(r.s) + '">' +
+      '<div class="id"><div class="t">' + esc(nm(symRow(r.s) || r)) +
+        (r.er.est ? ' <span class="chip off" style="font-size:10px;padding:1px 6px">تقديري</span>' : "") +
+        '</div><div class="n"><span class="tick" style="font-size:11px">' + esc(r.s) + "</span> · " +
+        (r.er.days === 0 ? "اليوم" : "بعد " + bd(r.er.days) + " يوماً") +
+        (em ? " · السوق يسعّر ±" + bd(fmt(em.pct, 1)) + "% على استحقاق " + bd(r.er.tf) + " يوماً"
+            : " · لا استحقاق يغطّيه عندنا") + "</div></div>" +
+      '<div class="px"><div class="p num" style="color:' + col + '">' +
+        (Number.isFinite(iv) ? bd(fmt(iv, 2)) + "×" : "—") + "</div>" +
+      '<div class="c num" style="font-size:11px;color:var(--mut)">ضمني/محقَّق</div></div></div>';
+  }).join("") + "</div>";
+  $("#optER").querySelectorAll("[data-open]").forEach(el => el.onclick = () => openSymbol(el.dataset.open));
+
+  const soon = rows.filter(r => r.er.days <= 7).length;
+  $("#optERNote").innerHTML = bd(rows.length) + " رمزاً تعلن خلال 35 يوماً · " +
+    bd(soon) + " منها خلال أسبوع · النسبة فوق 1.5× تعني عقوداً مسعَّرة لحركةٍ أكبر بكثير " +
+    "مما يتحرّكه السهم عادةً — وهي أكثر ما ينهار بعد الإعلان";
 }
 
 /* ---------- الغلاء والتقلّب ---------- */
@@ -3337,6 +3431,249 @@ function renderGaps() {
     " يوماً تقريباً · سهمٌ متوسط فجوته 2% يقفز فوق وقفك مرتين في الشهر";
 }
 
+
+
+/* =======================================================================
+   المحفظة — مراكزٌ فعلية، ومخاطرُها لا أرباحُها وحدها.
+
+   تُحفظ في `localStorage` وحده: لا خادم ولا حساب، فلا شيء يُرسل. وهي
+   الوحيدة في التطبيق التي تصف المستخدم لا السوق.
+   ======================================================================= */
+
+const portLoad = () => { const a = load("port", []); return Array.isArray(a) ? a : []; };
+const portSave = (a) => { save("port", a); };
+
+function portAdd(sym, qty, px) {
+  const a = portLoad();
+  // نفس الرمز مرتين يُدمج بمتوسط تكلفةٍ مرجّح لا صفّين: صفّان يجعلان
+  // الوزن والارتباط يحسبان المركز الواحد مركزين
+  const i = a.findIndex(x => x.s === sym);
+  if (i >= 0) {
+    const q = a[i].q + qty;
+    a[i].p = q > 0 ? (a[i].p * a[i].q + px * qty) / q : px;
+    a[i].q = q;
+  } else a.push({ s: sym, q: qty, p: px, at: Date.now() });
+  portSave(a); renderPort();
+}
+
+function portDel(sym) {
+  portSave(portLoad().filter(x => x.s !== sym));
+  renderPort();
+}
+
+/* الارتباط بين مركزين من مصفوفة التحليلات. غيابها لا يُعطّل البطاقة —
+   الربح والوزن والقطاع تُقرأ بلا ارتباط. */
+function portCorr(list) {
+  const c = state.an && state.an.corr;
+  if (!c || list.length < 2) return null;
+  const idx = new Map(c.syms.map((x, i) => [x, i]));
+  const pairs = [];
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      const a = idx.get(list[i].s), b = idx.get(list[j].s);
+      if (a === undefined || b === undefined) continue;
+      const v = corrAt(c, a, b);
+      if (v === null) continue;
+      // مرجّحٌ بحاصل الوزنين: ارتباط مركزين صغيرين لا يصف المحفظة
+      pairs.push({ a: list[i], b: list[j], v: v / 100, w: list[i].w * list[j].w });
+    }
+  }
+  if (!pairs.length) return null;
+  const sw = pairs.reduce((t, p) => t + p.w, 0);
+  return {
+    avg: sw > 0 ? pairs.reduce((t, p) => t + p.v * p.w, 0) / sw : null,
+    n: pairs.length,
+    hot: pairs.filter(p => p.v >= 0.8).sort((x, y) => y.v - x.v).slice(0, 4)
+  };
+}
+
+function renderPort() {
+  const card = $("#cardPort"); if (!card) return;
+  const held = portLoad();
+  const tools = $("#portTools");
+
+  if (!held.length) {
+    $("#portSum").innerHTML = "";
+    $("#portList").innerHTML = '<div class="empty">لا مراكز بعد — أضفْ أول مركز لترى ربحك الحيّ وتركّز مخاطرتك</div>';
+    $("#portRisk").innerHTML = ""; if (tools) tools.style.display = "none";
+    $("#portNote").textContent = "";
+    return;
+  }
+  if (tools) tools.style.display = "";
+
+  // السعر من الملخّص أو الطبقة الواسعة — وبلا سعر لا يُحتسب المركز
+  const list = [], missing = [];
+  for (const h of held) {
+    const r = symRow(h.s);
+    if (!r || !Number.isFinite(r.p)) { missing.push(h.s); continue; }
+    const val = r.q === 0 ? 0 : h.q * r.p, cost = h.q * h.p;
+    list.push({ ...h, r, px: r.p, val, cost, pl: val - cost,
+                plp: cost > 0 ? (val - cost) / cost * 100 : null,
+                day: Number.isFinite(r.chg) ? val * r.chg / (100 + r.chg) : null,
+                sec: r.sec || "غير مصنّف" });
+  }
+  const total = list.reduce((t, x) => t + x.val, 0);
+  const cost = list.reduce((t, x) => t + x.cost, 0);
+  const day = list.reduce((t, x) => t + (x.day || 0), 0);
+  for (const x of list) x.w = total > 0 ? x.val / total : 0;
+  list.sort((a, b) => b.val - a.val);
+
+  const pl = total - cost, plp = cost > 0 ? pl / cost * 100 : null;
+  const cell = (k, v, note, col) => '<div class="stat"><div class="k">' + k + '</div>' +
+    '<div class="v num"' + (col ? ' style="color:' + col + '"' : '') + '>' + v + '</div>' +
+    '<div class="k" style="margin:4px 0 0;white-space:normal">' + note + '</div></div>';
+  const sgn = (v) => v >= 0 ? "var(--up)" : "var(--dn)";
+
+  $("#portSum").innerHTML = '<div class="grid2" style="margin-bottom:10px">' +
+      cell("قيمة المحفظة", bd(money(total)), bd(list.length) + " مركزاً · كلفة " + bd(money(cost)))
+    + cell("الربح غير المحقَّق", bd(money(pl)), bd(pct(plp, 2)) + " على رأس المال", sgn(pl))
+    + cell("حركة اليوم", bd(money(day)), total > 0 ? bd(pct(day / (total - day) * 100, 2)) + " من المحفظة" : "—", sgn(day))
+    + cell("أكبر مركز", list[0] ? esc(list[0].s) : "—",
+        list[0] ? bd(fmt(list[0].w * 100, 1)) + "% من المحفظة" : "—",
+        list[0] && list[0].w >= 0.35 ? "var(--neu)" : null)
+    + "</div>";
+
+  const head = ["السهم", "كمية", "دخول", "الآن", "ربح", "%", "وزن", ""];
+  $("#portList").innerHTML = '<div class="otwrap"><table class="otbl"><thead><tr>' +
+    head.map(h => "<th>" + h + "</th>").join("") + "</tr></thead><tbody>" +
+    list.map(x => '<tr>' +
+      '<td style="text-align:right;cursor:pointer" data-open="' + esc(x.s) + '">' +
+        '<span class="tick">' + esc(x.s) + '</span>' +
+        '<small style="display:block;color:var(--mut);font-size:10px">' + esc(x.sec) + "</small></td>" +
+      '<td class="num">' + bd(fmt(x.q, x.q % 1 ? 4 : 0)) + "</td>" +
+      '<td class="num">' + money(x.p) + "</td>" +
+      '<td class="num">' + money(x.px) + "</td>" +
+      '<td class="num" style="color:' + sgn(x.pl) + '">' + bd(money(x.pl)) + "</td>" +
+      '<td class="num" style="color:' + sgn(x.pl) + '">' + bd(pct(x.plp, 1)) + "</td>" +
+      '<td class="num">' + bd(fmt(x.w * 100, 1)) + "%</td>" +
+      '<td><button class="del" data-del="' + esc(x.s) + '" aria-label="حذف">✕</button></td></tr>').join("") +
+    "</tbody></table></div>";
+  $("#portList").querySelectorAll("[data-open]").forEach(el => el.onclick = () => openSymbol(el.dataset.open));
+  $("#portList").querySelectorAll("[data-del]").forEach(el => el.onclick = (ev) => {
+    ev.stopPropagation(); portDel(el.dataset.del);
+  });
+
+  /* ---------- تركّز المخاطرة ---------- */
+  const bySec = new Map();
+  for (const x of list) bySec.set(x.sec, (bySec.get(x.sec) || 0) + x.w);
+  const topSec = [...bySec.entries()].sort((a, b) => b[1] - a[1])[0];
+  const co = portCorr(list);
+  let bw = 0, bn = 0;
+  for (const x of list) {
+    const rr = rsOf(x.s);
+    if (rr && Number.isFinite(rr.beta)) { bw += rr.beta * x.w; bn += x.w; }
+  }
+  const pBeta = bn > 0.5 ? bw / bn : null;      // نصف المحفظة على الأقل لها بيتا
+
+  const warn = [];
+  if (topSec && topSec[1] >= 0.5)
+    warn.push(bd(fmt(topSec[1] * 100, 0)) + "% من محفظتك في قطاع <b>" + esc(topSec[0]) +
+      "</b> وحده — هبوطُ القطاع هبوطُ المحفظة");
+  if (list[0] && list[0].w >= 0.4)
+    warn.push("<b>" + esc(list[0].s) + "</b> وحده " + bd(fmt(list[0].w * 100, 0)) +
+      "% من المحفظة — خبرٌ واحد يحرّك النتيجة كلها");
+  if (co && co.avg !== null && co.avg >= 0.7)
+    warn.push("متوسط الارتباط <b>" + bd(fmt(co.avg, 2)) + "</b> — مراكزك تتحرّك كسهمٍ واحد");
+  if (co && co.hot.length)
+    warn.push("زوجٌ شبه متطابق: " + co.hot.map(p => esc(p.a.s) + "/" + esc(p.b.s) +
+      " (" + bd(fmt(p.v, 2)) + ")").join(" · "));
+  if (pBeta !== null && pBeta >= 1.4)
+    warn.push("بيتا المحفظة <b>" + bd(fmt(pBeta, 2)) + "</b> — هبوط السوق 10% يقابله نحو " +
+      bd(fmt(pBeta * 10, 0)) + "% منك");
+
+  const st = (k, v, note, col) => cell(k, v, note, col);
+  $("#portRisk").innerHTML = '<div class="sep"></div>' +
+    '<p class="hint" style="margin:0 0 8px">تركّز المخاطرة</p>' +
+    '<div class="grid3">' +
+      st("أكبر قطاع", topSec ? bd(fmt(topSec[1] * 100, 0)) + "%" : "—",
+        topSec ? esc(topSec[0]) : "", topSec && topSec[1] >= 0.5 ? "var(--neu)" : null) +
+      st("متوسط الارتباط", co && co.avg !== null ? bd(fmt(co.avg, 2)) : "—",
+        co ? bd(co.n) + " زوجاً" : "يحتاج التحليلات",
+        co && co.avg >= 0.7 ? "var(--dn)" : co && co.avg <= 0.3 ? "var(--up)" : null) +
+      st("بيتا المحفظة", pBeta !== null ? bd(fmt(pBeta, 2)) : "—",
+        pBeta !== null ? "مقابل 1.00 للسوق" : "يحتاج التحليلات",
+        pBeta !== null && pBeta >= 1.4 ? "var(--neu)" : null) +
+    "</div>" +
+    (warn.length ? warn.map(w => '<div class="note" style="margin-top:8px">⚠ ' + w + "</div>").join("") : "");
+
+  $("#portNote").innerHTML = (missing.length
+      ? "<b>" + bd(missing.length) + " مركزاً بلا سعر</b> (" + esc(missing.slice(0, 4).join("، ")) +
+        ") خارج الحساب — رمزٌ خارج الكون المرصود لا سعر له عندنا. "
+      : "") +
+    "الربح غير محقَّق وقبل العمولات والضرائب · البيانات في متصفّحك وحده";
+}
+
+/* CSV بفاصلة منقوطة وبادئة BOM: إكسل العربي يفتح الفاصلة العادية في عمود
+   واحد، وبلا BOM يقرأ UTF-8 محارفَ مشوّهة. */
+function toCSV(headers, rows) {
+  const q = (v) => {
+    const t = v === null || v === undefined ? "" : String(v);
+    return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  };
+  return "﻿" + [headers, ...rows].map(r => r.map(q).join(";")).join("\r\n");
+}
+
+function download(name, text, type) {
+  const b = new Blob([text], { type: (type || "text/csv") + ";charset=utf-8" });
+  const u = URL.createObjectURL(b);
+  const a = document.createElement("a");
+  a.href = u; a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 1500);
+}
+
+function portExport() {
+  const held = portLoad();
+  const rows = held.map(h => {
+    const r = symRow(h.s);
+    const px = r && Number.isFinite(r.p) ? r.p : null;
+    const val = px === null ? null : h.q * px, cost = h.q * h.p;
+    return [h.s, r ? nm(r) : "", r ? r.sec : "", h.q, h.p, px, val,
+            val === null ? "" : (val - cost).toFixed(2),
+            val === null || !cost ? "" : ((val - cost) / cost * 100).toFixed(2),
+            h.at ? new Date(h.at).toISOString().slice(0, 10) : ""];
+  });
+  download("portfolio-" + new Date().toISOString().slice(0, 10) + ".csv",
+    toCSV(["الرمز", "الاسم", "القطاع", "الكمية", "سعر الدخول", "السعر الآن",
+           "القيمة", "الربح", "الربح %", "تاريخ الإضافة"], rows));
+}
+
+
+/* تصدير السجل والماسح. النصّ واحد والوجهة واحدة، والفرق في الأعمدة
+   وحدها — نسختان من بناء CSV تتباعدان في الفاصل والترميز. */
+function logExport() {
+  const rows = (typeof allTrades === "function" ? allTrades() : []) || [];
+  if (!rows.length) return alert("لا سجل بعد");
+  const out = rows.map(r => {
+    const o = r.out || {}, sn = r.snap || {};
+    return [r.sym, r.scan || "", (r.dir === -1 || (sn.dir === -1)) ? "هبوط" : "صعود",
+      r.at ? new Date(r.at).toISOString().slice(0, 16).replace("T", " ") : "",
+      o.st || (r.open ? "مفتوحة" : ""), fx(r.entry), fx(r.last), fx(r.ret), fx(r.mfe), fx(r.mae),
+      fx(sn.e), fx(sn.s), (sn.t || []).map(fx).join(" / "), fx(sn.rr), sn.tf || "", fx(r.sc)];
+  });
+  download("signals-" + new Date().toISOString().slice(0, 10) + ".csv",
+    toCSV(["الرمز", "الشرط", "الاتجاه", "ظهرت", "الحالة", "الدخول", "آخر سعر",
+           "العائد %", "أقصى ربح عائم %", "أقصى تراجع عائم %", "دخول الخطة", "الوقف",
+           "الأهداف", "عائد/مخاطرة", "الفريم", "النتيجة الفنية"], out));
+}
+
+// رقمٌ للتصدير: فارغٌ لا صفر. إكسل يحسب الصفر ويتجاهل الفراغ، والفرق
+// بين «خسر صفراً» و«لا نعرف» هو الفرق بين إحصاءٍ صحيح وكاذب
+const fx = (v) => Number.isFinite(v) ? v : "";
+
+function scanExport() {
+  const rows = state.lastScanRows || [];
+  if (!rows.length) return alert("لا نتائج بعد");
+  const out = rows.map(r => {
+    const x = rsOf(r.s);
+    return [r.s, nm(r), r.sec || "", fx(r.p), fx(r.chg), fx(r.score), fx(r.rsi),
+      fx(r.atr), fx(r.mc), fx(r.w52h), fx(r.w52l), x ? fx(x.sc) : "", x ? fx(x.rk) : "",
+      x ? fx(x.beta) : ""];
+  });
+  download("scan-" + (state.scan || "all") + "-" + new Date().toISOString().slice(0, 10) + ".csv",
+    toCSV(["الرمز", "الاسم", "القطاع", "السعر", "تغيّر %", "النتيجة الفنية", "RSI",
+           "ATR", "القيمة السوقية", "قمة 52", "قاع 52", "فائض القوة %", "رتبة القوة",
+           "بيتا"], out));
+}
 
 function symRow(sym) {
   return (state.summary && state.summary.rows.find(r => r.s === sym))
@@ -4806,6 +5143,11 @@ function renderScreen() {
     return (isFinite(x) ? x : Infinity) - (isFinite(y) ? y : Infinity);
   });
 
+  // نتائج المسح الأخير تُحفظ للتصدير: إعادةُ بنائها في زرّ التصدير
+  // تعني نسخةً ثانية من الشرط والترتيب تتباعد بأول تعديل
+  state.lastScanRows = hits;
+  { const b = $("#scanExport"); if (b) b.style.display = hits.length ? "" : "none"; }
+
   if (!hits.length) {
     el.innerHTML = `<div class="empty">لا سهم ينطبق عليه هذا الشرط الآن — وهذا نتيجة صحيحة لا عطل</div>`;
     $("#scanCount").textContent = "";
@@ -5090,6 +5432,8 @@ function fillSymbolSelects() {
   const opts = rows.map(r => `<option value="${esc(r.s)}">${esc(r.s)} — ${esc(nm(r))}</option>`).join("");
 
   // المقارنة تبدأ بأكبر شركتين بدل قائمتين فارغتين تطلبان اختياراً
+  { const el = $("#pSym"); if (el) { const cur = el.value; el.innerHTML = opts; el.value = cur || rows[0].s; } }
+
   const big = state.summary.rows.slice(0, 2).map(r => r.s);
   [["#cmpA", big[0]], ["#cmpB", big[1]]].forEach(([id, dflt]) => {
     const el = $(id); if (!el) return;
@@ -5323,6 +5667,27 @@ function boot() {
   $("#qMarket").onchange = renderList;
   { const b = $("#btnPick"); if (b) b.onclick = () => runPicker(); }
   $$("#optSide button").forEach(b => b.onclick = () => { state.optSide = b.dataset.side; renderOptions(); });
+
+  { const b = $("#pAdd"); if (b) b.onclick = () => {
+      const sym = $("#pSym").value, q = parseFloat($("#pQty").value);
+      const r = symRow(sym);
+      // السعر الحالي حين يُترك الحقل فارغاً: مركزٌ فُتح الآن لا يُطلب
+      // سعرُه مرتين
+      const raw = $("#pPx").value.trim();
+      const p = raw === "" ? (r && r.p) : parseFloat(raw);
+      if (!sym) return alert("اختر سهماً");
+      if (!(q > 0)) return alert("أدخل كميةً أكبر من صفر");
+      if (!(p > 0)) return alert("أدخل سعر دخولٍ صحيح");
+      portAdd(sym, q, p);
+      $("#pQty").value = ""; $("#pPx").value = "";
+      const d = $("#portAdd"); if (d) d.open = false;
+    }; }
+  { const b = $("#pExport"); if (b) b.onclick = portExport; }
+  { const b = $("#logExport"); if (b) b.onclick = logExport; }
+  { const b = $("#scanExport"); if (b) b.onclick = scanExport; }
+  { const b = $("#pClear"); if (b) b.onclick = () => {
+      if (confirm("مسح كل المراكز؟ لا يمكن التراجع.")) { portSave([]); renderPort(); }
+    }; }
 
   $("#btnCalc").onclick = calc;
 

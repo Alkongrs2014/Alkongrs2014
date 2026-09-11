@@ -327,14 +327,24 @@ export function walls(calls, puts) {
    مختلفين ليس ستراداً بل خنقاً، ورقمه أكبر بلا معنى. */
 export function expectedMove(evalCalls, evalPuts, spot) {
   if (!(spot > 0)) return null;
-  const near = (arr) => arr.reduce((b, c) =>
-    (!b || Math.abs(c.k - spot) < Math.abs(b.k - spot)) ? c : b, null);
-  const c = near(evalCalls), p = near(evalPuts);
-  if (!c || !p || c.k !== p.k) return null;
-  const cm = num(c.mid), pm = num(p.mid);
-  if (cm === null || pm === null) return null;
-  const abs = cm + pm;
-  return { k: c.k, abs: r2(abs), pct: r2(abs / spot * 100) };
+  /* أقرب سترايك **مشترك** لا أقرب سترايكٍ لكل جانب على حدة.
+
+     الجانبان يُرشَّحان بالسيولة كلٌّ وحده، فقد يسقط بوت 227.5 ويبقى
+     كوله: عندها يكون أقرب كولٍ 227.5 وأقرب بوتٍ 225، ويردّ الشرط
+     «سترايكان مختلفان» فتضيع الحركة المتوقّعة على سلسلةٍ كاملة —
+     وهو ما حدث لكل رموز الأرباح الثلاثة عشر. */
+  const puts = new Map();
+  for (const p of evalPuts) if (num(p.mid) !== null) puts.set(p.k, p);
+  let best = null;
+  for (const c of evalCalls) {
+    if (num(c.mid) === null) continue;
+    const p = puts.get(c.k);
+    if (!p) continue;
+    if (!best || Math.abs(c.k - spot) < Math.abs(best.c.k - spot)) best = { c, p };
+  }
+  if (!best) return null;
+  const abs = best.c.mid + best.p.mid;
+  return { k: best.c.k, abs: r2(abs), pct: r2(abs / spot * 100) };
 }
 
 /* أين تتركّز الجاما: مجموع (جاما × المراكز القائمة × 100) عند كل

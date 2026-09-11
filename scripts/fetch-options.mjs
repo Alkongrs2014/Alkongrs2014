@@ -280,6 +280,20 @@ async function buildSymbol(meta, now, r, fund) {
   // نسبة الضمني إلى المحقَّق: فوق الواحد = العقود أغلى من حركة السهم
   out.ivHv = (out.ivAtm && out.hv20) ? r2(out.ivAtm / out.hv20) : null;
 
+  /* الأرباح مقابل ما يسعّره السوق لها.
+
+     الرقم الذي يسأل عنه متداول العقود قبل الأرباح ليس «متى» بل «كم
+     يتوقّع السوق أن يتحرّك». والجواب في ستراد أول استحقاق **يغطّي**
+     التاريخ: استحقاقٌ ينتهي قبل الإعلان لا يسعّره أصلاً، فحركته
+     المتوقّعة تصف أسبوعاً عادياً وتُقرأ خطأً على أنها حركة الأرباح. */
+  const eAt = fund && fund.earnings && fund.earnings.at;
+  if (Number.isFinite(eAt) && eAt > now) {
+    const dTo = Math.round((eAt - now) / DAY);
+    const cov = out.exp.find(x => x.days >= dTo) || null;
+    out.er = { at: eAt, days: dTo, est: !!fund.earnings.estimated,
+               em: cov ? cov.em : null, tf: cov ? cov.days : null };
+  } else out.er = null;
+
   out.bestCalls = rank(allCalls, PROB_BAND, 3);
   out.bestPuts = rank(allPuts, PROB_BAND, 3);
   out.n = allCalls.length + allPuts.length;
@@ -373,7 +387,7 @@ async function main() {
     // رتبتان لا واحدة: الضمنية تحتاج تاريخاً نبنيه من اليوم، والمحقَّقة
     // متاحة الآن من شمعاتنا. عرضُ الثانية بينما الأولى تُبنى أصدق من
     // إخفاء القسم شهراً
-    ivR: ivR(o.s, o.ivAtm), hvR: o.hvR || null, pc: o.pc || null,
+    ivR: ivR(o.s, o.ivAtm), hvR: o.hvR || null, pc: o.pc || null, er: o.er || null,
     // أقرب استحقاق له مقاييس بنيوية: تُقرأ في القائمة بلا فتح ملف الرمز
     nx: o.exp?.[0] ? { days: o.exp[0].days, mp: o.exp[0].mp,
                        em: o.exp[0].em, pc: o.exp[0].pc } : null,
@@ -685,6 +699,15 @@ function selfCheck() {
     eq(r.map(x => x.eff), [5, 1], "المستبعدان خارج النطاق");
   });
 
+  t("الحركة المتوقّعة للأرباح تؤخذ من استحقاقٍ يغطّيها", () => {
+    // استحقاقان: أحدهما قبل الإعلان والآخر بعده. الأول لا يسعّر الحدث.
+    const exp = [{ days: 3, em: { abs: 1, pct: 1 } }, { days: 31, em: { abs: 9, pct: 9 } }];
+    const pick = (dTo) => (exp.find(x => x.days >= dTo) || null);
+    eq(pick(10).days, 31, "أرباحٌ بعد عشرة أيام لا يغطّيها استحقاق الثلاثة");
+    eq(pick(2).days, 3, "وأرباحٌ بعد يومين يغطّيها");
+    eq(pick(60), null, "وأبعدُ من كل استحقاقاتنا لا يغطّيه شيء");
+  });
+
   t("maxPain يجد السترايك الأقل دفعاً", () => {
     // كل المراكز على كول 100 وبوت 100: الألم الأقصى عندهما معاً
     const calls = [{ strike: 90, openInterest: 0 }, { strike: 100, openInterest: 1000 }, { strike: 110, openInterest: 0 }];
@@ -720,8 +743,15 @@ function selfCheck() {
     near(em.abs, 5, 1e-12, "مجموع القسطين");
     near(em.pct, 5, 1e-12, "نسبةً إلى السعر");
     // سترايكان مختلفان: خنقٌ لا ستراد، ورقمه لا يصف الحركة المتوقّعة
-    eq(expectedMove([{ k: 105, mid: 3 }], [{ k: 95, mid: 2 }], 100), null, "سترايكان مختلفان");
+    eq(expectedMove([{ k: 105, mid: 3 }], [{ k: 95, mid: 2 }], 100), null, "بلا سترايك مشترك");
     eq(expectedMove([], [], 100), null, "سلسلة فارغة");
+    // أقرب **مشترك** لا أقرب لكل جانب: بوت 101 ساقط سيولةً، فالستراد
+    // عند 100 لا يُردّ لأن أقرب كولٍ 101
+    eq(expectedMove([{ k: 101, mid: 3 }, { k: 100, mid: 3.5 }],
+                    [{ k: 100, mid: 2.5 }, { k: 95, mid: 1 }], 100.6).k, 100, "أقرب سترايك مشترك");
+    // والأقرب فعلاً حين يوجد مشتركان
+    eq(expectedMove([{ k: 100, mid: 3 }, { k: 105, mid: 1 }],
+                    [{ k: 100, mid: 2 }, { k: 105, mid: 6 }], 104).k, 105, "الأقرب من المشتركين");
   });
 
   t("gammaByStrike يعدّ ولا يطرح", () => {
