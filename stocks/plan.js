@@ -25,6 +25,40 @@ function unpackK(arr) {
 }
 
 /* =====================================================================
+   شمعة البيفوت — **آخر يوم تداول سابق لليوم الجاري**، تُختار بالتاريخ
+   لا بالموضع.
+
+   كانت `d[d.length - 2]`، وهي تفترض ضمناً أن آخر شمعة هي شمعةُ اليوم
+   قيد التكوّن. الافتراض يسقط كلما جُلب الفريم اليومي **قبل الافتتاح**:
+   تصير آخر شمعة هي أمس، فتُؤخذ البيفوت من **أول أمس** — بلا استثناء
+   ولا أثر ظاهر، لأن السعر والشارت يبقيان حيَّين والمستويات وحدها
+   متحجّرة. وقع فعلاً: 487 رمزاً من 510، وبيفوت META خرجت 661.51 بدل
+   657.87 فبدت أهدافُها محقَّقة عند الافتتاح.
+
+   التاريخ بتوقيت UTC يكفي تقويماً ليوم التداول: جلسة نيويورك تفتح
+   13:30 وتغلق 20:00 UTC، فطرفاها في نفس التاريخ دائماً — والشمعة
+   اليومية مختومة بلحظة الافتتاح. والعملات الرقمية شمعتها 00:00 UTC
+   فتاريخها يومها كذلك.
+
+   ويبقى السلوك كما كان حين تكون البيانات طازجة: شمعة اليوم موجودة
+   فتُتخطّى، وبعد الإغلاق تُتخطّى أيضاً — الإغلاق لا يجعلها بيفوتَ
+   نفسها.
+   ===================================================================== */
+function utcDay(ms) {
+  const t = new Date(ms);
+  return t.getUTCFullYear() * 10000 + (t.getUTCMonth() + 1) * 100 + t.getUTCDate();
+}
+
+function pivotBar(d, now) {
+  if (!Array.isArray(d) || d.length < 2) return null;
+  const today = utcDay(Number.isFinite(now) ? now : Date.now());
+  for (let i = d.length - 1; i >= 0; i--) {
+    if (Number.isFinite(d[i] && d[i].t) && utcDay(d[i].t) < today) return d[i];
+  }
+  return null;                      // كل الشمعات من اليوم — لا بيفوت
+}
+
+/* =====================================================================
    المستويات — مصدرٌ واحد يخدم العرضَ والخطة.
 
    لو حسبتها الخطة بنفسها لاختلف الدعم المعروض في الجدول عن الدعم
@@ -34,7 +68,7 @@ function unpackK(arr) {
    — يأتي محسوباً من `an` في ملف الرمز على الخادم، ومن `analyze` في
    المتصفح. لا يُعاد حسابه هنا كي لا تصير الأرقام ثلاث نسخ.
    ===================================================================== */
-function levelsFrom({ k4h, k1d, px, a, w52h, w52l }) {
+function levelsFrom({ k4h, k1d, px, a, w52h, w52l, now }) {
   const k = unpackK(k4h), d = unpackK(k1d);
   const base = k && k.length > 20 ? k : d;
   if (!base || !base.length) return null;
@@ -42,8 +76,8 @@ function levelsFrom({ k4h, k1d, px, a, w52h, w52l }) {
   if (!Number.isFinite(P0)) return null;
   const levels = [];
 
-  if (d && d.length > 2) {
-    const y = d[d.length - 2];
+  const y = pivotBar(d, now);
+  if (y) {
     const P = (y.h + y.l + y.c) / 3;
     levels.push({ p: 2 * P - y.l, n: "بيفوت R1" });
     levels.push({ p: P + (y.h - y.l), n: "بيفوت R2" });
@@ -175,5 +209,5 @@ function validatePlan(p) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { unpackK, levelsFrom, planDirOf, planFrom, validatePlan };
+  module.exports = { unpackK, pivotBar, levelsFrom, planDirOf, planFrom, validatePlan };
 }

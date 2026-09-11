@@ -202,7 +202,7 @@ export function buildSnap({ row, sym, an, k4h, k1d, f, at }) {
   if (!(px > 0)) return null;
   const base = (k4h && k4h.length > 20) ? "4h" : "1d";
   const a = (an && an[base]) || null;
-  const L = levelsFrom({ k4h, k1d, px, a,
+  const L = levelsFrom({ k4h, k1d, px, a, now: at,
     w52h: f && Number.isFinite(f.w52h) ? f.w52h : null,
     w52l: f && Number.isFinite(f.w52l) ? f.w52l : null });
   if (!L) return null;
