@@ -707,7 +707,15 @@ details[open]{background:var(--card2)}
       <span><i style="background:#f0b90b"></i>EMA 20</span>
       <span><i style="background:#3b82f6"></i>EMA 50</span>
       <span><i style="background:#a855f7"></i>EMA 200</span>
+      <button id="ovToggle" class="chip" type="button" aria-pressed="true">المستويات والخطة</button>
     </div>
+    <div class="legend" id="ovLegend">
+      <span><i style="background:#e8b93b"></i>E دخول</span>
+      <span><i style="background:#ea3943"></i>SL وقف</span>
+      <span><i style="background:#16c784"></i>T هدف</span>
+      <span style="color:var(--mut)">والخطوط الباهتة دعوم ومقاومات — تسمّيها بطاقة «المستويات»</span>
+    </div>
+    <p class="srcline">عجلة الفأرة تكبّر · السحب بالزرّ يمرّر · نقرة مزدوجة تعيد الضبط · وباللمس قرصٌ بإصبعين</p>
     <details>
       <summary>ما فائدة المتوسطات الثلاثة؟</summary>
       <p><b>EMA 20</b> سريع — يوضح الزخم القصير. <b>EMA 50</b> متوسط المدى.
@@ -1519,7 +1527,13 @@ const state = {
   optCache: {}, opts: null, arch: null, live: null, events: null, signals: null,
   optExp: 0, optSide: "calls",
   diag: [], trend: null, trendBusy: false, hist: null, histBusy: false, learn: null,
-  an: null, rsIdx: null
+  an: null, rsIdx: null,
+  // طبقات الشارت: المستويات والخطة مرسومةً على السعر. تُحفظ لأن فريم 15د
+  // تزدحم فيه مستويات اليوم، وإجبارُها على الجميع أسوأ من غيابها.
+  chartOv: true,
+  // الزوم عدد الشمعات المرئية، والإزاحة عدد الشمعات المتروكة من اليمين.
+  // كلاهما null = المدى الافتراضي المشتقّ من عرض الشاشة.
+  zoom: null, pan: 0
 };
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
@@ -5114,11 +5128,62 @@ function renderSymNews() {
    بلا إعادة حساب كل شيء عند كل حركة */
 let geom = null;
 
+/* =======================================================================
+   طبقات السعر — المستويات وخطة الصفقة مرسومةً على الشارت.
+
+   المصدر هو `computeLevels` و`tradePlan` أنفسهما، لا حساباً موازياً: الخطّ
+   على الشارت والرقم في البطاقة تحته شيء واحد، وحسابهما مرّتين يجعلهما
+   يتباعدان بأول تعديل — وهي نفس علّة `plan.js` المشتركة ونفس حلّها.
+
+   والنتيجة تُخزَّن مؤقتاً لأن `hoverAt` تنادي `drawChart` عند **كل حركة
+   مؤشّر**، وإعادة مسح 120 شمعة بحثاً عن القمم والقيعان في كل بكسل هدرٌ
+   محض. المفتاح يحمل السعر فينقضُ الخزن حين يتحرّك السوق فعلاً.
+   ======================================================================= */
+let ovCache = { key: null, val: null };
+let chartKey = null;
+
+function chartOverlays(rec) {
+  if (!state.chartOv || !rec) return null;
+  const row = symRow(rec.s);
+  const key = rec.s + "|" + (row && row.p) + "|" + (rec.u || 0);
+  if (ovCache.key === key) return ovCache.val;
+
+  const out = [];
+  // بطاقةٌ تسقط لا تُسقط الشارت معها — نفس عزل `renderDetail` لكل بطاقة
+  let L = null, p = null;
+  try { L = computeLevels(rec); } catch (e) { diag("chart", "تعذّر حساب المستويات", e); }
+  try { p = tradePlan(rec); } catch (e) { diag("chart", "تعذّرت الخطة", e); }
+
+  // المستويات بلا وسوم: الخانة اليمنى 62 بكسل، والعربية داخل الكانفس
+  // يقلب ترتيبُها (ولهذا قراءة الشمعة نصٌّ في HTML لا رسمٌ هنا). اللون
+  // يميّز الجهة، وبطاقة «المستويات» تحته تسمّيها.
+  if (L) {
+    (L.res || []).forEach(l => out.push({ p: l.p, c: "rgba(234,57,67,.30)", w: 1, dash: [2, 4] }));
+    (L.sup || []).forEach(l => out.push({ p: l.p, c: "rgba(22,199,132,.30)", w: 1, dash: [2, 4] }));
+  }
+  // والخطة بوسوم لاتينية قصيرة — لا عربية في الكانفس، وهي اصطلاحٌ مستعمل
+  // في الصفحة أصلاً (EMA · RSI · ADX · R1 · S1).
+  if (p) {
+    out.push({ p: p.entry, c: "#e8b93b", w: 1.6, dash: [],     t: "E" });
+    out.push({ p: p.stop,  c: "#ea3943", w: 1.6, dash: [5, 3], t: "SL" });
+    (p.targets || []).forEach((t, i) => out.push({ p: t.p, c: "#16c784", w: 1.4, dash: [5, 3], t: "T" + (i + 1) }));
+  }
+
+  ovCache = { key, val: out.length ? out : null };
+  return ovCache.val;
+}
+
 function drawChart() {
   const cv = $("#chart");
   const rec = state.sym && state.symCache[state.sym];
   const k = rec && rec.tf[state.activeTF] && rec.tf[state.activeTF].c;
   if (!cv || !k || !k.length) { geom = null; return; }
+
+  /* تبديل الرمز أو الفريم يعيد المدى إلى الافتراضي. الحارس هنا لا عند كل
+     مُبدِّل: مسارات الفتح متعدّدة (قائمة · بحث · فرصة · محفظة) ونسيانُ
+     واحدٍ منها يترك زوم سهمٍ سابق مطبَّقاً على سهمٍ آخر بلا أثر ظاهر. */
+  const ck = state.sym + "|" + state.activeTF;
+  if (chartKey !== ck) { chartKey = ck; state.zoom = null; state.pan = 0; }
 
   const dpr = window.devicePixelRatio || 1;
   const W = cv.clientWidth, H = cv.clientHeight;
@@ -5127,18 +5192,38 @@ function drawChart() {
   const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, W, H);
 
-  const N = Math.min(k.length, Math.max(40, Math.floor(W / 5)));
-  const view = k.slice(-N);
+  // المدى الافتراضي من عرض الشاشة، و`state.zoom` يغلبه حين يكبّر المستخدم.
+  // والإزاحة تُقصّ على ما تبقّى فعلاً كي لا يخرج العرض خارج السلسلة.
+  const fit = Math.max(40, Math.floor(W / 5));
+  const N = Math.min(k.length, Math.max(20, Math.round(state.zoom || fit)));
+  const pan = Math.max(0, Math.min(k.length - N, Math.round(state.pan || 0)));
+  const end = k.length - pan, start = Math.max(0, end - N);
+  const view = k.slice(start, end);
   const a = analyze(k);
   if (!a) { geom = null; return; }
-  const e20 = a.series.e20.slice(-N), e50 = a.series.e50.slice(-N), e200 = a.series.e200.slice(-N);
+  const e20 = a.series.e20.slice(start, end), e50 = a.series.e50.slice(start, end),
+        e200 = a.series.e200.slice(start, end);
 
   const padL = 6, padR = 62, padT = 8, padB = 26;
-  const cw = W - padL - padR, ch = H - padT - padB;
+  const cw = W - padL - padR;
+  // شريط الحجم يُحجز فقط حين يوجد حجمٌ فعلاً: Twelve Data وStooq لا يعطيان
+  // حجماً، وشريطٌ مسطّح فارغ يُقرأ «لا تداول» وهو كذبٌ على مصدرٍ ناقص.
+  const hasVol = view.some(c => c.v > 0);
+  const vh = hasVol ? Math.max(18, Math.round((H - padT - padB) * 0.18)) : 0;
+  const ch = H - padT - padB - vh;
+
+  const ov = chartOverlays(rec);
 
   let hi = -Infinity, lo = Infinity;
   view.forEach(c => { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); });
   [e20, e50, e200].forEach(arr => arr.forEach(v => { if (v !== null) { hi = Math.max(hi, v); lo = Math.min(lo, v); } }));
+  /* خطوط الخطة تدخل في حساب المدى، والدعوم والمقاومات لا تدخل.
+     الفرق مقصود: الهدف على بُعد 3% كان يقع خارج نافذة فريم الساعة فلا
+     يُرسم — وخطةٌ لا تُرى تُفرغ الميزة من سببها. أما المستويات فقد تبعد
+     عشرات بالمئة (قاع 52 أسبوعاً)، وضمُّها يسحق الشموع في شريط رفيع. */
+  if (ov) ov.forEach(o => {
+    if (o.t && Number.isFinite(o.p)) { hi = Math.max(hi, o.p); lo = Math.min(lo, o.p); }
+  });
   const pad = (hi - lo) * 0.08 || 1; hi += pad; lo -= pad;
   const Y = (p) => padT + (hi - p) / (hi - lo) * ch;
   const X = (i) => padL + i * (cw / N) + (cw / N) / 2;
@@ -5170,9 +5255,45 @@ function drawChart() {
   };
   line(e200, "#a855f7"); line(e50, "#3b82f6"); line(e20, "#f0b90b");
 
+  // شريط الحجم أسفل الشموع بنفس ألوانها — الحجم بلا اتجاه نصفُ معلومة
+  if (hasVol) {
+    const vTop = padT + ch, vMax = view.reduce((m, c) => Math.max(m, c.v || 0), 0);
+    if (vMax > 0) view.forEach((c, i) => {
+      const h = (c.v || 0) / vMax * (vh - 3);
+      if (!(h > 0)) return;
+      g.fillStyle = c.c >= c.o ? "rgba(22,199,132,.40)" : "rgba(234,57,67,.40)";
+      g.fillRect(X(i) - bw / 2, vTop + (vh - 3) - h + 3, bw, h);
+    });
+  }
+
   const row = symRow(state.sym);
   const px = (row && row.p) || view[view.length - 1].c;
   const y = Y(px);
+
+  /* الطبقات قبل خط السعر ليبقى السعر أعلى كل شيء. والوسوم تُكدَّس: وسم
+     السعر محجوزٌ أولاً، وأي وسم يلتصق به يسقط **وسمُه وحده** ويبقى خطُّه —
+     بلا ذلك تتراكب الأرقام على الحافة اليمنى فلا يُقرأ أيٌّ منها. */
+  if (ov) {
+    const taken = [y];
+    g.textAlign = "left"; g.textBaseline = "middle";
+    ov.forEach(o => {
+      // ما يقع خارج المدى المرئي لا يُرسم ولا يُزاح إلى الحافة: المستويات
+      // تُحسب على 4 ساعات أو اليومي، وقد تبعد كثيراً عن نافذة فريم 15د.
+      if (!Number.isFinite(o.p) || o.p > hi || o.p < lo) return;
+      const oy = Y(o.p);
+      g.strokeStyle = o.c; g.lineWidth = o.w; g.setLineDash(o.dash);
+      g.beginPath(); g.moveTo(padL, oy); g.lineTo(padL + cw, oy); g.stroke();
+      g.setLineDash([]);
+      if (!o.t || taken.some(t => Math.abs(t - oy) < 10)) return;
+      taken.push(oy);
+      g.font = "bold 9px monospace"; g.fillStyle = o.c;
+      // الأصول الرخيصة تحتاج ثماني خانات، ووسمُها لا يسع الخانة اليمنى —
+      // فيسقط الرقم ويبقى الوسم. القصُّ بالخانات كان يمحو شيبا إينو أصلاً.
+      const full = o.t + " " + o.p.toFixed(priceDigits(o.p));
+      g.fillText(g.measureText(full).width <= padR - 8 ? full : o.t, padL + cw + 6, oy);
+    });
+  }
+
   g.setLineDash([4, 4]); g.strokeStyle = "rgba(255,255,255,.45)"; g.lineWidth = 1;
   g.beginPath(); g.moveTo(padL, y); g.lineTo(padL + cw, y); g.stroke(); g.setLineDash([]);
   g.fillStyle = "#e8eef6"; g.fillRect(padL + cw + 2, y - 9, padR - 4, 18);
@@ -5186,17 +5307,17 @@ function drawChart() {
     const lbl = state.activeTF === "1d"
       ? (d.getMonth() + 1) + "/" + d.getDate()
       : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-    g.fillText(lbl, X(i), padT + ch + 7);
+    g.fillText(lbl, X(i), padT + ch + vh + 7);
   });
 
-  geom = { view, N, padL, padT, cw, ch, X, Y };
+  geom = { view, N, padL, padT, cw, ch, vh, X, Y, start, end, len: k.length };
 
   // المؤشّر — يُرسم آخراً ليعلو كل شيء
   const hv = state.hover;
   if (hv !== null && hv >= 0 && hv < view.length) {
     const c = view[hv], x = X(hv);
     g.setLineDash([3, 3]); g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 1;
-    g.beginPath(); g.moveTo(x, padT); g.lineTo(x, padT + ch); g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.moveTo(x, padT); g.lineTo(x, padT + ch + vh); g.stroke(); g.setLineDash([]);
     g.fillStyle = "#e8eef6"; g.beginPath(); g.arc(x, Y(c.c), 2.6, 0, 7); g.fill();
   }
   paintOHLC();
@@ -5236,6 +5357,31 @@ function hoverAt(clientX) {
 function clearHover() {
   if (state.hover === null) return;
   state.hover = null;
+  drawChart();
+}
+
+/* المُبدِّل وشرحُه يتحرّكان معاً: وسيلةُ إيضاحٍ لطبقةٍ مطفأة تصف ألواناً
+   لا وجود لها على الشارت. */
+function syncOvToggle() {
+  const b = $("#ovToggle"), lg = $("#ovLegend");
+  if (b) { b.classList.toggle("on", state.chartOv); b.setAttribute("aria-pressed", String(state.chartOv)); }
+  if (lg) lg.style.display = state.chartOv ? "" : "none";
+}
+
+const pinchGap = (m) => { const v = [...m.values()]; return Math.abs(v[0] - v[1]); };
+const chartN = () => (geom ? geom.N : (state.zoom || 60));
+
+/* التكبير حول موضع النظر: الشمعة تحت المؤشّر تبقى تحته. بلا تثبيتها يقفز
+   العرض إلى طرف السلسلة فيضيع ما كان يُفحص — وهو أكثر ما يزعج في الشارتات
+   التي تكبّر من الحافة دائماً. */
+function setZoom(n, frac) {
+  if (!geom) return;
+  const len = geom.len;
+  const N2 = Math.max(20, Math.min(len, Math.round(n)));
+  const at = geom.start + frac * geom.N;
+  const end2 = Math.round(at - frac * N2) + N2;
+  state.zoom = N2;
+  state.pan = Math.max(0, Math.min(len - N2, len - end2));
   drawChart();
 }
 
@@ -6018,6 +6164,8 @@ function boot() {
   } catch (e) {}
 
   state.favs = (load("favs", []) || []).filter(x => typeof x === "string");
+  state.chartOv = load("chartOv", true) !== false;
+  syncOvToggle();
 
   // عرض فوري من آخر نسخة محفوظة
   const c = load("cache", null);
@@ -6042,11 +6190,64 @@ function boot() {
 
   // مؤشّر الشارت — pointer يغطي الفأرة واللمس معاً
   const cv = $("#chart");
-  cv.addEventListener("pointerdown", (e) => hoverAt(e.clientX));
-  cv.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" || e.buttons) hoverAt(e.clientX); });
-  cv.addEventListener("pointerleave", clearHover);
-  cv.addEventListener("pointercancel", clearHover);
-  cv.addEventListener("pointerup", (e) => { if (e.pointerType !== "mouse") clearHover(); });
+  /* المؤشّر والتكبير على نفس الكانفس، والفصل بينهما بنوع الجهاز:
+
+     بالفأرة الحركةُ المجرّدة تعطي المؤشّر أصلاً، فالسحبُ بالزرّ مضغوطاً
+     حرٌّ للتمرير. وباللمس السحبُ الأفقي **يحرّك المؤشّر** — سلوكٌ مقصود
+     وموثّق (`touch-action: pan-y` يترك العمودي تمريراً للصفحة)، فتغييره
+     إلى تمرير يسلب الهاتفَ قراءةَ الشمعة وهي وظيفته الأولى. التكبير على
+     الهاتف بالقرص بإصبعين وحده. */
+  const pts = new Map();
+  let dragX = null, pinch = null;
+
+  cv.addEventListener("pointerdown", (e) => {
+    pts.set(e.pointerId, e.clientX);
+    if (pts.size === 2) { pinch = { d: pinchGap(pts), z: chartN() }; return; }
+    if (e.pointerType === "mouse") dragX = e.clientX;
+    hoverAt(e.clientX);
+  });
+
+  cv.addEventListener("pointermove", (e) => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, e.clientX);
+    if (pts.size === 2 && pinch) {
+      const d = pinchGap(pts);
+      if (d > 8 && pinch.d > 8) setZoom(pinch.z * pinch.d / d, 0.5);
+      return;
+    }
+    if (e.pointerType === "mouse" && e.buttons && dragX !== null) {
+      const step = geom ? geom.cw / geom.N : 6;
+      const by = Math.round((e.clientX - dragX) / step);
+      // في RTL يبقى اتجاه الزمن على الكانفس يساراً→يميناً: السحب يميناً
+      // يرجع إلى الماضي، وهو ما يفعله كل شارت.
+      if (by) { state.pan = Math.max(0, (state.pan || 0) + by); dragX = e.clientX; drawChart(); }
+      return;
+    }
+    if (e.pointerType === "mouse" || e.buttons) hoverAt(e.clientX);
+  });
+
+  const drop = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) dragX = null; };
+  cv.addEventListener("pointerleave", (e) => { drop(e); clearHover(); });
+  cv.addEventListener("pointercancel", (e) => { drop(e); clearHover(); });
+  cv.addEventListener("pointerup", (e) => { drop(e); if (e.pointerType !== "mouse") clearHover(); });
+
+  cv.addEventListener("wheel", (e) => {
+    if (!geom) return;
+    e.preventDefault();                       // وإلا مرّرت العجلةُ الصفحةَ معاً
+    const r = cv.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - r.left - geom.padL) / geom.cw));
+    setZoom(chartN() * (e.deltaY > 0 ? 1.15 : 1 / 1.15), frac);
+  }, { passive: false });
+
+  cv.addEventListener("dblclick", () => { state.zoom = null; state.pan = 0; drawChart(); });
+
+  const ovBtn = $("#ovToggle");
+  if (ovBtn) ovBtn.onclick = () => {
+    state.chartOv = !state.chartOv;
+    save("chartOv", state.chartOv);
+    ovCache = { key: null, val: null };      // المفتاح لا يحمل حالة المُبدِّل
+    syncOvToggle();
+    drawChart();
+  };
 
   $$("#tfPicker button").forEach(b => b.onclick = () => {
     $$("#tfPicker button").forEach(x => x.classList.remove("on"));
