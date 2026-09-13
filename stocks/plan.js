@@ -133,18 +133,29 @@ function planDirOf(score) {
    كانت الدالة شراءً دائماً بلا أن تسأل عن الاتجاه: سهمٌ نتيجته ‎−97‎
    تُبنى له أهداف **فوق** سعره لأنها تُشتق من المقاومات ولا شيء يقلبها.
    ===================================================================== */
-function planFrom({ px, atr, resAll, supAll }, d) {
+function planFrom({ px, atr, resAll, supAll }, d, opts) {
   if (!Number.isFinite(px) || px <= 0) return null;
   if (!Number.isFinite(atr) || atr <= 0) return null;
   if (d !== 1 && d !== -1) return null;
   const res = resAll || [], sup = supAll || [];
+  const atMarket = !!(opts && opts.atMarket);
 
   // الحاجز في جهة الرجوع: دعمٌ يُشترى عنده في الصعود، ومقاومةٌ يُباع عندها
   // في الهبوط. وحاجزٌ يبعد 12% ليس منطقة دخول بل انتظارٌ قد لا ينتهي.
   const back = (d > 0 ? sup : res)[0] || null;
   const farBack = back !== null && Math.abs(px - back.p) / px > 0.12;
   const brk = (back !== null && !farBack) ? back.p : null;
-  const entry = brk !== null ? brk : px;
+  /* المسار الثاني يغيّر **سطر الدخول وحده**. كل ما بعده — الوقف والمخاطرة
+     وترشيح الأهداف والعائد — يتدفّق عبر نفس الشيفرة، فلا تنشأ نسختان من
+     الرياضيات تتباعدان بأول تعديل (الدرس نفسه الذي جعل هذا الملف مشتركاً).
+
+     وانتبه لما **لا** يتغيّر: الأهداف مقاوماتٌ حقيقية، والمقاومة عند 106
+     تبقى عند 106 مهما كان دخولك. وصيغة الوقف تبقى مرساةً على الحاجز عبر
+     حدّها الثالث `brk ∓ atr/2`. فالنتيجة أن الدخول بالسوق **يكبّر المخاطرة
+     ويقرّب الهدف فيخفض العائد** — وهذه بالضبط هي المفاضلة المطلوب قياسها.
+     وإزاحةُ كل شيء بالتوازي (وهو البديهي) تُبقي العائد كما هو وتخترع
+     مستوياتٍ لا وجود لها، فيتطابق المساران رياضياً ولا يُقاس شيء. */
+  const entry = atMarket ? px : (brk !== null ? brk : px);
   const entryIsNow = entry === px;
 
   // الوقف خلف الحاجز بنصف ATR، وبحدٍّ أدنى ATR كامل خلف الدخول: الوقف
@@ -171,12 +182,33 @@ function planFrom({ px, atr, resAll, supAll }, d) {
   const primary = targets.find(t => t.rr >= 2) || targets[targets.length - 1] || null;
   const meets2 = !!(primary && primary.rr >= 2);
 
-  return { dir: d, px, entry, entryIsNow, stop, atr, risk, targets, primary, meets2, skippedNear,
+  return { dir: d, px, entry, entryIsNow, atMarket, stop, atr, risk, targets, primary, meets2, skippedNear,
            target: primary ? primary.p : null,
            rr: primary ? primary.rr : null,
            targetPct: primary ? primary.pct : null,
            stopPct: risk / entry * 100,
            atrPct: atr / entry * 100 };
+}
+
+/* =====================================================================
+   المساران معاً — «أ» عند الارتداد و«ب» عند السوق.
+
+   لماذا هنا لا عند كل مستهلك: قاعدةُ «متى يكون المسار الثاني متمايزاً»
+   قرارٌ واحد يلزم الخادمَ (ليسجّل) والمتصفحَ (ليعرض). نسختان منها تختلفان
+   فيصير السجلّ يحصي صفقةً لا يراها المستخدم، أو العكس.
+
+   وحين لا يوجد حاجزٌ قريب يكون دخول «أ» عند السعر أصلاً (`entryIsNow`)،
+   فالمساران نسخةٌ واحدة. تسجيلُهما حينها يضاعف الصفقة نفسها في مقامين
+   ويرفع العدد بلا أن يضيف معلومة — ولهذا تُردّ `b: null`.
+
+   السبب: 41 من 59 خطة مقيسة لم تُفعَّل قط (‎69%‎) لأن دخولها عند ارتدادٍ
+   لم يأتِ. فالمسار الثاني يقيس الثمن: دخولٌ يقع دائماً بمخاطرة أكبر
+   وعائد أسوأ. وأيُّهما أفضل يقوله الأرشيف بعد شهر، لا الرأي.
+   ===================================================================== */
+function planPair(inputs, d) {
+  const a = planFrom(inputs, d);
+  if (!a) return { a: null, b: null };
+  return { a, b: a.entryIsNow ? null : planFrom(inputs, d, { atMarket: true }) };
 }
 
 /* =====================================================================
@@ -209,5 +241,5 @@ function validatePlan(p) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { unpackK, pivotBar, levelsFrom, planDirOf, planFrom, validatePlan };
+  module.exports = { unpackK, pivotBar, levelsFrom, planDirOf, planFrom, planPair, validatePlan };
 }

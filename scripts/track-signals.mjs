@@ -24,7 +24,7 @@ const require = createRequire(import.meta.url);
 const { SCANS } = require("../stocks/scans.js");
 // نفس نواة الخطة وطبقة التقييم التي يقرأها المتصفح — نسخةٌ ثانية هنا
 // تجعل السجلّ يقول إن الهدف كان 106 والمستخدم رأى 112
-const { levelsFrom, planFrom, planDirOf, validatePlan } = require("../stocks/plan.js");
+const { levelsFrom, planFrom, planPair, planDirOf, validatePlan } = require("../stocks/plan.js");
 const { freshness, scanTF, entryQuality, etaFor, horizonsOf } = require("../stocks/evaluate.js");
 // حدود النطاقات من نواة النتيجة نفسها: كانت مكتوبة هنا مرةً ثانية، وكان
 // `bandOf` المحلي يخالف `labelOf` عند الحدّ بالضبط (‎−45‎ عنده «هابط قوي»
@@ -213,10 +213,13 @@ export function buildSnap({ row, sym, an, k4h, k1d, f, at }) {
   // ATR **اليومي** لا ATR فريم الأساس — نفس اختيار `tradePlan` في المتصفح
   const atr = (Number.isFinite(row.atr) && row.atr > 0) ? row.atr : L.atr;
   const dir = planDirOf(row.score);
-  const p = planFrom({ px: L.px, atr, resAll: L.resAll, supAll: L.supAll }, dir);
+  const { a: p, b: pb } = planPair({ px: L.px, atr, resAll: L.resAll, supAll: L.supAll }, dir);
   if (!p) return null;
   const bad = validatePlan(p);
   if (bad.length) { console.warn(`  ⚠ خطة ${sym} مرفوضة: ${bad[0]}`); return null; }
+  // المسار الثاني يمرّ بنفس البوابة: خطةٌ مرفوضة لا تُسجَّل ولو كانت ثانويةً
+  const badB = pb ? validatePlan(pb) : ["لا مسار ثانٍ"];
+  const b = (pb && !badB.length) ? pb : null;
 
   const tf = scanTF(row.__scan);
   const hz = horizonsOf(row.tfScore);
@@ -235,6 +238,13 @@ export function buildSnap({ row, sym, an, k4h, k1d, f, at }) {
       return e ? [Math.round(e.lo), Math.round(e.hi)] : null;
     }),
     hz: Object.fromEntries(hz.map(h => [h.id, r2(h.score)])),
+    /* المسار الثاني: الدخول بسعر اللحظة بدل انتظار الارتداد. تُحفظ حقولُه
+       الأربعة وحدها لأن ما عداها (الاتجاه والمدى والفريم والزمن المتوقَّع)
+       مشتركٌ بين المسارين. وهو **غائبٌ عمداً** حين لا حاجز قريب: المساران
+       يتطابقان حينئذٍ، وتسجيلُهما يضاعف الصفقة نفسها في مقامين. */
+    ...(b ? { b: { e: r4(b.entry), s: r4(b.stop), rr: r2(b.rr),
+                   t: b.targets.map(t => r4(t.p)),
+                   trr: b.targets.map(t => r2(t.rr)) } } : {}),
     an: a ? { rsi: r2(a.rsi), e50: r4(a.e50), e200: r4(a.e200),
               hist: a.hist === null || a.hist === undefined ? null : Number(a.hist.toFixed(6)),
               up: a.histRising === true } : null
@@ -257,64 +267,93 @@ export function buildSnap({ row, sym, an, k4h, k1d, f, at }) {
    ===================================================================== */
 const TERMINAL = new Set(["stop", "t3", "expired", "cancel"]);
 
-export function updateOutcome(sig, price, now) {
+/* =====================================================================
+   مساران لدورتَي حياة مستقلّتين تماماً.
+
+   المسار «أ» يحتفظ بحقوله الأصلية (`out` · `open` · `closed`) بلا أيّ
+   تغيير في معناها، فكلّ ما يقرأها في الملفّ يبقى صحيحاً. و«ب» يأخذ
+   حقولاً موازية.
+
+   والفصل **إلزامي لا تنظيمي**: لو تشاركا `open` لأغلق وقفُ «أ» في اليوم
+   الثالث تتبّعَ «ب» وهو لم يبلغ هدفه بعد — فيُسجَّل للمسار الثاني انتهاءٌ
+   لم يقع، وهو بالضبط تزييف النتيجة الذي تمنعه المرحلة الثامنة.
+   ===================================================================== */
+const TRACKS = {
+  a: { out: "out",  open: "open",  closed: "closed",
+       e: (s) => s.e, stop: (s) => s.s, t: (s) => s.t || [] },
+  b: { out: "outB", open: "openB", closed: "closedB",
+       e: (s) => s.b.e, stop: (s) => s.b.s, t: (s) => (s.b && s.b.t) || [] }
+};
+
+export function updateOutcome(sig, price, now, tr = "a") {
+  const T = TRACKS[tr] || TRACKS.a;
   const snap = sig.snap;
   if (!snap || !(price > 0)) return sig;
+  // السجلّات السابقة للمسار الثاني لا تملك `snap.b`، ولا تُملأ بأثر رجعي:
+  // لقطةٌ تُبنى بعد الحدث تدّعي أنها رأت ما لم ترَه.
+  if (tr === "b" && !snap.b) return sig;
   const d = snap.dir === -1 ? -1 : 1;
-  const out = (sig.out ||= { st: "wait", hit: (snap.t || []).map(() => null), stopAt: null, enterAt: null });
+  const E = T.e(snap), S = T.stop(snap), TG = T.t(snap);
+  const out = (sig[T.out] ||= { st: "wait", hit: TG.map(() => null), stopAt: null, enterAt: null });
 
   /* الصفقة المنتهية لا تُحدَّث. بلا هذا الحدّ كانت الصفقةُ التي ضُرب
      وقفُها تسجّل أهدافها حين يرتدّ السعر بعدها — فتظهر «خاسرة بلغت أهدافها
      الثلاثة». حلقةُ التشغيل تنادي المفتوحةَ وحدها فلم يظهر ذلك في تشغيل،
      لكن سجلٌّ يقبل التعديل بعد إغلاقه ينقض المرحلة الثامنة من أساسها. */
-  if (TERMINAL.has(out.st) || !sig.open) return sig;
+  if (TERMINAL.has(out.st) || !sig[T.open]) return sig;
 
   // ١) الدخول: السعر لمس منطقة الدخول (أو كانت «السعر الآن» فدخلت فوراً)
   if (out.st === "wait") {
-    if ((snap.e - price) * d >= 0 || Math.abs(price - snap.e) / snap.e < 1e-9) {
+    if ((E - price) * d >= 0 || Math.abs(price - E) / E < 1e-9) {
       out.enterAt = now; out.st = "open";
     }
   }
 
   if (out.st === "wait") {
     // بلا دخول لا وقف ولا هدف. وانتهاء الأفق بلا دخول إلغاءٌ لا خسارة.
-    if (now - sig.at >= HOLD_DAYS * DAY) { out.st = "cancel"; sig.open = false; sig.closed = now; }
+    if (now - sig.at >= HOLD_DAYS * DAY) { out.st = "cancel"; sig[T.open] = false; sig[T.closed] = now; }
     return sig;
   }
 
   // ٢) الوقف قبل الأهداف: صفقةٌ ضُرب وقفها لا تُكمل إلى هدفها
   if (out.st === "open" || out.st === "t1" || out.st === "t2") {
-    if ((price - snap.s) * d <= 0) {
-      out.stopAt = now; out.st = "stop"; sig.open = false; sig.closed = now;
+    if ((price - S) * d <= 0) {
+      out.stopAt = now; out.st = "stop"; sig[T.open] = false; sig[T.closed] = now;
       return sig;
     }
   }
 
   // ٣) الأهداف بالترتيب — لا يُسجَّل الثاني قبل الأول
-  (snap.t || []).forEach((tp, i) => {
+  TG.forEach((tp, i) => {
     if (out.hit[i] !== null || !Number.isFinite(tp)) return;
     if ((price - tp) * d >= 0) out.hit[i] = now;
   });
   const reached = out.hit.filter(x => x !== null).length;
-  if (reached >= 3) { out.st = "t3"; sig.open = false; sig.closed = now; }
+  if (reached >= 3) { out.st = "t3"; sig[T.open] = false; sig[T.closed] = now; }
   else if (reached === 2) out.st = "t2";
   else if (reached === 1) out.st = "t1";
 
   // ٤) انتهاء الأفق وهي مفتوحة
-  if (sig.open && now - sig.at >= HOLD_DAYS * DAY) {
+  if (sig[T.open] && now - sig.at >= HOLD_DAYS * DAY) {
     out.st = reached ? `t${reached}` : "expired";
-    sig.open = false; sig.closed = now;
+    sig[T.open] = false; sig[T.closed] = now;
   }
   return sig;
 }
 
+/* السجلّ حيٌّ ما دام **أيُّ** مسارٍ فيه يُقاس. وقفُ «أ» لا ينقل السجلّ إلى
+   التاريخ و«ب» ما زالت مفتوحة، وإلا خرجت من حلقة التحديث فتجمّدت عند آخر
+   سعرٍ رأته وسُجّل لها انتهاءٌ لم يقع. */
+export const stillLive = (sig) => !!(sig.open || sig.openB);
+
 /* الصفقة رابحة أو خاسرة أو **لا واحدة منهما**. المفتوحة ليست رابحة، ولا
    الملغاة خاسرة — وعدُّها في أيّ الخانتين يزيّف نسبة النجاح كلها. */
-export function verdictOf(sig) {
-  const st = sig.out && sig.out.st;
+export function verdictOf(sig, tr = "a") {
+  const T = TRACKS[tr] || TRACKS.a;
+  const st = sig[T.out] && sig[T.out].st;
   if (!st) return "unknown";
   if (st === "wait") return "wait";              // لم تُفتح بعد — لا هي ولا ضدّها
-  if (st === "t1" || st === "t2" || st === "t3") return sig.open ? "running" : "win";
+  if (st === "t1" || st === "t2" || st === "t3") return sig[T.open] ? "running" : "win";
   if (st === "stop") return "loss";
   if (st === "expired") return "flat";
   if (st === "cancel") return "cancel";
@@ -333,30 +372,36 @@ export function verdictOf(sig) {
    ونسبة بلوغ الهدف تُقاس على **ما دخل** لا على كل ما ظهر: خطةٌ لم يُلمس
    دخولها لم تكن صفقةً، فحسابها في المقام يخفض النسبة بلا سبب.
    ===================================================================== */
-export function outcomeStats(records) {
-  const withSnap = records.filter(s => s.snap && s.conv !== "long" && s.mkt !== "crypto");
-  const entered = withSnap.filter(s => s.out && s.out.st !== "wait" && s.out.st !== "cancel");
-  const closed = entered.filter(s => !s.open);
+export function outcomeStats(records, tr = "a") {
+  const T = TRACKS[tr] || TRACKS.a;
+  const O = (s) => s[T.out];
+  // مقام المسار الثاني سجلّاتُه وحدها: السجلّات السابقة له لا تملك `snap.b`،
+  // وضمُّها إلى المقام يخفض نسبته بصفقاتٍ لم يخُضها قط.
+  const withSnap = records.filter(s => s.snap && s.conv !== "long" && s.mkt !== "crypto"
+    && (tr !== "b" || s.snap.b));
+  const entered = withSnap.filter(s => O(s) && O(s).st !== "wait" && O(s).st !== "cancel");
+  const closed = entered.filter(s => !s[T.open]);
+  const tgts = (s) => T.t(s.snap);
 
   const hitRate = (i) => {
     // مقام الهدف i: من دخل **ومعه هدفٌ بهذا الرقم أصلاً** — خطة بهدفين
     // لا تُحاسب على ثالث لم تعرضه
-    const pool = entered.filter(s => (s.snap.t || []).length > i);
+    const pool = entered.filter(s => tgts(s).length > i);
     if (!pool.length) return null;
-    return r2(pool.filter(s => s.out.hit[i] !== null).length / pool.length * 100);
+    return r2(pool.filter(s => O(s).hit[i] !== null).length / pool.length * 100);
   };
   const timeTo = (i) => {
     const times = entered
-      .filter(s => s.out.hit[i] !== null && s.out.enterAt)
-      .map(s => s.out.hit[i] - s.out.enterAt)
+      .filter(s => O(s).hit[i] !== null && O(s).enterAt)
+      .map(s => O(s).hit[i] - O(s).enterAt)
       .filter(Number.isFinite);
     // الوسيط لا المتوسط: صفقةٌ بلغت هدفها بعد 27 يوماً تُزيح المتوسط وحدها
     return times.length ? { n: times.length, med: Math.round(median(times)) } : null;
   };
   const byDir = (d) => {
     const g = closed.filter(s => (s.snap.dir === -1 ? -1 : 1) === d);
-    const w = g.filter(s => verdictOf(s) === "win").length;
-    const l = g.filter(s => verdictOf(s) === "loss").length;
+    const w = g.filter(s => verdictOf(s, tr) === "win").length;
+    const l = g.filter(s => verdictOf(s, tr) === "loss").length;
     return { n: g.length, win: w, loss: l,
              rate: (w + l) ? r2(w / (w + l) * 100) : null,
              med: r2(median(g.map(s => s.ret))) };
@@ -364,15 +409,15 @@ export function outcomeStats(records) {
 
   return {
     total: withSnap.length,
-    waiting: withSnap.filter(s => s.out && s.out.st === "wait").length,
-    cancelled: withSnap.filter(s => s.out && s.out.st === "cancel").length,
-    open: entered.filter(s => s.open).length,
+    waiting: withSnap.filter(s => O(s) && O(s).st === "wait").length,
+    cancelled: withSnap.filter(s => O(s) && O(s).st === "cancel").length,
+    open: entered.filter(s => s[T.open]).length,
     closed: closed.length,
-    win: closed.filter(s => verdictOf(s) === "win").length,
-    loss: closed.filter(s => verdictOf(s) === "loss").length,
-    flat: closed.filter(s => verdictOf(s) === "flat").length,
+    win: closed.filter(s => verdictOf(s, tr) === "win").length,
+    loss: closed.filter(s => verdictOf(s, tr) === "loss").length,
+    flat: closed.filter(s => verdictOf(s, tr) === "flat").length,
     t1: hitRate(0), t2: hitRate(1), t3: hitRate(2),
-    stopRate: closed.length ? r2(closed.filter(s => s.out.st === "stop").length / closed.length * 100) : null,
+    stopRate: closed.length ? r2(closed.filter(s => O(s).st === "stop").length / closed.length * 100) : null,
     ttT1: timeTo(0), ttT2: timeTo(1), ttT3: timeTo(2),
     up: byDir(1), dn: byDir(-1)
   };
@@ -446,14 +491,19 @@ async function main() {
   // ١) حدّث المفتوحة بسعر اليوم
   let closedNow = 0;
   for (const sig of records) {
-    if (!sig.open) continue;
+    if (!stillLive(sig)) continue;
     const p = price[sig.sym];
     if (p === undefined) continue;
     const before = sig.open;
-    update(sig, p, now);
+    // `update` تخصّ المسار الأول: `ret`/`mfe`/`mae` مسارٌ تراكمي واحد يُقاس
+    // من سعر الإشارة، ولا يعرف مساراً من آخر
+    if (sig.open) update(sig, p, now);
     // النتيجة تُحدَّث بعد الرحلة: `update` تغلق بالأفق، و`updateOutcome`
     // تغلق بالوقف أو الهدف — والأسبق منهما هو الذي يحكم
-    if (sig.snap) updateOutcome(sig, p, now);
+    if (sig.snap) {
+      updateOutcome(sig, p, now, "a");
+      if (sig.snap.b) updateOutcome(sig, p, now, "b");
+    }
     if (before && !sig.open) closedNow++;
   }
 
@@ -505,11 +555,19 @@ async function main() {
         ...(r.tfScore ? { tfs: Object.fromEntries(
               Object.entries(r.tfScore).map(([k, v]) => [k, r2(v)])) } : {}),
         ...(r.mkt ? { mkt: r.mkt } : {}),
-        ...(snap ? { snap, out: { st: "wait", hit: snap.t.map(() => null), stopAt: null, enterAt: null } } : {})
+        ...(snap ? { snap, out: { st: "wait", hit: snap.t.map(() => null), stopAt: null, enterAt: null } } : {}),
+        // المسار الثاني حيٌّ فقط حين تُبنى لقطتُه — وهي تُبنى الآن أو لا
+        // تُبنى أبداً، شأنَ الأولى
+        ...(snap && snap.b ? { openB: true,
+              outB: { st: "wait", hit: snap.b.t.map(() => null), stopAt: null, enterAt: null } } : {})
       };
       // خطةٌ دخولها «السعر الآن» تُفتح في نفس اللحظة، وإلا بقيت `wait`
-      // حتى يلمس السعر منطقة الدخول — أو ينتهي الأفق فتُلغى
-      if (snap) updateOutcome(rec, r.p, now);
+      // حتى يلمس السعر منطقة الدخول — أو ينتهي الأفق فتُلغى.
+      // والمسار الثاني دخولُه السعرُ نفسه، فيُفتح دائماً في اللحظة صفر.
+      if (snap) {
+        updateOutcome(rec, r.p, now, "a");
+        if (snap.b) updateOutcome(rec, r.p, now, "b");
+      }
       records.push(rec);
       openNow.add(key);
       added++;
@@ -520,7 +578,7 @@ async function main() {
   let pruning = false;
   if (records.length > MAX_RECORDS) {
     pruning = true;
-    records.sort((a, b) => (a.open === b.open) ? a.at - b.at : (a.open ? 1 : -1));
+    records.sort((a, b) => (stillLive(a) === stillLive(b)) ? a.at - b.at : (stillLive(a) ? 1 : -1));
     records.splice(0, records.length - MAX_RECORDS);
   }
 
@@ -540,8 +598,8 @@ async function main() {
    */
   const prevHist = readJSON(path.join(OUT, "history.json"));
   const histPrev = Array.isArray(prevHist?.records) ? prevHist.records : [];
-  const openRecs = records.filter(s => s.open);
-  const closedNew = records.filter(s => !s.open);
+  const openRecs = records.filter(stillLive);
+  const closedNew = records.filter(s => !stillLive(s));
 
   // المغلقة تُدمج فوق التاريخ بالمفتاح نفسه + لحظة الظهور: نفس الإشارة
   // قد تُغلق وتُعاد لاحقاً، وهما صفقتان لا واحدة
@@ -591,7 +649,10 @@ async function main() {
                      // المستبعَد يُعلَن: عددٌ ناقص بلا سبب يُقرأ كخلل
                      legacy: all.filter(s => s.conv === "long").length,
                      noSnap: all.filter(s => !s.snap && s.conv !== "long").length,
-                     outcome: outcomeStats(all), scans }));
+                     // المسار الثاني ومقامُه المعلَن: سجلّاته وحدها، فعددٌ
+                     // أصغر من `total` ليس نقصاً بل هو المقام الصحيح
+                     withB: all.filter(s => s.snap && s.snap.b).length,
+                     outcome: outcomeStats(all), outcomeB: outcomeStats(all, "b"), scans }));
 
   const prevMeta = readJSON(path.join(OUT, "meta.json"), {});
   fs.writeFileSync(path.join(OUT, "meta.json"), JSON.stringify({
@@ -602,12 +663,18 @@ async function main() {
                   trendPts: Object.values(syms).reduce((a, b) => a + b.length, 0) }
   }));
 
-  const st = outcomeStats(all);
+  const st = outcomeStats(all), stB = outcomeStats(all, "b");
   console.log(`✔ ${openRecs.length} مفتوحة · ${hist.length} في السجلّ (+${added} جديدة · ${closedNow} أُغلقت اليوم)`);
   if (added) console.log(`  لقطات: ${snapped} بُنيت${noSnap ? ` · ${noSnap} بلا لقطة (لا ملف شمعات)` : ""}`);
-  console.log(`  النتائج: ${st.open} جارية · ${st.waiting} تنتظر الدخول · ${st.closed} مغلقة` +
+  console.log(`  دخول الارتداد: ${st.open} جارية · ${st.waiting} تنتظر الدخول · ${st.closed} مغلقة` +
     (st.closed ? ` (${st.win} رابحة · ${st.loss} خاسرة)` : "") +
     (st.t1 !== null ? ` · الهدف الأول ${st.t1}%` : ""));
+  // الرقم الذي استدعى المسار الثاني أصلاً — يُطبع ليُرى كل تشغيل
+  if (st.total) console.log(`  ولم تُفعَّل ${st.waiting} من ${st.total} (${
+    r2(st.waiting / st.total * 100)}%) — وهذا سبب قياس المسار الثاني`);
+  console.log(`  دخول السوق:    ${stB.open} جارية · ${stB.waiting} تنتظر · ${stB.closed} مغلقة` +
+    (stB.closed ? ` (${stB.win} رابحة · ${stB.loss} خاسرة)` : "") +
+    ` · من ${stB.total} سجلاً له مسارٌ ثانٍ`);
   console.log(`  تسلسل النتيجة: ${Object.keys(syms).length} رمزاً · ${
     Object.values(syms).reduce((a, b) => a + b.length, 0)} نقطة (+${added2} الآن)`);
   for (const s of scans)
@@ -899,6 +966,80 @@ function selfCheck() {
     ];
     const g = aggregate(rec).find(x => x.id === "vol");
     eq([g.closed, g.med], [1, 3], "العملة خارج الإحصاء");
+  });
+
+  /* ---------- المسار الثاني: الدخول بالسوق ---------- */
+  const mkB = (over = {}) => mkSig({
+    snap: { px: 100, e: 98, s: 95, atr: 3, dir: 1, t: [104, 110, 118],
+            b: { e: 100, s: 96.5, rr: 2, t: [104, 110, 118] } },
+    openB: true, outB: { st: "wait", hit: [null, null, null], stopAt: null, enterAt: null }, ...over
+  });
+
+  t("المساران مستقلّان: وقفُ الأول لا يغلق الثاني", () => {
+    const s = mkB();
+    updateOutcome(s, 100, T0, "a");                  // أ تنتظر 98 فتبقى wait
+    updateOutcome(s, 100, T0, "b");                  // ب تدخل عند 100 فوراً
+    eq([s.out.st, s.outB.st], ["wait", "open"], "الدخولان مختلفان باختلاف سعرهما");
+    updateOutcome(s, 97, T0 + DAY, "a");             // أ دخلت عند 98
+    updateOutcome(s, 97, T0 + DAY, "b");             // ب ما زالت فوق وقفها 96.5
+    eq([s.out.st, s.outB.st], ["open", "open"], "كلاهما مفتوح");
+    updateOutcome(s, 96, T0 + 2 * DAY, "b");         // ضُرب وقف ب وحده
+    eq([s.outB.st, s.openB, s.out.st, s.open], ["stop", false, "open", true],
+      "انتهاء الثاني لا يمسّ الأول");
+    if (!stillLive(s)) throw new Error("السجلّ أُغلق والمسار الأول حيّ");
+  });
+
+  t("وقفُ الأول لا يجمّد الثاني — السجلّ يبقى حيّاً", () => {
+    const s = mkB();
+    updateOutcome(s, 100, T0, "b");
+    updateOutcome(s, 98, T0, "a");
+    updateOutcome(s, 94, T0 + DAY, "a");             // أ ضُرب وقفها 95
+    eq([s.out.st, s.open], ["stop", false], "الأول أُغلق");
+    if (!stillLive(s)) throw new Error("السجلّ خرج من التتبّع والثاني حيّ");
+    updateOutcome(s, 94, T0 + DAY, "b");             // وب تحت وقفها 96.5 كذلك
+    eq([s.outB.st, s.openB], ["stop", false], "الثاني قُيس بنفسه");
+    if (stillLive(s)) throw new Error("انتهى المساران والسجلّ ما زال حيّاً");
+  });
+
+  t("الحالة النهائية تردّ في المسار الثاني كما في الأول", () => {
+    const s = mkB();
+    updateOutcome(s, 100, T0, "b");
+    updateOutcome(s, 96, T0 + DAY, "b");
+    eq(s.outB.st, "stop", "ضُرب الوقف");
+    updateOutcome(s, 120, T0 + 2 * DAY, "b");        // ارتدّ فوق كل الأهداف
+    eq([s.outB.st, s.outB.hit[0]], ["stop", null], "لا هدف يُسجَّل بعد الإغلاق");
+  });
+
+  t("سجلٌّ بلا `snap.b` لا يكتسب مساراً ثانياً ولا يُحشى بأثر رجعي", () => {
+    const s = mkSig();                                // لقطة قديمة بلا b
+    updateOutcome(s, 100, T0, "b");
+    eq([s.outB, s.openB, s.snap.b], [undefined, undefined, undefined], "لم يُلمس");
+    // ولا يدخل مقام المسار الثاني
+    eq(outcomeStats([s], "b").total, 0, "خارج المقام");
+    eq(outcomeStats([s], "a").total, 1, "وداخل مقام الأول");
+  });
+
+  t("مقاما المسارين منفصلان تماماً", () => {
+    const withB = mkB({ open: false, openB: false,
+      out:  { st: "stop", hit: [null, null, null], stopAt: T0 + DAY, enterAt: T0 },
+      outB: { st: "t3", hit: [T0 + 1, T0 + 2, T0 + 3], stopAt: null, enterAt: T0 } });
+    const onlyA = mkSig({ open: false,
+      out: { st: "t3", hit: [T0 + 1, T0 + 2, T0 + 3], stopAt: null, enterAt: T0 } });
+    const A = outcomeStats([withB, onlyA], "a"), B = outcomeStats([withB, onlyA], "b");
+    eq([A.total, A.win, A.loss], [2, 1, 1], "الأول يرى السجلّين");
+    eq([B.total, B.win, B.loss], [1, 1, 0], "والثاني يرى سجلّه وحده");
+  });
+
+  t("`planPair` لا تنتج مساراً ثانياً حين لا حاجز قريب", () => {
+    const mk = (a) => a.map(p => ({ p, names: new Set(["قمة سابقة"]) }));
+    const near = planPair({ px: 100, atr: 3, supAll: mk([98]), resAll: mk([106, 112]) }, 1);
+    if (!near.b) throw new Error("حاجزٌ قريب بلا مسار ثانٍ");
+    if (near.b.entry !== 100) throw new Error(`دخول ب ${near.b.entry}`);
+    // ودخولُ ب أبعدُ عن وقفه، فمخاطرتُه أكبر — هذه هي المفاضلة المقيسة
+    if (!(near.b.risk > near.a.risk)) throw new Error("مخاطرة ب ليست أكبر");
+    const far = planPair({ px: 100, atr: 3, supAll: mk([80]), resAll: mk([106, 112]) }, 1);
+    if (far.b !== null) throw new Error("مسارٌ ثانٍ مضاعِف بلا حاجز");
+    return "بحاجز ب موجودة · بلا حاجز null";
   });
 
   t("كل شرط في SCANS قابل للتتبّع الحيّ", () => {

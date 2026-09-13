@@ -4433,30 +4433,41 @@ const LOG_ST = { win: "رابحة", loss: "خاسرة", flat: "انتهى أفق
 /* نفس منطق `verdictOf` على الخادم. مكرَّرٌ هنا لأن الواجهة تصنّف صفقات
    محمَّلة من ملف لا تمرّ بالخادم مرة أخرى — والحالة تُقرأ من `out.st`
    المحفوظة، فلا حساب مستقلاً يمكن أن يتباعد. */
-function verdictOfTrade(s) {
-  const st = s.out && s.out.st;
+/* مرآةُ `TRACKS` في `track-signals.mjs` — والحقول هي الحقول نفسها، فما
+   يقرأه المتصفح هو ما كتبه الخادم بلا ترجمةٍ بينهما. */
+const TR = {
+  a: { out: "out",  open: "open",  t: (s) => s.t || [] },
+  b: { out: "outB", open: "openB", t: (s) => (s.b && s.b.t) || [] }
+};
+
+function verdictOfTrade(s, tr = "a") {
+  const T = TR[tr] || TR.a;
+  const st = s[T.out] && s[T.out].st;
   if (!st) return "unknown";
   if (st === "wait") return "wait";
-  if (st === "t1" || st === "t2" || st === "t3") return s.open ? "running" : "win";
+  if (st === "t1" || st === "t2" || st === "t3") return s[T.open] ? "running" : "win";
   if (st === "stop") return "loss";
   if (st === "expired") return "flat";
   if (st === "cancel") return "cancel";
   return "running";
 }
 
-function logStats(trades) {
-  const withSnap = trades.filter(s => s.snap && s.mkt !== "crypto");
-  const entered = withSnap.filter(s => s.out && s.out.st !== "wait" && s.out.st !== "cancel");
-  const closed = entered.filter(s => !s.open);
-  const v = (k) => closed.filter(s => verdictOfTrade(s) === k).length;
+function logStats(trades, tr = "a") {
+  const T = TR[tr] || TR.a;
+  const O = (s) => s[T.out];
+  // مقام المسار الثاني سجلّاتُه وحدها — نفس قاعدة الخادم حرفياً
+  const withSnap = trades.filter(s => s.snap && s.mkt !== "crypto" && (tr !== "b" || s.snap.b));
+  const entered = withSnap.filter(s => O(s) && O(s).st !== "wait" && O(s).st !== "cancel");
+  const closed = entered.filter(s => !s[T.open]);
+  const v = (k) => closed.filter(s => verdictOfTrade(s, tr) === k).length;
 
   const hitRate = (i) => {
-    const pool = entered.filter(s => (s.snap.t || []).length > i);
-    return pool.length ? pool.filter(s => s.out.hit[i] !== null).length / pool.length * 100 : null;
+    const pool = entered.filter(s => T.t(s.snap).length > i);
+    return pool.length ? pool.filter(s => O(s).hit[i] !== null).length / pool.length * 100 : null;
   };
   const timeTo = (i) => {
-    const a = entered.filter(s => s.out.hit[i] !== null && s.out.enterAt)
-      .map(s => s.out.hit[i] - s.out.enterAt).filter(Number.isFinite).sort((x, y) => x - y);
+    const a = entered.filter(s => O(s).hit[i] !== null && O(s).enterAt)
+      .map(s => O(s).hit[i] - O(s).enterAt).filter(Number.isFinite).sort((x, y) => x - y);
     if (!a.length) return null;
     // الوسيط لا المتوسط: صفقةٌ بلغت هدفها بعد 27 يوماً تُزيح المتوسط وحدها
     const m = a.length >> 1;
@@ -4464,8 +4475,8 @@ function logStats(trades) {
   };
   const byDir = (d) => {
     const g = closed.filter(s => (s.snap.dir === -1 ? -1 : 1) === d);
-    const w = g.filter(s => verdictOfTrade(s) === "win").length;
-    const l = g.filter(s => verdictOfTrade(s) === "loss").length;
+    const w = g.filter(s => verdictOfTrade(s, tr) === "win").length;
+    const l = g.filter(s => verdictOfTrade(s, tr) === "loss").length;
     return { n: g.length, win: w, loss: l, rate: (w + l) ? w / (w + l) * 100 : null };
   };
   return { total: withSnap.length,
@@ -4473,12 +4484,12 @@ function logStats(trades) {
     // خانة يفبرك رقماً — فتُعلَن بعددها وتخرج
     noSnap: trades.filter(s => !s.snap).length,
     crypto: trades.filter(s => s.mkt === "crypto").length,
-    waiting: withSnap.filter(s => s.out && s.out.st === "wait").length,
-    cancelled: withSnap.filter(s => s.out && s.out.st === "cancel").length,
-    open: entered.filter(s => s.open).length, closed: closed.length,
+    waiting: withSnap.filter(s => O(s) && O(s).st === "wait").length,
+    cancelled: withSnap.filter(s => O(s) && O(s).st === "cancel").length,
+    open: entered.filter(s => s[T.open]).length, closed: closed.length,
     win: v("win"), loss: v("loss"), flat: v("flat"),
     t1: hitRate(0), t2: hitRate(1), t3: hitRate(2),
-    stopRate: closed.length ? closed.filter(s => s.out.st === "stop").length / closed.length * 100 : null,
+    stopRate: closed.length ? closed.filter(s => O(s).st === "stop").length / closed.length * 100 : null,
     ttT1: timeTo(0), ttT2: timeTo(1), ttT3: timeTo(2), up: byDir(1), dn: byDir(-1) };
 }
 
@@ -4519,6 +4530,35 @@ function renderLogStats(trades) {
     `<div class="row"><div class="l"><span style="color:${c}">${lbl}</span>
       <small>${bd(g.n)} مغلقة · ${bd(g.win)} رابحة · ${bd(g.loss)} خاسرة</small></div>
       <div class="r num">${rate(g.rate)}</div></div>`).join("")}`;
+
+  /* ---------- المساران: دخولُ الارتداد مقابل دخول السوق ----------
+     أهمّ رقمٍ في الشاشة كان غائباً عنها: نسبةُ الخطط التي لم تُفعَّل قط.
+     خطةٌ دخولها عند دعمٍ لا يأتي ليست صفقةً خاسرة — هي صفقةٌ **لم تقع**،
+     والنظام كان يقيس قاعدةً تُلغي أغلب إشاراتها بلا أن يقول ذلك. */
+  const sB = logStats(trades, "b");
+  const notTriggered = s.total ? s.waiting / s.total * 100 : null;
+  html += `<div class="sep"></div>
+    <div style="font-size:12.5px;color:var(--mut);margin-bottom:6px">الدخول: ارتدادٌ مقابل سوق</div>
+    <div class="row"><div class="l">خطط لم تُفعَّل قط
+      <small>دخولها عند حاجزٍ لم يلمسه السعر — لا خسارة ولا ربح، صفقةٌ لم تقع</small></div>
+      <div class="r num" style="color:${notTriggered !== null && notTriggered >= 50 ? "var(--dn)" : "var(--tx)"}">${
+        notTriggered === null ? "—" : bd(s.waiting) + " من " + bd(s.total)}</div></div>`;
+  if (notTriggered !== null)
+    html += `<div class="row"><div class="l">نسبتها<small>من كل خطة لها لقطة ثابتة</small></div>
+      <div class="r num">${rate(notTriggered)}</div></div>`;
+  if (sB.total) {
+    html += `<div class="row"><div class="l">دخول السوق — مقياسٌ موازٍ
+        <small>نفس الإشارة بدخولٍ فوري: مخاطرةٌ أكبر وعائدٌ أسوأ، مقابل أنه يقع دائماً</small></div>
+        <div class="r num">${bd(sB.open)} جارية · ${bd(sB.closed)} مغلقة</div></div>`;
+    if (sB.closed || s.closed)
+      html += `<div class="row"><div class="l">نسبة النجاح — المساران<small>لكلٍّ مقامُه: المغلقات التي دخلت فعلاً</small></div>
+        <div class="r num">ارتداد ${s.win + s.loss ? rate(s.win / (s.win + s.loss) * 100) : "—"}
+          · سوق ${sB.win + sB.loss ? rate(sB.win / (sB.win + sB.loss) * 100) : "—"}</div></div>`;
+  }
+  html += `<p class="srcline" style="text-align:right">${sB.total
+    ? `المسار الثاني يُقاس على <b class="num">${bd(sB.total)}</b> سجلاً — وهي التي بدأت بعد تفعيله.
+       السجلّات الأقدم لا تُحشى بأثر رجعي لأن لقطةً تُبنى بعد الحدث تدّعي أنها رأت ما لم ترَه.`
+    : `المسار الثاني يبدأ من أول إشارة جديدة — ولا يُملأ بأثر رجعي.`}</p>`;
 
   const notes = [];
   if (s.cancelled) notes.push(`${bd(s.cancelled)} ملغاة (انتهى أفقها بلا أن يُلمس دخولها) — خارج النسب`);
@@ -4757,6 +4797,41 @@ function planSelfTest() {
   ok("هبوط: المخاطرة موجبة", dn && dn.risk > 0);
   ok("هبوط: العائد موجب", dn && dn.rr > 0);
   ok("هبوط: أهدافه من الدعوم 98/94/88", dn && near(dn.targets[0].p, 98) && near(dn.targets[2].p, 88));
+
+  /* ٢ب) المسار الثاني — الدخول بالسوق.
+     القيم محسوبة يدوياً من القاعدة نفسها لا ملتقطة من تشغيل: الدخول 100،
+     والوقف أبعدُ الثلاثة ‎max(100−1.5, 100−3, 98−1.5)‎ = 96.5، فالمخاطرة
+     3.5، والهدف 101 يسقط لأن بُعده 1 أقلّ من ATR. */
+  const upB = planFrom(IN, 1, { atMarket: true });
+  ok("سوق صعود: الدخول عند السعر 100", upB && near(upB.entry, 100));
+  ok("سوق صعود: الوقف مرساةً على الحاجز 96.5", upB && near(upB.stop, 96.5));
+  ok("سوق صعود: المخاطرة 3.5 — أكبر من 3", upB && near(upB.risk, 3.5) && upB.risk > up.risk);
+  ok("سوق صعود: الهدف الأقرب من ATR يسقط", upB && upB.targets.length === 3
+    && near(upB.targets[0].p, 106) && near(upB.targets[2].p, 120));
+  ok("سوق صعود: مستويات الأهداف لم تُخترع — كلها من resAll",
+    upB && upB.targets.every(t => [101, 106, 112, 120].some(v => near(t.p, v))));
+  ok("سوق صعود: عائد نفس الهدف 106 أسوأ (1.714 مقابل 2.667)",
+    upB && near((106 - upB.entry) / upB.risk, 6 / 3.5) && (6 / 3.5) < up.rr);
+  ok("سوق صعود: البوابة لا تجد خللاً", upB && validatePlan(upB).length === 0, JSON.stringify(validatePlan(upB)));
+
+  const dnB = planFrom(IN, -1, { atMarket: true });
+  ok("سوق هبوط: الدخول عند السعر 100", dnB && near(dnB.entry, 100));
+  ok("سوق هبوط: الوقف فوق الدخول 103", dnB && near(dnB.stop, 103));
+  ok("سوق هبوط: العائد أسوأ من الارتداد", dnB && dnB.rr < dn.rr);
+  ok("سوق هبوط: الأهداف من الدعوم لا مخترعة",
+    dnB && dnB.targets.every(t => [98, 94, 88].some(v => near(t.p, v))));
+  ok("سوق هبوط: البوابة لا تجد خللاً", dnB && validatePlan(dnB).length === 0, JSON.stringify(validatePlan(dnB)));
+
+  /* ٢ج) `planPair` — متى يكون المسار الثاني متمايزاً */
+  const pr = planPair(IN, 1);
+  ok("الزوج: أ مطابقة تماماً لـ planFrom بلا خيارات", pr.a && near(pr.a.entry, up.entry)
+    && near(pr.a.stop, up.stop) && near(pr.a.rr, up.rr));
+  ok("الزوج: ب موجودة حين يوجد حاجز", pr.b && near(pr.b.entry, 100));
+  // بلا حاجزٍ قريب يدخل المساران عند السعر نفسه، فتسجيلهما يضاعف الصفقة
+  const NOBAR = { px: 100, atr: 3, supAll: mk([80]), resAll: mk([106, 112]) };
+  const prN = planPair(NOBAR, 1);
+  ok("الزوج: أ تدخل عند السعر حين لا حاجز قريب", prN.a && prN.a.entryIsNow === true);
+  ok("الزوج: ولا مسار ثانٍ عندها — لا تُضاعَف الصفقة", prN.b === null);
 
   /* ٣) قاعدة الاتجاه التي طُلبت حرفياً */
   [[up, 1, "صعود"], [dn, -1, "هبوط"]].forEach(([p, d, lbl]) => {
