@@ -305,6 +305,31 @@ details b{color:var(--tx)}
 .tabbar button.on::before{content:"";position:absolute;top:0;right:22%;left:22%;height:2px;
   border-radius:0 0 3px 3px;background:var(--grad)}
 .side-brand{display:none}
+/* ---------- إيداعات SEC ---------- */
+/* الوزن شريطٌ جانبي لا رقم: القارئ لا يعرف ما تعنيه «3»، ويقرأ اللون
+   بطرف العين. والحدّ على البداية لأن الاتجاه RTL. */
+.fil{background:var(--card2);border:1px solid var(--line);border-radius:var(--r3);
+  padding:9px 11px;margin-bottom:7px;border-inline-start:3px solid var(--line2)}
+.fil.w3{border-inline-start-color:var(--dn)}
+.fil.w2{border-inline-start-color:var(--neu)}
+.fil.w1{border-inline-start-color:var(--line2)}
+.fil-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.fil-sym{background:none;border:0;padding:0;color:var(--tx);font-family:inherit;
+  font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:baseline;gap:6px}
+.fil-sym i{font-style:normal;font-size:10.5px;color:var(--dim);font-weight:600;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr}
+.fil-sym:hover{color:var(--acc)}
+.fil-form{font-size:10.5px;font-weight:700;color:var(--mut);border:1px solid var(--line2);
+  border-radius:3px;padding:0 5px;font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr}
+.fil-at{font-size:11px;color:var(--dim);margin-inline-start:auto}
+.fil-bd{font-size:12.5px;line-height:1.75;color:var(--tx)}
+/* البنود تلتفّ ولا تُقصّ: اسمُ البند هو المعلومة كلّها، وقصُّه بثلاث
+   نقاط يجعل «عدم جواز الاعتماد على قوائم…» و«عدم جواز…» سواء */
+.fil-item{display:inline-block;background:var(--card3);border-radius:3px;
+  padding:1px 7px;margin:2px 0 2px 5px;font-size:11.5px;color:var(--tx)}
+.fil-sub{display:block;font-size:11.5px;color:var(--mut);margin-top:1px}
+.fil-lnk{display:inline-block;font-size:11px;color:var(--dim);margin-top:5px}
+.fil-lnk:hover{color:var(--acc)}
 .skl{background:linear-gradient(90deg,var(--card2),#28313f,var(--card2));background-size:200% 100%;
   animation:sh 1.4s infinite;border-radius:7px;height:14px}
 @keyframes sh{to{background-position:-200% 0}}
@@ -881,7 +906,13 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>📰 أخبار السهم</h2>
+    <h2>إيداعاته الرسمية <small>SEC</small></h2>
+    <p class="hint">إفصاحاتُ الشركة وتداولاتُ مطّلعيها كما وردت إلى الهيئة — قبل أن يكتب عنها أحد</p>
+    <div id="symFil"><div class="skl" style="height:70px"></div></div>
+  </div>
+
+  <div class="card">
+    <h2>أخبار السهم</h2>
     <div id="symNews"><div class="skl" style="height:80px"></div></div>
   </div>
 
@@ -1023,8 +1054,24 @@ details[open]{background:var(--card2)}
 
 <!-- ================= الأخبار ================= -->
 <section data-view="news">
+  <!-- الإيداعات قبل الأخبار: هي المصدر الأوّلي وما تحته نقلٌ عنه، والترتيب
+       يقول ذلك بلا شرح. -->
   <div class="card">
-    <h2>📰 أخبار السوق</h2>
+    <h2>إيداعات رسمية <small>SEC</small></h2>
+    <p class="hint">من هيئة الأوراق والبورصات الأمريكية مباشرة — لا نقلاً عن خبر.
+      نموذج <b>8-K</b> إفصاحٌ عن حدث جوهري تُلزَم الشركة بإيداعه، و<b>Form 4</b>
+      تداولُ مطّلع (مسؤول أو عضو مجلس) يُودَع خلال يومَي عمل.</p>
+    <div class="scans" id="filFilter">
+      <button data-fil="" class="on">الكل</button>
+      <button data-fil="heavy">الثقيلة فقط</button>
+      <button data-fil="8-K">8-K</button>
+      <button data-fil="4">تداول مطّلعين</button>
+      <button data-fil="buy">شراء مطّلعين</button>
+    </div>
+    <div id="filList"><div class="skl" style="height:120px"></div></div>
+  </div>
+  <div class="card">
+    <h2>أخبار السوق</h2>
     <p class="hint">من غرف أخبار اقتصادية عربية وعالمية · ما كان بالإنجليزية يُترجم آلياً ويبقى أصله تحته</p>
     <div id="newsList"><div class="skl" style="height:150px"></div></div>
   </div>
@@ -3719,6 +3766,12 @@ const LAZY = {
     if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
   },
   "news.json": (n) => { state.news = n; renderNews(); if (state.sym) renderSymNews(); },
+  "filings.json": (f) => {
+    if (!f || !Array.isArray(f.rows)) return;
+    state.fil = f;
+    if (state.view === "news") renderFilings();
+    if (state.sym) renderSymFilings();
+  },
   "options.json": (j) => { state.opts = j; if (state.view === "opts") renderOpts(); },
   "analytics.json": (j) => {
     if (!j || !Array.isArray(j.rs)) return;
@@ -3750,7 +3803,8 @@ const LAZY_TTL = {
   "analytics.json": 3 * 3600e3,     // يومي
   "fundamentals.json": 3 * 3600e3,  // يومي
   "wide.json": 5 * 60e3,            // اليوميّ فيه يتجدّد بالتدوير
-  "news.json": 5 * 60e3             // مع كل دورة سوق
+  "news.json": 5 * 60e3,            // مع كل دورة سوق
+  "filings.json": 5 * 60e3          // دورةٌ مستقلّة كل عشر دقائق
 };
 const lazyWait = {};
 const lazyAt = {};
@@ -3852,6 +3906,7 @@ function renderDetail() {
                  ["المستويات", () => renderLevels(rec), "#levels"],
                  ["المؤشرات", () => renderIndicators(rec), "#indicators"],
                  ["الأداء النسبي", () => renderRSSym(rec.s), "#rsSymStats"],
+                 ["الإيداعات", () => renderSymFilings(), "#symFil"],
                  ["الأخبار", () => renderSymNews(), null],
                  ["الشارت", () => drawChart(), null]];
   prefillTrade();
@@ -5424,6 +5479,116 @@ function newsHTML(it) {
          : translated ? `<span class="tag-tr">مترجم آلياً</span>`
          : `<span class="tag-en">بالإنجليزية</span>`}</div></a>`;
 }
+/* =======================================================================
+   إيداعات SEC
+
+   الوزن يُرسَم ولا يُقال رقماً: القارئ لا يعرف ما تعنيه «3»، لكنه يرى
+   الشريط الأحمر فيقرأ الأولوية بطرف العين. والبنود تُسمّى كلّها لا
+   أهمُّها وحده — إيداعٌ ببندَي «نتائج مالية» و«مرفقات» يجب أن يقول
+   الاثنين، وحذفُ الثاني يجعل القارئ يظنّ أنّنا نخفي شيئاً.
+   ======================================================================= */
+const FIL_ITEMS = {
+  "1.01": "اتفاقية جوهرية جديدة", "1.02": "إنهاء اتفاقية جوهرية",
+  "1.03": "إفلاس أو حراسة قضائية", "1.05": "حادثة أمن معلومات جوهرية",
+  "2.01": "إتمام استحواذ أو بيع أصول", "2.02": "نتائج مالية ربعية أو سنوية",
+  "2.03": "التزام دَين جديد", "2.04": "تعجيل استحقاق دَين",
+  "2.05": "تكاليف إعادة هيكلة", "2.06": "انخفاض قيمة أصول",
+  "3.01": "إخلال بقواعد الإدراج", "3.02": "بيع أسهم غير مسجَّلة",
+  "3.03": "تعديل حقوق حاملي الأسهم", "4.01": "تغيير مراجع الحسابات",
+  "4.02": "عدم جواز الاعتماد على قوائم سابقة", "5.01": "تغيّر في السيطرة على الشركة",
+  "5.02": "تغيير في الإدارة أو المجلس", "5.03": "تعديل النظام الأساسي",
+  "5.07": "نتائج تصويت الجمعية العامة", "7.01": "إفصاح تنظيمي (Reg FD)",
+  "8.01": "حدث آخر جوهري", "9.01": "قوائم مالية ومرفقات"
+};
+const filItem = (c) => FIL_ITEMS[c] || `بند ${c}`;
+
+/* رموز العمليات — النسخة المعروضة. الخادم يقرّر `sig` ويحفظها في الملف،
+   فلا تُشتقّ هنا: اشتقاقُها في موضعين يجعل الواجهة تسمّي عمليةً «شراء»
+   والسجلَّ لا يعدّها. */
+const FIL_TX = { P: "شراء مباشر", S: "بيع", A: "منحة أسهم", M: "تنفيذ خيار",
+                 F: "أسهم محتجزة لضريبة", D: "تصرّف بلا مقابل", G: "هبة",
+                 C: "تحويل أداة", X: "ممارسة حق" };
+const filTx = (c) => FIL_TX[c] || (c ? `عملية ${c}` : "غير محدَّد");
+
+function filingHTML(r) {
+  const row = symRow(r.s);
+  const name = row ? nm(row) : r.s;
+  const isF4 = /^4/.test(r.form || "");
+  const w = r.w || (isF4 ? (r.tx && r.tx.sig ? 3 : 1) : 1);
+  const cls = w >= 3 ? "w3" : w === 2 ? "w2" : "w1";
+
+  let body;
+  if (isF4 && r.tx) {
+    const t = r.tx;
+    /* لا يُسمّى `money`: الاسم دالّةٌ عالمية في هذا الملف، وتظليلُها
+       بنصٍّ يجعل `money(t.price)` بعد سطرين ينهار — `esc` و`fmt` و`bd`
+       كلّها معرّضة لنفس الشيء داخل أيّ دالّة رسم. */
+    const notional = Number.isFinite(t.price) && Number.isFinite(t.shares)
+      ? ` بقيمة <span class="num">${compact(t.shares * t.price)}</span>` : "";
+    body = `<b style="color:${t.sig ? "var(--up)" : "var(--tx)"}">${esc(filTx(t.code))}</b>
+      ${Number.isFinite(t.shares) ? `<span class="num">${fmt(t.shares, 0)}</span> سهم` : ""}
+      ${Number.isFinite(t.price) ? `بسعر <span class="num">${money(t.price)}</span>` : ""}${notional}
+      ${t.n > 1 ? `<span class="fil-sub">مجموع ${bd(t.n)} عملية في الإيداع</span>` : ""}
+      <span class="fil-sub">${esc(t.who || "—")}${t.role ? " · " + esc(t.role) : ""}</span>`;
+  } else if (isF4) {
+    // الإيداع وصل ولم يُفصَّل بعد (سقف الطلبات) — نقول ذلك ولا نختلق
+    body = `<b>تداول مطّلع</b><span class="fil-sub">التفصيل لم يُقرأ بعد</span>`;
+  } else {
+    const items = (r.items || []);
+    body = items.length
+      ? items.map(c => `<span class="fil-item">${esc(filItem(c))}</span>`).join("")
+      : `<span class="fil-sub">بلا بنود معلنة</span>`;
+  }
+
+  return `<div class="fil ${cls}">
+    <div class="fil-hd">
+      <button class="fil-sym" data-sym="${esc(r.s)}">${esc(name)}${
+        name === r.s ? "" : `<i>${esc(r.s)}</i>`}</button>
+      <span class="fil-form">${esc(r.form || "")}</span>
+      <span class="fil-at">${r.at ? ago(r.at) : "—"}</span>
+    </div>
+    <div class="fil-bd">${body}</div>
+    <a class="fil-lnk" href="${esc(r.href || "#")}" target="_blank" rel="noopener">المستند الأصلي ↗</a>
+  </div>`;
+}
+
+let filFil = "";
+function renderFilings() {
+  const el = $("#filList"); if (!el) return;
+  const f = state.fil;
+  if (!f) { el.innerHTML = `<div class="skl" style="height:120px"></div>`; return; }
+  let rows = f.rows.slice();
+  if (filFil === "heavy") rows = rows.filter(r => (r.w || 0) >= 3 || (r.tx && r.tx.sig));
+  else if (filFil === "8-K") rows = rows.filter(r => /^8-K/.test(r.form || ""));
+  else if (filFil === "4") rows = rows.filter(r => /^4/.test(r.form || ""));
+  else if (filFil === "buy") rows = rows.filter(r => r.tx && r.tx.sig);
+
+  /* العدد يُقال دائماً مع المدى الزمني: «لا إيداعات» تُقرأ عطلاً، و«لا
+     إيداعات في آخر 30 يوماً لرموز كوننا» تُقرأ حقيقة — والثانية هي
+     الواقع في عطلة نهاية الأسبوع. */
+  const head = `<p class="hint" style="margin:2px 0 10px">${
+    rows.length ? `${bd(rows.length)} إيداعاً` : "لا إيداعات مطابقة"} ·
+    آخر 30 يوماً · حُدّثت ${ago(f.updated)}</p>`;
+
+  el.innerHTML = head + (rows.length
+    ? rows.slice(0, 120).map(filingHTML).join("")
+    : `<div class="empty">لا إيداعات بهذا المرشّح</div>`);
+  el.querySelectorAll(".fil-sym").forEach(b => b.onclick = () => openSymbol(b.dataset.sym));
+}
+
+/* على شاشة السهم: إيداعاته وحدها، وأحدثُ خمسة. الإيداع القديم يُقرأ في
+   شاشة الأخبار، وحشوُ بطاقة السهم بثلاثين إيداعاً يدفع الخطة تحت الشاشة. */
+function renderSymFilings() {
+  const el = $("#symFil"); if (!el) return;
+  const f = state.fil;
+  if (!f) { el.innerHTML = `<div class="empty">لم تصل بعد</div>`; return; }
+  const rows = f.rows.filter(r => r.s === state.sym).slice(0, 5);
+  el.innerHTML = rows.length
+    ? rows.map(filingHTML).join("")
+    : `<div class="empty">لا إيداعات لهذا الرمز في آخر 30 يوماً</div>`;
+  el.querySelectorAll(".fil-sym").forEach(b => b.onclick = () => openSymbol(b.dataset.sym));
+}
+
 function renderNews() {
   const el = $("#newsList");
   const items = state.news && state.news.market;
@@ -5589,7 +5754,7 @@ function go(view) {
   if (view === "list") renderList();
   if (view === "screen") { need("fundamentals.json"); renderScreen(); renderEarnings(); renderArchive(); }
   if (view === "opts") { need("options.json"); need("wide.json"); renderOpts(); }
-  if (view === "news") need("news.json");
+  if (view === "news") { need("news.json"); need("filings.json"); }
   if (view === "analysis") {
     need("fundamentals.json"); need("analytics.json");
     renderAnalysis(); renderSectorMedians(); renderCompare(); renderDerived();
@@ -5790,6 +5955,15 @@ function boot() {
   }
 
   $$("#tabbar button").forEach(b => b.onclick = () => go(b.dataset.go));
+  /* مرشّح الإيداعات: أزرارٌ ثابتة في الهيكل فتُربَط مرّةً واحدة هنا،
+     لا في `renderFilings` — الربطُ عند كل رسمٍ يضيف مستمعاً جديداً
+     في كل تحديث. (وهذا يخالف `<select>` شروط السجل: تلك تُعاد بناءً
+     لأن **خياراتها** تأتي من البيانات، وهذه خياراتها ثابتة.) */
+  $$("#filFilter button").forEach(b => b.onclick = () => {
+    filFil = b.dataset.fil;
+    $$("#filFilter button").forEach(x => x.classList.toggle("on", x === b));
+    renderFilings();
+  });
   $("#btnBack").onclick = () => go(state.from || "list");
   $("#btnRefresh").onclick = () => refresh(true);
   $("#qFav").onclick = () => setFavOnly(!state.favOnly);
