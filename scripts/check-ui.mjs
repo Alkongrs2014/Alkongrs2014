@@ -160,5 +160,24 @@ t("لا اعتماد خارجي غير خطوط جوجل", () => {
   return "الخطوط وحدها";
 });
 
+/* ---------- ١١ قائمة منع النشر لا تحجب ملفاً تقرؤه الواجهة ----------
+   `publish()` يستبعد حالةَ الخادم من الدفعة. والخطر أن يُستبعَد يوماً ملفٌ
+   **تقرؤه** الواجهة: لا خطأ في أي فحص، ولا شيء محلياً — والموقع المنشور
+   وحده يرى 404 فيسقط قسمٌ كامل بصمت. فالقائمتان تُقابلان هنا. */
+t("لا ملف تنشره الواجهةُ وهو ممنوع من النشر", () => {
+  const run = fs.readFileSync(path.join(ROOT, "local", "run.mjs"), "utf8");
+  const m = run.match(/NO_PUBLISH\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+  if (!m) throw new Error("لم أجد NO_PUBLISH في local/run.mjs");
+  const denied = [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1]);
+  if (!denied.length) throw new Error("قائمة المنع فارغة");
+
+  // ما تطلبه الواجهة فعلاً: الصفحة وعامل الخدمة معاً
+  const sw = fs.readFileSync(path.join(DIR, "sw.js"), "utf8");
+  const wanted = new Set([...(html + sw).matchAll(/([A-Za-z0-9_-]+\.json)/g)].map(x => x[1]));
+  const clash = denied.filter(d => wanted.has(d));
+  if (clash.length) throw new Error(`ممنوعٌ من النشر وتقرؤه الواجهة: ${clash.join(" · ")}`);
+  return `${denied.length} ممنوعاً · ${wanted.size} ملفاً تطلبه الواجهة`;
+});
+
 console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل`);
 process.exit(fail ? 1 : 0);

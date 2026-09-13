@@ -187,9 +187,28 @@ function publish() {
 
   const stage = path.join(os.tmpdir(), "webtrade-publish");
   fs.rmSync(stage, { recursive: true, force: true });
-  // القفل ملف تشغيل محلي لا بيانات، ونشره يعني دفعة جديدة كل دورة
-  // لمجرد تغيّر رقم العملية
-  fs.cpSync(DATA, stage, { recursive: true, filter: (src) => path.basename(src) !== ".run.lock" });
+
+  /* ما لا يُنشر — قائمة **منع** لا قائمة سماح.
+   *
+   * قائمة السماح تُسقط أي ملف بيانات جديد **بصمت**: يُضاف مُنتَجٌ إلى
+   * `data/` وتقرؤه الواجهة، فتجده 404 على الويب ولا شيء يقول لماذا.
+   * وهو عطلٌ أسوأ بكثير من بضع مئات الكيلوبايتات.
+   *
+   * والثلاثة هنا حالةُ خادمٍ بحتة لا يقرؤها المتصفح إطلاقاً:
+   *   `.run.lock`  ملف تشغيل — نشرُه دفعةٌ جديدة كل دورة لتغيّر رقم عملية
+   *   `i18n.json`  ذاكرة الترجمة (430 ك.ب) — يقرؤها `fetch-news` وحده
+   *   `cik.json`   خريطة CIK لـSEC (205 ك.ب) — يقرؤها `fetch-filings` وحده
+   *
+   * و`check-ui` يحرس القائمة: ملفٌ تشير إليه الواجهة لا يجوز أن يدخلها.
+   */
+  const NO_PUBLISH = new Set([".run.lock", "i18n.json", "cik.json"]);
+  let skipped = 0;
+  for (const n of NO_PUBLISH) {
+    if (n === ".run.lock") continue;
+    try { skipped += fs.statSync(path.join(DATA, n)).size; } catch {}
+  }
+  fs.cpSync(DATA, stage, { recursive: true, filter: (src) => !NO_PUBLISH.has(path.basename(src)) });
+  if (skipped) console.log(`  ⤫ استُبعد ${Math.round(skipped / 1024)} ك.ب حالةَ خادمٍ لا يقرؤها المتصفح`);
 
   // اسم المؤلّف من إعدادات المستودع الأب إن وُجد، وإلا اسم محايد
   const cfg = (k, d) => { try { return git(["config", k], ROOT) || d; } catch { return d; } };

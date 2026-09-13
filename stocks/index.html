@@ -509,6 +509,27 @@ details[open]{background:var(--card2)}
 .meter-needle{height:21px;box-shadow:0 0 10px rgba(0,0,0,.85),0 0 4px rgba(255,255,255,.5)}
 .empty{padding:34px 12px;font-size:13.5px}
 .disclaimer{opacity:.85}
+
+/* ---------- الطباعة ----------
+   الشاشة داكنة، والورق أبيض. الطباعة بلا أنماط تُخرج صفحاتٍ سوداء تستهلك
+   الحبر وتُخفي النص الفاتح. وما لا معنى له على الورق يُحذف: شريط التبويبات
+   وأزرار التحديث والكواشف المطوية — نقرةٌ لا تقع على ورق.
+   والكواشف تُفتح كلها: `<details>` مطويّ على الورق نصٌّ مفقود لا نصٌّ مخفيّ. */
+@media print{
+  :root{--bg:#fff;--card:#fff;--card2:#fff;--card3:#fff;--tx:#111;--mut:#555;
+        --line:#ccc;--line2:#bbb;--up:#067647;--dn:#b3261e;--neu:#8a6d00}
+  body{background:#fff;color:#111}
+  .tabbar,.refresh,.back,.toolbar,#ovToggle,.tf-picker,.scans,.srcline{display:none !important}
+  main{display:block;padding:0}
+  .card{break-inside:avoid;border:1px solid #ccc;box-shadow:none;background:#fff;
+        column-span:all;margin:0 0 10px}
+  details{display:block}
+  details>*{display:revert}
+  summary{font-weight:700;list-style:none}
+  summary::before{content:"" !important}
+  canvas{max-width:100%}
+  a[href]::after{content:""}          /* الروابط داخلية، وطبعُ عنوانها ضجيج */
+}
 </style>
 </head>
 <body>
@@ -1473,7 +1494,7 @@ details[open]{background:var(--card2)}
     <path d="M4 5.5h12.5v13H6a2 2 0 0 1-2-2z"/><path d="M16.5 9H20v7.5a2 2 0 0 1-2 2"/>
     <path d="M7 9h6.5M7 12.5h6.5M7 16h4"/></g>
 </defs></svg>
-<nav class="tabbar" id="tabbar">
+<nav class="tabbar" id="tabbar" role="tablist" aria-label="أقسام التطبيق">
   <div class="side-brand">
     <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
       <rect x="1.2" y="1.2" width="29.6" height="29.6" rx="9" fill="url(#lgo)" opacity=".14"/>
@@ -6033,14 +6054,29 @@ function checkAlerts() {
 /* =======================================================================
    8) التنقّل
    ======================================================================= */
+/* حالةُ الشريط — تُنادى من `go` ومن الإقلاع معاً. كانت داخل `go` وحدها،
+   و`go` لا تُنادى عند الإقلاع (الشاشة الأولى مُعلَّمة في الهيكل)، فيبقى
+   الشريط بلا `role` حتى أول نقرة — أي أن قارئ الشاشة يرى سبعة أزرارٍ
+   متفرّقة في الحالة التي يفتح عليها المستخدمُ التطبيقَ فعلاً. */
+function syncTabs(active) {
+  $$("#tabbar button").forEach(b => {
+    const on = b.dataset.go === active;
+    b.classList.toggle("on", on);
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", String(on));
+    // تبويبٌ واحد في ترتيب التنقّل لا سبعة: الأسهم تتنقّل بينها، وهو نمط
+    // `tablist` المعياري. سبعةُ مواقفَ تجعل الوصول إلى المحتوى يمرّ بها كلها
+    b.tabIndex = on ? 0 : -1;
+  });
+}
+
 function go(view) {
   state.view = view;
   $$("section[data-view]").forEach(s => s.classList.toggle("on", s.dataset.view === view));
   const isDetail = view === "detail";
   $("#btnBack").style.display = isDetail ? "" : "none";
   if (!isDetail) { state.sym = null; $("#tbTitle").textContent = "مرصد الأسهم الأمريكية"; }
-  $$("#tabbar button").forEach(b =>
-    b.classList.toggle("on", b.dataset.go === (isDetail ? (state.from || "list") : view)));
+  syncTabs(isDetail ? (state.from || "list") : view);
   window.scrollTo({ top: 0, behavior: "instant" });
   if (isDetail) setTimeout(drawChart, 60);
   // كل شاشة تطلب ما تحتاجه أول مرة تُفتح فيها
@@ -6250,6 +6286,44 @@ function boot() {
   }
 
   $$("#tabbar button").forEach(b => b.onclick = () => go(b.dataset.go));
+  syncTabs(state.view);        // الحالة الأولى قبل أن تقع أي نقرة
+
+  /* تنقّل الأسهم داخل شريط التبويبات. الاتجاه **مقلوب** لأن الواجهة
+     عربية: السهم الأيسر يتقدّم واليمين يرجع، كما يقرأ المستخدم. */
+  const tabbar = $("#tabbar");
+  if (tabbar) tabbar.addEventListener("keydown", (e) => {
+    const keys = { ArrowLeft: 1, ArrowRight: -1, Home: "first", End: "last" };
+    if (!(e.key in keys)) return;
+    const btns = $$("#tabbar button");
+    const i = btns.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    const k = keys[e.key];
+    const j = k === "first" ? 0 : k === "last" ? btns.length - 1
+            : (i + k + btns.length) % btns.length;
+    btns[j].focus(); go(btns[j].dataset.go);
+  });
+
+  /* اختصارات لوحة المفاتيح — ثلاثةٌ تُختصر بها أكثر الحركات تكراراً:
+       ‎/‎  إلى البحث      Esc  رجوعٌ من شاشة السهم      r  تحديث
+     ولا تُلتقط داخل حقلٍ نصّي، وإلا صار الكتابةُ في البحث تنقّلاً. */
+  document.addEventListener("keydown", (e) => {
+    const el = document.activeElement, tag = el && el.tagName;
+    const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (el && el.isContentEditable);
+    if (e.key === "Escape") {
+      if (typing) { el.blur(); return; }
+      if (state.view === "detail") { e.preventDefault(); $("#btnBack").click(); }
+      return;
+    }
+    if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "/") {
+      e.preventDefault();
+      go("list");
+      const q = $("#qSearch"); if (q) { q.focus(); q.select(); }
+    } else if (e.key === "r" || e.key === "R") {
+      e.preventDefault(); const rb = $("#btnRefresh"); if (rb) rb.click();
+    }
+  });
   /* مرشّح الإيداعات: أزرارٌ ثابتة في الهيكل فتُربَط مرّةً واحدة هنا،
      لا في `renderFilings` — الربطُ عند كل رسمٍ يضيف مستمعاً جديداً
      في كل تحديث. (وهذا يخالف `<select>` شروط السجل: تلك تُعاد بناءً
