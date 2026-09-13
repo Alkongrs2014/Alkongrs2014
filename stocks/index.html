@@ -980,14 +980,19 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>تنبيه سعر</h2>
-    <p class="hint">ينبّهك عند وصول هذا السهم لسعر تحدده — يعمل ما دام التطبيق مفتوحاً</p>
-    <div class="grid2">
+    <h2>تنبيه</h2>
+    <p class="hint">ينبّهك عند بلوغ سعرٍ تحدده أو تحقّق شرطٍ من شروط الماسح — يعمل ما دام التطبيق مفتوحاً</p>
+    <div class="fld"><label>نوع التنبيه</label>
+      <select id="aKind"><option value="price">سعر يبلغه السهم</option>
+        <option value="scan">شرطٌ يتحقّق على السهم</option></select></div>
+    <div class="grid2" id="aPriceRow">
       <div class="fld"><label>السعر</label><input id="aPrice" type="number" inputmode="decimal"></div>
       <div class="fld"><label>الاتجاه</label>
         <select id="aDir"><option value="above">عند الصعود فوق</option><option value="below">عند النزول تحت</option></select>
       </div>
     </div>
+    <div class="fld" id="aScanRow" style="display:none"><label>الشرط</label>
+      <select id="aScan"></select></div>
     <button class="btn gray" id="btnAddAlert">➕ إضافة تنبيه</button>
     <div id="alertList" style="margin-top:12px"></div>
     <div class="note" style="margin-top:10px">
@@ -1305,6 +1310,9 @@ details[open]{background:var(--card2)}
       <div class="fld"><label>السهم الثاني</label><select id="cmpB"></select></div>
     </div>
     <div id="cmpOut"></div>
+    <div class="chart-wrap" id="cmpChartWrap" style="display:none">
+      <canvas id="cmpChart" style="height:200px"></canvas></div>
+    <div class="legend" id="cmpLegend" style="display:none"></div>
   </div>
 
 
@@ -3819,7 +3827,11 @@ const LAZY = {
     if (state.view === "news") renderFilings();
     if (state.sym) renderSymFilings();
   },
-  "options.json": (j) => { state.opts = j; if (state.view === "opts") renderOpts(); },
+  "options.json": (j) => {
+    state.opts = j;
+    if (state.view === "opts") renderOpts();
+    if (state.view === "screen") renderEarnings();   // الحركة المتوقّعة للأرباح منه
+  },
   "analytics.json": (j) => {
     if (!j || !Array.isArray(j.rs)) return;
     state.an = j; state.rsIdx = null;
@@ -5621,6 +5633,71 @@ function renderSectorMedians() {
   بينما تُفسد المتوسط الحسابي وتجعل القطاع كله يبدو غير ما هو عليه.</p>`;
 }
 
+/* =======================================================================
+   أداء سهمين على مقياس واحد — نسبةٌ مئوية من نقطة البداية لا سعراً.
+
+   المقارنة بالسعر المطلق بلا معنى: سهمٌ بـ‎648‎ وآخر بـ‎20‎ يجعل الثاني
+   خطاً مسطّحاً على قاع الشارت مهما تحرّك. والتطبيع من أول شمعة **مشتركة**
+   لا من أول شمعةٍ لكلٍّ: سلسلتان تبدآن في تاريخين مختلفين تُقارَنان على
+   فترتين مختلفتين، فيبدو الأطولُ عمراً رابحاً دائماً.
+   ======================================================================= */
+const CMP_DAYS = 120;
+
+function drawCompare(a, b) {
+  const wrap = $("#cmpChartWrap"), lg = $("#cmpLegend"), cv = $("#cmpChart");
+  const hide = () => { wrap.style.display = "none"; lg.style.display = "none"; };
+  const A = state.symCache[a], B = state.symCache[b];
+  const ka = A && A.tf && A.tf["1d"] && A.tf["1d"].c, kb = B && B.tf && B.tf["1d"] && B.tf["1d"].c;
+  if (!ka || !kb || ka.length < 5 || kb.length < 5) return hide();
+
+  // المحاذاة بالتاريخ لا بالموضع: يومٌ ناقص في إحداهما يزيح المقارنة كلها
+  const mb = new Map(kb.map(c => [utcDay(c.t), c.c]));
+  const pairs = [];
+  for (const c of ka) { const v = mb.get(utcDay(c.t)); if (v > 0 && c.c > 0) pairs.push([c.t, c.c, v]); }
+  const win = pairs.slice(-CMP_DAYS);
+  if (win.length < 5) return hide();
+
+  wrap.style.display = ""; lg.style.display = "";
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (!W) return hide();
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+
+  const a0 = win[0][1], b0 = win[0][2];
+  const sa = win.map(p => (p[1] - a0) / a0 * 100), sb = win.map(p => (p[2] - b0) / b0 * 100);
+  const padL = 6, padR = 54, padT = 10, padB = 20;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  let hi = Math.max(...sa, ...sb), lo = Math.min(...sa, ...sb);
+  const pad = (hi - lo) * 0.1 || 1; hi += pad; lo -= pad;
+  const Y = (v) => padT + (hi - v) / (hi - lo) * ch;
+  const X = (i) => padL + i * (cw / (win.length - 1));
+
+  // خط الصفر هو المرجع كلّه — يُرسم أوضح من بقية الشبكة
+  g.font = "10px monospace"; g.textAlign = "left"; g.textBaseline = "middle";
+  for (let i = 0; i <= 4; i++) {
+    const v = hi - (hi - lo) * i / 4, y = Y(v);
+    g.strokeStyle = "rgba(255,255,255,.05)";
+    g.beginPath(); g.moveTo(padL, y); g.lineTo(padL + cw, y); g.stroke();
+    g.fillStyle = "#5f6c7e"; g.fillText((v >= 0 ? "+" : "") + v.toFixed(1) + "%", padL + cw + 6, y);
+  }
+  if (lo < 0 && hi > 0) {
+    g.strokeStyle = "rgba(255,255,255,.28)"; g.setLineDash([4, 4]);
+    g.beginPath(); g.moveTo(padL, Y(0)); g.lineTo(padL + cw, Y(0)); g.stroke(); g.setLineDash([]);
+  }
+  const line = (s, col) => {
+    g.strokeStyle = col; g.lineWidth = 1.8; g.beginPath();
+    s.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v)));
+    g.stroke();
+  };
+  line(sa, "#3b82f6"); line(sb, "#e8b93b");
+
+  const endA = sa[sa.length - 1], endB = sb[sb.length - 1];
+  const tag = (s, c, v) => `<span><i style="background:${c}"></i>${esc(s)}
+    <b class="num" style="color:${v >= 0 ? "var(--up)" : "var(--dn)"}">${pct(v, 1)}</b></span>`;
+  lg.innerHTML = tag(a, "#3b82f6", endA) + tag(b, "#e8b93b", endB)
+    + `<span style="color:var(--mut)">${bd(win.length)} يوم تداول مشترك · من نقطة بداية واحدة</span>`;
+}
+
 function renderCompare() {
   const out = $("#cmpOut");
   if (!out) return;
@@ -5629,6 +5706,13 @@ function renderCompare() {
   if (!F || !a || !b || a === b) { out.innerHTML = `<div class="note">اختر سهمين مختلفين للمقارنة.</div>`; return; }
   const fa = F[a], fb = F[b], ra = symRow(a), rb = symRow(b);
   if (!fa || !fb) { out.innerHTML = `<div class="note">أحد السهمين بلا بيانات أساسية.</div>`; return; }
+
+  /* ملفّا الشمعات يُطلبان عند اختيار السهمين لا مع فتح الشاشة. والحارس
+     يقارن الاختيار الحالي بعد الانتظار: مَن بدّل اختياره أثناء الجلب
+     كان يرى شارت اختياره السابق يُرسم فوق الجديد. */
+  Promise.all([getSymbol(a), getSymbol(b)])
+    .then(() => { if ($("#cmpA").value === a && $("#cmpB").value === b) drawCompare(a, b); })
+    .catch(() => { const w = $("#cmpChartWrap"); if (w) w.style.display = "none"; });
 
   // hi=true يعني الأعلى أفضل. التسعير عكسه، ولذلك لا يُقارَن بين قطاعين
   const M = [
@@ -5757,16 +5841,42 @@ function renderEarnings() {
     .sort((a, b) => a.f.earnings.at - b.f.earnings.at)
     .slice(0, 14);
   if (!list.length) { el.innerHTML = `<div class="empty">لا مواعيد أرباح معروفة حالياً</div>`; return; }
+
+  /* الحركة التي يسعّرها السوق للأرباح — من `er.em` في ملخّص العقود، وهو
+     ستراد على استحقاقٍ **يغطّي تاريخ الإعلان**. استحقاقٌ ينتهي قبله لا
+     يسعّره أصلاً، وحركتُه تصف أسبوعاً عادياً وتُقرأ خطأً على أنها حركة
+     الأرباح — ولهذا يُقرأ `er` لا `nx`.
+
+     والملفّ 372 ك.ب لا يُسحب مع فتح الشاشة: التقويم يظهر فوراً من
+     الأساسيات، والرقم يُطلب بنقرةٍ صريحة (أو يظهر وحده إن كان الملف
+     محمَّلاً أصلاً من تبويب العقود). */
+  // `rows` مصفوفةٌ لا خريطة — الفهرسة بالرمز تُبنى مرة لا مرةً لكل صفّ
+  const O = state.opts && Array.isArray(state.opts.rows)
+    ? new Map(state.opts.rows.map(x => [x.s, x])) : null;
   el.innerHTML = list.map(({ r, f }) => {
     const d = Math.ceil((f.earnings.at - now) / 86400000);
     const soon = d <= 7;
+    const or = O && O.get(r.s);
+    const em = or && or.er && or.er.em;
     return `<div class="row" style="cursor:pointer" data-open="${esc(r.s)}">
       <div class="l"><span class="tick">${esc(r.s)}</span> ${esc(nm(r))}
         <small>${new Date(f.earnings.at).toLocaleDateString(AR, { weekday: "long", month: "long", day: "numeric" })}${
-          f.earnings.estimated ? " · تاريخ تقديري" : ""}</small></div>
+          f.earnings.estimated ? " · تاريخ تقديري" : ""}${
+          em ? ` · يسعّر السوق حركة ‎±${fmt(em.pct, 1)}%‎ (${money(em.abs)})` : ""}</small></div>
       <div class="r" style="color:${soon ? "var(--neu)" : "var(--mut)"}">${
         d <= 0 ? "اليوم" : `بعد ${bd(d)} يوم`}</div></div>`;
   }).join("");
+
+  if (!O) {
+    el.innerHTML += `<p class="srcline" style="text-align:right">
+      <button class="btn" data-emload="1" type="button">أظهر الحركة التي يسعّرها السوق</button>
+      — من عقود الخيارات (372 ك.ب، لا تُسحب مع فتح الشاشة)</p>`;
+    const b = el.querySelector("[data-emload]");
+    if (b) b.onclick = () => { b.disabled = true; b.textContent = "جارِ الجلب…"; need("options.json"); };
+  }
+  else if (!list.some(({ r }) => { const x = O.get(r.s); return x && x.er && x.er.em; }))
+    el.innerHTML += `<p class="srcline" style="text-align:right">لا استحقاق يغطّي أياً من
+      هذه المواعيد بعد — الحركة المسعَّرة تظهر حين يُدرَج استحقاقٌ بعد تاريخ الإعلان.</p>`;
 }
 
 /* ---------- الأخبار ---------- */
@@ -6007,13 +6117,16 @@ function calc() {
 /* =======================================================================
    7) التنبيهات
    ======================================================================= */
+const scanLbl = (id) => { const s = SCANS.find(x => x.id === id); return s ? s.lbl : id; };
+
 function renderAlerts() {
   const list = load("alerts", []);
   const el = $("#alertList");
   if (!list.length) { el.innerHTML = `<div style="font-size:12.5px;color:var(--dim);text-align:center;padding:6px">لا توجد تنبيهات</div>`; return; }
   el.innerHTML = list.map((a, i) => `<div class="alert-item">
-    <span><span class="tick">${esc(a.s)}</span> ${a.dir === "above" ? "▲ فوق" : "▼ تحت"}
-      <b class="num">${money(a.p)}</b></span>
+    <span><span class="tick">${esc(a.s)}</span> ${a.kind === "scan"
+      ? `⚑ ${esc(scanLbl(a.scan))}`
+      : `${a.dir === "above" ? "▲ فوق" : "▼ تحت"} <b class="num">${money(a.p)}</b>`}</span>
     <button class="del" data-del="${i}" aria-label="حذف">✕</button></div>`).join("");
   $$("[data-del]").forEach(b => b.onclick = () => {
     const l = load("alerts", []); l.splice(+b.dataset.del, 1); save("alerts", l); renderAlerts();
@@ -6036,19 +6149,40 @@ function checkAlerts() {
   const list = load("alerts", []);
   if (!list.length || !state.summary) return;
   const keep = [], fired = [];
+
+  /* شروط الماسح تُقيَّم بـ`scans.js` نفسه — لا نسخة ثانية من الشرط هنا،
+     وإلا نبّه التطبيقُ على شرطٍ غير الذي يعرضه في «الفرص» ويقيسه الأرشيف.
+     والسياق هو سياق شاشة الفرص نفسه (وسائط القطاعات)، ويُبنى مرةً واحدة
+     لا مرةً لكل تنبيه. */
+  const F = (state.fund && state.fund.f) || {};
+  let ctx = null;
+  const context = () => (ctx ||= { secMed: (fundScores() || {}).secMed || {} });
+
   list.forEach(a => {
     const row = symRow(a.s);
-    if (!row || !isFinite(row.p)) { keep.push(a); return; }
+    if (!row) { keep.push(a); return; }
+    if (a.kind === "scan") {
+      const scan = SCANS.find(s => s.id === a.scan);
+      if (!scan) { keep.push(a); return; }        // شرطٌ أُزيل — يبقى ولا يُطلق
+      let hit = false;
+      try { hit = !!scan.test(row, F[a.s], context()); } catch (e) { hit = false; }
+      if (hit) fired.push({ a, px: row.p }); else keep.push(a);
+      return;
+    }
+    // `Number.isFinite` لا `isFinite` العالمية: هذه تقبل null كصفر
+    if (!Number.isFinite(row.p)) { keep.push(a); return; }
     const hit = a.dir === "above" ? row.p >= a.p : row.p <= a.p;
     if (hit) fired.push({ a, px: row.p }); else keep.push(a);
   });
   if (!fired.length) return;
   save("alerts", keep); renderAlerts(); beep();
-  const msg = fired.map(f =>
-    `${f.a.s} ${f.a.dir === "above" ? "صعد فوق" : "نزل تحت"} ${money(f.a.p)} — السعر الآن ${money(f.px)}`).join("\n");
+  const msg = fired.map(f => f.a.kind === "scan"
+    ? `${f.a.s}: تحقّق شرط «${scanLbl(f.a.scan)}» — السعر الآن ${money(f.px)}`
+    : `${f.a.s} ${f.a.dir === "above" ? "صعد فوق" : "نزل تحت"} ${money(f.a.p)} — السعر الآن ${money(f.px)}`
+  ).join("\n");
   if ("Notification" in window && Notification.permission === "granted")
-    new Notification("🔔 تنبيه سعر", { body: msg });
-  else alert("🔔 " + msg);
+    new Notification("تنبيه المرصد", { body: msg });
+  else alert(msg);
 }
 
 /* =======================================================================
@@ -6500,14 +6634,38 @@ function boot() {
   $("#cmpA").onchange = renderCompare;
   $("#cmpB").onchange = renderCompare;
 
+  // قائمة الشروط تُبنى من `SCANS` لا مكتوبةً في الهيكل: شرطٌ يُضاف أو
+  // يسقط من الأرشيف يجب أن يظهر ويختفي هنا بلا تعديل ثانٍ
+  const aScan = $("#aScan");
+  if (aScan) aScan.innerHTML = SCANS.map(s =>
+    `<option value="${esc(s.id)}">${esc(s.lbl)}</option>`).join("");
+
+  const syncAlertKind = () => {
+    const scan = $("#aKind").value === "scan";
+    $("#aPriceRow").style.display = scan ? "none" : "";
+    $("#aScanRow").style.display = scan ? "" : "none";
+  };
+  $("#aKind").onchange = syncAlertKind;
+  syncAlertKind();
+
   $("#btnAddAlert").onclick = () => {
-    const s = state.sym, p = +$("#aPrice").value;
+    const s = state.sym;
     if (!s) return alert("افتح سهماً أولاً");
-    if (!(p > 0)) return alert("أدخل سعراً صحيحاً");
     const l = load("alerts", []);
-    l.push({ s, p, dir: $("#aDir").value });
+    if ($("#aKind").value === "scan") {
+      const id = $("#aScan").value;
+      // نفس تنبيهٍ مرتين يُطلق مرتين على حدثٍ واحد
+      if (l.some(a => a.kind === "scan" && a.s === s && a.scan === id))
+        return alert("هذا التنبيه مضاف أصلاً");
+      l.push({ s, kind: "scan", scan: id });
+    } else {
+      const p = +$("#aPrice").value;
+      if (!(p > 0)) return alert("أدخل سعراً صحيحاً");
+      l.push({ s, p, dir: $("#aDir").value });
+      $("#aPrice").value = "";
+    }
     save("alerts", l);
-    $("#aPrice").value = ""; renderAlerts();
+    renderAlerts();
     if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
   };
 
