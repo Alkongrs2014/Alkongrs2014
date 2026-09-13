@@ -26,6 +26,10 @@ const { SCANS } = require("../stocks/scans.js");
 // تجعل السجلّ يقول إن الهدف كان 106 والمستخدم رأى 112
 const { levelsFrom, planFrom, planDirOf, validatePlan } = require("../stocks/plan.js");
 const { freshness, scanTF, entryQuality, etaFor, horizonsOf } = require("../stocks/evaluate.js");
+// حدود النطاقات من نواة النتيجة نفسها: كانت مكتوبة هنا مرةً ثانية، وكان
+// `bandOf` المحلي يخالف `labelOf` عند الحدّ بالضبط (‎−45‎ عنده «هابط قوي»
+// وعند هذا «ميل هابط») — خلافٌ صامت في ملفٍ يقيس انقلابات الاتجاه
+const { BANDS, bandOf } = require("../stocks/score.js");
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -40,7 +44,6 @@ const DAY = 86400e3;
 const TREND_MAX = 40;                  // نقاط لكل رمز
 const TREND_DAYS = 14;                 // عمر النقطة الأقصى
 const TREND_STEP = 5;                  // أصغر حركة تستحق نقطة
-const BANDS = [-45, -15, 15, 45];      // حدود `labelOf` نفسها
 
 const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return d; } };
 const r2 = (v) => (v === null || v === undefined || !Number.isFinite(v)) ? null : Math.round(v * 100) / 100;
@@ -139,7 +142,7 @@ export function update(sig, price, now) {
    ⚠ دقة الزمن هي دورة السوق (عشر دقائق)، لا الدقيقة. من قرأ «10:35»
    فالحدث بين 10:25 و10:35 — والواجهة تقول ذلك صراحةً.
    ===================================================================== */
-export const bandOf = (sc) => BANDS.filter(b => sc >= b).length;   // 0..4
+export { bandOf };
 
 export function pushTrend(list, ts, score, price) {
   if (!Number.isFinite(score)) return list;

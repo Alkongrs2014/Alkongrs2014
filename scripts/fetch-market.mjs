@@ -15,7 +15,7 @@ import {
 } from "./lib/yahoo.mjs";
 import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
 import { fetchCandlesTD, hasTwelveData, tdSleep, tdStats } from "./lib/twelvedata.mjs";
-import { analyze, overallScore, aggregate, TFS, TF_WEIGHT } from "./lib/indicators.mjs";
+import { analyze, overallScore, aggregate, TFS, TF_WEIGHT, bandStable } from "./lib/indicators.mjs";
 import { marketStatus, approxMarketStatus } from "./lib/session.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -74,6 +74,67 @@ export const rp = (v) => {
 const slimCandles = (c) => c.map(x => ({
   t: x.t, o: rp(x.o), h: rp(x.h), l: rp(x.l), c: rp(x.c), v: Math.round(x.v || 0)
 }));
+
+/* =====================================================================
+   شمعاتُ الحجم الصفري — أخطر تشويشٍ في المشروع، ولم يكن يبدو خللاً.
+
+   فريم 15د وحده يُطلب بـ`prePost: true` (ما قبل الافتتاح وما بعد
+   الإغلاق)، وياهو **يحشو** الساعات المغلقة بشمعاتٍ حجمها صفر تحمل آخر
+   سعرٍ معروف مكرَّراً. قياس 2026-09-13 على أبل: **156 من 260** شمعة
+   بحجم صفر — أي أن ‎60%‎ من فريم 15د لم يكن تداولاً أصلاً، بل سعراً
+   واحداً منسوخاً على مئة شمعة.
+
+   والنتيجة أن مؤشّرات الفريم تقيس اللاشيء: نطاق بولنجر لأبل ضاق إلى
+   **35 سنتاً** (332.35–332.70)، والتصق EMA20 بالسعر على مسافة **1.5
+   سنت**، وحام MACD على الصفر. فصارت كل بوابةٍ على حدّ السكين تنقلب في
+   كل دورة — وهذا هو المصدر الحقيقي لـ‎195 حالة‎ تغيّرت فيها النتيجة
+   والسعر لم يتغيّر بأيّ كسر.
+
+   فنُسقِط الشمعات التي لا تداولَ فيها **قبل** `slice(-KEEP)`: الطلب
+   يعيد 60 يوماً (~2600 شمعة مع الجلسات الممتدة، و~1070 بدونها)،
+   فيبقى بعد الإسقاط 260 شمعةَ تداولٍ حقيقي تغطّي ~10 أيام تداول.
+
+   والبوابةُ شرطُ سلامة لا تجميل: مصدرٌ لا يعطي حجماً إطلاقاً
+   (Twelve Data وStooq) تُصفّره `Math.round(x.v || 0)` فيمحو السلسلة
+   كاملةً. فإن لم يبقَ ما يكفي EMA200 أعدنا الأصل كما هو — بياناتٌ
+   مشوَّشة أفضل من لا بيانات.
+
+   وعلى 15د وحده: اليوميُّ والساعة يأتيان بلا `prePost` ونسبةُ الحجم
+   الحقيقي فيهما ‎100%‎، وتطبيقُه عليهما يعرّضهما للبوابة بلا مقابل. */
+const NEED_BARS = 220;                  // EMA200 + هامش
+function tradingOnly(candles, tf) {
+  if (tf !== "15m") return candles;
+  const live = candles.filter(x => (x.v || 0) > 0);
+  return live.length >= NEED_BARS ? live : candles;
+}
+
+/* =====================================================================
+   السلسلة المجمّدة — بياناتٌ خاطئة لا حالةَ سوق، والفرق يهمّ.
+
+   `ARB-USD` عند ياهو ليس أربيتروم: أصلٌ ميت مجمَّد على 0.000629 بحجم
+   صفر منذ 260 يوماً. والتطبيق كان يعرضه بسعره ذاك، ويحسب له اتجاهاً
+   («ميل هابط»، نتيجة ‎−50.59‎ — لأن `px > e200` تعيد `false` عند التساوي
+   التامّ)، ويرشّحه للفرص. أربيتروم الحقيقية `ARB11841-USD` بسعر 0.14
+   وحجم 240 مليون يومياً.
+
+   ولم يكشفه شيء: السعر رقمٌ صالح، والشارت خطٌّ مستقيم، والنتيجة رقمٌ
+   في مداه. نفس مصيدة «الأرقام تبدو صحيحة» مطبَّقةً على رمزٍ كامل.
+
+   الشرطان **مجتمعان** لا أحدهما: مسطَّحةٌ *وبلا* حجم. فسهمٌ هادئ له حجم،
+   ومصدرٌ لا يعطي حجماً (Twelve Data وStooq) قد يعطي سلسلةً سليمة —
+   ولهذا الحارس على مصدر ياهو وحده، وهو الذي يعطي الحجم فعلاً. */
+const FROZEN_BARS = 30;
+function frozenSeries(rec) {
+  if (rec.src !== "yahoo") return false;
+  const c = rec.tf?.["1d"]?.c;
+  if (!c || c.length < FROZEN_BARS) return false;
+  const t = c.slice(-FROZEN_BARS);
+  const hi = Math.max(...t.map(x => x.c)), lo = Math.min(...t.map(x => x.c));
+  if (!(lo > 0)) return true;                       // أسعار صفرية أو سالبة
+  const flat = (hi - lo) / lo < 0.005;              // مدى ‎30‎ يوماً أقلّ من نصف بالمئة
+  const traded = t.filter(x => (x.v || 0) > 0).length;
+  return flat && traded <= 2;
+}
 /* ضغط الشمعات عند الكتابة فقط: مصفوفة بدل كائن يوفّر ~45% من الحجم.
    [الوقت بالثواني, فتح, أعلى, أدنى, إغلاق, حجم] */
 const packCandles = (c) => c.map(x => [Math.round(x.t / 1000), x.o, x.h, x.l, x.c, x.v]);
@@ -159,7 +220,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
       const { candles, meta: m } = await fetchChart(sym, {
         range: RANGE[tf], interval: tf, prePost: tf === "15m"
       });
-      rec.tf[tf] = { updated: now, c: slimCandles(candles.slice(-KEEP)) };
+      rec.tf[tf] = { updated: now, c: slimCandles(tradingOnly(candles, tf).slice(-KEEP)) };
       // فترات التداول الحقيقية لا يوفّرها غير Yahoo — وهي أدق من التقدير
       if (tf === "15m" && m) { rec.period = tradingPeriodFromMeta(m); rec.cur = num(m.regularMarketPrice); }
       rec.src = "yahoo";
@@ -226,6 +287,10 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
     rec.an[tf] = slimAnalysis(rest);
   }
   rec.score = r2(overallScore(rec.an));
+  /* النطاق المثبَّت — لا يُغيَّر إلا بتجاوز حدّه بهامش. يُحسب هنا لا في
+     المتصفح لأن الهيستريسس يحتاج ذاكرةً بالدورة السابقة، والخادم هو من
+     يملكها (`prev`). والمتصفح يعرضه كما هو فلا يختلف وسمُ شاشتين. */
+  rec.band = bandStable(rec.score, prev?.band);
   rec.stale = !touched;
   if (errors.length) rec.errors = errors;
   return rec;
@@ -320,12 +385,20 @@ async function main() {
   // من ~28 دقيقة إلى دقائق معدودة لكل الرموز السبعين.
   const lanes = (hasTwelveData() && !PREFER_YAHOO) ? 1 : 3;
   const results = await pool(jobs, lanes, (j) => buildSymbol(j.m, OUT, now, quotes, j.frames, j.tier));
-  const rows = [], wideRecs = [], failed = [];
+  const rows = [], wideRecs = [], failed = [], frozen = [];
   results.forEach((r, i) => {
     const j = jobs[i];
-    if (r.ok) (j.tier === "wide" ? wideRecs : rows).push(r.value);
-    else { failed.push({ s: j.m.s, error: r.error }); console.warn(`  ✗ ${j.m.s}: ${r.error}`); }
+    if (!r.ok) { failed.push({ s: j.m.s, error: r.error }); console.warn(`  ✗ ${j.m.s}: ${r.error}`); return; }
+    // رمزٌ مجمَّد يُستبعد من الملخّص كاملاً: وجودُه بسعرٍ وهميّ أسوأ من
+    // غيابه، لأنه يبدو حالةَ سوق ويدخل الإحصاء والفرص
+    if (frozenSeries(r.value)) {
+      frozen.push(j.m.s);
+      console.warn(`  ⃠ ${j.m.s}: سلسلة مجمّدة بلا حجم — مستبعد`);
+      return;
+    }
+    (j.tier === "wide" ? wideRecs : rows).push(r.value);
   });
+  if (frozen.length) console.warn(`  ⃠ مستبعدة لتجمّد سلسلتها: ${frozen.join(" ")}`);
   console.log(`  ✓ نجح ${rows.length + wideRecs.length} / ${jobs.length}`);
   // بوابة السلامة على الطبقة الأساسية وحدها: الواسعة تراكمية، وتشغيل لم
   // يستحقّ فيه أي رمز واسع تحديثاً ليس فشلاً.
@@ -365,6 +438,7 @@ async function main() {
       s: rec.s, ar: rec.ar, en: rec.en, sec: rec.sec, ...(rec.mkt ? { mkt: rec.mkt } : {}),
       p: rp(price), chg: r2(chg), ext, ...(withSpark ? { spark } : {}),
       score: rec.score,
+      ...(Number.isFinite(rec.band) ? { band: rec.band } : {}),
       atr: rp(rec.an["1d"]?.atr ?? null), rsi: r2(rec.an["1d"]?.rsi ?? null),
       tfScore: Object.fromEntries(TFS.filter(t => rec.an[t]).map(t => [t, +rec.an[t].score.toFixed(1)])),
       mc: num(q?.marketCap) ?? ranking?.mc?.[rec.s] ?? null,
@@ -439,6 +513,9 @@ async function main() {
   const period = rows.find(r => r.mkt !== "crypto" && r.period)?.period || null;
   const status = period ? marketStatus(period, now) : approxMarketStatus(now);
 
+  const mktScore = scored.length ? r2(scored.reduce((a, r) => a + r.score, 0) / scored.length) : null;
+  const mktBand = bandStable(mktScore, readJSON(path.join(OUT, "market.json"), {})?.band);
+
   writeJSON("market.json", {
     updated: now, status, period, indices: idxRows, sectors,
     breadth: {
@@ -447,7 +524,10 @@ async function main() {
       flat: withChg.filter(r => r.chg === 0).length,
       total: withChg.length
     },
-    marketScore: scored.length ? r2(scored.reduce((a, r) => a + r.score, 0) / scored.length) : null,
+    marketScore: mktScore,
+    // ونطاقُه مثبَّتٌ كنطاق السهم: «مزاج السوق» يتقلّب بين وسمين في نصف
+    // ساعة يُقرأ إشاراتٍ متناقضة لا رقماً يهتزّ
+    ...(Number.isFinite(mktBand) ? { band: mktBand } : {}),
     gainers: [...withChg].sort((a, b) => b.chg - a.chg).slice(0, 5).map(r => ({ s: r.s, ar: r.ar, chg: r.chg, p: r.p })),
     losers:  [...withChg].sort((a, b) => a.chg - b.chg).slice(0, 5).map(r => ({ s: r.s, ar: r.ar, chg: r.chg, p: r.p }))
   });
@@ -461,6 +541,8 @@ async function main() {
     marketRun: {
       at: new Date(now).toISOString(),
       ok: rows.length, failed: failed.length, failures: failed,
+      // مستبعدة لتجمّد سلسلتها — تظهر في التشخيص لا تختفي بصمت
+      ...(frozen.length ? { frozen } : {}),
       stale: summary.filter(r => r.stale).map(r => r.s),
       quotes: quotes ? Object.keys(quotes).length : 0,
       requests: stats.requests, retries: stats.retries, sources: stats.sources,
@@ -583,6 +665,34 @@ function selfCheck() {
     const sorted = [{ s: "ممتلئ", t: full }, { s: "فارغ", t: empty }]
       .sort((a, b) => rank(a.t) - rank(b.t)).map(x => x.s);
     eq(sorted, ["فارغ", "ممتلئ"], "الترتيب يقدّم الناقص");
+  });
+
+  t("tradingOnly يُسقط حشو الجلسات المغلقة ولا يمحو سلسلةً بلا حجم", () => {
+    // 300 شمعة تداول + 300 حشو بحجم صفر -> يبقى التداول وحده
+    const mk = (n, v) => Array.from({ length: n }, (_, i) => ({ t: i, o: 1, h: 1, l: 1, c: 1, v }));
+    eq(tradingOnly([...mk(300, 5000), ...mk(300, 0)], "15m").length, 300, "الحشو يُسقط");
+    // مصدرٌ لا يعطي حجماً إطلاقاً: الإسقاط يمحو كل شيء، فالبوابة تُعيد الأصل
+    eq(tradingOnly(mk(300, 0), "15m").length, 300, "بلا حجم يبقى الأصل");
+    // ما بقي أقلّ من EMA200 + هامش -> الأصل كذلك، بياناتٌ مشوَّشة أفضل من لا بيانات
+    eq(tradingOnly([...mk(100, 5000), ...mk(300, 0)], "15m").length, 400, "الناقص يبقى الأصل");
+    // الفريمات الأخرى لا تُمسّ: تأتي بلا prePost وحجمها حقيقي أصلاً
+    eq(tradingOnly([...mk(10, 5000), ...mk(10, 0)], "1d").length, 20, "اليومي لا يُمسّ");
+  });
+
+  t("frozenSeries يكشف الأصل الميت ولا يطعن في السهم الهادئ", () => {
+    const bars = (n, c, v) => Array.from({ length: n }, (_, i) => ({ t: i, o: c, h: c, l: c, c, v }));
+    const rec = (c, src = "yahoo") => ({ src, tf: { "1d": { c } } });
+    // `ARB-USD` بالحرف: سعرٌ واحد بحجم صفر
+    if (!frozenSeries(rec(bars(40, 0.000629, 0)))) throw new Error("الميت لم يُكشف");
+    // سهمٌ هادئ جداً لكن له حجم -> ليس ميتاً
+    if (frozenSeries(rec(bars(40, 50, 900000)))) throw new Error("الهادئ اتُّهم ظلماً");
+    // مصدرٌ لا يعطي حجماً -> لا حكم عليه أصلاً
+    if (frozenSeries(rec(bars(40, 50, 0), "twelvedata"))) throw new Error("مصدر بلا حجم لا يُحاكم");
+    // سلسلةٌ متحركة بحجم صفر (حشو): مسطَّحة؟ لا -> ليست مجمّدة
+    const moving = Array.from({ length: 40 }, (_, i) => ({ t: i, o: 50 + i, h: 50 + i, l: 50 + i, c: 50 + i, v: 0 }));
+    if (frozenSeries(rec(moving))) throw new Error("المتحركة ليست مجمّدة");
+    // سلسلةٌ أقصر من نافذة الحكم: لا حكم
+    if (frozenSeries(rec(bars(10, 1, 0)))) throw new Error("القصيرة لا يُحكم عليها");
   });
 
   t("aggregate يبني 4h صحيحة من 1h", () => {

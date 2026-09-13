@@ -169,10 +169,15 @@ export function snapshots(meta, k) {
   const out = [];
   for (let i = 0; i < k.length; i++) {
     if (i < WARMUP) { out.push(null); continue; }
+    // `atr` و`histPrev` ليسا زينة: بهما تعمل المنطقة الميتة في
+    // `scoreFrom`. بدونهما يقيس الأرشيف نتيجةً **أحدَّ** من التي يراها
+    // المستخدم — وهو بالضبط الخطأ الذي يجعل الأرشيف يحكم على شرطٍ
+    // بغير ما يحدث فعلاً في الواجهة.
     const score = scoreFrom({
       px: c[i], e20: e20[i], e50: e50[i], e200: e200[i], rsi: R[i],
-      hist: M.hist[i], histRising: (M.hist[i] !== null && M.hist[i - 1] !== null) ? M.hist[i] > M.hist[i - 1] : false,
-      bbMid: B.mid[i]
+      hist: M.hist[i], histPrev: M.hist[i - 1] ?? null,
+      histRising: (M.hist[i] !== null && M.hist[i - 1] !== null) ? M.hist[i] > M.hist[i - 1] : false,
+      bbMid: B.mid[i], atr: A[i]
     });
     out.push({
       row: { s: meta.s, sec: meta.sec, p: c[i], w52h: w52h[i], w52l: w52l[i],
@@ -533,12 +538,27 @@ function selfCheck() {
 
   t("scoreFrom تطابق ما يحسبه analyze", async () => {
     // الاختبار الحقيقي: نفس القيم تعطي نفس النتيجة عبر المسارين
-    const a = { px: 110, e20: 105, e50: 100, e200: 95, rsi: 60, hist: 0.4, histRising: true, bbMid: 104 };
+    const a = { px: 110, e20: 105, e50: 100, e200: 95, rsi: 60, hist: 0.4, histRising: true, bbMid: 104, atr: 2 };
     const s = scoreFrom(a);
     if (!(s > 90)) throw new Error(`كل الشروط موجبة يُفترض أن تقارب 100: ${s}`);
-    const b = scoreFrom({ px: 90, e20: 95, e50: 100, e200: 105, rsi: 30, hist: -0.4, histRising: false, bbMid: 96 });
+    const b = scoreFrom({ px: 90, e20: 95, e50: 100, e200: 105, rsi: 30, hist: -0.4, histRising: false, bbMid: 96, atr: 2 });
     if (!(b < -90)) throw new Error(`كل الشروط سالبة: ${b}`);
     eq(scoreFrom({ px: 100 }), 0, "بلا مؤشرات");
+  });
+
+  t("المنطقة الميتة تحيّد البوابة الملتصقة ولا تحيّد العبور الحقيقي", () => {
+    // فرقٌ أقلّ من ‎0.15×ATR‎ = لا تصويت. ATR=2 -> العتبة 0.3
+    const near = { px: 100, e20: 100.1, e50: 99, e200: 98, rsi: 50, hist: 0.05,
+                   histPrev: 0.04, bbMid: 100.2, atr: 2 };
+    const sc = scoreFrom(near);
+    // e200 و e50 وحدهما يصوّتان (2.5 + 1.5 من 8.5)
+    eq(Math.round(sc * 100) / 100, Math.round(4 / 8.5 * 10000) / 100, "الملتصقة محيَّدة");
+    // نفس المدخلات بعبورٍ حقيقي (‎0.5‎ > العتبة) تصوّت سالباً
+    const far = { ...near, e20: 100.5, bbMid: 100.6 };
+    if (!(scoreFrom(far) < sc)) throw new Error("العبور الحقيقي يجب أن يُحسب");
+    // وسلسلةٌ مجمّدة (كل شيء متساوٍ) تخرج صفراً لا ‎−100‎
+    eq(scoreFrom({ px: 5, e20: 5, e50: 5, e200: 5, rsi: 50, hist: 0, histPrev: 0, bbMid: 5, atr: 0.01 }),
+       0, "المجمَّدة عرضية لا هابطة");
   });
 
   selfCheckRegime(t, eq);

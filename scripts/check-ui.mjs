@@ -100,11 +100,18 @@ t("كل تبويب له شاشة وكل شاشة لها تبويب", () => {
 /* `plan.js` و`scans.js` و`evaluate.js` يقرأها المتصفح والخادم معاً،
    فنسخةٌ ثانية منها داخل index.html تتباعد بأول تعديل. */
 t("النواة المشتركة ليست منسوخة داخل index.html", () => {
-  const dup = [];
-  for (const fn of ["function planFrom", "function scoreFrom", "const SCANS"])
-    if (inline.join("\n").includes(fn)) dup.push(fn);
+  const src = inline.join("\n"), dup = [];
+  for (const fn of ["function planFrom", "function scoreFrom", "const SCANS",
+                    "function overallScore", "function labelOf", "function bandOf"])
+    if (src.includes(fn)) dup.push(fn);
+  // بصمةُ الشيفرة لا اسمُها: نسخةُ النتيجة القديمة كانت مضمَّنةً **بلا
+  // اسم** داخل `analyze`، فمرّت من هذا الفحص وهو يبحث عن الاسم وحده.
+  if (/max \+= w; sc \+=/.test(src) || /add\(px > E200/.test(src))
+    dup.push("منطق بوابات النتيجة");
+  if (src.includes("اتجاه صاعد قوي")) dup.push("أوسمة النطاقات");
+  if (/TF_WEIGHT\s*=/.test(src)) dup.push("TF_WEIGHT");
   if (dup.length) throw new Error("معرَّفة مرتين: " + dup.join("، "));
-  return "plan.js · scans.js · evaluate.js";
+  return "score.js · plan.js · scans.js · evaluate.js";
 });
 
 /* ---------- ٧ لا مسار خارجي غير الخطوط ---------- */
