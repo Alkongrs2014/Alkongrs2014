@@ -2715,11 +2715,12 @@
       "mkt": "crypto"
     },
     {
-      "s": "UNI-USD",
+      "s": "UNI7083-USD",
       "ar": "يونيسواب",
       "en": "Uniswap",
       "sec": "كريبتو",
-      "mkt": "crypto"
+      "mkt": "crypto",
+      "note": "رمز UNI-USD أسقطه ياهو (no usable candles)؛ الحقيقي بلاحقة CMC"
     },
     {
       "s": "ATOM-USD",
@@ -2750,11 +2751,12 @@
       "mkt": "crypto"
     },
     {
-      "s": "APT-USD",
+      "s": "APT21794-USD",
       "ar": "أبتوس",
       "en": "Aptos",
       "sec": "كريبتو",
-      "mkt": "crypto"
+      "mkt": "crypto",
+      "note": "رمز APT-USD أسقطه ياهو (no usable candles)؛ الحقيقي بلاحقة CMC"
     },
     {
       "s": "ICP-USD",
@@ -2793,11 +2795,12 @@
       "mkt": "crypto"
     },
     {
-      "s": "POL-USD",
+      "s": "POL28321-USD",
       "ar": "بوليجون",
       "en": "Polygon",
       "sec": "كريبتو",
-      "mkt": "crypto"
+      "mkt": "crypto",
+      "note": "رمز POL-USD أسقطه ياهو (no usable candles)؛ الحقيقي بلاحقة CMC"
     }
   ],
   "indices": [
