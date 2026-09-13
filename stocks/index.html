@@ -128,7 +128,13 @@ section[data-view].on{display:block; animation:fade .22s ease}
 .tf-name{width:56px;font-weight:700;font-size:14px;flex:none}
 .tf-bar{flex:1;height:8px;background:var(--card2);border-radius:99px;position:relative;overflow:hidden}
 .tf-fill{position:absolute;top:0;height:100%;border-radius:99px;transition:all .4s ease}
-.tf-val{width:82px;text-align:left;font-size:12.5px;font-weight:700;flex:none}
+.tf-val{width:106px;text-align:left;font-size:12.5px;font-weight:700;flex:none}
+/* رقم قوّة الاتجاه إلى جانب الوسم — خافتٌ لأنه قيدٌ على الوسم لا بديلٌ
+   عنه، ويصير أصفر تحت 20 حيث «صاعد قويّ» تصف ترتيباً لا حركة */
+.tf-adx{display:inline-block;margin-inline-start:6px;font-size:10.5px;font-weight:600;
+  color:var(--dim);font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr;
+  border:1px solid var(--line2);border-radius:4px;padding:0 4px;vertical-align:1px}
+.tf-adx.chop{color:var(--neu);border-color:rgba(245,185,18,.35)}
 
 /* ---------- الشارت ---------- */
 .chart-wrap{position:relative;background:var(--card2);border-radius:11px;padding:6px 2px}
@@ -3864,12 +3870,17 @@ function renderTfTable(rec) {
   const parts = TFS.filter(tf => rec.an && rec.an[tf]);
   if (!parts.length) { $("#tfTable").innerHTML = `<div class="empty">لا توجد بيانات كافية</div>`; return; }
   $("#tfTable").innerHTML = parts.map(tf => {
-    const sc = rec.an[tf].score, lb = labelOf(sc), w = Math.abs(sc) / 2;
+    const an = rec.an[tf];
+    const sc = an.score, lb = labelOf(sc), w = Math.abs(sc) / 2;
     const side = sc >= 0 ? `right:50%;width:${w}%;background:var(--up)` : `right:${50 - w}%;width:${w}%;background:var(--dn)`;
+    /* قوّة الاتجاه بجانب جهته: فريمٌ «صاعد قويّ» وADX ‎12‎ ليس نفس فريمٍ
+       «صاعد قويّ» وADX ‎35‎، والوسم وحده لا يفرّق بينهما. */
+    const ax = Number.isFinite(an.adx)
+      ? `<span class="tf-adx${an.adx < 20 ? " chop" : ""}" title="قوّة الاتجاه ADX">${fmt(an.adx, 0)}</span>` : "";
     return `<div class="tf">
       <div class="tf-name">${TF_LABEL[tf]}</div>
       <div class="tf-bar"><div class="tf-fill" style="${side}"></div></div>
-      <div class="tf-val" style="color:${lb.c}">${lb.t}</div></div>`;
+      <div class="tf-val" style="color:${lb.c}">${lb.t}${ax}</div></div>`;
   }).join("");
 }
 
@@ -4898,6 +4909,34 @@ function renderIndicators(rec) {
   const R = (l, v, c, s) => `<div class="row"><div class="l">${l}<small>${s}</small></div>
     <div class="r num" style="color:${c || "var(--tx)"}">${v}</div></div>`;
   let out = "";
+
+  /* قوّة الاتجاه أوّلاً لأنها **تقيّد** كل ما بعدها: RSI عند 70 في اتجاه
+     قويّ استمرارٌ، وفي تذبذب انعكاس. وعرضُها بعد المؤشّرات يجعل القارئ
+     يحكم قبل أن يعرف الشرط. */
+  if (Number.isFinite(a.adx)) {
+    const lb = adxLabel(a.adx);
+    const c = lb.k === "chop" ? "var(--mut)"
+            : lb.k === "extreme" ? "var(--neu)" : "var(--tx)";
+    const side = (Number.isFinite(a.pdi) && Number.isFinite(a.mdi))
+      ? ` · الجهة ${a.pdi > a.mdi ? "صاعدة" : "هابطة"} (+DI ${fmt(a.pdi, 0)} مقابل −DI ${fmt(a.mdi, 0)})` : "";
+    out += R("قوّة الاتجاه ADX (14)", fmt(a.adx, 1), c, lb.t + side +
+      (lb.k === "chop" ? " · النتيجة قد تقول «صاعد قويّ» وهي تصف ترتيب المتوسّطات لا حركةً ذات اتجاه" : ""));
+  }
+  if (Number.isFinite(a.squeeze)) {
+    const tight = a.squeeze < 10;
+    out += R("انضغاط بولنجر", fmt(a.squeeze, 0) + "%",
+      tight ? "var(--neu)" : null,
+      tight ? "النطاق في أضيق 10% من تاريخ السهم — الانضغاط يسبق الحركة ولا يقول جهتها"
+            : "رتبة عرض النطاق داخل آخر 120 شمعة · 0% = الأضيق على الإطلاق");
+  }
+  if (a.div) {
+    const bull = a.div.dir > 0;
+    out += R("تباعد مع RSI", bull ? "صاعد ▲" : "هابط ▼",
+      bull ? "var(--up)" : "var(--dn)",
+      (bull ? "قاعٌ أدنى في السعر وقاعٌ أعلى في RSI — البيع يفقد قوّته"
+            : "قمّةٌ أعلى في السعر وقمّةٌ أدنى في RSI — الشراء يفقد قوّته") +
+      ` · بين طرفين يفصلهما ${bd(a.div.bars)} شمعة`);
+  }
 
   if (a.rsi !== null) {
     const c = a.rsi > 70 ? "var(--dn)" : a.rsi < 30 ? "var(--up)" : "var(--tx)";
