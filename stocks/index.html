@@ -1385,6 +1385,7 @@ details[open]{background:var(--card2)}
 
 <script src="config.js"></script>
 <script src="score.js"></script>
+<script src="indicators.js"></script>
 <script src="scans.js"></script>
 <!-- نواة الخطة وطبقة التقييم: نسخة واحدة يقرأها المتصفح والخادم، فما
      يحفظه السجلّ هو ما رآه المستخدم بالضبط لا حساباً موازياً له -->
@@ -1563,91 +1564,10 @@ function setFavOnly(on) {
 }
 
 /* =======================================================================
-   2) حسابات المؤشرات — نفس منطق سكربت الخادم بالضبط
+   2) حسابات المؤشرات — في `indicators.js`
+   نسخةٌ واحدة يقرأها المتصفح والخادم. كانت مضمَّنةً هنا فتطابقت
+   بالحظّ مع نسخة الخادم، وأوّل مؤشّرٍ جديد كان سيُكتب مرتين.
    ======================================================================= */
-function sma(a, p) {
-  const o = new Array(a.length).fill(null); let s = 0;
-  for (let i = 0; i < a.length; i++) { s += a[i]; if (i >= p) s -= a[i - p]; if (i >= p - 1) o[i] = s / p; }
-  return o;
-}
-function ema(a, p) {
-  const o = new Array(a.length).fill(null), k = 2 / (p + 1);
-  if (a.length < p) return o;
-  let s = 0; for (let i = 0; i < p; i++) s += a[i];
-  o[p - 1] = s / p;
-  for (let i = p; i < a.length; i++) o[i] = a[i] * k + o[i - 1] * (1 - k);
-  return o;
-}
-function rsi(a, p = 14) {
-  const o = new Array(a.length).fill(null);
-  if (a.length <= p) return o;
-  let g = 0, l = 0;
-  for (let i = 1; i <= p; i++) { const d = a[i] - a[i - 1]; d >= 0 ? g += d : l -= d; }
-  g /= p; l /= p;
-  o[p] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
-  for (let i = p + 1; i < a.length; i++) {
-    const d = a[i] - a[i - 1];
-    g = (g * (p - 1) + (d > 0 ? d : 0)) / p;
-    l = (l * (p - 1) + (d < 0 ? -d : 0)) / p;
-    o[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
-  }
-  return o;
-}
-function macd(a, f = 12, s = 26, sg = 9) {
-  const ef = ema(a, f), es = ema(a, s);
-  const line = a.map((_, i) => (ef[i] !== null && es[i] !== null) ? ef[i] - es[i] : null);
-  const vals = line.filter(v => v !== null);
-  const sigVals = ema(vals, sg);
-  const off = line.length - vals.length;
-  const signal = new Array(a.length).fill(null);
-  sigVals.forEach((v, i) => { if (v !== null) signal[i + off] = v; });
-  const hist = line.map((v, i) => (v !== null && signal[i] !== null) ? v - signal[i] : null);
-  return { line, signal, hist };
-}
-function bb(a, p = 20, m = 2) {
-  const mid = sma(a, p);
-  const up = new Array(a.length).fill(null), lo = new Array(a.length).fill(null);
-  for (let i = p - 1; i < a.length; i++) {
-    let v = 0; for (let j = i - p + 1; j <= i; j++) v += Math.pow(a[j] - mid[i], 2);
-    const sd = Math.sqrt(v / p);
-    up[i] = mid[i] + m * sd; lo[i] = mid[i] - m * sd;
-  }
-  return { mid, up, lo };
-}
-function atrCalc(h, l, c, p = 14) {
-  const tr = [];
-  for (let i = 0; i < c.length; i++)
-    tr.push(i === 0 ? h[i] - l[i] : Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1])));
-  const o = new Array(c.length).fill(null);
-  if (tr.length < p) return o;
-  let s = 0; for (let i = 0; i < p; i++) s += tr[i];
-  o[p - 1] = s / p;
-  for (let i = p; i < tr.length; i++) o[i] = (o[i - 1] * (p - 1) + tr[i]) / p;
-  return o;
-}
-const last = (a) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] !== null && isFinite(a[i])) return a[i]; return null; };
-
-function analyze(k) {
-  if (!k || k.length < 30) return null;
-  const c = k.map(x => x.c), h = k.map(x => x.h), l = k.map(x => x.l);
-  const e20 = ema(c, 20), e50 = ema(c, 50), e200 = ema(c, 200);
-  const r = rsi(c, 14), m = macd(c), b = bb(c, 20, 2), at = atrCalc(h, l, c, 14);
-  const px = c[c.length - 1];
-  const E20 = last(e20), E50 = last(e50), E200 = last(e200);
-  const R = last(r), H = last(m.hist), A = last(at);
-  const hi = m.hist.filter(v => v !== null);
-  const hPrev = hi.length > 1 ? hi[hi.length - 2] : null;
-  const rising = hi.length > 1 ? hi[hi.length - 1] > hi[hi.length - 2] : false;
-
-  /* التسجيل في `score.js` — نسخةٌ واحدة للمتصفح والخادم. كان مضمَّناً هنا
-     فكان أيُّ تعديلٍ على النتيجة يصيب أحدهما ويترك الآخر. */
-  const norm = scoreFrom({ px, e20: E20, e50: E50, e200: E200, rsi: R, hist: H,
-                           histPrev: hPrev, histRising: rising,
-                           bbMid: last(b.mid), atr: A });
-  return { score: norm, px, e20: E20, e50: E50, e200: E200, rsi: R, hist: H,
-           histPrev: hPrev, histRising: rising,
-           atr: A, bbUp: last(b.up), bbLo: last(b.lo), bbMid: last(b.mid), series: { e20, e50, e200 } };
-}
 
 /* =======================================================================
    3) حالة السوق — تُحسب في المتصفح لتبقى صحيحة حتى لو تأخّرت البيانات

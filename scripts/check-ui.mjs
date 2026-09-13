@@ -110,8 +110,45 @@ t("النواة المشتركة ليست منسوخة داخل index.html", () 
     dup.push("منطق بوابات النتيجة");
   if (src.includes("اتجاه صاعد قوي")) dup.push("أوسمة النطاقات");
   if (/TF_WEIGHT\s*=/.test(src)) dup.push("TF_WEIGHT");
+  // المؤشّرات كذلك: كانت مضمَّنةً هنا ومتطابقةً مع الخادم بالحظّ
+  for (const fn of ["function ema(", "function rsi(", "function macd(",
+                    "function bb(", "function atrCalc(", "function analyze(",
+                    "function adx("])
+    if (src.includes(fn)) dup.push(fn.replace("function ", "").replace("(", ""));
   if (dup.length) throw new Error("معرَّفة مرتين: " + dup.join("، "));
-  return "score.js · plan.js · scans.js · evaluate.js";
+  return "score.js · indicators.js · plan.js · scans.js · evaluate.js";
+});
+
+/* ---------- ٦ب عامل الخدمة يعرف كل سكربت ---------- */
+/* قائمة `CORE` في `sw.js` هي ما يُخزَّن للعمل بلا شبكة. ملفٌ جديد في
+   `index.html` ولا في القائمة يعمل على الشبكة ويسقط بدونها — بصمت. */
+t("عامل الخدمة يخزّن كل سكربت في الصفحة", () => {
+  const sw = fs.readFileSync(path.join(DIR, "sw.js"), "utf8");
+  const core = [...sw.matchAll(/"\.\/([^"]+)"/g)].map(m => m[1]);
+  const miss = srcs.filter(f => !core.includes(f));
+  if (miss.length) throw new Error("غائب عن CORE في sw.js: " + miss.join("، "));
+  // ورفعُ النسخة شرطٌ لظهور أيّ تغيير في الزيارة الأولى
+  if (!/const V = "webtrade-v\d+"/.test(sw)) throw new Error("نسخة الذاكرة غير مقروءة");
+  return `${core.length} مدخلاً · ${srcs.length} سكربتاً`;
+});
+
+/* ---------- ٦ج لا تعارض أسماء بين الصفحة والملفات المشتركة ---------- */
+/* السكربتات الكلاسيكية تتشارك نطاقاً واحداً، فاسمٌ واحد في ملفين يعني
+   أن الأخيرَ تحميلاً يغلب — **بلا أيّ خطأ**. وقع فعلاً: `pctRank` في
+   `indicators.js` بدلالة ‎(series, win)‎ وفي `index.html` بدلالة
+   ‎(sorted, v)‎، فصار `analyze` يحسب انضغاط بولنجر بدالّة الأساسيات. */
+t("لا تعارض أسماء بين index.html والملفات المشتركة", () => {
+  const decl = (src) => new Set([...src.matchAll(/^(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/gm)]
+    .map(m => m[1]));
+  const inlineNames = decl(inline.join("\n"));
+  const clash = [];
+  for (const f of srcs) {
+    if (f === "config.js") continue;            // إعدادات لا منطق
+    for (const n of decl(fs.readFileSync(path.join(DIR, f), "utf8")))
+      if (inlineNames.has(n)) clash.push(`${n} (${f})`);
+  }
+  if (clash.length) throw new Error("اسمٌ معرَّف مرتين: " + clash.join("، "));
+  return `${srcs.length} ملفاً · ${inlineNames.size} اسماً في الصفحة`;
 });
 
 /* ---------- ٧ لا مسار خارجي غير الخطوط ---------- */

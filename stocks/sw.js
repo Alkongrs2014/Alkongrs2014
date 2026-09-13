@@ -19,13 +19,22 @@
    غير متوقّع يجعل العامل وسيطاً لا يُراجَع.
    ===================================================================== */
 
-const V = "webtrade-v2";
+const V = "webtrade-v3";
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";
 
 // الهيكل: ما لا يعمل التطبيق بدونه
-const CORE = ["./", "./index.html", "./config.js", "./scans.js", "./plan.js", "./evaluate.js"];
+/* الهيكل: ما لا يعمل التطبيق بدونه.
+   **يجب أن يطابق وسوم `<script src>` في `index.html` حرفاً بحرف**،
+   ويفحص `check-ui` ذلك. نسيانُ ملفٍ جديد هنا لا يعطّل الشبكة (فـ
+   `isShell` تخزّن أيّ ‎.js‎ عند أوّل طلب) لكنه يكسر العمل بلا شبكة
+   بصمت: الهيكل مخزَّنٌ ناقصاً فتُعرض صفحةٌ بلا نصف شيفرتها.
+   وكلُّ إضافةٍ إلى هذه القائمة تستلزم رفع `V`، وإلا بقيت الذاكرة
+   القديمة تُقدَّم ("قديمٌ ثم يُجدَّد") فلا يظهر الملف الجديد أبداً
+   في الزيارة الأولى — وقع هذا فعلاً وأوهم أن السكربت لا يُحمَّل. */
+const CORE = ["./", "./index.html", "./config.js", "./score.js",
+              "./indicators.js", "./scans.js", "./plan.js", "./evaluate.js"];
 
 const isFont = (u) => u.host === "fonts.googleapis.com" || u.host === "fonts.gstatic.com";
 const isData = (u) => /\.json($|\?)/.test(u.pathname);
