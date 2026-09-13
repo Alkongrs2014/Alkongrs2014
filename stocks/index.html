@@ -19,14 +19,23 @@
   --bg:#080b11; --bg2:#0c1017; --card:#111722; --card2:#18202c; --card3:#1f2836;
   --line:#212a38; --line2:#2e3a4b;
   --tx:#e9eef7; --mut:#8f9bad; --dim:#5e6b7e;
-  --up:#00d19b; --dn:#ff4d5e; --neu:#f5b912; --acc:#4f8cff; --acc2:#7b5cff; --pre:#b06cff;
+  /* لونُ تمييزٍ واحد لا اثنان. كان `--acc2` بنفسجياً و`--grad` يمزجه
+     بالأزرق على 135°، وهو أشهر نمطٍ يجعل الواجهة تبدو مولَّدة آلياً —
+     ولا تستعمله منصّةٌ مالية واحدة. صار التمييز أزرقَ أهدأ، والبنفسجي
+     محصوراً في دلالته الوحيدة: جلسة ما قبل الافتتاح. */
+  --up:#00d19b; --dn:#ff4d5e; --neu:#f5b912; --acc:#3d7ddb; --acc2:#3d7ddb; --pre:#b06cff;
   --upBg:rgba(0,209,155,.13); --dnBg:rgba(255,77,94,.13);
   --neuBg:rgba(245,185,18,.13); --accBg:rgba(79,140,255,.14);
-  --grad:linear-gradient(135deg,var(--acc),var(--acc2));
-  --gradUp:linear-gradient(135deg,var(--up),#4f8cff);
+  /* «تدرّج» بدرجةٍ واحدة: يبقى الاسم فلا تتغيّر عشرات القواعد، ويصير
+     الأثر عمقاً خفيفاً في نفس اللون بدل قوس قزح. الزاوية 180° لا 135°
+     لأن القطريّ نفسه علامةُ القالب. */
+  --grad:linear-gradient(180deg,#4886e4,#356fc6);
+  --gradUp:linear-gradient(180deg,var(--up),#00a87d);
   --sh:0 1px 2px rgba(0,0,0,.4),0 4px 16px -6px rgba(0,0,0,.55);
   --shUp:0 2px 6px rgba(0,0,0,.45),0 14px 34px -14px rgba(0,0,0,.7);
-  --r:15px; --r2:11px; --r3:9px;
+  /* ‎15px‎ استدارةُ تطبيقٍ استهلاكي. الأدوات التقنية تستعمل ‎6–8‎:
+     الحافّة الأحدّ تجعل الجداول والشبكات تُقرأ كشبكة لا كبطاقات طافية. */
+  --r:9px; --r2:7px; --r3:5px;
   --side:212px;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
@@ -47,8 +56,12 @@ a{color:var(--acc);text-decoration:none}
 
 /* ---------- الشريط العلوي ---------- */
 .topbar{
-  position:sticky; top:0; z-index:50; background:rgba(8,11,17,.82);
-  backdrop-filter:blur(18px) saturate(1.4); -webkit-backdrop-filter:blur(18px) saturate(1.4);
+  /* سطحٌ معتم بحدٍّ شعري لا زجاجٌ مشبَع. `saturate(1.4)` كانت تُشبع ما
+     يمرّ تحتها فتتغيّر ألوان الأرقام بحسب ما يصادف مرورَه خلف الشريط —
+     والرقمُ الأخضر الذي يزيد خضرةً حين يمرّ خلفه شيء يفقد دلالته.
+     والضباب الخفيف يبقى ليُقرأ العمق بلا تشويهٍ لونيّ. */
+  position:sticky; top:0; z-index:50; background:rgba(8,11,17,.94);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
   border-bottom:1px solid var(--line);
   padding:calc(9px + env(safe-area-inset-top)) 14px 9px;
 }
@@ -272,15 +285,16 @@ details b{color:var(--tx)}
 
 /* ---------- شريط التبويبات ---------- */
 .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:60;display:flex;
-  background:rgba(10,13,19,.9);backdrop-filter:blur(20px) saturate(1.4);
-  -webkit-backdrop-filter:blur(20px) saturate(1.4);border-top:1px solid var(--line);
+  background:rgba(10,13,19,.96);backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);
   padding-bottom:env(safe-area-inset-bottom)}
 .tabbar button{flex:1;background:none;border:0;color:var(--dim);padding:9px 2px 8px;
   font-size:10.5px;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;
   align-items:center;gap:3px;position:relative;transition:color .18s}
-.tabbar button em{font-style:normal;font-size:19px;line-height:1;transition:transform .18s}
+.tabbar .ti{width:21px;height:21px;flex:none;transition:transform .18s,opacity .18s;opacity:.78}
+.tabbar button.on .ti{opacity:1}
 .tabbar button.on{color:var(--acc)}
-.tabbar button.on em{transform:translateY(-1px) scale(1.06)}
+.tabbar button.on .ti{transform:translateY(-1px)}
 /* المؤشّر شريط علوي لا لون نصّ وحده: يُقرأ بطرف العين */
 .tabbar button.on::before{content:"";position:absolute;top:0;right:22%;left:22%;height:2px;
   border-radius:0 0 3px 3px;background:var(--grad)}
@@ -310,8 +324,8 @@ html{scroll-behavior:smooth}
 
 /* ---------- علامة المنتج ---------- */
 .tb-title{letter-spacing:-.4px;line-height:1.25}
-.tb-title b{background:var(--grad);-webkit-background-clip:text;background-clip:text;
-  -webkit-text-fill-color:transparent;font-weight:700}
+/* نصٌّ ملوَّن بتدرّجٍ هو أوضح علامةٍ على قالبٍ مولَّد — لونٌ صريح أوقر */
+.tb-title b{color:var(--tx);font-weight:700}
 .tb-sub{font-size:11.5px}
 
 /* ---------- تفاعل المؤشّر (سطح المكتب) ---------- */
@@ -373,11 +387,11 @@ details[open]{background:var(--card2)}
     border-left:1px solid var(--line);background:rgba(10,13,19,.72)}
   .tabbar button{flex:none;width:100%;flex-direction:row;justify-content:flex-start;gap:11px;
     padding:11px 13px;border-radius:var(--r2);font-size:14px;font-weight:600;color:var(--mut)}
-  .tabbar button em{font-size:18px}
-  .tabbar button.on{color:#fff;background:linear-gradient(135deg,rgba(79,140,255,.22),rgba(123,92,255,.12))}
+  .tabbar .ti{width:19px;height:19px}
+  .tabbar button.on{color:#fff;background:rgba(61,125,219,.16)}
   .tabbar button.on::before{top:50%;bottom:auto;right:auto;left:0;width:3px;height:22px;
     transform:translateY(-50%);border-radius:3px 0 0 3px}
-  .tabbar button.on em{transform:none}
+  .tabbar button.on .ti{transform:none}
   @media (pointer:fine){ .tabbar button:hover{background:rgba(255,255,255,.04);color:var(--tx)} }
 
   .side-brand{display:flex;align-items:center;gap:10px;padding:6px 13px 18px;margin-bottom:6px;
@@ -1363,6 +1377,29 @@ details[open]{background:var(--card2)}
 
 </main>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <!-- أيقونات أحادية الخط بعرض 1.6 وشبكة 24: الإيموجي كان أبرز ما يجعل
+       الواجهة تبدو مولَّدة، ولا تستعمله أيُّ منصّة مالية مهنية. والرسم
+       هنا لا خطُّ أيقوناتٍ خارجي: القاعدة «بلا اعتماد خارجي» تمنعه،
+       و`check-ui` يفحصها. -->
+  <g id="i-now" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12h3.5l2-5 3 10 2.5-7 1.8 4H21"/></g>
+  <g id="i-list" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <path d="M4 7h16M4 12h16M4 17h10"/></g>
+  <g id="i-screen" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.6"/>
+    <path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></g>
+  <g id="i-opts" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3.5h8.5L19 8v12.5H6z"/><path d="M14 3.5V8h5"/><path d="M9 13h6M9 16.5h4"/></g>
+  <g id="i-analysis" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 20V9.5M9.8 20V4.5M15.1 20v-7M20.4 20v-11"/></g>
+  <g id="i-log" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.7 3.6v3.9h-3.9"/>
+    <path d="M12 7.8V12l3 1.9"/></g>
+  <g id="i-news" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 5.5h12.5v13H6a2 2 0 0 1-2-2z"/><path d="M16.5 9H20v7.5a2 2 0 0 1-2 2"/>
+    <path d="M7 9h6.5M7 12.5h6.5M7 16h4"/></g>
+</defs></svg>
 <nav class="tabbar" id="tabbar">
   <div class="side-brand">
     <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
@@ -1374,13 +1411,13 @@ details[open]{background:var(--card2)}
       <circle cx="25.5" cy="8.5" r="2.7" fill="#00d19b"/></svg>
     <div class="nm">مرصد الأسهم<small>الأمريكية والعقود</small></div>
   </div>
-  <button data-go="now" class="on"><em>⚡</em>الآن</button>
-  <button data-go="list"><em>📋</em>الأسهم</button>
-  <button data-go="screen"><em>🎯</em>الفرص</button>
-  <button data-go="opts"><em>🧾</em>العقود</button>
-  <button data-go="analysis"><em>⚖️</em>تحليل</button>
-  <button data-go="log"><em>📜</em>السجل</button>
-  <button data-go="news"><em>📰</em>الأخبار</button>
+  <button data-go="now" class="on"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-now"/></svg>الآن</button>
+  <button data-go="list"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>الأسهم</button>
+  <button data-go="screen"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-screen"/></svg>الفرص</button>
+  <button data-go="opts"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-opts"/></svg>العقود</button>
+  <button data-go="analysis"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-analysis"/></svg>تحليل</button>
+  <button data-go="log"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>السجل</button>
+  <button data-go="news"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-news"/></svg>الأخبار</button>
 </nav>
 
 <script src="config.js"></script>

@@ -31,6 +31,26 @@
    ===================================================================== */
 
 const near = (p, lvl, tol) => isFinite(p) && isFinite(lvl) && lvl > 0 && Math.abs(p - lvl) / lvl <= tol;
+
+/* قوّة الاتجاه من الفريم اليومي. `an` في الصفّ الحيّ و`adx` مباشرةً في
+   اللقطة التاريخية — الشرط الواحد يقرأ الاثنين فلا يحتاج نسختين. */
+const adxOf = (r) => {
+  const v = Number.isFinite(r.adx) ? r.adx : (r.an && r.an["1d"] ? r.an["1d"].adx : null);
+  return Number.isFinite(v) ? v : null;
+};
+const sqOf = (r) => {
+  const v = Number.isFinite(r.squeeze) ? r.squeeze : (r.an && r.an["1d"] ? r.an["1d"].squeeze : null);
+  return Number.isFinite(v) ? v : null;
+};
+/* التباعد: ‎+1‎ صاعد و‎−1‎ هابط. في الصفّ الحيّ كائنٌ فيه `dir`، وفي
+   اللقطة التاريخية رقمٌ مباشر — تخزينُ كائنٍ لكل شمعة من 482 ألفاً
+   يضاعف حجم الذاكرة بلا مقابل. */
+const divOf = (r) => {
+  if (Number.isFinite(r.div)) return r.div;
+  if (r.div && Number.isFinite(r.div.dir)) return r.div.dir;
+  const a = r.an && r.an["1d"] && r.an["1d"].div;
+  return (a && Number.isFinite(a.dir)) ? a.dir : null;
+};
 const allTF = (r, sign) => {
   const v = Object.values(r.tfScore || {});
   return v.length === 4 && v.every(x => sign > 0 ? x > 15 : x < -15);
@@ -51,6 +71,38 @@ const SCANS = [
     rank: (r) => r.score,
     btTest: (r) => (r.tfScore || {})["1d"] < -15,
     btNote: "الفريم اليومي وحده — لا نحتفظ بتاريخ الفريمات الأصغر" },
+  { id: "alignAdx", lbl: "توافق مع قوّة اتجاه ▲",
+    why: "الفريمات الأربعة صاعدة معاً **و**ADX فوق 25. التوافق وحده حافتُه سالبة في الأرشيف (‎−0.28‎ على 55 ألف حالة): متوسّطات مرتَّبة قد تكون تذبذباً مرتَّباً. وADX يقيس قوّة الاتجاه لا جهته، فاجتماعُهما يشترط أن تكون الحركة ذات اتجاه فعلاً.",
+    test: (r) => allTF(r, 1) && (adxOf(r) ?? 0) >= 25,
+    val: (r) => `ADX ${fmt(adxOf(r), 0)}`,
+    rank: (r) => -(adxOf(r) ?? 0),
+    btTest: (r) => (r.tfScore || {})["1d"] > 15 && (adxOf(r) ?? 0) >= 25,
+    btNote: "الفريم اليومي وحده — لا نحتفظ بتاريخ الفريمات الأصغر" },
+  { id: "alignAdxDn", lbl: "توافق مع قوّة اتجاه ▼", dir: -1,
+    why: "المقابل الهابط: الفريمات الأربعة هابطة وADX فوق 25. هبوطٌ ذو اتجاه لا تصريفٌ داخل نطاق.",
+    test: (r) => allTF(r, -1) && (adxOf(r) ?? 0) >= 25,
+    val: (r) => `ADX ${fmt(adxOf(r), 0)}`,
+    rank: (r) => -(adxOf(r) ?? 0),
+    btTest: (r) => (r.tfScore || {})["1d"] < -15 && (adxOf(r) ?? 0) >= 25,
+    btNote: "الفريم اليومي وحده — لا نحتفظ بتاريخ الفريمات الأصغر" },
+  { id: "divBull", lbl: "تباعد صاعد ▲",
+    why: "قاعٌ أدنى في السعر وقاعٌ **أعلى** في RSI: البيع يفقد قوّته قبل أن ينعكس السعر. أكثر إشارات التحليل الفني تعرّضاً للتلفيق، فالتعريف هنا آليّ: قاعان مؤكَّدان بفاصلٍ أدنى وتجاوزٌ يفوق نصف ATR.",
+    test: (r) => divOf(r) === 1,
+    val: (r) => `RSI ${fmt(r.rsi, 0)}`,
+    rank: (r) => r.rsi,
+    btTest: (r) => divOf(r) === 1 },
+  { id: "divBear", lbl: "تباعد هابط ▼", dir: -1,
+    why: "قمّةٌ أعلى في السعر وقمّةٌ **أدنى** في RSI: الشراء يفقد قوّته قبل أن ينعكس السعر. تُقرأ تحذيراً على المراكز المفتوحة.",
+    test: (r) => divOf(r) === -1,
+    val: (r) => `RSI ${fmt(r.rsi, 0)}`,
+    rank: (r) => -r.rsi,
+    btTest: (r) => divOf(r) === -1 },
+  { id: "squeeze", lbl: "انضغاط قبل الحركة",
+    why: "نطاق بولنجر في أضيق ‎10%‎ من تاريخ السهم نفسه (لا رقماً مطلقاً: ‎2%‎ ضيّقٌ لسهمٍ مرافق وواسعٌ لهادئ). الانضغاط يسبق الحركة ولا يقول جهتها، فيُشترط معه ميلٌ صاعد — وحده ليس إشارة.",
+    test: (r) => (sqOf(r) ?? 100) < 10 && (r.tfScore || {})["1d"] > 15,
+    val: (r) => `رتبة العرض ${fmt(sqOf(r), 0)}`,
+    rank: (r) => sqOf(r),
+    btTest: (r) => (sqOf(r) ?? 100) < 10 && (r.tfScore || {})["1d"] > 15 },
   { id: "high52", lbl: "قرب قمة 52 أسبوعاً",
     why: "السعر ضمن 3% من أعلى سعر في سنة. القرب من القمة زخم لا خطر بحد ذاته — أغلب الأسهم التي تضاعفت مرّت من قممها مراراً. والمخاطرة أن القمة نفسها مقاومة.",
     test: (r) => near(r.p, r.w52h, 0.03) && r.p <= r.w52h,
@@ -104,5 +156,5 @@ if (typeof module !== "undefined" && module.exports) {
   if (typeof globalThis.fmt !== "function") {
     globalThis.fmt = (n, d = 2) => Number(n).toFixed(d);
   }
-  module.exports = { SCANS, near, allTF, volX, rngPos };
+  module.exports = { SCANS, near, allTF, volX, rngPos, adxOf, sqOf, divOf };
 }

@@ -440,6 +440,16 @@ async function main() {
       score: rec.score,
       ...(Number.isFinite(rec.band) ? { band: rec.band } : {}),
       atr: rp(rec.an["1d"]?.atr ?? null), rsi: r2(rec.an["1d"]?.rsi ?? null),
+      /* قوّة الاتجاه والانضغاط والتباعد من الفريم اليومي.
+         تُنشر في صفّ الملخّص لا في ملف الرمز وحده لأن شروط الماسح تعمل
+         على الصفوف كلّها قبل فتح أي رمز — قراءتُها من ملف الرمز تعني
+         تحميل 510 ملفاً لعرض شاشة الفرص.
+         و`div` رقمٌ لا كائن: ‎+1‎ صاعد و‎−1‎ هابط، والاتجاه هو كلّ ما
+         يُصفّى عليه. وتخزينُ كائنٍ لكل صفّ يضاعف حجماً يُقرأ في كل
+         تحميل صفحة. */
+      adx: r2(rec.an["1d"]?.adx ?? null), pdi: r2(rec.an["1d"]?.pdi ?? null),
+      mdi: r2(rec.an["1d"]?.mdi ?? null), squeeze: r2(rec.an["1d"]?.squeeze ?? null),
+      ...(rec.an["1d"]?.div?.dir ? { div: rec.an["1d"].div.dir } : {}),
       tfScore: Object.fromEntries(TFS.filter(t => rec.an[t]).map(t => [t, +rec.an[t].score.toFixed(1)])),
       mc: num(q?.marketCap) ?? ranking?.mc?.[rec.s] ?? null,
       // حجم آخر شمعة يومية = حجم الجلسة الجارية (أو آخر جلسة مكتملة حين

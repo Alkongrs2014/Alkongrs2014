@@ -901,10 +901,20 @@ function selfCheck() {
     eq([g.closed, g.med], [1, 3], "العملة خارج الإحصاء");
   });
 
-  t("SCANS الثمانية كلها قابلة للتتبّع الحيّ", () => {
-    if (SCANS.length !== 8) throw new Error(String(SCANS.length));
+  t("كل شرط في SCANS قابل للتتبّع الحيّ", () => {
+    // الخاصيّة لا العدد: تثبيتُ الرقم يُسقط الفحص عند كل شرطٍ جديد
+    // فيُقرأ فشلاً وهو نجاح، ثم يُخفَّف الفحص بدل أن يُقرأ
+    if (!Array.isArray(SCANS) || SCANS.length < 8) throw new Error(String(SCANS?.length));
     // التتبّع الحيّ يستعمل `test` لا `btTest`، فيشمل حتى ما لا يُقاس تاريخياً
-    for (const s of SCANS) if (typeof s.test !== "function") throw new Error(`${s.id}`);
+    for (const s of SCANS) {
+      if (typeof s.test !== "function") throw new Error(`${s.id}: بلا test`);
+      if (!s.id || !s.lbl || !s.why) throw new Error(`${s.id}: ناقص الوصف`);
+      if (s.dir !== undefined && s.dir !== -1 && s.dir !== 1) throw new Error(`${s.id}: dir غريب`);
+    }
+    // ولا معرّف مكرّر: شرطان بنفس الـid يدمج سجلّيهما في الإحصاء
+    const ids = SCANS.map(s => s.id);
+    if (new Set(ids).size !== ids.length) throw new Error("معرّف مكرّر");
+    return `${SCANS.length} شرطاً`;
   });
 
   console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل`);

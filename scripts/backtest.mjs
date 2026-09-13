@@ -27,7 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { ema, rsi, macd, bb, atr, scoreFrom } from "./lib/indicators.mjs";
+import { ema, rsi, macd, bb, atr, scoreFrom, adx, bbWidth, divergence } from "./lib/indicators.mjs";
 import { fetchChart, pool, stats } from "./lib/yahoo.mjs";
 
 const require = createRequire(import.meta.url);
@@ -156,6 +156,51 @@ export function signOutcome(o, d) {
 }
 
 /* =====================================================================
+   الرتبة المئوية المتدحرجة — قيمةٌ لكل شمعة لا لآخرها وحدها.
+
+   `rankInWindow` في `indicators.js` تعيد رتبة **آخر** قيمة، وهي ما
+   يحتاجه الحساب الحيّ. أما الأرشيف فيحتاج رتبة كل شمعة في زمنها، فلو
+   استدعيناها على شريحةٍ متنامية لكل شمعة صارت التكلفة تربيعية —
+   482 ألف شمعة × نافذة 120 = 58 مليون مقارنة لكل رمز.
+   ===================================================================== */
+function rollingRank(series, win) {
+  const out = new Array(series.length).fill(null);
+  for (let i = 0; i < series.length; i++) {
+    if (!Number.isFinite(series[i])) continue;
+    let n = 0, below = 0;
+    for (let j = Math.max(0, i - win + 1); j <= i; j++) {
+      if (!Number.isFinite(series[j])) continue;
+      n++;
+      if (series[j] < series[i]) below++;
+    }
+    if (n >= 20) out[i] = below / (n - 1) * 100;
+  }
+  return out;
+}
+
+/* التباعد لكل شمعة: `divergence` تعمل على نافذةٍ منتهية عند آخر عنصر،
+   فنمرّر شرائح. والنافذة 60 والخطوة 1 — أمّا الرصد فيكون على الشمعات
+   التي **تأكّدت** قمّتها، ولهذا القيمة تظهر متأخّرة `k` شمعات وهو
+   الصحيح: قمّةٌ لم تتأكّد بعد ليست قمّة، واحتسابها نظرةٌ إلى المستقبل. */
+function rollingDiv(h, l, ind, at) {
+  const out = new Array(ind.length).fill(null);
+  const LB = 60;
+  /* النافذة ثابتة الطول لا متنامية: `divergence` لا تنظر خارج
+     `lookback` أصلاً، وتمريرُ الشريحة من الصفر يجعل النسخ تربيعياً —
+     1250 شمعة × 499 رمزاً × أربع مصفوفات = مليارات العناصر. */
+  for (let i = LB; i < ind.length; i++) {
+    const a0 = i - LB + 1;
+    const d = divergence(h.slice(a0, i + 1), l.slice(a0, i + 1), ind.slice(a0, i + 1),
+                         at.slice(a0, i + 1), { lookback: LB });
+    // المواضع نسبيّة داخل النافذة، فآخر شمعة هي `LB - 1`. والأحدث وحده
+    // وبشرط أن يكون داخل آخر عشر شمعات — تباعدٌ عمره خمسون شمعة ليس
+    // إشارةَ اليوم.
+    if (d.length && (LB - 1 - d[0].at) <= 10) out[i] = d[0].dir;
+  }
+  return out;
+}
+
+/* =====================================================================
    بناء لقطة تاريخية بشكل صفّ الملخّص نفسه، حتى تعمل عليها شروط الماسح
    بلا تعديل — نفس الحقول التي تراها الواجهة، بقيم ذلك اليوم.
    ===================================================================== */
@@ -165,6 +210,12 @@ export function snapshots(meta, k) {
   const R = rsi(c, 14), M = macd(c), B = bb(c, 20, 2), A = atr(h, l, c, 14);
   const w52h = rollingExtreme(h, W52, "max"), w52l = rollingExtreme(l, W52, "min");
   const av = rollingMean(v, AVGVOL);
+  /* قوّة الاتجاه والانضغاط والتباعد — تُحسب كسلاسل مرة واحدة لا لكل
+     شمعة، وإلا صارت التكلفة تربيعية على 482 ألف شمعة. */
+  const AX = adx(h, l, c, 14);
+  const BW = bbWidth(c, 20, 2);
+  const SQ = rollingRank(BW, 120);
+  const DV = rollingDiv(h, l, R, A);
 
   const out = [];
   for (let i = 0; i < k.length; i++) {
@@ -181,7 +232,11 @@ export function snapshots(meta, k) {
     });
     out.push({
       row: { s: meta.s, sec: meta.sec, p: c[i], w52h: w52h[i], w52l: w52l[i],
-             rsi: R[i], atr: A[i], vol: v[i], score, tfScore: { "1d": score } },
+             rsi: R[i], atr: A[i], vol: v[i], score, tfScore: { "1d": score },
+             // نفس أسماء حقول `an["1d"]` في `summary.json`، فيعمل الشرط
+             // الواحد على اللقطة التاريخية وعلى الصفّ الحيّ بلا فرعين
+             adx: AX.adx[i], pdi: AX.pdi[i], mdi: AX.mdi[i],
+             squeeze: SQ[i], div: DV[i] },
       // الأساسيات المتاحة تاريخياً وحدها: متوسط الحجم يُحسب من الشمعات
       f: { avgVol: av[i] }
     });
@@ -407,8 +462,11 @@ function selfCheck() {
   const near = (a, b, tol, m) => { if (!(Math.abs(a - b) <= tol)) throw new Error(`${m}: ${a} ≠ ${b}`); };
 
   t("SCANS تُقرأ من الملف المشترك مع المتصفح", () => {
-    if (!Array.isArray(SCANS) || SCANS.length !== 8) throw new Error(`${SCANS?.length}`);
+    // الحدّ الأدنى لا العدد بالضبط: الرقم المثبَّت يُسقط الفحص عند كل
+    // شرطٍ جديد، فيُخفَّف الفحص بدل أن يُقرأ
+    if (!Array.isArray(SCANS) || SCANS.length < 8) throw new Error(`${SCANS?.length}`);
     for (const s of SCANS) if (!s.id || !s.lbl || typeof s.test !== "function") throw new Error(`${s.id} ناقص`);
+    return `${SCANS.length} شرطاً · ${SCANS.filter(s => s.btTest).length} منها مقيس`;
   });
 
   t("الشروط المستبعدة من القياس هي التي تحتاج أساسيات تاريخية", () => {
@@ -469,9 +527,18 @@ function selfCheck() {
     near(g.ret[20].med - base.ret[20].med, 3, 1e-9, "لو قِيست على الصاعد لاختلفت");
   });
 
-  t("الشرط الهابط وحده يحمل dir في scans.js", () => {
+  t("كل شرط هابط يحمل dir والصاعد لا يحمله", () => {
+    /* الخاصيّة لا القائمة: `dir` تقلب قياس النجاح، فشرطٌ هابط بلا `dir`
+       يُحتسب رابحاً حين **يصعد** السعر — أخطر خلل مرّ بالمشروع. فنفحص
+       أن كل شرطٍ وسمُه فيه ▼ يحمل ‎−1‎ وكل ما فيه ▲ لا يحمل `dir`. */
+    for (const s of SCANS) {
+      const down = s.lbl.includes("▼");
+      if (down && s.dir !== -1) throw new Error(`${s.id}: وسمُه هابط و dir=${s.dir}`);
+      if (!down && s.dir === -1) throw new Error(`${s.id}: dir هابط ووسمُه ليس كذلك`);
+    }
     const dn = SCANS.filter(s => s.dir === -1).map(s => s.id);
-    eq(dn, ["alignDn"], "الشروط الهابطة");
+    if (!dn.length) throw new Error("لا شرط هابط — هل حُذف dir؟");
+    return dn.join(" · ");
   });
 
   t("outcome يعيد null لأفق يتجاوز البيانات", () => {
