@@ -305,6 +305,14 @@ details b{color:var(--tx)}
 .tabbar button.on::before{content:"";position:absolute;top:0;right:22%;left:22%;height:2px;
   border-radius:0 0 3px 3px;background:var(--grad)}
 .side-brand{display:none}
+/* ---------- علامة العنوان ---------- */
+/* شارةٌ رأسية رقيقة بلون التمييز بدل الإيموجي. خمسةٌ وأربعون أيقونةً
+   مختلفة تعيد نفس مشكلة الإيموجي — زحامٌ يجعل العناوين تتنافس على
+   الانتباه — أمّا علامةٌ واحدة فتقول «هذا عنوان قسم» ولا تحاول تصويره.
+   وهي `::before` على `h2` فتنطبق على كل بطاقة بلا تعديل هيكل. */
+.card h2::before{content:"";display:inline-block;width:3px;height:13px;
+  border-radius:2px;background:var(--acc);margin-inline-end:8px;
+  vertical-align:-1px;opacity:.9}
 /* ---------- إيداعات SEC ---------- */
 /* الوزن شريطٌ جانبي لا رقم: القارئ لا يعرف ما تعنيه «3»، ويقرأ اللون
    بطرف العين. والحدّ على البداية لأن الاتجاه RTL. */
@@ -533,7 +541,7 @@ details[open]{background:var(--card2)}
 <section data-view="now" class="on">
 
   <div class="card" id="cardPort">
-    <h2>💼 محفظتي</h2>
+    <h2>محفظتي</h2>
     <p class="hint">مراكزك الفعلية وربحها الحيّ — تُحفظ في متصفّحك وحده، بلا خادم ولا حساب</p>
     <div id="portSum"></div>
     <div id="portList"></div>
@@ -571,7 +579,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>⚖️ ميزان السوق الآن</h2>
+    <h2>ميزان السوق الآن</h2>
     <p class="hint">متوسط القراءة الفنية لأكبر 70 شركة على 4 فريمات زمنية</p>
     <div class="verdict" id="vVerdict">—</div>
     <div class="verdict-sub" id="vSub">—</div>
@@ -591,14 +599,14 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardEvents" style="display:none">
-    <h2>⚡ أحداث قوية قادمة</h2>
+    <h2>أحداث قوية قادمة</h2>
     <p class="hint">من تقويم البنك الفدرالي الرسمي — هذه المواعيد تحرّك السوق كله لا سهماً بعينه</p>
     <div id="eventList"></div>
     <p class="srcline" id="eventNote"></p>
   </div>
 
   <div class="card">
-    <h2>📉 المؤشرات العامة</h2>
+    <h2>المؤشرات العامة</h2>
     <div class="grid2" id="indices">
       <div class="stat"><div class="k">…</div><div class="v skl"></div></div>
       <div class="stat"><div class="k">…</div><div class="v skl"></div></div>
@@ -616,7 +624,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>📊 اتساع السوق</h2>
+    <h2>اتساع السوق</h2>
     <p class="hint">كم سهماً من الـ70 صاعد وكم هابط — يكشف إن كانت الحركة عامة أم من أسهم قليلة</p>
     <div id="breadth"><div class="skl" style="height:70px"></div></div>
     <details>
@@ -627,13 +635,13 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>🏭 أداء القطاعات</h2>
+    <h2>أداء القطاعات</h2>
     <p class="hint">متوسط تغير اليوم لكل قطاع</p>
     <div id="sectors"><div class="skl" style="height:100px"></div></div>
   </div>
 
   <div class="card">
-    <h2>🔝 الأكثر ارتفاعاً وانخفاضاً</h2>
+    <h2>الأكثر ارتفاعاً وانخفاضاً</h2>
     <div class="grid2" style="gap:14px">
       <div><div style="font-size:12.5px;color:var(--up);font-weight:700;margin-bottom:6px">▲ الرابحون</div><div id="gainers"></div></div>
       <div><div style="font-size:12.5px;color:var(--dn);font-weight:700;margin-bottom:6px">▼ الخاسرون</div><div id="losers"></div></div>
@@ -641,7 +649,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>ℹ️ عن البيانات</h2>
+    <h2>عن البيانات</h2>
     <div id="about"><div class="skl" style="height:80px"></div></div>
   </div>
 
@@ -683,7 +691,7 @@ details[open]{background:var(--card2)}
   <div class="card" id="dHead"><div class="skl" style="height:90px"></div></div>
 
   <div class="card">
-    <h2>📈 الشارت والمتوسطات</h2>
+    <h2>الشارت والمتوسطات</h2>
     <div class="tf-picker" id="tfPicker">
       <button data-tf="15m">15 دقيقة</button>
       <button data-tf="1h" class="on">ساعة</button>
@@ -707,13 +715,13 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>🕒 الاتجاه على كل فريم</h2>
+    <h2>الاتجاه على كل فريم</h2>
     <p class="hint">قراءة مستقلة لكل إطار زمني — التوافق بينها أهم من أي إشارة منفردة</p>
     <div id="tfTable"><div class="skl" style="height:100px"></div></div>
   </div>
 
   <div class="card">
-    <h2>🏢 بطاقة الشركة</h2>
+    <h2>بطاقة الشركة</h2>
     <p class="hint">الأرقام الأساسية التي تصف الشركة نفسها لا حركة سهمها</p>
     <div id="fund"><div class="skl" style="height:150px"></div></div>
     <details>
@@ -730,19 +738,19 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardWhy">
-    <h2>🧭 قراءة السهم في ثلاثة أسطر</h2>
+    <h2>قراءة السهم في ثلاثة أسطر</h2>
     <p class="hint">نفس الأرقام التي في الأسفل، مقروءةً بالكلام</p>
     <div id="whyList"></div>
   </div>
 
   <div class="card" id="cardTrend" style="display:none">
-    <h2>🕒 متى صارت هذه التوصية</h2>
+    <h2>متى صارت هذه التوصية</h2>
     <p class="hint">الشاشة تقول الحالة الآن — وهذا يقول منذ متى، وماذا كانت قبلها</p>
     <div id="trendOut"></div>
   </div>
 
   <div class="card" id="cardPlan">
-    <h2>📐 خطة صفقة مقترحة</h2>
+    <h2>خطة صفقة مقترحة</h2>
     <p class="hint">مبنية على الدعم والمقاومة و ATR — نقطة بداية تُعدّلها، لا توصية</p>
     <div id="planOut"></div>
     <div id="planLevels"></div>
@@ -768,7 +776,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>🎯 مستويات يراقبها السوق</h2>
+    <h2>مستويات يراقبها السوق</h2>
     <p class="hint">مقاومات فوق السعر ودعوم تحته — من القمم والقيعان ونقاط البيفوت</p>
     <div id="levels"><div class="skl" style="height:120px"></div></div>
     <details>
@@ -781,7 +789,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>🔬 قراءات المؤشرات</h2>
+    <h2>قراءات المؤشرات</h2>
     <p class="hint">على الفريم المختار في الأعلى</p>
     <div id="indicators"><div class="skl" style="height:140px"></div></div>
     <details>
@@ -797,7 +805,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardOpts" style="display:none">
-    <h2>📑 عقود الخيارات</h2>
+    <h2>عقود الخيارات</h2>
     <p class="hint" id="optHint"></p>
     <div id="optVol"></div>
     <div id="optBest"></div>
@@ -844,7 +852,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardRSSym" style="display:none">
-    <h2>📈 الأداء النسبي</h2>
+    <h2>الأداء النسبي</h2>
     <p class="hint">أداء السهم مطروحاً منه أداء السوق، وحساسيته له، وفجواته الليلية</p>
     <div class="grid3" id="rsSymStats"></div>
     <div id="rsSymCorr"></div>
@@ -852,7 +860,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardStrat" style="display:none">
-    <h2>🧩 باني الاستراتيجيات</h2>
+    <h2>باني الاستراتيجيات</h2>
     <p class="hint">اختر تركيبةً من عقود هذا الاستحقاق، فتُحسب من أسعارها الفعلية:
     التكلفة وأقصى ربح وأقصى خسارة ونقاط التعادل واحتمال الربح — ويُرسم منحنى العائد</p>
 
@@ -919,7 +927,7 @@ details[open]{background:var(--card2)}
   <!-- أدوات التنفيذ: كانت تبويباً مستقلاً يفرض إعادة اختيار السهم في
        قائمتين بعد اختياره هنا. مكانها الطبيعي مع السهم الذي تخصّه. -->
   <div class="card" id="cardSize">
-    <h2>🛡️ حجم الصفقة</h2>
+    <h2>حجم الصفقة</h2>
     <p class="hint">كم سهماً تشتري ليكون خطرك بالضبط النسبة التي تحددها — أهم رقم قبل الدخول</p>
     <div class="grid2">
       <div class="fld"><label>رأس المال ($)</label><input id="iCap" type="number" inputmode="decimal" value="10000"></div>
@@ -939,7 +947,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>🔔 تنبيه سعر</h2>
+    <h2>تنبيه سعر</h2>
     <p class="hint">ينبّهك عند وصول هذا السهم لسعر تحدده — يعمل ما دام التطبيق مفتوحاً</p>
     <div class="grid2">
       <div class="fld"><label>السعر</label><input id="aPrice" type="number" inputmode="decimal"></div>
@@ -959,7 +967,7 @@ details[open]{background:var(--card2)}
 <!-- ================= الفرص ================= -->
 <section data-view="screen">
   <div class="card">
-    <h2>🎯 ماسح الفرص</h2>
+    <h2>ماسح الفرص</h2>
     <p class="hint">مسح آلي على السبعين بشروط جاهزة — نقطة بداية للبحث لا توصية بالشراء</p>
     <div class="scans" id="scanPicker"></div>
     <p class="scan-why" id="scanWhy"></p>
@@ -970,7 +978,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>🧠 وش أشتري الآن؟</h2>
+    <h2>وش أشتري الآن؟</h2>
     <p class="hint">حدّد معاييرك أنت، ونرتّب لك الأسهم المطابقة — ولو لم يطابق شيء نقول ذلك بدل تخفيف الشروط</p>
     <div class="grid2">
       <div class="fld"><label>القطاع</label><select id="pkSector"><option value="">كل القطاعات</option></select></div>
@@ -1016,7 +1024,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardArchive" style="display:none">
-    <h2>📊 أرشيف النتائج</h2>
+    <h2>أرشيف النتائج</h2>
     <p class="hint" id="archHint"></p>
     <div id="archTable"></div>
     <div id="archReg"></div>
@@ -1041,7 +1049,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>📅 رزنامة الأرباح</h2>
+    <h2>رزنامة الأرباح</h2>
     <p class="hint">إعلانات الأرباح القادمة — السهم يتحرك بعنف بعدها وغالباً بفجوة لا يحميك منها وقف الخسارة</p>
     <div id="earnCal"><div class="skl" style="height:120px"></div></div>
   </div>
@@ -1084,7 +1092,7 @@ details[open]{background:var(--card2)}
 <section data-view="opts">
 
   <div class="card" id="cardOptPulse">
-    <h2>🫀 نبض سوق العقود</h2>
+    <h2>نبض سوق العقود</h2>
     <p class="hint">قراءةٌ من سوق العقود نفسه لا من الأسهم: ما يشتريه المتداولون، وبأي سعر مقارنةً
     بحركة السهم الفعلية</p>
     <div class="verdict" id="optVerdict">—</div>
@@ -1109,7 +1117,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card full" id="cardOptScanner">
-    <h2>🎯 ماسح العقود</h2>
+    <h2>ماسح العقود</h2>
     <p class="hint">أفضل عقد كول وبوت على كل رمز — بمعاييرك أنت، والمعيار معلن ومحسوب لا «ذكاء
     اصطناعي» بلا تعريف</p>
 
@@ -1158,7 +1166,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardOptFlow" style="display:none">
-    <h2>⚡ النشاط غير المعتاد</h2>
+    <h2>النشاط غير المعتاد</h2>
     <p class="hint">عقودٌ حجم تداولها اليوم يفوق مراكزها القائمة — أي أن أغلب التداول مراكز
     <b>جديدة</b> لا إغلاق قديمة</p>
     <div id="optFlow"></div>
@@ -1175,7 +1183,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardOptER" style="display:none">
-    <h2>📅 الأرباح وما يسعّره السوق لها</h2>
+    <h2>الأرباح وما يسعّره السوق لها</h2>
     <p class="hint">قبل إعلان الأرباح يرتفع التقلّب الضمني، وبعده ينهار في دقائق —
     فالعقد قد يخسر وأنت على صواب في الاتجاه</p>
     <div id="optER"></div>
@@ -1195,7 +1203,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardOptVol" style="display:none">
-    <h2>🌡️ غلاء العقود وتقلّبها</h2>
+    <h2>غلاء العقود وتقلّبها</h2>
     <p class="hint">التقلّب الضمني الذي يسعّره سوق الخيارات مقابل ما يتحرّكه السهم فعلاً</p>
     <div id="optVolList"></div>
     <p class="srcline" id="optVolNote"></p>
@@ -1219,7 +1227,7 @@ details[open]{background:var(--card2)}
 <!-- ================= تحليل ================= -->
 <section data-view="analysis">
   <div class="card">
-    <h2>⚖️ الأقوى أساسياً</h2>
+    <h2>الأقوى أساسياً</h2>
     <p class="hint">ترتيب بأرقام الشركة نفسها لا بحركة سهمها — ربحية ونمو وتسعير</p>
     <div class="toolbar">
       <select id="fSector"><option value="">كل القطاعات</option></select>
@@ -1251,13 +1259,13 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card">
-    <h2>🏭 متوسطات القطاعات</h2>
+    <h2>متوسطات القطاعات</h2>
     <p class="hint">لتعرف ما معنى «غالٍ» — الرقم لا معنى له خارج قطاعه</p>
     <div id="secMed"><div class="skl" style="height:140px"></div></div>
   </div>
 
   <div class="card">
-    <h2>🆚 مقارنة سهمين</h2>
+    <h2>مقارنة سهمين</h2>
     <p class="hint">وجهاً لوجه على نفس المقاييس</p>
     <div class="grid2">
       <div class="fld"><label>السهم الأول</label><select id="cmpA"></select></div>
@@ -1268,7 +1276,7 @@ details[open]{background:var(--card2)}
 
 
   <div class="card" id="cardRS" style="display:none">
-    <h2>📈 القوة النسبية</h2>
+    <h2>القوة النسبية</h2>
     <p class="hint">أداء السهم <b>مطروحاً منه أداء السوق</b> — سهمٌ صعد 2% ويوم السوق +3% سهمٌ ضعيف
     لا قوي، وهذا ما لا يقوله التغيّر اليومي</p>
     <div class="toolbar">
@@ -1301,14 +1309,14 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardSecRS" style="display:none">
-    <h2>🧭 أي قطاع يقود السوق؟</h2>
+    <h2>أي قطاع يقود السوق؟</h2>
     <p class="hint">وسيط الفائض داخل كل قطاع — القطاع يقود أو يتخلّف قبل أسهمه غالباً</p>
     <div id="secRS"></div>
     <p class="srcline" id="secRSNote"></p>
   </div>
 
   <div class="card" id="cardHeat" style="display:none">
-    <h2>🔥 خريطة السوق</h2>
+    <h2>خريطة السوق</h2>
     <p class="hint">كل مربّع سهم، حجمه بقيمته السوقية ولونه بتغيّره اليوم — مجموعةً بقطاعها</p>
     <div class="toolbar">
       <select id="heatBy">
@@ -1323,7 +1331,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardCorr" style="display:none">
-    <h2>🕸️ الارتباط — هل محفظتك منوَّعة فعلاً؟</h2>
+    <h2>الارتباط — هل محفظتك منوَّعة فعلاً؟</h2>
     <p class="hint">خمسة أسهم مترابطة ليست تنويعاً بل مركزاً واحداً بخمسة أسماء</p>
     <div class="toolbar">
       <select id="corrSym"></select>
@@ -1346,7 +1354,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardGaps" style="display:none">
-    <h2>⛳ الفجوات الليلية</h2>
+    <h2>الفجوات الليلية</h2>
     <p class="hint">الفتح مقابل إغلاق الأمس — ما <b>لا</b> يحميك منه وقف الخسارة، لأن السعر
     يقفز فوقه لا عبره</p>
     <div id="gapList"></div>
@@ -1362,13 +1370,13 @@ details[open]{background:var(--card2)}
 <!-- ================= السجل ================= -->
 <section data-view="log">
   <div class="card">
-    <h2>📜 سجل الصفقات</h2>
+    <h2>سجل الصفقات</h2>
     <p class="hint">كل إشارة كما صدرت لحظتها — لا كما تُحسب اليوم — ثم ما حدث لها بعد ذلك</p>
     <div id="logStats"><div class="skl" style="height:120px"></div></div>
   </div>
 
   <div class="card">
-    <h2>🔎 تصفية وترتيب</h2>
+    <h2>تصفية وترتيب</h2>
     <div class="toolbar">
       <select id="lgStatus">
         <option value="">كل الحالات</option>
@@ -1415,7 +1423,7 @@ details[open]{background:var(--card2)}
   </div>
 
   <div class="card" id="cardLearn" style="display:none">
-    <h2>🧪 ما يقوله السجل</h2>
+    <h2>ما يقوله السجل</h2>
     <p class="hint">قراءةٌ للأرقام واقتراحاتٌ للتحسين — لا تُطبَّق تلقائياً ولا تمسّ أوزان المحرّك</p>
     <div id="learnOut"></div>
   </div>
@@ -3983,7 +3991,7 @@ function renderFund() {
     if (days >= 0) {
       const soon = days <= 7;
       html += `<div class="${soon ? "warn" : "note"}" style="margin-top:12px">
-        <b>📅 إعلان الأرباح ${days === 0 ? "اليوم" : `بعد ${bd(days)} يوماً`}</b> (${d})${f.earnings.estimated ? " — تاريخ تقديري" : ""}
+        <b>إعلان الأرباح ${days === 0 ? "اليوم" : `بعد ${bd(days)} يوماً`}</b> (${d})${f.earnings.estimated ? " — تاريخ تقديري" : ""}
         ${soon ? "<br>السهم قد يتحرك بعنف بعد الإعلان وغالباً بفجوة سعرية لا يحميك منها وقف الخسارة." : ""}</div>`;
     }
   }

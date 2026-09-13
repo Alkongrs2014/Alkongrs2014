@@ -13,6 +13,7 @@
      node local/run.mjs news       الأخبار وحدها
      node local/run.mjs daily      أساسيات وترتيب + الأرشيف (مرة يومياً)
      node local/run.mjs options    عقود الخيارات (كل نصف ساعة)
+     node local/run.mjs filings    إيداعات SEC (كل عشر دقائق، بلا مفتاح)
      node local/run.mjs backtest   الأرشيف التاريخي وحده
      node local/run.mjs signals    تثبيت إشارات اليوم وتحديث المفتوحة
      node local/run.mjs events     تقويم الفدرالي (أحداث قوية قادمة)
@@ -243,7 +244,11 @@ else {
              // الخيارات دورة نصف ساعة مستقلة: كل رمز يحتاج طلباً لكل
              // استحقاق، وسلسلة العقود لا تتغيّر بمعدّل الشمعة
              : cmd === "options" ? ["fetch-options.mjs"]
-             : ["fetch-daily.mjs", "fetch-events.mjs", "fetch-market.mjs", "track-signals.mjs", "fetch-news.mjs", "fetch-options.mjs", "backtest.mjs", "analytics.mjs", "learn.mjs"];
+             // الإيداعات دورةٌ مستقلّة كذلك: تصل على مدار الساعة بوتيرةٍ لا
+             // علاقة لها بدورة الأسعار، ولا تحتاج مفتاحاً ولا حصّة — فدمجُها
+             // في دورة السوق يجعلها تتقاسم قفلاً وميزانيةً بلا سبب
+             : cmd === "filings" ? ["fetch-filings.mjs"]
+             : ["fetch-daily.mjs", "fetch-events.mjs", "fetch-market.mjs", "track-signals.mjs", "fetch-news.mjs", "fetch-filings.mjs", "fetch-options.mjs", "backtest.mjs", "analytics.mjs", "learn.mjs"];
 
   // الانسحاب أمام تشغيل جارٍ ليس فشلاً — نخرج بصفر حتى لا تُعلَّم المهمة
   // المجدولة كفاشلة كل دورة متداخلة
