@@ -7,6 +7,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="مرصد الأسهم">
+<!-- أيقونة مضمَّنة في الترويسة لا يحقنها السكربت: بلا `href` هنا يطلب
+     المتصفح `/favicon.ico` ويعود 404 في كل فتحة، ولا تظهر الأيقونة
+     إلا بعد تنفيذ الشيفرة. ونفس الرسم يُعاد استعماله في ملف التعريف. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2222%22%20fill%3D%22%230b0e13%22%2F%3E%3Cpath%20d%3D%22M14%2074%20L38%2046%20L56%2060%20L86%2024%22%20stroke%3D%22%2300d19b%22%20stroke-width%3D%229%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2286%22%20cy%3D%2224%22%20r%3D%228%22%20fill%3D%22%2300d19b%22%2F%3E%3C%2Fsvg%3E">
 <link rel="manifest" id="manifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -515,7 +519,7 @@ details[open]{background:var(--card2)}
     <div class="brand">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
       <defs><linearGradient id="lgo" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#00d19b"/></linearGradient></defs>
+        <stop offset="0" stop-color="#3d7ddb"/><stop offset="1" stop-color="#00d19b"/></linearGradient></defs>
       <rect x="1.2" y="1.2" width="29.6" height="29.6" rx="9" fill="url(#lgo)" opacity=".14"/>
       <rect x="1.8" y="1.8" width="28.4" height="28.4" rx="8.4" fill="none" stroke="url(#lgo)"
         stroke-width="1.15" opacity=".55"/>
@@ -2789,7 +2793,7 @@ function drawGamma(e, spot) {
     while (i < n - 1 && ks[i + 1] < spot) i++;
     const t = (spot - ks[i]) / ((ks[i + 1] - ks[i]) || 1);
     const x = xOf(i) + (xOf(i + 1) - xOf(i)) * t;
-    g.strokeStyle = "#4f8cff"; g.lineWidth = 1.5; g.setLineDash([4, 3]);
+    g.strokeStyle = "#3d7ddb"; g.lineWidth = 1.5; g.setLineDash([4, 3]);
     g.beginPath(); g.moveTo(x, padT); g.lineTo(x, padT + ch); g.stroke();
     g.setLineDash([]);
   }
@@ -3191,7 +3195,7 @@ function drawPayoff(prof, spot, mul) {
     g.beginPath(); g.moveTo(X(p), padT); g.lineTo(X(p), padT + ch); g.stroke(); g.setLineDash([]);
   };
   prof.be.forEach(b => vline(b, "#f5b912", [3, 3]));
-  vline(spot, "#4f8cff", [5, 3]);
+  vline(spot, "#3d7ddb", [5, 3]);
 
   // محور القيمة على اليسار
   g.font = "10px system-ui"; g.textAlign = "left"; g.fillStyle = "#5e6b7e";

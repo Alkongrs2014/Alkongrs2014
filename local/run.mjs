@@ -109,7 +109,13 @@ function serve() {
     // الموقع يقرأ من ./data، والصفحة نفسها في stocks/
     const candidates = [path.join(ROOT, "stocks", p), path.join(ROOT, p)];
     const file = candidates.find(f => f.startsWith(ROOT) && fs.existsSync(f) && fs.statSync(f).isFile());
-    if (!file) { res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("غير موجود"); }
+    // نطبع المسار المفقود: ‎404‎ صامتة في سجل المتصفح بلا مسار تكلّف
+    // تشخيصاً في كل مرة — والخادم هو الموضع الوحيد الذي يعرفه.
+    if (!file) {
+      console.warn(`  404  ${p}`);
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+      return res.end("غير موجود");
+    }
     res.writeHead(200, {
       "Content-Type": MIME[path.extname(file)] || "application/octet-stream",
       "Cache-Control": "no-store"          // البيانات تتغيّر كل تشغيل
