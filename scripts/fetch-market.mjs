@@ -199,11 +199,17 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
   if (meta.mkt) rec.mkt = meta.mkt;
   let touched = false, errors = [], usedTD = false;
+  // سلسلة الساعة كاملةً قبل القصّ — تُستعمل لاشتقاق 4h ولا تُخزَّن
+  let full1h = null;
 
   // الترتيب مقصود: اليومي أولاً لأنه أساس الشارت والنتيجة الفنية، فحين
   // تنفد ميزانية الطلبات في تشغيل واحد تكون الفريمات الأهم قد امتلأت
   for (const tf of frames) {
-    if (!stale(prev, tf, now, tier === "core" && dailyIsLive(now, meta.mkt)) && prev?.tf?.[tf]?.c?.length) {
+    /* 4h يُشتقّ من الساعة الكاملة، فسلسلةٌ قصيرة محفوظة من قبل لا تُصلَح
+       إلا بإعادة جلب الساعة. بلا هذا تبقى 65 شمعة حتى تنتهي صلاحية
+       الساعة وحدها — إصلاحٌ يعتمد على التوقيت بدل أن يكون حتمياً. */
+    const shortDerived = tf === "1h" && (prev?.tf?.["4h"]?.c?.length || 0) < 200;
+    if (!shortDerived && !stale(prev, tf, now, tier === "core" && dailyIsLive(now, meta.mkt)) && prev?.tf?.[tf]?.c?.length) {
       rec.tf[tf] = prev.tf[tf];                       // ما زال حديثاً — أبقِه
       continue;
     }
@@ -220,7 +226,13 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
       const { candles, meta: m } = await fetchChart(sym, {
         range: RANGE[tf], interval: tf, prePost: tf === "15m"
       });
-      rec.tf[tf] = { updated: now, c: slimCandles(tradingOnly(candles, tf).slice(-KEEP)) };
+      const full = tradingOnly(candles, tf);
+      // الساعة تُطلب بمدى سنتين (`RANGE["1h"]`) فتعود بآلاف الشمعات، ثم
+      // تُقصّ إلى KEEP. و4h تُشتقّ منها — فاشتقاقُها **بعد** القصّ يعطي
+      // 260/4 = 65 شمعة، وEMA200 تحتاج 200. السلسلة الكاملة تُمرَّر
+      // للاشتقاق ولا تُخزَّن: الملفّ يبقى بـ KEEP لكل فريم.
+      if (tf === "1h") full1h = full;
+      rec.tf[tf] = { updated: now, c: slimCandles(full.slice(-KEEP)) };
       // فترات التداول الحقيقية لا يوفّرها غير Yahoo — وهي أدق من التقدير
       if (tf === "15m" && m) { rec.period = tradingPeriodFromMeta(m); rec.cur = num(m.regularMarketPrice); }
       rec.src = "yahoo";
@@ -275,8 +287,31 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
     rec.noChart = true;
   }
 
-  // اشتقاق فريم 4 ساعات من الساعة (Yahoo لا يوفّره)
-  if (rec.tf["1h"]?.c?.length) rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(rec.tf["1h"].c, 4).slice(-KEEP)), derived: true };
+  /* اشتقاق فريم 4 ساعات من الساعة (Yahoo لا يوفّره).
+
+     من السلسلة **الكاملة** حين تتوفّر، فتخرج 260 شمعة بدل 65 — وهو فرقُ
+     وجودِ EMA200 من عدمه. وبلا e200 تسقط بوابتا الاتجاه الأمّ (‎4.0‎ من
+     ‎8.5‎) فيقيس الفريم المدى القصير وحده ويُسمّى «اتجاهاً»، وأصغر خطوةٍ
+     فيه تصير ‎11.11‎ — أي أنه عاجزٌ بنيوياً عن التعبير عن ميلٍ ضعيف
+     فيسقط من `allTF` وإن كان له جهةٌ حقيقية. قِيس: 96 رمزاً من 96 بلا
+     e200 على 4h، و`MSFT` و`V` تسقطان من توافق الفريمات بسببها وحدها.
+
+     وحين لا تتوفّر الكاملة (الساعة لم تُجدَّد هذا التشغيل) نُبقي 4h
+     المخزَّنة كما هي بدل إعادة اشتقاقها قصيرة — وإلا تذبذب طولها بين
+     التشغيلات فتذبذبت معه النتيجة. */
+  if (full1h?.length) {
+    rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(full1h, 4).slice(-KEEP)), derived: true };
+  } else if (prev?.tf?.["4h"]?.c?.length) {
+    /* 4h ليس في `frames` فلا يمرّ بحلقة الجلب، ولا يُنقل من `prev`
+       تلقائياً. وبلا نقله هنا يُعاد اشتقاقه من الساعة **المقصوصة** في كل
+       تشغيلٍ لا تُجدَّد فيه الساعة — فيهبط من 260 شمعة إلى 65 ويضيع
+       e200 الذي بُني قبل دقائق. أثرٌ صامت: الطول يتذبذب بين التشغيلات
+       ومعه نتيجة الفريم كلها. */
+    rec.tf["4h"] = prev.tf["4h"];
+  } else if (rec.tf["1h"]?.c?.length) {
+    // أول مرة ولا ساعةَ كاملة: مشتقٌّ قصير خيرٌ من فريمٍ غائب
+    rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(rec.tf["1h"].c, 4).slice(-KEEP)), derived: true };
+  }
 
   // المؤشرات لكل فريم
   rec.an = {};
@@ -467,11 +502,18 @@ async function main() {
   // الطبقة الواسعة تراكمية: كل تشغيل يجدّد حصّته فقط، فندمج الجديد فوق
   // القديم بدل استبداله. بلا الدمج يخرج الملف بستين صفاً كل مرة وينهار
   // البحث إلى آخر دفعة جُلبت.
-  const wideMerged = new Map(prevWide.map(r => [r.s, r]));
-  for (const rec of wideRecs) wideMerged.set(rec.s, { ...buildRow(rec, false), u: now });
+  /* رمزٌ رُقّي إلى الأساسية يخرج من الواسعة. الملف تراكمي فلا يخرج
+     وحده، ولو بقي لظهر **مرّتين** في `allRows()` — صفٌّ بأربعة فريمات
+     وآخر بفريمٍ واحد — فيُحسب مرّتين في كل ما يمرّ على الكون. */
+  const coreSyms = new Set(cfg.symbols.map(x => x.s));
+  const wideMerged = new Map(prevWide.filter(r => !coreSyms.has(r.s)).map(r => [r.s, r]));
+  for (const rec of wideRecs) if (!coreSyms.has(rec.s)) wideMerged.set(rec.s, { ...buildRow(rec, false), u: now });
   const wideRows = [...wideMerged.values()].sort((a, b) => (b.mc ?? 0) - (a.mc ?? 0));
-  if (wideRows.length < prevWide.length)
-    throw new Error(`الطبقة الواسعة تقلّصت ${prevWide.length}→${wideRows.length} — لن نكتب`);
+  /* البوابة تقارن بما كان **بعد** استبعاد المرقّى: تقلّصٌ مشروح بالترقية
+     ليس خطأ دمج، وتقلّصٌ بلا سبب هو الخطأ الذي بُنيت له. */
+  const prevKept = prevWide.filter(r => !coreSyms.has(r.s)).length;
+  if (wideRows.length < prevKept)
+    throw new Error(`الطبقة الواسعة تقلّصت ${prevKept}→${wideRows.length} — لن نكتب`);
   bytes += writeJSON("wide.json", { updated: now, count: wideRows.length, rows: wideRows });
   console.log(`  ✓ الطبقة الواسعة: ${wideRows.length} صفاً (+${wideRecs.length} محدَّثاً)`);
 
