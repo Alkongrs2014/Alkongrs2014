@@ -16,6 +16,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DIR = path.join(ROOT, "stocks");
@@ -178,6 +179,59 @@ t("لا ملف تنشره الواجهةُ وهو ممنوع من النشر", (
   if (clash.length) throw new Error(`ممنوعٌ من النشر وتقرؤه الواجهة: ${clash.join(" · ")}`);
   return `${denied.length} ممنوعاً · ${wanted.size} ملفاً تطلبه الواجهة`;
 });
+
+/* =====================================================================
+   `conv` يُفحص بالصدق لا بمساواة قيمةٍ بعينها.
+
+   الحقل يوسم سجلاً لا يصف ما يُعرض اليوم، وقيمُه تتكاثر: كانت `"long"`
+   وحدها، ثم `"dir"` (سجلٌّ بُني بسياسة اتجاهٍ سابقة) ثم `"gone"` (شرطٌ
+   أُزيل من `SCANS`). وكلُّ فحصٍ يسأل «هل يساوي long؟» يمرّر الجديدتين
+   **بلا خطأ ولا أثر ظاهر** — يظهر رقمٌ في إحصاء السجل لا يصف شيئاً
+   يُعرض. قِيس قبل الإصلاح: 24 من 37 صفقة مغلقة محسوبة كانت مُحوَّلة.
+
+   وهي نفس عائلة «الصفر صالح فالفحص بـ`null` لا بالصدق» و«`undefined`
+   تعني ‎+1‎ فلا تُفحص بالصدق»: حقلٌ مجموعةُ قيمه مفتوحة لا يُفحص بواحدةٍ
+   منها. فيُمنع النمط عند جذره بدل انتظار القيمة الرابعة.
+   ===================================================================== */
+t("`conv` لا يُفحص بمساواة قيمةٍ نصّية", () => {
+  const files = ["index.html", "scans.js", "plan.js", "evaluate.js"]
+    .map(f => [f, path.join(DIR, f)])
+    .concat([["track-signals.mjs", path.join(ROOT, "scripts", "track-signals.mjs")]])
+    .filter(([, f]) => fs.existsSync(f));
+  const bad = [];
+  for (const [name, f] of files) {
+    fs.readFileSync(f, "utf8").split("\n").forEach((line, i) => {
+      if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;      // تعليقٌ يشرح المصيدة ليس وقوعاً فيها
+      // الإسناد (`conv = "dir"`) مشروع؛ المقارنة وحدها هي الممنوعة
+      if (/\.conv\s*[!=]==\s*["'`]/.test(line)) bad.push(`${name}:${i + 1}`);
+    });
+  }
+  if (bad.length) throw new Error(`مقارنةٌ بقيمة نصّية: ${bad.join(" · ")}`);
+  return `${files.length} ملفاً`;
+});
+
+/* =====================================================================
+   اتجاه الخطة المفروض لا يناقض اتجاه الشرط ولا وسمَه.
+
+   `planDir` يفرض اتجاه الخطة و`dir` يعلن اتجاه الشرط، وتناقضُهما يعني
+   خطةَ بيعٍ تحت وسمٍ فيه ‎▲‎ — وهو الخلل الذي بُني الحارس له أصلاً.
+   ويُفحص **الوسم** لا الحقل وحده: الوسم هو ما يقرؤه المستخدم، وحقلان
+   متّسقان تحت وسمٍ مناقض لهما يعطيان نفس الشاشة المتناقضة.
+   ===================================================================== */
+t("`planDir` لا يناقض اتجاه الشرط ولا وسمَه", () => {
+  const { SCANS } = createRequire(import.meta.url)(path.join(DIR, "scans.js"));
+  const bad = [];
+  for (const sc of SCANS) {
+    if (sc.planDir !== 1 && sc.planDir !== -1) continue;
+    const sd = sc.dir === -1 ? -1 : 1;       // غياب `dir` يعني ‎+1‎
+    if (sc.planDir !== sd) bad.push(`${sc.id}: planDir=${sc.planDir} وdir=${sd}`);
+    if (sc.planDir === 1 && /▼/.test(sc.lbl)) bad.push(`${sc.id}: يُفرض شراءً ووسمُه ▼`);
+    if (sc.planDir === -1 && /▲/.test(sc.lbl)) bad.push(`${sc.id}: يُفرض بيعاً ووسمُه ▲`);
+  }
+  if (bad.length) throw new Error(bad.join(" · "));
+  return `${SCANS.filter(x => x.planDir === 1 || x.planDir === -1).length} شرطاً يفرض اتجاه خطته من ${SCANS.length}`;
+});
+
 
 console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل`);
 process.exit(fail ? 1 : 0);

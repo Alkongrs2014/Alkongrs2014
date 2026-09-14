@@ -68,13 +68,47 @@ function alive(pid) {
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
 }
 
+/* =====================================================================
+   الانسحاب يُسجَّل — وإلا كان **نجاحاً كاذباً لا أثر له**.
+
+   المنسحبة تخرج بصفر عمداً (انظر عند النداء)، فيسجّل المجدول «نجح»
+   لتشغيلٍ لم يعمل. والنتيجة أن ثلاث شهادات تقول إن كل شيء سليم —
+   المهمة نشطة، وآخر نتيجة ‎0x0‎، ولا سطر في أي سجل — بينما البيانات
+   تتقادم. والدليل الوحيد فجوةُ زمنٍ في `meta.json` يجب أن ينتبه لها
+   أحدٌ ويطرح التوقيتات بنفسه.
+
+   وقع فعلاً بعد إصلاح الإزاحات: مهمة العقود ‎19:35‎ خرجت ‎rc=0‎ ولم
+   تكتب، وآخر كتابةٍ ‎19:06‎ — أي أن دورة نصف الساعة صارت ساعة، ولا
+   شيء يقول ذلك. فالإزاحات تُباعد بين البدايات وحدها، وهي تفترض أن كل
+   مهمة تنتهي قبل بداية التالية: افتراضٌ يسقط كلما بطؤت الشبكة.
+
+   فتُكتب كل محاولةٍ منسحبة في `.run.skips.json` بأطرافها الثلاثة — من
+   انسحب، وأمام من، ومتى — فيصير السؤال «لماذا تقادمت العقود؟» قابلاً
+   للإجابة في سطر. آخر خمسين وحدها: الملف تشخيصٌ لا أرشيف.
+   ===================================================================== */
+const SKIPS = path.join(DATA, ".run.skips.json");
+
+function noteSkip(job, blocker, waited) {
+  try {
+    const all = JSON.parse(fs.readFileSync(SKIPS, "utf8"));
+    const list = Array.isArray(all) ? all : [];
+    list.push({ job, blocker, waited, at: Date.now() });
+    fs.writeFileSync(SKIPS, JSON.stringify(list.slice(-50)));
+  } catch (e) {
+    try { fs.writeFileSync(SKIPS, JSON.stringify([{ job, blocker, waited, at: Date.now() }])); }
+    catch (e2) { /* التشخيص لا يُسقط التشغيل */ }
+  }
+}
+
 function acquireLock(job) {
   try {
     const prev = JSON.parse(fs.readFileSync(LOCK, "utf8"));
     const age = Date.now() - prev.at;
     // عملية ماتت دون تنظيف تترك قفلاً أبدياً، فنُسقطه بعد عشرين دقيقة
     if (age < 20 * 60000 && alive(prev.pid)) {
-      console.log(`  ⏭ ${prev.job} ما زالت تعمل منذ ${Math.round(age / 1000)} ثانية — ننسحب`);
+      const waited = Math.round(age / 1000);
+      console.log(`  ⏭ ${prev.job} ما زالت تعمل منذ ${waited} ثانية — ننسحب`);
+      noteSkip(job, prev.job, waited);
       return false;
     }
   } catch (e) { /* لا قفل، أو قفل تالف — امضِ */ }
@@ -201,10 +235,12 @@ function publish() {
    *
    * و`check-ui` يحرس القائمة: ملفٌ تشير إليه الواجهة لا يجوز أن يدخلها.
    */
-  const NO_PUBLISH = new Set([".run.lock", "i18n.json", "cik.json"]);
+  // `.run.skips.json` تشخيصٌ محلّي لجدولةِ هذا الجهاز — لا معنى له على
+  // الويب، والموقع المنشور لا جدولة له أصلاً
+  const NO_PUBLISH = new Set([".run.lock", ".run.skips.json", "i18n.json", "cik.json"]);
   let skipped = 0;
   for (const n of NO_PUBLISH) {
-    if (n === ".run.lock") continue;
+    if (n.startsWith(".run.")) continue;      // حالةُ خادمٍ لا حجمَ يُعلَن
     try { skipped += fs.statSync(path.join(DATA, n)).size; } catch {}
   }
   fs.cpSync(DATA, stage, { recursive: true, filter: (src) => !NO_PUBLISH.has(path.basename(src)) });

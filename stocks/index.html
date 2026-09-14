@@ -2632,15 +2632,26 @@ function renderArchive() {
       ? '<td class="num" style="color:' + (v > 0 ? "var(--up)" : v < 0 ? "var(--dn)" : "var(--mut)") +
         '">' + bd(fmt(v, 2)) + (suf || "") + "</td>"
       : '<td class="num">—</td>';
+    /* أيُّ مسارٍ يصف السياسة النشطة؟ شرطٌ يحمل `planDir` تُبنى خطته
+       باتجاهه — وهذا بالضبط ما يقيسه المسار «ج» (`of(sd)`)، فهو نظيرُ
+       `own()` بعد الفرض لا بديلٌ عنه. وعرضُ `plan.a` له يصف سياسةً
+       أُلغيت: رقمٌ صحيح يجيب سؤالاً لم يعد يُطرح — وهي نفس مصيدة
+       «الأرقام تبدو صحيحة وتخصّ سهماً آخر» مطبَّقةً على سياسة.
+       ولهذا لا يحتاج الأرشيف إعادة بناء عند الفرض: العمودان محسوبان
+       معاً في كل تشغيل، والمتغيّر أيُّهما يُسمّى «التوقّع». */
     const rows4 = j.scans.filter(x => x.plan && x.plan.a).map(x => {
-      const p = x.plan.a, c = x.plan.c;
-      const better = c && p && Number.isFinite(c.exp) && Number.isFinite(p.exp) && c.exp > p.exp + 0.05;
-      return `<tr><td style="text-align:right">${esc(x.lbl)}</td>
-        <td class="num">${bd(fmt(p.actRate, 0))}%</td>
-        <td class="num">${bd(fmt(p.stop, 0))}%</td>
-        <td class="num">${bd(fmt(p.t[0], 0))}%</td>
-        ${num(p.exp, "%")}
-        ${c ? num(c.exp, "%") : '<td class="num">—</td>'}
+      const forced = forcedDir(x.id) !== null;
+      const live = (forced && x.plan.c) ? x.plan.c : x.plan.a;   // السياسة النشطة
+      const alt  = forced ? null : x.plan.c;                     // البديل المقيس
+      const better = alt && Number.isFinite(alt.exp) && Number.isFinite(live.exp)
+        && alt.exp > live.exp + 0.05;
+      return `<tr><td style="text-align:right">${esc(x.lbl)}${forced
+        ? ` <span class="chip up" style="font-size:9.5px;padding:0 5px">اتجاه الشرط</span>` : ""}</td>
+        <td class="num">${bd(fmt(live.actRate, 0))}%</td>
+        <td class="num">${bd(fmt(live.stop, 0))}%</td>
+        <td class="num">${bd(fmt(live.t[0], 0))}%</td>
+        ${num(live.exp, "%")}
+        ${alt ? num(alt.exp, "%") : '<td class="num" style="color:var(--mut)">مُطبَّق</td>'}
         <td style="font-size:11.5px;color:${better ? "var(--up)" : "var(--mut)"}">${better ? "أفضل" : "—"}</td></tr>`;
     }).join("");
     const base = PS.base && PS.base.a;
@@ -2659,7 +2670,8 @@ function renderArchive() {
       esc(j.costs ? j.costs.lbl : "التكلفة") + '. والشمعة التي تلمس الوقف والهدف معاً تُحسب وقفاً، ' +
       'والفجوة تُنفَّذ عند الفتح لا عند الوقف — الاحتمال الأسوأ في كل التباس. ' +
       'والعمود الأخير يقيس <b>تدخُّلاً</b> لا ترشيحاً: نفس الإشارات بخطةٍ اتجاهُها اتجاهُ الشرط ' +
-      'بدل اتجاه النتيجة الفنية.</p>';
+      'بدل اتجاه النتيجة الفنية. والشرط الموسوم <b>اتجاه الشرط</b> يطبّقه أصلاً، ' +
+      'فعمودُ «التوقّع» عنده هو هذا التدخُّل نفسه لا بديلٌ عنه.</p>';
   }
 
   // السجلّ الحيّ: ما ظهر فعلاً في هذا التطبيق منذ تشغيل التتبّع. يغطّي
@@ -4818,7 +4830,7 @@ const trendOf = (sym) => (((state.trend || {}).syms) || {})[sym] || [];
    مستبعدة كما في `renderTrackedLevels` — مقاييسها بمواضعة أخرى. */
 function sigsOf(sym) {
   return ((state.signals && state.signals.records) || [])
-    .filter(s => s.sym === sym && s.open && s.conv !== "long")
+    .filter(s => s.sym === sym && s.open && !s.conv)
     .sort((a, b) => b.at - a.at);
 }
 
@@ -4970,11 +4982,21 @@ async function loadHistory() {
 }
 
 /* كل الصفقات: المفتوحة من `signals.json` والمغلقة من `history.json`.
-   وسجلات ما قبل توقيع الاتجاه مستبعدة — مقاييسها بمواضعة أخرى. */
+
+   و`conv` تُفحص **بالصدق** لا بمساواة `"long"`. القيمة الأولى كانت
+   الوحيدة يوم كُتب الفحص، ثم أُضيفت `"dir"` (سجلٌّ بُني بسياسة اتجاهٍ
+   سابقة) و`"gone"` (شرطٌ أُزيل من `SCANS`) — فتسرّبتا من فحصٍ يسأل عن
+   قيمةٍ بعينها. قياسٌ على السجل الحيّ: 24 من 37 صفقة مغلقة محسوبة
+   كانت مُحوَّلة — أي أن **ثلثي** مقام «نسبة النجاح» لا يصف ما يُعرض:
+   عشرة سجلات لشرط `squeeze` وثلاثة عشر لـ`alignAdx`/`alignAdxDn`
+   (شروطٌ لا تعريف لها اليوم فلا وسمَ يُعرض ولا حافةَ تُقارَن)، وواحد
+   بُني باتجاهٍ معاكس فعائده مقلوب الإشارة.
+
+   القاعدة: **كلُّ `conv` غير فارغ خارج الإحصاء** — أيّاً كان سببه. */
 function allTrades() {
   const open = ((state.signals && state.signals.records) || []);
   const closed = ((state.hist && state.hist.records) || []);
-  return open.concat(closed).filter(s => s.conv !== "long");
+  return open.concat(closed).filter(s => !s.conv);
 }
 
 const LOG_ST = { win: "رابحة", loss: "خاسرة", flat: "انتهى أفقها", cancel: "ملغاة",
@@ -5299,7 +5321,7 @@ function forcedFor(sym) {
   const recs = (state.signals && state.signals.records) || [];
   let best = null;
   for (const sg of recs) {
-    if (sg.sym !== sym || !sg.open || sg.conv === "long") continue;
+    if (sg.sym !== sym || !sg.open || sg.conv) continue;
     if (forcedDir(sg.scan) === null) continue;
     if (!best || sg.at < best.at) best = sg;
   }
@@ -5529,10 +5551,22 @@ function renderPlan(rec) {
      الخطة صاعدة ويطابق شرطٌ هابط — أي أنه لم يكن يُطلق أبداً في الحالة
      التي بُني لها: شرطٌ صاعد تحته خطةُ بيع. نفس مصيدة «الصفر صالح
      فالفحص بـ`null` لا بالصدق»، وهنا `undefined` تعني ‎+1‎. */
+  /* والسياق سياقُ شاشة الفرص نفسه — لا `{ secMed: {} }`.
+
+     شرطٌ يقرأ وسيط قطاعه يعيد `false` **دائماً** على خريطةٍ فارغة: لا
+     خطأ ولا استثناء، فقط حارسٌ أعمى تجاه `cheap` وحده من بين أحد عشر
+     شرطاً. وهو شرطٌ يتناقض فعلاً — قِيس `AMAT`: «أرخص من قطاعه ▲»
+     وتحته خطةُ بيع، ولا تحذير. نفس عائلة «الحارس الميت»: موجودٌ
+     ويُنادى ولا يُطلق في الحالة التي بُني لها.
+
+     وتُبنى مرةً واحدة لا مرةً لكل شرط (`fundScores` مخزَّنة أصلاً)،
+     و`null` حين لم تصل الأساسيات بعد — فيبقى الحارس على ما يملك بدل
+     أن ينهار. */
+  const clashCtx = { secMed: (fundScores() || {}).secMed || {} };
   const against = SCANS.filter(sc => {
     const sd = sc.dir === -1 ? -1 : 1;
     if (sd === p.dir) return false;
-    try { return !!sc.test(row || {}, (state.fund && state.fund.f && state.fund.f[rec.s]) || {}, { secMed: {} }); }
+    try { return !!sc.test(row || {}, (state.fund && state.fund.f && state.fund.f[rec.s]) || {}, clashCtx); }
     catch { return false; }
   });
   if (against.length) {
@@ -5660,7 +5694,7 @@ function renderTrackedLevels(rec, p) {
   // سجلات ما قبل تصحيح الاتجاه (`conv`) تُستبعد: مقاييسها بمواضعة الشراء
   // فقراءتها كإشارة هبوط تقلب معناها. تُستبدل بأخرى صحيحة في أول دورة.
   const sig = (state.signals && state.signals.records || [])
-    .filter(s => s.sym === rec.s && s.conv !== "long")
+    .filter(s => s.sym === rec.s && !s.conv)
     .sort((a, b) => b.at - a.at)[0];
 
   const marks = [1, 2, 5];
@@ -6488,7 +6522,7 @@ function renderScreen() {
   const now = Date.now();
   const openSig = {};
   for (const s of ((state.signals && state.signals.records) || [])) {
-    if (!s.open || s.scan !== scan.id || s.conv === "long") continue;
+    if (!s.open || s.scan !== scan.id || s.conv) continue;
     if (!openSig[s.sym] || s.at < openSig[s.sym].at) openSig[s.sym] = s;
   }
 
