@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { SCANS } = require("../stocks/scans.js");
+const { SCANS, forcedDir } = require("../stocks/scans.js");
 // نفس نواة الخطة وطبقة التقييم التي يقرأها المتصفح — نسخةٌ ثانية هنا
 // تجعل السجلّ يقول إن الهدف كان 106 والمستخدم رأى 112
 const { levelsFrom, planFrom, planPair, planDirOf, validatePlan } = require("../stocks/plan.js");
@@ -212,7 +212,10 @@ export function buildSnap({ row, sym, an, k4h, k1d, f, at }) {
 
   // ATR **اليومي** لا ATR فريم الأساس — نفس اختيار `tradePlan` في المتصفح
   const atr = (Number.isFinite(row.atr) && row.atr > 0) ? row.atr : L.atr;
-  const dir = planDirOf(row.score);
+  /* `row.__scan` هو الشرط الذي أطلق هذه الإشارة — والشرط قد يفرض اتجاه
+     خطته. يُقرأ هنا لا في المتصفح وحده: السجلّ يحفظ ما رآه المستخدم،
+     فاختلافُ الاتجاه بين الخادم والواجهة يجعل المحفوظ غير المرئي. */
+  const dir = planDirOf(row.score, forcedDir(row.__scan));
   const { a: p, b: pb } = planPair({ px: L.px, atr, resAll: L.resAll, supAll: L.supAll }, dir);
   if (!p) return null;
   const bad = validatePlan(p);
@@ -377,7 +380,7 @@ export function outcomeStats(records, tr = "a") {
   const O = (s) => s[T.out];
   // مقام المسار الثاني سجلّاتُه وحدها: السجلّات السابقة له لا تملك `snap.b`،
   // وضمُّها إلى المقام يخفض نسبته بصفقاتٍ لم يخُضها قط.
-  const withSnap = records.filter(s => s.snap && s.conv !== "long" && s.mkt !== "crypto"
+  const withSnap = records.filter(s => s.snap && !s.conv && s.mkt !== "crypto"
     && (tr !== "b" || s.snap.b));
   const entered = withSnap.filter(s => O(s) && O(s).st !== "wait" && O(s).st !== "cancel");
   const closed = entered.filter(s => !s[T.open]);
@@ -432,7 +435,7 @@ export function aggregate(records) {
     if (s.mkt === "crypto") continue;
     // سجلات ما قبل توقيع الاتجاه: مقاييسها بمواضعة الشراء، فجمعُها مع
     // المواضعة الصحيحة يخرج وسيطاً لا يصف أياً منهما
-    if (s.conv === "long") continue;
+    if (s.conv) continue;
     (byScan[s.scan] ||= { open: [], done: [] })[s.open ? "open" : "done"].push(s);
   }
   const out = [];
@@ -487,6 +490,29 @@ async function main() {
     migrated++;
   }
   if (migrated) console.log(`  ⟳ هجرة اتجاه: أُغلق ${migrated} سجلاً بمواضعة الشراء`);
+
+  /* ٠ب) سجلّان لا يصفان ما يُعرض اليوم — يُغلقان ولا يُحوَّلان.
+
+     الأول: شرطٌ صار يفرض اتجاه خطته (`planDir`)، وسجلّاته القديمة بُنيت
+     باتجاه النتيجة الفنية. `snap` تُكتب مرّة ولا تُلمس — وهذا الفصل هو
+     ما يمنع النظرَ إلى المستقبل — فإعادةُ بنائها الآن تجعل السجلّ يدّعي
+     أنه رأى ما لم يره. و`mfe`/`mae` مسارٌ تراكمي لا يُشتقّ من سعر واحد.
+
+     الثاني: شرطٌ أُزيل من `SCANS` فلا تعريف له — لا وسمَ يُعرض ولا حافةَ
+     تُقارَن، وإبقاؤه مفتوحاً يُبقي في الإحصاء صفقةً لا شاشة تفسّرها. */
+  let reDir = 0, gone = 0;
+  for (const sig of records) {
+    if (sig.conv) continue;
+    const known = SCANS.some(x => x.id === sig.scan);
+    if (!known) { sig.conv = "gone"; if (sig.open) { sig.open = false; sig.closed = now; } gone++; continue; }
+    const fd = forcedDir(sig.scan);
+    if (fd === null || !sig.snap || sig.snap.dir === fd) continue;
+    sig.conv = "dir";
+    if (sig.open) { sig.open = false; sig.closed = now; }
+    reDir++;
+  }
+  if (reDir) console.log(`  ⟳ هجرة سياسة الاتجاه: أُغلق ${reDir} سجلاً بُني باتجاه النتيجة`);
+  if (gone) console.log(`  ⟳ شروطٌ أُزيلت: أُغلق ${gone} سجلاً بلا تعريف`);
 
   // ١) حدّث المفتوحة بسعر اليوم
   let closedNow = 0;
@@ -647,8 +673,8 @@ async function main() {
     JSON.stringify({ updated: now, holdDays: HOLD_DAYS,
                      open: openRecs.length, closed: hist.length,
                      // المستبعَد يُعلَن: عددٌ ناقص بلا سبب يُقرأ كخلل
-                     legacy: all.filter(s => s.conv === "long").length,
-                     noSnap: all.filter(s => !s.snap && s.conv !== "long").length,
+                     legacy: all.filter(s => s.conv).length,
+                     noSnap: all.filter(s => !s.snap && !s.conv).length,
                      // المسار الثاني ومقامُه المعلَن: سجلّاته وحدها، فعددٌ
                      // أصغر من `total` ليس نقصاً بل هو المقام الصحيح
                      withB: all.filter(s => s.snap && s.snap.b).length,

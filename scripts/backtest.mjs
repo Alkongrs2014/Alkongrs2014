@@ -32,7 +32,7 @@ import { fetchChart, pool, stats } from "./lib/yahoo.mjs";
 import { COSTS, netReturn, grossReturn, selfCheckCosts } from "./lib/costs.mjs";
 
 const require = createRequire(import.meta.url);
-const { SCANS } = require("../stocks/scans.js");
+const { SCANS, forcedDir } = require("../stocks/scans.js");
 /* **نواة الخطة نفسها لا نسخةٌ منها.** الأرشيف يقيس ما يراه المستخدم على
    الشاشة؛ نسخةٌ ثانية هنا تتباعد بأول تعديل فيقيس الأرشيف خطةً غير
    المعروضة — وهو أسوأ من ألّا يقيسها، لأن الرقم يبدو صحيحاً. */
@@ -610,7 +610,11 @@ async function main() {
         }
         return p;
       };
-      e.own = () => e.of(snaps[i] ? planDirOf(snaps[i].row.score) : 1);
+      /* الخطة «الخاصّة» صارت دالّةً في الشرط لا في الشمعة وحدها: شرطٌ
+         يحمل `planDir` تُبنى خطته باتجاهه. وشمعةٌ أطلقت شرطين مختلفَي
+         السياسة لها خطتان — وهو الصواب، فكلٌّ يقيس ما يُعرض تحته. */
+      e.own = (scanId) => e.of(
+        planDirOf(snaps[i] ? snaps[i].row.score : null, forcedDir(scanId)));
       planCache.set(i, e);
       return e;
     };
@@ -632,7 +636,7 @@ async function main() {
       // خط أساس الخطة: شمعةٌ من كل عشرين، بلا شرطٍ محقَّق — «ماذا لو
       // تداولتَ الخطة في يومٍ عشوائي». بدونه لا معنى لتوقّع الشرط
       if (i % PLAN_BASE_EVERY === 0) {
-        const bp = planAt(i).own();
+        const bp = planAt(i).own(null);   // خط الأساس بلا شرط فبلا فرض
         for (const tr of ["a", "b"]) {
           const sim = bp[tr] && simulatePlan(k, i, bp[tr]);
           if (sim) basePlans[tr].push(sim);
@@ -656,7 +660,9 @@ async function main() {
 
       // الخطة تُبنى مرةً واحدة لكل شمعة ثم تُنسب إلى كل شرطٍ أطلقها
       const cache = planAt(i);
-      const pp = cache.own();
+      /* خطةُ خطّ الأساس للشمعة — بلا فرض، فهي التي يُمسح عليها الوقف
+         ويُقاس عليها خطّ الأساس العام. أما خطة كل شرط فتُشتقّ داخل حلقته. */
+      const pp = cache.own(null);
       const planDir = pp.a ? pp.a.dir : null;
 
       /* مسح الوقف مرةً لكل شمعةٍ أطلقت شرطاً، لا مرةً لكل شرط: الشمعة
@@ -685,9 +691,14 @@ async function main() {
            تناقضٌ داخلي لا يظهر في أي شاشة، ولا يُكشف إلا بقياس الاثنين
            معاً. فنقيسه قبل أن نغيّر شيئاً. */
         const sd = scan.dir === -1 ? -1 : 1;
-        const agree = planDir !== null && planDir === sd;
+        /* الخطة المعروضة تحت هذا الشرط بالضبط: مفروضةً إن كان له
+           `planDir`، وإلا فخطة الشمعة. و`agree` تُقاس على اتجاهها هي —
+           فبعد الفرض تصير `divBull` متوافقةً دائماً، وهو المقصود. */
+        const ps = forcedDir(scan.id) === null ? pp : cache.own(scan.id);
+        const psDir = ps.a ? ps.a.dir : null;
+        const agree = psDir !== null && psDir === sd;
         for (const tr of ["a", "b"]) {
-          const sim = pp[tr] && simulatePlan(k, i, pp[tr]);
+          const sim = ps[tr] && simulatePlan(k, i, ps[tr]);
           if (sim) plans[scan.id][tr].push({ ...sim, agree });
         }
         /* المسار «ج»: **تدخُّلٌ لا ترشيح.** الخطة تُبنى باتجاه الشرط نفسه

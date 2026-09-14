@@ -5288,6 +5288,20 @@ function renderLog() {
    السجلّ يقول إن الهدف كان 106 والمستخدم رأى 112. وهنا يبقى ما لا يصلح
    إلا للمتصفح: قراءة `state`، واختيار ATR، والتشخيص.
    ======================================================================= */
+/* أقدم إشارةٍ مفتوحة لهذا الرمز شرطُها يفرض اتجاهاً — `null` حين لا
+   إشارة أو لا فرض، فيبقى الاشتقاق من النتيجة. «الأقدم» لأنها هي التي
+   بُنيت لها اللقطة المحفوظة في السجلّ. */
+function forcedFor(sym) {
+  const recs = (state.signals && state.signals.records) || [];
+  let best = null;
+  for (const sg of recs) {
+    if (sg.sym !== sym || !sg.open || sg.conv === "long") continue;
+    if (forcedDir(sg.scan) === null) continue;
+    if (!best || sg.at < best.at) best = sg;
+  }
+  return best ? forcedDir(best.scan) : null;
+}
+
 function tradePlan(rec, dir) {
   const L = computeLevels(rec);
   if (!L) return null;
@@ -5297,7 +5311,11 @@ function tradePlan(rec, dir) {
   // أخرج وقفاً على بُعد 1.2% بينما مدى إنفيديا اليومي 3.3% — أي وقف داخل
   // التذبذب الطبيعي، وهو الخطأ الذي تحذّر منه بطاقة المؤشرات نفسها.
   const atr = (row && Number.isFinite(row.atr) && row.atr > 0) ? row.atr : L.atr;
-  const d = (dir === 1 || dir === -1) ? dir : planDirOf(row && row.score);
+  /* الشرط الذي أظهر السهم قد يفرض اتجاه خطته (`planDir` في `scans.js`).
+     ويُقرأ من الإشارة المفتوحة لا من إعادة تقييم الشروط الآن: الخطة
+     المعروضة يجب أن تطابق المحفوظة في السجلّ، والسجلّ بُني لحظة ظهور
+     الإشارة لا الآن. */
+  const d = (dir === 1 || dir === -1) ? dir : planDirOf(row && row.score, forcedFor(rec.s));
 
   const p = planFrom({ px: L.px, atr, resAll: L.resAll, supAll: L.supAll }, d);
   if (!p) return null;
@@ -5501,8 +5519,15 @@ function renderPlan(rec) {
   let clash = "";
   /* الشروط المحقَّقة تُقيَّم هنا بـ`scans.js` نفسه لا بقائمةٍ محفوظة:
      قائمةٌ في `state` تتقادم بين التحديثات فتنبّه على تناقضٍ انتهى. */
+  /* `!sc.dir` كانت تُسقط كل شرطٍ صاعد قبل أن يُختبر: `scans.js` تنصّ
+     أن **غياب `dir` يعني ‎+1‎**، فكل الشروط الصاعدة قيمتها `undefined`
+     وكانت تُقرأ «بلا اتجاه». والنتيجة أن الحارس لا يُطلق إلا حين تكون
+     الخطة صاعدة ويطابق شرطٌ هابط — أي أنه لم يكن يُطلق أبداً في الحالة
+     التي بُني لها: شرطٌ صاعد تحته خطةُ بيع. نفس مصيدة «الصفر صالح
+     فالفحص بـ`null` لا بالصدق»، وهنا `undefined` تعني ‎+1‎. */
   const against = SCANS.filter(sc => {
-    if (!sc.dir || (sc.dir === -1 ? -1 : 1) === p.dir) return false;
+    const sd = sc.dir === -1 ? -1 : 1;
+    if (sd === p.dir) return false;
     try { return !!sc.test(row || {}, (state.fund && state.fund.f && state.fund.f[rec.s]) || {}, { secMed: {} }); }
     catch { return false; }
   });
