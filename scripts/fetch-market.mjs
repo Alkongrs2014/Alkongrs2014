@@ -8,6 +8,7 @@
      node scripts/fetch-market.mjs --check        (فحص ذاتي بلا شبكة)
    ===================================================================== */
 import fs from "node:fs";
+import { rp, r2 } from "./lib/round.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -54,22 +55,12 @@ const tdBudget = { left: TD_PER_RUN };
 const PREFER_YAHOO = process.env.PREFER_YAHOO === "1";
 
 /* تقريب — Yahoo يعيد 62.014999389648438 والتخزين بلا تقريب يضاعف حجم الملفات */
-const r2 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.round(v * 100) / 100;
 const r4 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.round(v * 10000) / 10000;
 
-/* =====================================================================
-   تقريب الأسعار — بالأرقام المعنوية لا بالخانات العشرية.
-
-   الأسعار عندنا تمتد من 0.0000051 (شيبا إينو) إلى 5,800 (بوكينج).
-   التقريب الثابت إلى أربع خانات عشرية يمحو الصغير منها تماماً: سعر شيبا
-   صار صفراً، وشمعاتها كلها أصفاراً، وATR صفراً — ولم يظهر ذلك إلا حين
-   رفضت بوابة النشر الصفَّ كاملاً.
-   ===================================================================== */
-export const rp = (v) => {
-  if (v === null || v === undefined || !Number.isFinite(v)) return null;
-  if (v === 0) return 0;
-  return Math.abs(v) >= 1 ? Math.round(v * 10000) / 10000 : Number(v.toPrecision(6));
-};
+/* التقريب السعري مشتركٌ — انظر `lib/round.mjs` (نسخةٌ ثالثة منه في
+   `track-signals` كتبت لقطةَ شيبا أصفاراً). ويُعاد تصديره لمن يستورده
+   من هنا. */
+export { rp };
 
 const slimCandles = (c) => c.map(x => ({
   t: x.t, o: rp(x.o), h: rp(x.h), l: rp(x.l), c: rp(x.c), v: Math.round(x.v || 0)

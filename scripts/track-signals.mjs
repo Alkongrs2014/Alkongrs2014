@@ -46,8 +46,11 @@ const TREND_DAYS = 14;                 // عمر النقطة الأقصى
 const TREND_STEP = 5;                  // أصغر حركة تستحق نقطة
 
 const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return d; } };
-const r2 = (v) => (v === null || v === undefined || !Number.isFinite(v)) ? null : Math.round(v * 100) / 100;
-const r4 = (v) => (v === null || v === undefined || !Number.isFinite(v)) ? null : Math.round(v * 10000) / 10000;
+/* `rp` لا `r4`: كل ما تحت السطر التالي **سعر**، والتقريب بخانات ثابتة
+   يمحو الأصول الرخيصة. خرجت لقطة `SHIB-USD` بدخولٍ صفر ووقفٍ صفر وATR
+   صفر وبلا هدف — صفقةٌ في السجلّ بمخاطرةٍ غير موجبة. و`r2` تبقى لما
+   ليس سعراً (العائد والنسبة والمضاعف). انظر `lib/round.mjs`. */
+import { rp, r2 } from "./lib/round.mjs";
 
 export function median(a) {
   const s = (a || []).filter(Number.isFinite).sort((x, y) => x - y);
@@ -226,9 +229,9 @@ export function buildSnap({ row, sym, an, k4h, k1d, f, at }) {
 
   const tf = scanTF(row.__scan);
   const hz = horizonsOf(row.tfScore);
-  return {
-    px: p.px, e: r4(p.entry), s: r4(p.stop), rr: r2(p.rr), atr: r4(p.atr), dir,
-    t: p.targets.map(t => r4(t.p)),
+  const snap = {
+    px: p.px, e: rp(p.entry), s: rp(p.stop), rr: r2(p.rr), atr: rp(p.atr), dir,
+    t: p.targets.map(t => rp(t.p)),
     tpct: p.targets.map(t => r2(t.pct)),
     trr: p.targets.map(t => r2(t.rr)),
     // العمر صفرٌ لحظة الإشارة، فالطزاجة «جديدة» دائماً هنا — نحفظ الفريم
@@ -245,13 +248,40 @@ export function buildSnap({ row, sym, an, k4h, k1d, f, at }) {
        الأربعة وحدها لأن ما عداها (الاتجاه والمدى والفريم والزمن المتوقَّع)
        مشتركٌ بين المسارين. وهو **غائبٌ عمداً** حين لا حاجز قريب: المساران
        يتطابقان حينئذٍ، وتسجيلُهما يضاعف الصفقة نفسها في مقامين. */
-    ...(b ? { b: { e: r4(b.entry), s: r4(b.stop), rr: r2(b.rr),
-                   t: b.targets.map(t => r4(t.p)),
+    ...(b ? { b: { e: rp(b.entry), s: rp(b.stop), rr: r2(b.rr),
+                   t: b.targets.map(t => rp(t.p)),
                    trr: b.targets.map(t => r2(t.rr)) } } : {}),
-    an: a ? { rsi: r2(a.rsi), e50: r4(a.e50), e200: r4(a.e200),
+    an: a ? { rsi: r2(a.rsi), e50: rp(a.e50), e200: rp(a.e200),
               hist: a.hist === null || a.hist === undefined ? null : Number(a.hist.toFixed(6)),
               up: a.histRising === true } : null
   };
+
+  /* =====================================================================
+     البوابة **على المحفوظ** لا على المحسوب — والفرق بينهما التقريب.
+
+     `validatePlan(p)` أعلاه تفحص الخطة قبل تقريبها، ثم يُبنى ما يُحفظ
+     فعلاً بأرقامٍ مقرَّبة — فأيُّ تشويهٍ يقع **بعد** الفحص يمرّ بلا
+     اعتراض. وهو ما وقع: التقريب بخانات ثابتة (`r4`) صفّر دخولَ
+     `SHIB-USD` ووقفَه وATRه وأفرغ أهدافه، فحُفظت صفقةٌ مخاطرتُها غير
+     موجبة تحت خطةٍ اجتازت الفحص قبل لحظة.
+
+     والقاعدة أعمّ من التقريب: **ما يُفحص يجب أن يكون ما يُكتب.** فحصٌ
+     على تمثيلٍ وسيط يشهد لشيءٍ لا يصل القرص. ولذلك تُعاد البوابة هنا
+     على اللقطة نفسها بحقولها المحفوظة — وهي رخيصةٌ (مقارناتُ إشارة)
+     وتُغلق الباب على كل مشوِّهٍ قادم لا على هذا وحده.
+
+     واللقطةُ المردودة **لا تُحفظ ناقصة**: لا إشارة خيرٌ من إشارةٍ
+     أرقامُها كاذبة — نفس قاعدة «اعرض ‎—‎ لا رقماً ملفّقاً». */
+  const badSnap = validatePlan({
+    dir: snap.dir, entry: snap.e, stop: snap.s, risk: (snap.e - snap.s) * snap.dir,
+    atr: snap.atr, targets: (snap.t || []).map((tp, i) => ({ p: tp, rr: (snap.trr || [])[i] ?? 1 })),
+    primary: (snap.t && snap.t.length) ? { p: snap.t[snap.t.length - 1] } : null
+  });
+  if (badSnap.length) {
+    console.warn(`  ⚠ لقطة ${sym} مرفوضة بعد التقريب: ${badSnap[0]}`);
+    return null;
+  }
+  return snap;
 }
 
 /* =====================================================================
@@ -514,6 +544,33 @@ async function main() {
   if (reDir) console.log(`  ⟳ هجرة سياسة الاتجاه: أُغلق ${reDir} سجلاً بُني باتجاه النتيجة`);
   if (gone) console.log(`  ⟳ شروطٌ أُزيلت: أُغلق ${gone} سجلاً بلا تعريف`);
 
+  /* ٠ج) لقطةٌ لا تصف خطةً صالحة — تُغلق ولا تُصحَّح.
+
+     `snap` تُكتب مرّة ولا تُلمس، وهذا الفصل هو ما يمنع النظر إلى
+     المستقبل — فإعادةُ بنائها الآن بأسعار اليوم تجعل السجلّ يدّعي أنه
+     رأى ما لم يره. واللقطة المكسورة لا تُقاس أصلاً: دخولٌ صفرٌ ووقفٌ
+     صفر يعني مخاطرةً غير موجبة، وكلُّ نسبةٍ تُبنى عليها قسمةٌ على صفر.
+
+     كتبتها البوابةُ المطبَّقة قبل التقريب لا بعده (انظر `snapFor`)،
+     فمرّت لقطةُ `SHIB-USD` بأصفارها. والبوابة صارت على المحفوظ، فلا
+     تُكتب مثلُها مجدّداً — وتبقى هذه الهجرة للقديم وحده. */
+  let broke = 0;
+  for (const sig of records) {
+    if (sig.conv || !sig.snap) continue;
+    const s0 = sig.snap;
+    if (!Number.isFinite(s0.e) || !Number.isFinite(s0.s) || !Number.isFinite(s0.dir)) continue;
+    const bad0 = validatePlan({
+      dir: s0.dir, entry: s0.e, stop: s0.s, risk: (s0.e - s0.s) * s0.dir, atr: s0.atr,
+      targets: (s0.t || []).map((tp, i) => ({ p: tp, rr: (s0.trr || [])[i] ?? 1 })),
+      primary: (s0.t && s0.t.length) ? { p: s0.t[s0.t.length - 1] } : null
+    });
+    if (!bad0.length) continue;
+    sig.conv = "snap";
+    if (sig.open) { sig.open = false; sig.closed = now; }
+    broke++;
+  }
+  if (broke) console.log(`  ⟳ لقطاتٌ مكسورة: أُغلق ${broke} سجلاً لا تصف لقطتُه خطةً صالحة`);
+
   // ١) حدّث المفتوحة بسعر اليوم
   let closedNow = 0;
   for (const sig of records) {
@@ -570,7 +627,7 @@ async function main() {
       const rec = {
         sym: r.s, scan: scan.id, at: now, at2: now,
         entry: r2(r.p), last: r2(r.p), ret: 0, mfe: 0, mae: 0,
-        atr: r4(r.atr), open: true,
+        atr: rp(r.atr), open: true,
         // `dir` يُكتب حين يخالف +1 وحده — نفس أسلوب `mkt` الشرطي، فسجلّ
         // يتراكم بعشرات الآلاف لا يحمل حقلاً قيمته هي الافتراض
         ...(scan.dir === -1 ? { dir: -1 } : {}),
@@ -1054,6 +1111,47 @@ function selfCheck() {
     const A = outcomeStats([withB, onlyA], "a"), B = outcomeStats([withB, onlyA], "b");
     eq([A.total, A.win, A.loss], [2, 1, 1], "الأول يرى السجلّين");
     eq([B.total, B.win, B.loss], [1, 1, 0], "والثاني يرى سجلّه وحده");
+  });
+
+  /* =====================================================================
+     الأصل دون السنت ينجو من التقريب — وقياسٌ بسعرٍ حقيقي لا رمزيّ.
+
+     `SHIB-USD` عند ‎0.00000529‎: التقريب بأربع خانات عشرية يجعل الدخول
+     والوقف وATR **أصفاراً** والأهداف فارغة، فتُحفظ صفقةٌ مخاطرتُها غير
+     موجبة. وقع فعلاً وحُفظ في `signals.json` قبل أن يكشفه فحصٌ مستقلّ
+     يمرّر اللقطات المحفوظة على `validatePlan`.
+
+     ويُفحص الطرفان معاً: أن `rp` تُبقي المعنى، وأن الفرق بين الدخول
+     والوقف يبقى **موجباً بعد التقريب** — فالشرط الثاني هو ما انكسر.
+     ===================================================================== */
+  t("لقطة أصلٍ دون السنت تنجو من التقريب", () => {
+    const px = 0.00000529, atr = 0.00000031;
+    const mk = (a) => a.map(p => ({ p, names: new Set(["مستوى"]) }));
+    const { a: p } = planPair(
+      { px, atr, supAll: mk([0.00000498, 0.00000471]), resAll: mk([0.00000572, 0.00000615]) }, 1);
+    if (!p) throw new Error("لا خطة");
+    if (validatePlan(p).length) throw new Error("الخطة نفسها مرفوضة: " + validatePlan(p)[0]);
+
+    const e = rp(p.entry), st = rp(p.stop), ts = p.targets.map(x => rp(x.p));
+    if (!(e > 0)) throw new Error(`الدخول صفّره التقريب: ${e}`);
+    if (!(st > 0)) throw new Error(`الوقف صفّره التقريب: ${st}`);
+    if (!(rp(p.atr) > 0)) throw new Error("ATR صفّره التقريب");
+    if (!(e - st > 0)) throw new Error(`المخاطرة انعدمت بعد التقريب: ${e} − ${st}`);
+    if (!ts.length || ts.some(x => !(x > 0))) throw new Error("هدفٌ صفّره التقريب");
+    // والبوابة نفسها التي تحرس الكتابة تمرّ على الأرقام المحفوظة
+    const bad = validatePlan({ dir: 1, entry: e, stop: st, risk: e - st, atr: rp(p.atr),
+      targets: ts.map(x => ({ p: x, rr: 1 })), primary: { p: ts[ts.length - 1] } });
+    if (bad.length) throw new Error("البوابة على المحفوظ: " + bad[0]);
+    return `دخول ${e} · وقف ${st} · ${ts.length} هدفاً`;
+  });
+
+  /* والعكس يجب أن يُرفض: تقريبٌ يُسطّح الدخول والوقف على قيمةٍ واحدة
+     يعني مخاطرةً صفراً، والبوابة تردّه بدل أن يُحفظ. */
+  t("البوابة تردّ لقطةً سطّحها التقريب", () => {
+    const bad = validatePlan({ dir: 1, entry: 0, stop: 0, risk: 0, atr: 0,
+                               targets: [], primary: null });
+    if (!bad.length) throw new Error("مرّت لقطةٌ كلُّها أصفار");
+    return `${bad.length} اعتراضاً`;
   });
 
   t("`planPair` لا تنتج مساراً ثانياً حين لا حاجز قريب", () => {
