@@ -1186,5 +1186,22 @@ function selfCheck() {
   process.exit(fail ? 1 : 0);
 }
 
-if (CHECK) selfCheck();
-else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });
+/* =====================================================================
+   لا يعمل إلا حين يكون هو نقطة الدخول.
+
+   `track-strategies.mjs` يستورد `updateOutcome` و`guard` من هنا — نسخةٌ
+   ثانية منها تجعل السجلَّين يُقاسان بمسطرتين. وبلا هذا الحدّ كان مجرّد
+   الاستيراد يشغّل هذا الملفّ بكامله: استيرادٌ بـ`--check` في `argv`
+   يُجري فحصَ هذا الملفّ ثم `process.exit` قبل أن يبدأ المستورِد أصلاً،
+   واستيرادٌ بلا `--check` يشغّل `main()` فيكتب البيانات مرّتين.
+
+   وهي نفس المصيدة الموثّقة في `fetch-market` («استيرادُه يشغّل main()
+   فيجلب الكون») — عولجت هناك بعدم الاستيراد، وتُعالَج هنا عند جذرها
+   كي يصير الملفّ قابلاً للاستيراد بأمان. */
+const IS_MAIN = process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+if (IS_MAIN) {
+  if (CHECK) selfCheck();
+  else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });
+}

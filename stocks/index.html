@@ -542,6 +542,77 @@ details[open]{background:var(--card2)}
   canvas{max-width:100%}
   a[href]::after{content:""}          /* الروابط داخلية، وطبعُ عنوانها ضجيج */
 }
+
+/* ===== ماسح الاستراتيجيات ===== */
+.mut{color:var(--mut)}
+/* `.sub` مستعملةٌ في الصفحة منذ قبل بلا قاعدة — تُعرَّف هنا مرّة */
+.stat .sub{font-size:11px;color:var(--mut);margin-top:3px;line-height:1.5;
+  white-space:normal}
+.sfind{display:flex;gap:8px;align-items:center}
+.sfind input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);
+  color:var(--tx);border-radius:var(--r2);padding:11px 12px;font-size:15px;font-family:inherit}
+.sfind input:focus{outline:none;border-color:var(--acc)}
+.sauto{display:none;margin-top:6px;border:1px solid var(--line);border-radius:var(--r2);
+  overflow:hidden;background:var(--card2)}
+.sauto.on{display:block}
+.sauto-r{display:flex;gap:9px;align-items:center;padding:9px 11px;cursor:pointer;
+  border-bottom:1px solid var(--line);font-size:13.5px}
+.sauto-r:last-child{border-bottom:0}
+.sauto-r:hover,.sauto-r.hi{background:rgba(61,125,219,.13)}
+.sauto-r span{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sauto-x{padding:10px 11px;font-size:12.5px;color:var(--mut)}
+.tagmini{font-style:normal;font-size:10.5px;color:var(--neu);border:1px solid rgba(240,185,11,.3);
+  border-radius:5px;padding:1px 5px;margin-right:auto;flex:none}
+
+.schead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+  flex-wrap:wrap;margin-bottom:12px}
+.schead h2{border:0;padding:0}
+.hotbar{background:linear-gradient(180deg,rgba(0,209,155,.16),rgba(0,209,155,.08));
+  border:1px solid rgba(0,209,155,.4);border-radius:var(--r2);padding:10px 12px;
+  font-size:12.5px;margin-bottom:10px;color:#8ce0c0}
+.cmpeng{border-radius:var(--r2);padding:10px 12px;font-size:12.5px;margin-top:10px;
+  border:1px solid var(--line);background:var(--card2)}
+.cmpeng.agree{border-color:rgba(0,209,155,.35)}
+.cmpeng.clash{border-color:rgba(255,77,94,.4);background:rgba(255,77,94,.07)}
+
+/* صفّ الاستراتيجية — كاشفٌ لا سؤال، فبلا علامة الاستفهام */
+.scrow{border:1px solid var(--line);border-radius:var(--r2);margin-top:8px;
+  background:var(--card2);padding:0 11px}
+.scrow>summary{display:flex;gap:9px;align-items:center;flex-wrap:wrap;
+  padding:11px 0;font-size:13.5px;color:var(--tx);font-weight:600;cursor:pointer}
+.scrow>summary::before{content:""}
+.scrow.act{border-color:rgba(61,125,219,.4)}
+.scrow.off,.scrow.quiet{opacity:.62}
+.scrow[open]{padding-bottom:12px}
+.scrow .sdir{font-size:15px;flex:none;width:1em;text-align:center}
+.scrow .ssc{font-size:17px;font-weight:800;min-width:2.2em;text-align:left}
+.scrow .sband{font-size:11.5px;font-weight:500}
+.scrow .sst{font-size:11.5px;font-weight:700}
+.scrow .sage{margin-right:auto;font-size:11.5px;font-weight:500;flex:none}
+.scrow .grid3{margin-top:10px}
+
+/* جدولٌ بسيط للبوابات والأهداف — يتمرّر وحده على الهاتف */
+.gt{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px;display:block;
+  overflow-x:auto;white-space:nowrap}
+.gt th{color:var(--mut);font-weight:500;font-size:11.5px;text-align:right;
+  padding:5px 7px;border-bottom:1px solid var(--line)}
+.gt td{padding:5px 7px;border-bottom:1px solid rgba(255,255,255,.04)}
+.gt tr:last-child td{border-bottom:0}
+
+/* التسلسل */
+.tl{display:flex;flex-direction:column;gap:0}
+.tlr{display:flex;gap:11px;align-items:baseline;padding:9px 0;
+  border-bottom:1px solid var(--line);font-size:12.5px}
+.tlr:last-child{border-bottom:0}
+.tlr.flip{background:rgba(61,125,219,.06);margin:0 -11px;padding-right:11px;padding-left:11px}
+.tlt{flex:none;min-width:5.6em;font-size:11.5px}
+.tld{flex:1;line-height:1.6}
+.tld .sdir{font-size:13px}
+@media(max-width:520px){
+  .tlr{flex-direction:column;gap:2px}
+  .tlt{min-width:0}
+  .scrow .sage{margin-right:0}
+}
 </style>
 </head>
 <body>
@@ -1502,6 +1573,24 @@ details[open]{background:var(--card2)}
 </section>
 
 <!-- ================= السجل ================= -->
+<section data-view="scanner">
+  <div class="card">
+    <h2>ماسح الاستراتيجيات</h2>
+    <p class="hint">اكتب رمزاً فتُجرَّب عليه عشر استراتيجيات مضاربة قصيرة دفعةً واحدة — مرتَّبةً بقوّة توافقه معها الآن، ولكلٍّ لحظةُ بدايةٍ وخطةٌ كاملة</p>
+    <div class="sfind">
+      <input id="scIn" type="search" placeholder="رمز أو اسم شركة — مثل AAPL أو أبل" autocomplete="off"
+             role="combobox" aria-expanded="false" aria-controls="scAuto" aria-label="ابحث عن رمز لتحليله">
+      <button class="btn" id="scGo">حلّل</button>
+    </div>
+    <div id="scAuto" class="sauto" role="listbox" aria-label="نتائج البحث"></div>
+    <p class="srcline" id="scScope"></p>
+  </div>
+
+  <div class="card" id="scCons" style="display:none"></div>
+  <div class="card" id="scCards" style="display:none"></div>
+  <div class="card" id="scTl" style="display:none"></div>
+</section>
+
 <section data-view="log">
   <div class="card">
     <h2>سجل الصفقات</h2>
@@ -1602,6 +1691,9 @@ details[open]{background:var(--card2)}
   <g id="i-screen" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
     <circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.6"/>
     <path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></g>
+  <g id="i-scan" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 20.5v-5M8 20.5v-9M12.5 20.5v-3"/>
+    <circle cx="16.8" cy="8.2" r="4.3"/><path d="M20 11.5l2.5 2.5"/></g>
   <g id="i-opts" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <path d="M6 3.5h8.5L19 8v12.5H6z"/><path d="M14 3.5V8h5"/><path d="M9 13h6M9 16.5h4"/></g>
   <g id="i-analysis" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -1627,6 +1719,7 @@ details[open]{background:var(--card2)}
   <button data-go="now" class="on"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-now"/></svg>الآن</button>
   <button data-go="list"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>الأسهم</button>
   <button data-go="screen"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-screen"/></svg>الفرص</button>
+  <button data-go="scanner"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-scan"/></svg>الماسح</button>
   <button data-go="opts"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-opts"/></svg>العقود</button>
   <button data-go="analysis"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-analysis"/></svg>تحليل</button>
   <button data-go="log"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>السجل</button>
@@ -1641,6 +1734,10 @@ details[open]{background:var(--card2)}
      يحفظه السجلّ هو ما رآه المستخدم بالضبط لا حساباً موازياً له -->
 <script src="plan.js"></script>
 <script src="evaluate.js"></script>
+<!-- ماسح الاستراتيجيات: نواة البوابات والإجماع، مشتركة مع الخادم
+     كي يكون ما يُحفظ في `strategies.json` هو ما يُعرض بالضبط -->
+<script src="strategies.js"></script>
+<script src="consensus.js"></script>
 <script>
 "use strict";
 
@@ -1662,6 +1759,7 @@ const AR = "ar-EG-u-nu-latn";
 const state = {
   summary: null, wide: null, market: null, fund: null, news: null,
   symCache: {}, view: "now", sym: null, activeTF: "1h",
+  strategies: null, stratEdge: null,
   lastOk: 0, busy: false, liveAt: 0, liveOn: false,
   favs: [], favOnly: false, hover: null, from: "list", scan: null,
   optCache: {}, opts: null, arch: null, live: null, events: null, signals: null,
@@ -4156,6 +4254,17 @@ const LAZY = {
     if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
   },
   "news.json": (n) => { state.news = n; renderNews(); if (state.sym) renderSymNews(); },
+  /* لحظاتُ بدء الإشارات — المتصفح يحسب النتيجة بنفسه ولا يستطيع أن
+     يعرف متى بدأت، فهذه المعلومة التاريخية لا بديل عنها. */
+  "strategies.json": (j) => {
+    if (!j || !Array.isArray(j.rows)) return;
+    state.strategies = j;
+    if (state.view === "scanner" && scState.sym) scAnalyze(scState.sym);
+  },
+  "strategy-edge.json": (j) => {
+    state.stratEdge = j;
+    if (state.view === "scanner" && scState.sym) scAnalyze(scState.sym);
+  },
   "filings.json": (f) => {
     if (!f || !Array.isArray(f.rows)) return;
     state.fil = f;
@@ -4184,6 +4293,7 @@ const LAZY = {
     fillSymbolSelects();
     if (state.view === "list") renderList();
     if (state.view === "opts") renderOpts();
+    if (state.view === "scanner") renderScanner();   // سطر النطاق يذكر عددها
   }
 };
 /* صلاحيةُ كل ملف من **دورة كتابته** لا من دورة التحديث.
@@ -4198,7 +4308,11 @@ const LAZY_TTL = {
   "fundamentals.json": 3 * 3600e3,  // يومي
   "wide.json": 5 * 60e3,            // اليوميّ فيه يتجدّد بالتدوير
   "news.json": 5 * 60e3,            // مع كل دورة سوق
-  "filings.json": 5 * 60e3          // دورةٌ مستقلّة كل عشر دقائق
+  "filings.json": 5 * 60e3,         // دورةٌ مستقلّة كل عشر دقائق
+  /* دورةُ الأسعار تكتبه كل دقيقتين، وهو مصدر «متى بدأت الإشارة» —
+     فصلاحيةٌ أطول تجعل العمر المعروض متأخّراً عن الحقيقة. */
+  "strategies.json": 90e3,
+  "strategy-edge.json": 6 * 3600e3  // يُبنى مع الدورة اليومية
 };
 const lazyWait = {};
 const lazyAt = {};
@@ -7027,6 +7141,498 @@ function syncTabs(active) {
   });
 }
 
+
+/* =====================================================================
+   ماسح الاستراتيجيات — الشاشة.
+
+   القاعدة الحاكمة: **النتيجة تُحسب هنا بالسعر الحيّ، ولحظةُ البداية
+   تُقرأ من الخادم.** المتصفح يملك الشمعات والمؤشّرات (ملف الرمز)
+   فيستطيع أن يحسب كل شيء الآن، لكنه **لا يملك الماضي** — لا يعرف متى
+   انقلبت الجهة لأنه لم يكن يعمل حينها. فـ`at` و`px0` يأتيان من
+   `strategies.json` ولا يُخترعان، وغيابُهما يُقال «منذ هذه الدورة»
+   بدل تأريخٍ ملفّق.
+
+   وكل بطاقة تُرسم على حِدة وتكتب خطأها في مكانها وتسجّله في `diag`:
+   استثناءٌ في بطاقةٍ واحدة كان يُبقي بيانات السهم السابق معروضة — وهي
+   أخطر من شاشةٍ فارغة، لأن الأرقام تبدو صحيحة وتخصّ سهماً آخر.
+   ===================================================================== */
+const scState = { sym: null, res: null, cons: null, ctx: null, hi: -1 };
+
+/* أنماط الحالة الستّ — ترث ألوان التطبيق ولا تستعمل إيموجي */
+const SC_ST = {
+  NEW: "var(--up)", FRESH: "var(--up)", ACTIVE: "var(--neu)",
+  LATE: "#d98b4f", EXTENDED: "#d98b4f", EXPIRED: "var(--dn)"
+};
+
+/* لحظة بدء الحالة من الخادم — أو لا شيء. */
+function scAnchor(sym, id) {
+  const rows = (state.strategies && state.strategies.rows) || [];
+  for (let i = 0; i < rows.length; i++)
+    if (rows[i].s === sym && rows[i].st === id) return rows[i];
+  return null;
+}
+const scEdge = () => {
+  const out = {};
+  for (const r of (state.stratEdge && state.stratEdge.rows) || []) out[r.id] = r;
+  return out;
+};
+
+/* البحث: يعمّ الكون كاملاً بمجرّد كتابة نص — من كتب «بيتكوين» يقصده،
+   وحصرُ البحث في المرصودة يعيد «لا نتائج» عن رمزٍ موجود. */
+function scFind(q) {
+  const s = String(q || "").trim().toLowerCase();
+  if (!s) return [];
+  const seen = new Set(), out = [];
+  for (const r of allRows()) {
+    if (seen.has(r.s)) continue;
+    const hay = `${r.s} ${r.ar || ""} ${r.en || ""}`.toLowerCase();
+    if (hay.indexOf(s) < 0) continue;
+    seen.add(r.s);
+    out.push(r);
+    if (out.length >= 8) break;
+  }
+  // الرمز المطابق تماماً أولاً مهما كان ترتيبه في الكون
+  out.sort((a, b) => (b.s.toLowerCase() === s) - (a.s.toLowerCase() === s));
+  return out;
+}
+
+/* هل الرمز في الطبقة المرصودة؟ الواسعة يوميّةٌ وحدها فتسقط عنها
+   استراتيجيات اللحظي — وهذا يُقال صراحةً لا يُخفى. */
+const scIsCore = (sym) =>
+  !!(state.summary && state.summary.rows.some(r => r.s === sym));
+
+function renderScAuto(list, q) {
+  const el = $("#scAuto"); if (!el) return;
+  const inp = $("#scIn");
+  if (!list.length) {
+    el.innerHTML = q ? `<div class="sauto-x">لا رمز بهذا الاسم في الكون المرصود (510 رمزاً)</div>` : "";
+    el.classList.toggle("on", !!q);
+    if (inp) inp.setAttribute("aria-expanded", q ? "true" : "false");
+    return;
+  }
+  el.innerHTML = list.map((r, i) => `
+    <div class="sauto-r${i === scState.hi ? " hi" : ""}" role="option" data-sym="${esc(r.s)}" tabindex="-1">
+      <b class="num">${esc(r.s)}</b><span>${esc(nm(r))}</span>
+      ${scIsCore(r.s) ? "" : `<em class="tagmini">مُصغَّر</em>`}
+    </div>`).join("");
+  el.classList.add("on");
+  if (inp) inp.setAttribute("aria-expanded", "true");
+}
+
+/* =====================================================================
+   التحليل — يُحسب كاملاً في المتصفح من ملف الرمز.
+   ===================================================================== */
+async function scAnalyze(sym) {
+  sym = String(sym || "").trim().toUpperCase();
+  if (!sym) return;
+  $("#scAuto").classList.remove("on");
+  const inp = $("#scIn"); if (inp) inp.setAttribute("aria-expanded", "false");
+  scState.sym = sym;
+  for (const id of ["#scCons", "#scCards", "#scTl"]) {
+    const el = $(id); if (el) { el.style.display = ""; el.innerHTML = `<div class="skl" style="height:110px"></div>`; }
+  }
+  const row = allRows().find(r => r.s === sym);
+  if (!row) {
+    $("#scCons").innerHTML = `<div class="warn">الرمز ${esc(sym)} خارج الكون المرصود — لا بيانات عندنا لتحليله</div>`;
+    $("#scCards").style.display = "none"; $("#scTl").style.display = "none";
+    return;
+  }
+  // الأساسيات والتسلسل لا يعطّلان الرسم: كلٌّ يُرسم حين يصل
+  need("strategies.json"); need("strategy-edge.json");
+  try {
+    /* حتى رموز الطبقة الواسعة لها ملفٌّ فيه 260 شمعة يومية ومؤشّراتها
+       — الفرق أن اللحظية وحدها غائبة. وتمريرُ سجلٍّ فارغ لها كان يُسقط
+       **العشرة** بدل الخمس اللحظية، فيبدو الرمز بلا تحليل وهو ليس كذلك. */
+    const rec = await getSymbol(sym);
+    const now = Date.now();
+    const st = marketStatus(rec.period || (state.market && state.market.period), now);
+    const ctx = buildCtx({ rec, row, now, px: row.p, sess: st.state, wide: !scIsCore(sym) });
+    const res = evalAll(ctx);
+    // الطزاجة وجودة الدخول تحتاجان لحظةَ البدء — من الخادم لا من الآن
+    for (const r of res) {
+      const a = scAnchor(sym, r.id);
+      r.at = a ? a.at * 1000 : null;
+      r.px0 = a ? a.px0 : null;
+      r.plan = r.dir ? planFor(ctx, r) : null;
+      if (r.at && r.dir) {
+        const fr = freshness(now - r.at, r.tfUsed || r.tf);
+        const t1 = (r.plan && !r.plan.bad && r.plan.targets[0]) ? r.plan.targets[0].p : null;
+        const q = entryQuality({ px: ctx.px, sigPx: r.px0, atr: r.plan && r.plan.atr,
+                                 dir: r.dir, target: t1, stop: r.plan && r.plan.stop, fresh: fr });
+        r.fr = fr; r.eqRaw = q;
+        const es = entryScore(q, fr);
+        r.eq = es ? es.v : null;
+        const ss = signalStatus(fr, q, now - r.at, r.tfUsed || r.tf);
+        r.st = ss ? ss.k : null; r.stT = ss;
+      }
+    }
+    const regime = marketRegime(ctx.an);
+    const cons = consensusOf(res, { regime, edge: scEdge() });
+    scState.res = res; scState.cons = cons; scState.ctx = ctx;
+    // كلُّ بطاقة على حِدة: استثناءٌ في واحدة لا يُسقط الباقي ولا يُبقي
+    // بيانات السهم السابق معروضة
+    scCard("#scCons", () => renderScCons(row, ctx, res, cons, regime, st));
+    scCard("#scCards", () => renderScCards(row, ctx, res, cons));
+    loadStratTl(sym).then(() => { if (scState.sym === sym) scCard("#scTl", () => renderScTl(sym)); });
+  } catch (e) {
+    diag("scanner", `تعذّر تحليل ${sym}`, e.message);
+    $("#scCons").innerHTML = `<div class="warn">تعذّر تحليل ${esc(sym)} — ${esc(e.message)}</div>`;
+  }
+}
+
+function scCard(sel, fn) {
+  const el = $(sel); if (!el) return;
+  try { fn(); el.style.display = ""; }
+  catch (e) {
+    diag("scanner", `بطاقة ${sel}`, e.message);
+    el.innerHTML = `<div class="warn">تعذّر رسم هذه البطاقة — ${esc(e.message)}</div>`;
+    el.style.display = "";
+  }
+}
+
+/* =====================================================================
+   بطاقة الإجماع
+   ===================================================================== */
+function renderScCons(row, ctx, res, cons, regime, mkt) {
+  const el = $("#scCons");
+  const core = scIsCore(row.s);
+  const hot = confluenceOf(cons, res);
+  const dirT = cons.dir > 0 ? "▲ شراء" : cons.dir < 0 ? "▼ بيع" : "⇄ لا جهة";
+  const dirC = cons.dir > 0 ? "var(--up)" : cons.dir < 0 ? "var(--dn)" : "var(--neu)";
+
+  /* أحدث إشارة وأقدمها — «متى بدأ هذا الوضع؟».
+
+     ومع التعارض لا جهةَ سائدة (`cons.dir === 0`)، فالتصفية بها تعطي
+     قائمةً فارغة و«أحدث إشارة —» على رمزٍ له إشارتان نشطتان. حينها
+     تُؤخذ النشطة كلُّها: السؤال «منذ متى والوضع هكذا؟» قائمٌ سواءٌ
+     اتّفقت الإشارات أم تعارضت. */
+  const side = res.filter(r => r.active && r.at && (cons.dir ? r.dir === cons.dir : true));
+  const ages = side.map(r => Date.now() - r.at).sort((a, b) => a - b);
+  const freshest = ages.length ? ages[0] : null;
+  const oldest = ages.length ? ages[ages.length - 1] : null;
+
+  // مقارنة بمحرّك الفرص — بسياق القطاعات الحقيقي لا `{}` فارغة
+  let cmpEng = null;
+  try {
+    const ctxScan = { secMed: (fundScores() || {}).secMed || {} };
+    const F = (state.fund && state.fund.rows) || {};
+    const hits = SCANS.filter(sc => { try { return !!sc.test(row, F[row.s], ctxScan); } catch { return false; } });
+    if (hits.length) {
+      const forced = hits.map(h => forcedDir(h.id)).find(d => d === 1 || d === -1);
+      const sd = planDirOf(row.score, forced);
+      cmpEng = { r: compareEngines(sd, cons), hits, sd };
+    }
+  } catch (e) { diag("scanner", "مقارنة المحرّكين", e.message); }
+
+  const eqs = side.map(r => r.eq).filter(Number.isFinite);
+  const bestEq = eqs.length ? Math.max.apply(null, eqs) : null;
+
+  el.innerHTML = `
+    <div class="schead">
+      <div>
+        <h2 style="margin:0">${esc(row.s)} <small class="mut">${esc(nm(row))}</small></h2>
+        <div class="num" style="font-size:20px;font-weight:800">${fmt(row.p, priceDigits(row.p))}
+          <span style="font-size:14px;color:${row.chg >= 0 ? "var(--up)" : "var(--dn)"}">${pct(row.chg, 2)}</span></div>
+      </div>
+      <div style="text-align:left">
+        <div style="font-size:22px;font-weight:800;color:${dirC}">${dirT}</div>
+        <div class="mut" style="font-size:12px">${esc(cons.t)}</div>
+      </div>
+    </div>
+
+    ${hot ? `<div class="hotbar"><b>توافق استثنائي</b> — ${esc(hot.why)}</div>` : ""}
+
+    ${cons.k === "mixed" ? `<div class="warn">${esc(cons.t)} — ${esc(cons.why)}. لا تُعرض خطةٌ موحّدة مع التعارض.</div>` : ""}
+
+    <div class="grid3">
+      <div class="stat"><div class="k">توافق</div>
+        <div class="v num">${!cons.n ? "—"
+          : cons.dir ? `${cons.dir > 0 ? cons.nUp : cons.nDn} / ${cons.n}`
+          : `${cons.nUp} ▲ · ${cons.nDn} ▼`}</div>
+        <div class="sub">${esc(cons.why || "")}</div></div>
+      <div class="stat"><div class="k">نتيجة الإجماع</div>
+        <div class="v num">${Number.isFinite(cons.sc) ? cons.sc : "—"}</div>
+        <div class="sub">متوسّط قناعة الجهة السائدة مرجّحاً</div></div>
+      <div class="stat"><div class="k">الثقة</div>
+        <div class="v">${cons.k === "mixed" ? "لا تُقاس" : esc(cons.confT || "—")}</div>
+        <div class="sub">${cons.k === "mixed" ? "التعارض حالةٌ يُعرف فيها أنّا لا نعرف — ولا ثقة تُشتقّ منها"
+          : cons.measured ? `${cons.measured} من ${cons.n} مقيسة` : "لم تُقَس أيٌّ منها بعد"}</div></div>
+      <div class="stat"><div class="k">أحدث إشارة</div>
+        <div class="v num">${freshest === null ? "—" : esc(ageShort(freshest))}</div>
+        <div class="sub">${oldest === null ? "لا إشارة نشطة" : `وأقدمها ${esc(age(oldest))}`}</div></div>
+      <div class="stat"><div class="k">أفضل جودة دخول</div>
+        <div class="v num">${bestEq === null ? "—" : bestEq}</div>
+        <div class="sub">من 100 — قربُ السعر من الإشارة ومتّسعُه إلى الهدف</div></div>
+      <div class="stat"><div class="k">حالة السهم</div>
+        <div class="v">${regime && REGIMES[regime] ? esc(REGIMES[regime].t) : "—"}</div>
+        <div class="sub">${regime && REGIMES[regime] ? esc(REGIMES[regime].d) : "الحقول لا تكفي"}</div></div>
+    </div>
+
+    ${cmpEng && cmpEng.r ? `
+      <div class="cmpeng ${cmpEng.r.k}">
+        <b>${cmpEng.r.k === "agree" ? "✓" : "⚠"} ${esc(cmpEng.r.t)} مع محرّك الفرص</b>
+        <div class="mut">${esc(cmpEng.r.why)}</div>
+        <div class="mut" style="font-size:11.5px">ظهر في الفرص بشرط: ${cmpEng.hits.map(h => esc(h.lbl)).join("، ")}</div>
+      </div>` : ""}
+
+    ${!core ? `
+      <div class="note">
+        <b>وضعٌ مُصغَّر</b> — هذا الرمز خارج الطبقة المرصودة، فلا نحتفظ له إلا بالشمعة اليومية.
+        ${res.filter(r => r.off).length} من ${res.length} استراتيجيات لا يمكن أن تعمل عليه،
+        وهي مذكورة بأسمائها وأسبابها تحت. وهذا نقصُ بياناتٍ معلَن لا خللٌ في الرمز.
+      </div>` : ""}
+
+    <p class="srcline">الأسعار من ${esc(row.src || "—")} · المؤشّرات محسوبة عند ${esc(ago(state.summary && state.summary.updated))} ·
+      حالة السوق ${esc(mkt.ar || mkt.state)} · النتائج تُحسب الآن بالسعر الحالي، ولحظاتُ البدء من تتبّع الخادم</p>`;
+}
+
+/* =====================================================================
+   بطاقات الاستراتيجيات
+   ===================================================================== */
+function renderScCards(row, ctx, res, cons) {
+  const el = $("#scCards");
+  const E = scEdge();
+  // الترتيب: النشطة أولاً بكتلتها، ثم المتفعّلة الضعيفة، ثم المتعذّرة
+  const rank = (r) => r.off ? 3 : (!r.dir ? 2 : (r.active ? 0 : 1));
+  const sorted = res.slice().sort((a, b) =>
+    rank(a) - rank(b) || (b.sc || 0) - (a.sc || 0));
+
+  el.innerHTML = `<h2>الاستراتيجيات العشر</h2>
+    <p class="hint">مرتَّبةً بقوّة التوافق الآن. الرقم مجموعُ بوابات معلنة بأوزانها — افتح البطاقة لترى منها الرقم</p>
+    ${sorted.map(r => scRow(r, E, ctx)).join("")}`;
+}
+
+function scRow(r, E, ctx) {
+  const meta = (state.strategies && state.strategies.strategies || []).find(x => x.id === r.id);
+  const why = (meta && meta.why) || (STRAT_BY_ID[r.id] && STRAT_BY_ID[r.id].why) || "";
+  const famT = FAMS[r.fam] || r.fam;
+
+  if (r.off) return `
+    <details class="scrow off"><summary>
+      <span class="sdir mut">⊘</span>
+      <b>${esc(r.lbl)}</b>
+      <span class="mut">غير متاحة</span>
+    </summary>
+      <p class="mut">${esc(r.off)}</p>
+      <p class="hint">${esc(why)}</p>
+    </details>`;
+
+  if (!r.dir) return `
+    <details class="scrow quiet"><summary>
+      <span class="sdir mut">⇄</span>
+      <b>${esc(r.lbl)}</b>
+      <span class="mut">لم تتفعّل</span>
+    </summary>
+      <p class="mut">شرطُ هذه الاستراتيجية غير متحقّق الآن — وهي حالةُ سوقٍ عادية لا نقصُ بيانات.</p>
+      <p class="hint">${esc(why)}</p>
+      ${scEdgeLine(r.id, E)}
+    </details>`;
+
+  const dc = r.dir > 0 ? "var(--up)" : "var(--dn)";
+  const stT = r.stT;
+  const p = r.plan && !r.plan.bad ? r.plan : null;
+
+  return `
+    <details class="scrow${r.active ? " act" : ""}"><summary>
+      <span class="sdir" style="color:${dc}">${r.dir > 0 ? "▲" : "▼"}</span>
+      <b>${esc(r.lbl)}</b>
+      <span class="ssc num" style="color:${dc}">${r.sc}</span>
+      <span class="sband mut">${esc(S_LABEL[r.band] || "")}</span>
+      ${stT ? `<span class="sst" style="color:${SC_ST[stT.k] || "var(--mut)"}">${esc(stT.t)}</span>` : ""}
+      ${r.at ? `<span class="mut sage num">${esc(ageShort(Date.now() - r.at))}</span>` : `<span class="mut sage">منذ هذه الدورة</span>`}
+    </summary>
+      <p class="hint">${esc(why)}</p>
+      <p class="mut" style="font-size:12px">عائلة: ${esc(famT)} · فريم المشغِّل: ${esc(tfName(r.tfUsed || r.tf))}${
+        (r.tfUsed && r.tfUsed !== r.tf) ? ` <em>(سقط إلى اليومي — الفريم اللحظي غير متاح لهذا الرمز)</em>` : ""
+      }${p ? ` · مقياس الصفقة: ${esc(tfName(p.atrTf))}` : ""}</p>
+
+      ${stT ? `<div class="note"><b>${esc(stT.t)}</b> — ${esc(stT.why)}${
+        r.eqRaw ? ` · تحرّك ${fmt(r.eqRaw.moved, 2)}× المدى منذ الإشارة` : ""}</div>` : ""}
+
+      <div class="grid3">
+        <div class="stat"><div class="k">النتيجة</div><div class="v num">${r.sc}</div>
+          <div class="sub">${esc(S_LABEL[r.band] || "")}</div></div>
+        <div class="stat"><div class="k">جودة الدخول</div><div class="v num">${Number.isFinite(r.eq) ? r.eq : "—"}</div>
+          <div class="sub">${r.eqRaw ? esc(r.eqRaw.act) : "تحتاج لحظة بدءٍ مسجَّلة"}</div></div>
+        <div class="stat"><div class="k">بدأت</div>
+          <div class="v num">${r.at ? esc(ageShort(Date.now() - r.at)) : "—"}</div>
+          <div class="sub">${r.at ? esc(ago(r.at)) : "لم تُسجَّل بعد — تظهر في الدورة القادمة"}</div></div>
+      </div>
+
+      ${scGates(r)}
+      ${scPlan(r, p, ctx)}
+      ${scEdgeLine(r.id, E)}
+    </details>`;
+}
+
+/* البوابات — الرقم مفسَّرٌ لا صندوقٌ أسود */
+function scGates(r) {
+  if (!r.g || !r.g.length) return "";
+  const byId = {};
+  const st = STRAT_BY_ID[r.id];
+  for (const g of (st ? st.gates : [])) byId[g.id] = g;
+  const tot = r.g.reduce((a, g) => a + g[1], 0);
+  return `<details class="plain"><summary>من أين جاء الرقم؟ (${r.g.length} بوابة بوزن ${fmt(tot, 1)})</summary>
+    <table class="gt"><tbody>${r.g.map(g => {
+      const m = byId[g[0]], v = g[2];
+      const c = v > 0 ? "var(--up)" : v < 0 ? "var(--dn)" : "var(--mut)";
+      const sign = v > 0 ? "تؤيّد" : v < 0 ? "تناقض" : "حائرة";
+      return `<tr>
+        <td>${esc((m && m.lbl) || g[0])}</td>
+        <td class="mut" style="font-size:11.5px">${(m && m.kind === "price") ? "سعرية" : "مؤشّرية"}</td>
+        <td class="num">${fmt(g[1], 1)}</td>
+        <td class="num" style="color:${c}">${sign}</td></tr>`;
+    }).join("")}</tbody></table>
+    <p class="hint">البوابات السعرية تُعاد كل دقيقتين، والمؤشّرية كل عشر دقائق — فالمؤشّر لا يتغيّر بسعرٍ واحد بلا شمعةٍ جديدة، وحسابُه منه يعطي رقماً كاذباً.</p>
+  </details>`;
+}
+
+/* الخطة — من `planFrom` نفسها التي يحفظها الخادم */
+function scPlan(r, p, ctx) {
+  if (r.plan && r.plan.bad)
+    return `<div class="warn">خطةٌ مرفوضة من بوابة الاتجاه (${esc(r.plan.bad.join("، "))}) — تُخفى ولا تُعرض.</div>`;
+  if (!p) return `<p class="mut">لا خطة — لا مستويات كافية على هذا الفريم.</p>`;
+  const d = priceDigits(p.entry);
+  const tf = p.atrTf;
+  const rows = p.targets.map((t, i) => {
+    const e = etaFor({ from: p.entry, target: t.p, atr: p.atr, dir: p.dir,
+                       atrTf: tf, tfScore: ctx.tfScore });
+    return `<tr><td>هدف ${i + 1}</td><td class="num">${fmt(t.p, d)}</td>
+      <td class="num">${pct(t.pct, 1)}</td><td class="num">${fmt(t.rr, 2)}:1</td>
+      <td class="mut">${e ? esc(spanText(e.lo, e.hi)) : "غير واضح"}</td></tr>`;
+  }).join("");
+  return `<details class="plain" open><summary>الخطة</summary>
+    <div class="grid3">
+      <div class="stat"><div class="k">الدخول</div><div class="v num">${fmt(p.entry, d)}</div>
+        <div class="sub">${p.entryIsNow ? "عند السوق — لا حاجز قريب" : "عند ارتدادٍ إلى الحاجز"}</div></div>
+      <div class="stat"><div class="k">الوقف</div><div class="v num">${fmt(p.stop, d)}</div>
+        <div class="sub">${pct(-p.stopPct, 1)} من الدخول</div></div>
+      <div class="stat"><div class="k">عائد/مخاطرة</div><div class="v num">${p.rr ? fmt(p.rr, 2) + ":1" : "—"}</div>
+        <div class="sub">${p.meets2 ? "يبلغ 2:1" : "دون 2:1 — أبعد هدفٍ متاح"}</div></div>
+    </div>
+    <table class="gt"><thead><tr><th>الهدف</th><th>السعر</th><th>المدى</th><th>ع/م</th><th>زمن تقديري</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    <p class="hint">الزمن تقديرٌ من المسافة مقسومةً على مدى الشمعة (${esc(tfName(tf))}) معدَّلاً بالزخم — نطاقٌ لا وعد، والرقم الواحد يُقرأ وعداً.</p>
+  </details>`;
+}
+
+/* الحافّة المقيسة — أو «لم تُقَس» بلا تجميل */
+function scEdgeLine(id, E) {
+  const e = E[id];
+  if (!e || !Number.isFinite(e.edge)) {
+    const n = e && e.n;
+    return `<p class="srcline">الحافّة: <b>لم تُقَس بعد</b>${
+      n ? ` — ${n} إشارة، والحدّ الأدنى للقياس ${e.min || 200}` : ""}. تُعرض حين تبلغ العيّنة حدَّها، ولا يُعرض رقمٌ قبل ذلك.</p>`;
+  }
+  const c = e.edge > 0 ? "var(--up)" : "var(--dn)";
+  return `<p class="srcline">الحافّة المقيسة: <b style="color:${c}">${e.edge > 0 ? "+" : ""}${fmt(e.edge, 2)}</b>
+    على ${e.n} إشارة${e.oos && Number.isFinite(e.oos.edge) ? ` · خارج العيّنة ${e.oos.edge > 0 ? "+" : ""}${fmt(e.oos.edge, 2)} على ${e.oos.n}` : ""}
+    · المصدر ${esc(e.src === "intraday" ? `أرشيف لحظي ${e.range || "60d"}` : "أرشيف يومي عشر سنوات")}.
+    ${e.edge < 0 ? "حافّةٌ سالبة — تُعرض كما قِيست ولا تُخفى." : ""}</p>`;
+}
+
+/* =====================================================================
+   التسلسل الزمني — ما تغيّر ومتى
+   ===================================================================== */
+let stratTl = {};
+async function loadStratTl(sym) {
+  if (stratTl[sym]) return stratTl[sym];
+  try { stratTl[sym] = await getJSON(`strat/${sym}.json`); }
+  catch (e) { stratTl[sym] = { tl: [], err: e.message }; }
+  return stratTl[sym];
+}
+
+function renderScTl(sym) {
+  const el = $("#scTl");
+  const d = stratTl[sym];
+  const tl = (d && d.tl) || [];
+  const byId = {};
+  for (const s of STRATEGIES) byId[s.id] = s.lbl;
+  if (!tl.length) {
+    el.innerHTML = `<h2>التسلسل الزمني</h2>
+      <p class="mut">لا تغيّرات مسجَّلة بعد لهذا الرمز. التسلسل يبدأ من أول دورةٍ تظهر فيها إشارة، ويحفظ سبعة أيام.</p>`;
+    return;
+  }
+  // الأحدث أولاً، ومع كل نقطة ما الذي تغيّر عن سابقتها لنفس الاستراتيجية
+  const prevOf = {};
+  const rows = [];
+  for (const p of tl) {
+    const [t, id, dir, sc] = p;
+    const pv = prevOf[id];
+    let what;
+    if (!pv) what = `ظهرت ${dir > 0 ? "شراءً" : "بيعاً"} بنتيجة ${sc}`;
+    else if (pv.dir !== dir) what = `<b>انقلبت</b> من ${pv.dir > 0 ? "شراء" : "بيع"} إلى ${dir > 0 ? "شراء" : "بيع"} · ${pv.sc} ← ${sc}`;
+    else what = `${sc > pv.sc ? "قويت" : "ضعفت"} ${pv.sc} ← ${sc}`;
+    rows.push({ t, id, dir, sc, what, flip: pv && pv.dir !== dir });
+    prevOf[id] = { dir, sc };
+  }
+  rows.reverse();
+  el.innerHTML = `<h2>التسلسل الزمني</h2>
+    <p class="hint">تُسجَّل النقطة عند انقلاب الجهة أو عبور وسمٍ أو حركةٍ تُذكر — لا في كل دورة، وإلا صار السجل ضجيجاً</p>
+    <div class="tl">${rows.slice(0, 40).map(r => `
+      <div class="tlr${r.flip ? " flip" : ""}">
+        <div class="tlt num mut">${esc(ago(r.t * 1000))}</div>
+        <div class="tld"><span class="sdir" style="color:${r.dir > 0 ? "var(--up)" : "var(--dn)"}">${r.dir > 0 ? "▲" : "▼"}</span>
+          <b>${esc(byId[r.id] || r.id)}</b> — ${r.what}</div>
+      </div>`).join("")}</div>
+    ${rows.length > 40 ? `<p class="srcline">أحدث 40 من ${rows.length} تغيّراً محفوظاً</p>` : ""}`;
+}
+
+/* =====================================================================
+   الأحداث
+   ===================================================================== */
+function scWire() {
+  const inp = $("#scIn"), auto = $("#scAuto"), btn = $("#scGo");
+  if (!inp) return;
+  const run = () => {
+    const l = scFind(inp.value);
+    if (l.length) scAnalyze(l[0].s);
+    else if (inp.value.trim()) scAnalyze(inp.value);
+  };
+  inp.addEventListener("input", () => {
+    scState.hi = -1;
+    // البحث يعمّ الكون، والطبقة الواسعة تُجلب عند أول حرف
+    if (inp.value.trim()) need("wide.json");
+    renderScAuto(scFind(inp.value), inp.value.trim());
+  });
+  inp.addEventListener("keydown", (e) => {
+    const list = scFind(inp.value);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!list.length) return;
+      scState.hi = (scState.hi + (e.key === "ArrowDown" ? 1 : -1) + list.length) % list.length;
+      renderScAuto(list, inp.value.trim());
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (scState.hi >= 0 && list[scState.hi]) scAnalyze(list[scState.hi].s);
+      else run();
+    } else if (e.key === "Escape") { auto.classList.remove("on"); inp.setAttribute("aria-expanded", "false"); }
+  });
+  if (btn) btn.addEventListener("click", run);
+  auto.addEventListener("click", (e) => {
+    const r = e.target.closest("[data-sym]");
+    if (r) { inp.value = r.dataset.sym; scAnalyze(r.dataset.sym); }
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".sfind") && !e.target.closest("#scAuto"))
+      { auto.classList.remove("on"); inp.setAttribute("aria-expanded", "false"); }
+  });
+}
+
+function renderScanner() {
+  const el = $("#scScope");
+  if (el) {
+    const core = (state.summary && state.summary.rows.length) || 0;
+    const wide = (state.wide && state.wide.rows.length) || 0;
+    el.innerHTML = `الكون: <b class="num">${core + wide || "…"}</b> رمزاً —
+      ${core} بأربعة فريمات وخمسة دقائقها (كل الاستراتيجيات)،
+      ${wide || "…"} بالشمعة اليومية وحدها (وضعٌ مُصغَّر).
+      ما ليس في الكون لا يُحلَّل، ويُقال ذلك بدل «لا نتائج».`;
+  }
+  // إعادة تحليل الرمز المعروض بأحدث الأسعار عند تحديث البيانات
+  if (scState.sym) scAnalyze(scState.sym);
+}
+
 function go(view) {
   state.view = view;
   $$("section[data-view]").forEach(s => s.classList.toggle("on", s.dataset.view === view));
@@ -7040,6 +7646,9 @@ function go(view) {
   if (view === "list") renderList();
   if (view === "screen") { need("fundamentals.json"); renderScreen(); renderEarnings(); renderArchive(); }
   if (view === "opts") { need("options.json"); need("wide.json"); renderOpts(); }
+  // الماسح: لحظاتُ البدء والحوافّ المقيسة. والتحليل نفسه يُحسب في
+  // المتصفح من ملف الرمز، فلا يُجلب شيءٌ ثقيل قبل أن يبحث المستخدم.
+  if (view === "scanner") { need("strategies.json"); need("strategy-edge.json"); renderScanner(); }
   if (view === "news") { need("news.json"); need("filings.json"); }
   if (view === "analysis") {
     need("fundamentals.json"); need("analytics.json");
@@ -7510,6 +8119,7 @@ function boot() {
     if (!document.hidden && Date.now() - state.lastOk > 60000) refresh(true);
   });
 
+  scWire();                    // صندوق بحث الماسح وتنقّله بلوحة المفاتيح
   refresh(true);
   setInterval(renderTop, 1000);                                     // العدّ التنازلي
   setInterval(refresh, Math.max(30, +CFG.FILE_POLL_SECONDS || 60) * 1000);

@@ -149,7 +149,31 @@ t("لا تعارض أسماء بين index.html والملفات المشترك�
       if (inlineNames.has(n)) clash.push(`${n} (${f})`);
   }
   if (clash.length) throw new Error("اسمٌ معرَّف مرتين: " + clash.join("، "));
-  return `${srcs.length} ملفاً · ${inlineNames.size} اسماً في الصفحة`;
+
+  /* =====================================================================
+     والملفات المشتركة فيما بينها كذلك — وهذه هي الثغرة التي كشفها
+     `volX` فعلياً.
+
+     كان الفحص يقارن الصفحة بكل ملف ولا يقارن الملفات ببعضها، فمرّ اسمٌ
+     معرَّف في `scans.js` و`strategies.js` معاً: كلاهما `<script>`
+     كلاسيكي في نطاقٍ واحد، فالأخير تحميلاً يغلب. وهنا لم يغلب بصمت بل
+     رمى `Identifier 'volX' has already been declared` فأسقط **كل**
+     الشيفرة — صفحةٌ ساكنة بلا رسالة، وهو ما يحدث حين يتعارض `const`
+     مع `const`. ولو كان أحدهما `var` لمرّ بلا خطأ وبقيت الدالّة
+     الخاطئة تعمل — وهي مصيدة `pctRank` الموثّقة بالحرف.
+     ===================================================================== */
+  const files = srcs.filter(f => f !== "config.js");
+  const names = {};
+  for (const f of files) names[f] = decl(fs.readFileSync(path.join(DIR, f), "utf8"));
+  const cross = [];
+  for (let i = 0; i < files.length; i++)
+    for (let j = i + 1; j < files.length; j++)
+      for (const n of names[files[i]])
+        if (names[files[j]].has(n)) cross.push(`${n} (${files[i]} ↔ ${files[j]})`);
+  if (cross.length) throw new Error("اسمٌ معرَّف في ملفّين مشتركين: " + cross.join("، "));
+
+  const total = files.reduce((a, f) => a + names[f].size, 0);
+  return `${srcs.length} ملفاً · ${inlineNames.size} اسماً في الصفحة · ${total} في الملفات المشتركة`;
 });
 
 /* ---------- ٧ لا مسار خارجي غير الخطوط ---------- */

@@ -466,10 +466,103 @@ function aggregate(candles, factor) {
   return out;
 }
 
+/* =====================================================================
+   VWAP الجلسة — متوسّط السعر مرجَّحاً بالحجم منذ افتتاح الجلسة.
+
+   ليس مؤشّراً متدحرجاً كبقيّة ما في هذا الملف: يبدأ من الصفر عند كل
+   افتتاح، فمرجعه `period.regular` لا عددُ شمعات. ولذلك يأخذ `period`
+   صراحةً بدل أن يشتقّ يوماً من الطوابع — الاشتقاق يخطئ في العطلات
+   ونصف الجلسات، و`period` يعطيه ياهو مقيساً.
+
+   **ويعود `null` حين يكون مجموع الحجم صفراً.** Twelve Data وStooq لا
+   يعطيان حجماً و`Math.round(x.v || 0)` تصفّره — وVWAP بحجمٍ صفر متوسّطٌ
+   حسابيّ يحمل اسم VWAP، أي رقمٌ ملفّق يبدو صحيحاً. نفس القاعدة التي
+   تُسقط OBV وMFI عند غياب الحجم: «اعرض ‎—‎ لا رقماً ملفّقاً».
+
+   والانحراف مرجَّحٌ بالحجم كذلك (لا حسابيّاً): الشريطان يصفان أين
+   تُدووِل فعلاً، فحسابهما بوزنٍ متساوٍ يناقض الوزن الذي بُني عليه
+   المركز نفسه.
+   ===================================================================== */
+function sessionVwap(k, period) {
+  if (!Array.isArray(k) || !period || !period.regular) return null;
+  var s0 = period.regular.start, s1 = period.regular.end;
+  if (!Number.isFinite(s0) || !Number.isFinite(s1)) return null;
+  var tps = [], vs = [], pv = 0, vol = 0;
+  for (var i = 0; i < k.length; i++) {
+    var x = k[i];
+    if (!Number.isFinite(x.t) || x.t < s0 || x.t > s1) continue;
+    if (!Number.isFinite(x.h) || !Number.isFinite(x.l) || !Number.isFinite(x.c)) continue;
+    var v = x.v || 0;
+    if (!(v > 0)) continue;                 // شمعةٌ بلا تداول لا تحمل وزناً
+    var tp = (x.h + x.l + x.c) / 3;
+    tps.push(tp); vs.push(v); pv += tp * v; vol += v;
+  }
+  if (!(vol > 0) || tps.length < 2) return null;
+  var vwap = pv / vol, acc = 0;
+  for (var j = 0; j < tps.length; j++) acc += vs[j] * (tps[j] - vwap) * (tps[j] - vwap);
+  var sd = Math.sqrt(acc / vol);
+  if (!Number.isFinite(vwap) || !Number.isFinite(sd)) return null;
+  return { vwap: vwap, sd: sd, upper: vwap + sd, lower: vwap - sd, bars: tps.length };
+}
+
+/* =====================================================================
+   نطاق الافتتاح — أعلى وأدنى أول دقائق من الجلسة الرسمية.
+
+   `complete` هو الحقل المهمّ: النطاق قيد التكوّن ليس نطاقاً، وكسرُه
+   قبل اكتماله يكسر شيئاً لم يُرسَم بعد. فتُعاد الراية ويقرّر المستهلك
+   الانسحاب — لا يُخترع نطاقٌ من شمعةٍ واحدة.
+
+   ويعود `null` حين لا تقع أيّ شمعة داخل النافذة: قبل الافتتاح، أو
+   حين يصف `period` يوماً سابقاً (وهي مصيدة موثّقة — الفترات المحفوظة
+   تصف يوم جلبها).
+   ===================================================================== */
+function openingRange(k, period, minutes) {
+  minutes = minutes || 15;
+  if (!Array.isArray(k) || !period || !period.regular) return null;
+  var s0 = period.regular.start;
+  if (!Number.isFinite(s0)) return null;
+  var s1 = s0 + minutes * 60000;
+  var hi = -Infinity, lo = Infinity, n = 0, lastT = 0;
+  for (var i = 0; i < k.length; i++) {
+    var x = k[i];
+    if (!Number.isFinite(x.t) || x.t < s0 || x.t >= s1) continue;
+    if (!Number.isFinite(x.h) || !Number.isFinite(x.l)) continue;
+    if (x.h > hi) hi = x.h;
+    if (x.l < lo) lo = x.l;
+    if (x.t > lastT) lastT = x.t;
+    n++;
+  }
+  if (!n || !(hi > lo)) return null;
+  /* مكتملٌ حين توجد شمعةٌ بعد نهاية النافذة — لا حين «مضى الوقت»:
+     السلسلة قد تتأخّر دورةً كاملة، فالحكم بالبيانات لا بالساعة. */
+  var after = false;
+  for (var j = 0; j < k.length; j++) if (Number.isFinite(k[j].t) && k[j].t >= s1) { after = true; break; }
+  return { hi: hi, lo: lo, mid: (hi + lo) / 2, bars: n, complete: after };
+}
+
+/* وسيط الحجم على نافذة — لا متوسّطه. الدفعة الشاذّة ترفع المتوسّط الذي
+   تُقاس به فتخفي نفسها؛ الوسيط لا يتحرّك بها. ونفس مبدأ «بالوسيط لا
+   المتوسط» المطبَّق في إحصاء السوق والأرشيف. */
+function volMedian(k, win) {
+  win = win || 20;
+  if (!Array.isArray(k) || k.length < 2) return null;
+  var v = [];
+  for (var i = Math.max(0, k.length - win - 1); i < k.length - 1; i++) {
+    var x = k[i] && k[i].v;
+    if (Number.isFinite(x) && x > 0) v.push(x);
+  }
+  if (v.length < 5) return null;
+  v.sort(function (a, b) { return a - b; });
+  var m = Math.floor(v.length / 2);
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { sma: sma, ema: ema, rsi: rsi, macd: macd, bb: bb, atr: atr,
                      last: last, adx: adx, adxLabel: adxLabel, pivots: pivots,
                      divergence: divergence, bbWidth: bbWidth, rankInWindow: rankInWindow,
                      obv: obv, mfi: mfi, stoch: stoch, volumeProfile: volumeProfile,
+                     sessionVwap: sessionVwap, openingRange: openingRange,
+                     volMedian: volMedian,
                      analyze: analyze, aggregate: aggregate };
 }

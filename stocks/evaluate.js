@@ -28,7 +28,7 @@ const HOUR = 3600e3, DAY = 86400e3;
    في حدود شمعتين، و«قائمة» حتى ست شمعات، و«متأخرة» حتى عشرين، وبعدها
    «قديمة» — أي أن مرجعها الذي بُنيت عليه صار خارج النافذة.
    ===================================================================== */
-const TF_BAR = { "15m": 15 * 60e3, "1h": HOUR, "4h": 4 * HOUR, "1d": DAY, "1w": 7 * DAY };
+const TF_BAR = { "5m": 5 * 60e3, "15m": 15 * 60e3, "1h": HOUR, "4h": 4 * HOUR, "1d": DAY, "1w": 7 * DAY };
 const FRESH_BARS = { fresh: 2, live: 6, late: 20 };
 
 function freshness(ageMs, tf) {
@@ -45,7 +45,7 @@ function freshness(ageMs, tf) {
     why: `مضى ${Math.round(bars)} شمعة ${tfName(tf)} — المرجع الذي بُنيت عليه خارج النافذة` };
 }
 
-const tfName = (tf) => ({ "15m": "١٥ دقيقة", "1h": "ساعة", "4h": "٤ ساعات", "1d": "يومية", "1w": "أسبوعية" }[tf] || tf);
+const tfName = (tf) => ({ "5m": "٥ دقائق", "15m": "١٥ دقيقة", "1h": "ساعة", "4h": "٤ ساعات", "1d": "يومية", "1w": "أسبوعية" }[tf] || tf);
 
 /* الفريم الذي تنتمي إليه إشارةُ شرطٍ ما. الشروط ليست كلها على فريم واحد:
    «توافق الفريمات» يشمل الأربعة فأبطأها هو الحاكم (اليومي)، و«حجم غير
@@ -184,6 +184,74 @@ function horizonsOf(tfScore) {
   });
 }
 
+/* =====================================================================
+   ٥) جودة الدخول كرقم — ‎0..100‎ مشتقٌّ من `entryQuality` لا موازٍ لها.
+
+   الوسم («مناسب»/«انتظر تراجعاً») يكفي بطاقةً واحدة ولا يكفي ترتيباً:
+   عشر استراتيجيات كلُّها «مقبول» لا تُرتَّب. والرقم يُشتقّ من **نفس**
+   `moved` و`used` اللذين بُني عليهما الوسم، فلا يقولان شيئين مختلفين
+   عن نفس الحالة — وهي علّة «نسختان من نفس الرياضيات» مطبَّقةً على
+   مقياسين بدل ملفّين.
+
+   ثلاثة مكوّنات معلنة، ويُعاد تفصيلها كي يكون الرقم مفسَّراً:
+     · `mv` كم بقي من مدى الحركة قبل أن يصير الدخول متأخراً (‎2×ATR‎).
+     · `us` كم بقي من المسافة إلى الهدف الأول.
+     · `fr` طزاجة الإشارة بمقياس فريمها.
+
+   و`moved` السالب يُقصّ عند الصفر: سعرٌ تحرّك **ضدّ** الإشارة دخولُه
+   أرخص، لكنه لا يجعل الفرصة أفضل من فرصةٍ لم تتحرّك — ومكافأتُه
+   تجعل أسوأ الإشارات أعلاها ترتيباً.
+   ===================================================================== */
+const FRESH_W = { fresh: 1, live: 0.85, late: 0.6, stale: 0.3 };
+
+function entryScore(eq, fresh) {
+  if (!eq) return null;
+  if (eq.k === "gone") return { v: 0, mv: 0, us: 0, fr: 0, why: eq.act };
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const mv = clamp(1 - Math.max(0, eq.moved) / 2);
+  const us = Number.isFinite(eq.used) ? clamp(1 - eq.used) : 1;
+  const fr = (fresh && FRESH_W[fresh.k]) || 0.6;
+  const v = Math.round(100 * (0.45 * mv + 0.35 * us + 0.20 * fr));
+  return { v: v, mv: mv, us: us, fr: fr, why: eq.act };
+}
+
+/* =====================================================================
+   ٦) حالة الإشارة — ستّ حالات من مقياسين موجودين، لا مقياسٌ ثالث.
+
+   الطزاجة تقول «كم مضى» وجودةُ الدخول تقول «كم تحرّك»، وهما سؤالان
+   مختلفان يلتقيان في سؤالٍ واحد يطرحه المضارب: **هل أدخل الآن؟**
+   إشارةٌ عمرها شمعتان تحرّك فيها السهم ‎2.5×ATR‎ ليست «طازجة» بأي
+   معنى مفيد — والعمر وحده كان سيقول إنها كذلك.
+
+   والترتيب مقصود: النافية أولاً. فما انتهى لا يُسمّى جديداً مهما كان
+   عمره، وما امتدّ لا يُسمّى قائماً.
+   ===================================================================== */
+const STATUS = {
+  NEW:      { k: "NEW",      t: "جديدة",      c: "var(--up)" },
+  FRESH:    { k: "FRESH",    t: "طازجة",      c: "var(--up)" },
+  ACTIVE:   { k: "ACTIVE",   t: "قائمة",      c: "var(--neu)" },
+  LATE:     { k: "LATE",     t: "متأخرة",     c: "#d98b4f" },
+  EXTENDED: { k: "EXTENDED", t: "امتدّت",     c: "#d98b4f" },
+  EXPIRED:  { k: "EXPIRED",  t: "انتهت",      c: "var(--dn)" }
+};
+
+function signalStatus(fresh, eq, ageMs, tf) {
+  if (!fresh) return null;
+  const bar = TF_BAR[tf] || DAY;
+  const why = (t, d) => ({ ...t, why: d });
+
+  if ((eq && eq.k === "gone") || fresh.k === "stale")
+    return why(STATUS.EXPIRED, (eq && eq.k === "gone") ? eq.act : fresh.why);
+  if (eq && eq.k === "late")
+    return why(STATUS.EXTENDED, "تحرّك أكثر من مدى يومين منذ الإشارة — الحركة وقعت");
+  if (fresh.k === "late" || (eq && eq.k === "wait"))
+    return why(STATUS.LATE, (eq && eq.k === "wait") ? eq.act : fresh.why);
+  if (Number.isFinite(ageMs) && ageMs < bar)
+    return why(STATUS.NEW, `ظهرت داخل شمعة ${tfName(tf)} الجارية`);
+  if (fresh.k === "fresh") return why(STATUS.FRESH, fresh.why);
+  return why(STATUS.ACTIVE, fresh.why);
+}
+
 /* نفس حدّ `planDirOf` في `plan.js`، مكرَّرٌ هنا لأن `evaluate.js` لا
    يعتمد على `plan.js` — والحدّ رقمٌ واحد لا منطق، وربطُ الملفين لأجله
    يجعل ترتيب تحميل السكربتات شرطاً على العمل. */
@@ -191,5 +259,6 @@ const planDirOf2 = (score) => (Number.isFinite(score) && score < -15) ? -1 : 1;
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { freshness, tfName, scanTF, SCAN_TF, TF_BAR, FRESH_BARS,
-                     entryQuality, etaFor, spanText, horizonsOf, HORIZONS };
+                     entryQuality, entryScore, signalStatus, STATUS, FRESH_W,
+                     etaFor, spanText, horizonsOf, HORIZONS };
 }

@@ -16,6 +16,8 @@
      node local/run.mjs filings    إيداعات SEC (كل عشر دقائق، بلا مفتاح)
      node local/run.mjs backtest   الأرشيف التاريخي وحده
      node local/run.mjs signals    تثبيت إشارات اليوم وتحديث المفتوحة
+     node local/run.mjs strategies ماسح الاستراتيجيات — الحالة والتسلسل (بلا شبكة)
+     node local/run.mjs stratbt    الأرشيف اللحظي 60 يوماً (~290 طلباً)
      node local/run.mjs events     تقويم الفدرالي (أحداث قوية قادمة)
      node local/run.mjs learn      قراءة السجل واقتراحات التحسين (بلا شبكة)
      node local/run.mjs analytics  قوة نسبية وارتباط وفجوات (طلب واحد)
@@ -120,8 +122,11 @@ const releaseLock = () => { try { fs.unlinkSync(LOCK); } catch (e) {} };
 
 /* ---------- تشغيل سكربت الجلب كعملية منفصلة ---------- */
 function runScript(name) {
+  /* الاسم قد يحمل وسائط («track-strategies.mjs --only-price»): دورة
+     الأسعار تشغّل نفس السكربت بوضعٍ آخر، وسكربتان لنفس المنطق يتباعدان. */
+  const [file, ...extra] = String(name).split(/\s+/).filter(Boolean);
   return new Promise((resolve) => {
-    const p = spawn(process.execPath, [path.join(ROOT, "scripts", name), "--out", DATA], {
+    const p = spawn(process.execPath, [path.join(ROOT, "scripts", file), "--out", DATA, ...extra], {
       stdio: "inherit",
       env: { ...process.env, PREFER_YAHOO: process.env.PREFER_YAHOO ?? "1" }
     });
@@ -288,16 +293,21 @@ else {
 
   // الأخبار مع كل تحديث سوق: دورتها دقائق لا يوم، وهي أرخص جزء في
   // التشغيل (بضع خلاصات RSS) فلا تكلّف شيئاً أن تُرافق الأسعار
-  const jobs = cmd === "quotes" ? ["fetch-quotes.mjs"]
+  const jobs = cmd === "quotes" ? ["fetch-quotes.mjs", "track-strategies.mjs --only-price"]
              // التتبّع بعد الشمعات مباشرة: يقرأ summary.json الذي كتبته
              // للتوّ، بلا أي طلب شبكة — فتُثبَّت الإشارة لحظة ظهورها
-             : cmd === "market" ? ["fetch-market.mjs", "track-signals.mjs", "fetch-news.mjs"]
+             : cmd === "market" ? ["fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "fetch-news.mjs"]
              : cmd === "signals" ? ["track-signals.mjs"]
+             : cmd === "strategies" ? ["track-strategies.mjs"]
+             // الأرشيف اللحظي: 60 يوماً من 5د/15د لكل رمزٍ مرصود (~290
+             // طلباً). نافذته أقصر بكثير من الأرشيف اليومي لأن ياهو لا
+             // يعطي فريماً لحظياً أبعد من ذلك — وهو حدٌّ معلن لا خيار.
+             : cmd === "stratbt" ? ["backtest-strategies.mjs"]
              : cmd === "news"   ? ["fetch-news.mjs"]
              // الأرشيف مع الدورة اليومية: يجلب خمس سنوات لكل رمز (~500
              // طلب) فلا مكان له في دورة عشر دقائق، ونتيجته لا تتغيّر
              // بمعدّل أسرع من يوم على أي حال
-             : cmd === "daily"  ? ["fetch-daily.mjs", "fetch-events.mjs", "backtest.mjs", "analytics.mjs", "learn.mjs"]
+             : cmd === "daily"  ? ["fetch-daily.mjs", "fetch-events.mjs", "backtest.mjs", "backtest-strategies.mjs", "analytics.mjs", "learn.mjs"]
              : cmd === "events" ? ["fetch-events.mjs"]
              : cmd === "backtest" ? ["backtest.mjs"]
              : cmd === "learn"  ? ["learn.mjs"]
@@ -309,7 +319,7 @@ else {
              // علاقة لها بدورة الأسعار، ولا تحتاج مفتاحاً ولا حصّة — فدمجُها
              // في دورة السوق يجعلها تتقاسم قفلاً وميزانيةً بلا سبب
              : cmd === "filings" ? ["fetch-filings.mjs"]
-             : ["fetch-daily.mjs", "fetch-events.mjs", "fetch-market.mjs", "track-signals.mjs", "fetch-news.mjs", "fetch-filings.mjs", "fetch-options.mjs", "backtest.mjs", "analytics.mjs", "learn.mjs"];
+             : ["fetch-daily.mjs", "fetch-events.mjs", "fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "fetch-news.mjs", "fetch-filings.mjs", "fetch-options.mjs", "backtest.mjs", "backtest-strategies.mjs", "analytics.mjs", "learn.mjs"];
 
   // الانسحاب أمام تشغيل جارٍ ليس فشلاً — نخرج بصفر حتى لا تُعلَّم المهمة
   // المجدولة كفاشلة كل دورة متداخلة

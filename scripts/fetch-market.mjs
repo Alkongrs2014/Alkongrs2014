@@ -25,7 +25,7 @@ const CHECK = args.includes("--check");
 const OUT = (() => { const i = args.indexOf("--out"); return i >= 0 ? path.resolve(args[i + 1]) : path.join(ROOT, "out"); })();
 
 const KEEP = 260;                 // يكفي لـ EMA200 مع هامش، ويُبقي الملفات خفيفة
-const MAX_AGE = { "15m": 0, "1h": 55 * 60e3, "1d": 20 * 3600e3 };
+const MAX_AGE = { "5m": 0, "15m": 0, "1h": 55 * 60e3, "1d": 20 * 3600e3 };
 // صلاحية الفريم اليومي **أثناء الجلسة**. شمعةُ اليوم قيد التكوّن ما دامت
 // الجلسة قائمة، فتجميدها عشرين ساعة يعني أن ارتفاع اليوم وانخفاضه لا
 // يدخلان الحساب قبل الغد. والعشرون ساعة لا تقسم الأربعةَ والعشرين، فوقتُ
@@ -37,7 +37,27 @@ const DAILY_LIVE_AGE = 30 * 60e3;
 // السوق عشر دقائق، فـ 60 رمزاً/تشغيل تكفي لتجديد 414 رمزاً في ~70 دقيقة
 // دون أن ترتفع دورة واحدة إلى مئات الطلبات فتستدعي 429.
 const WIDE_PER_RUN = Number(process.env.WIDE_PER_RUN || 60);
-const RANGE   = { "15m": "60d", "1h": "730d", "1d": "5y" };
+const RANGE   = { "5m": "60d", "15m": "60d", "1h": "730d", "1d": "5y" };
+
+/* =====================================================================
+   فريم 5 دقائق — يُحسب ولا يدخل النتيجة الفنية.
+
+   `TFS` أربعةٌ بأوزانها، و`overallScore` و`tfScore` يدوران عليها وحدها،
+   و`allTF` في `scans.js` تشترط `v.length === 4` بالضبط. فإضافةُ خامسٍ
+   إليها تغيّر نتيجة كل رمز في الكون، فتُبطل الأرشيف كلَّه وتُسقط شرطَي
+   «توافق الفريمات» **بصمت** — لا خطأ ولا استثناء، فقط أرقامٌ أخرى.
+
+   ولهذا `AN_TFS` قائمةٌ منفصلة للتحليل وحده: `rec.an["5m"]` يُكتب
+   ويقرؤه ماسح الاستراتيجيات، و`rec.score` و`tfScore` لا يريانه.
+   و`check-ui` يحرس هذا الفصل صراحةً.
+
+   وبلا `prePost`: نطاق الافتتاح وVWAP الجلسة يحتاجان الجلسة الرسمية
+   وحدها، وهي بالضبط ما يعطيه الطلب بلا جلسات ممتدة. ومكسبٌ ثانٍ أن
+   260 شمعة تصير 3.3 يوم تداول بدل 1.8، فتكفي EMA200 بهامش. ولذلك لا
+   يمرّ 5د بـ`tradingOnly`: حجمه حقيقيٌّ كله، والبوابة عليه تعريضٌ بلا
+   مقابل (نفس سبب استثناء الساعة واليومي منها).
+   ===================================================================== */
+const AN_TFS = [...TFS, "5m"];
 
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
 
@@ -306,7 +326,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
 
   // المؤشرات لكل فريم
   rec.an = {};
-  for (const tf of TFS) {
+  for (const tf of AN_TFS) {
     const a = rec.tf[tf]?.c ? analyze(rec.tf[tf].c) : null;
     if (!a) continue;
     const { series, ...rest } = a;                    // لا نحفظ السلاسل الكاملة (حجم)
@@ -373,7 +393,7 @@ async function main() {
     console.log(`  الطبقة الواسعة: ${wideDue.length} مستحقّ من ${wideAll.length} (سقف ${WIDE_PER_RUN}/تشغيل)`);
 
   // الوظائف: الأساسية والكريبتو بالفريمات الثلاثة، والواسعة باليومي وحده
-  const FULL = ["1d", "1h", "15m"];
+  const FULL = ["1d", "1h", "15m", "5m"];
   const jobs = [
     ...chosen.map(m => ({ m, frames: FULL, tier: "core" })),
     ...cryptoAll.map(m => ({ m, frames: FULL, tier: "core" })),
@@ -748,6 +768,23 @@ function selfCheck() {
     if (frozenSeries(rec(moving))) throw new Error("المتحركة ليست مجمّدة");
     // سلسلةٌ أقصر من نافذة الحكم: لا حكم
     if (frozenSeries(rec(bars(10, 1, 0)))) throw new Error("القصيرة لا يُحكم عليها");
+  });
+
+  t("فريم 5د يُحلَّل ولا يتسرّب إلى النتيجة الفنية", () => {
+    // الحارس الحقيقي: `overallScore` و`tfScore` يدوران على `TFS` وحدها،
+    // فوجود `an["5m"]` يجب ألّا يغيّر رقماً واحداً. وبلا هذا الفحص يمرّ
+    // تعديلٌ يضيف 5د إلى `TFS` بلا أن يبدو شيءٌ معطّلاً — فتتغيّر نتيجة
+    // كل رمز في الكون ويُبطل الأرشيف بصمت.
+    eq(TFS.length, 4, "TFS أربعة لا خمسة");
+    if (TFS.includes("5m")) throw new Error("5د تسرّب إلى TFS");
+    if (!AN_TFS.includes("5m")) throw new Error("5د غائب عن قائمة التحليل");
+    const four = { "15m": { score: 10 }, "1h": { score: 20 }, "4h": { score: 30 }, "1d": { score: 40 } };
+    const five = { ...four, "5m": { score: -100 } };
+    eq(overallScore(five), overallScore(four), "5د لا يغيّر النتيجة الكلية");
+    const tfs = (an) => Object.fromEntries(TFS.filter(t => an[t]).map(t => [t, an[t].score]));
+    eq(Object.keys(tfs(five)).length, 4, "tfScore يبقى بأربعة مفاتيح");
+    // و`allTF` في scans.js تشترط أربعة بالضبط — خامسٌ يُسقط الشرطين معاً
+    eq(Object.values(tfs(five)).length === 4, true, "allTF ما زالت تجد أربعة");
   });
 
   t("aggregate يبني 4h صحيحة من 1h", () => {

@@ -19,7 +19,7 @@
    غير متوقّع يجعل العامل وسيطاً لا يُراجَع.
    ===================================================================== */
 
-const V = "webtrade-v8";
+const V = "webtrade-v9";
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";
@@ -34,7 +34,9 @@ const FONT = V + "-font";
    القديمة تُقدَّم ("قديمٌ ثم يُجدَّد") فلا يظهر الملف الجديد أبداً
    في الزيارة الأولى — وقع هذا فعلاً وأوهم أن السكربت لا يُحمَّل. */
 const CORE = ["./", "./index.html", "./config.js", "./score.js",
-              "./indicators.js", "./scans.js", "./plan.js", "./evaluate.js"];
+              "./indicators.js", "./scans.js", "./plan.js", "./evaluate.js",
+  "./strategies.js",
+  "./consensus.js"];
 
 const isFont = (u) => u.host === "fonts.googleapis.com" || u.host === "fonts.gstatic.com";
 const isData = (u) => /\.json($|\?)/.test(u.pathname);

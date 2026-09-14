@@ -1215,5 +1215,14 @@ function selfCheck() {
   process.exit(fail ? 1 : 0);
 }
 
-if (CHECK) selfCheck();
-else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });
+/* لا يعمل إلا حين يكون هو نقطة الدخول — `backtest-strategies.mjs`
+   يستورد `simulatePlan` و`summarizePlans` منه، وقواعد المحاكاة الستّ
+   يجب أن تكون نسخةً واحدة وإلا قِيس الأرشيفان بمسطرتين. وبلا هذا
+   الحدّ كان الاستيراد وحده يجلب خمسمئة رمزٍ لعشر سنوات. */
+const IS_MAIN = process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+if (IS_MAIN) {
+  if (CHECK) selfCheck();
+  else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });
+}
