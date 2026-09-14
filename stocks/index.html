@@ -2190,6 +2190,9 @@ function filteredRows() {
 function renderList() {
   if (!state.summary) return;
   const rows = filteredRows();
+  // القائمة تعمّ الكون عند البحث أو توسيع النطاق، والطبقة الواسعة
+  // يوميّةٌ بلا أساسيات — يُقال ذلك في الصفّ بدل أن يُكتشف بالغياب
+  const core = new Set(state.summary.rows.map(r => r.s));
   const el = $("#stockList");
   if (!rows.length) {
     el.innerHTML = `<div class="empty">${state.favOnly && !state.favs.length
@@ -2205,7 +2208,8 @@ function renderList() {
       <div class="id">
         <div class="t"><button class="star${isFav(r.s) ? " on" : ""}" data-fav="${esc(r.s)}"
           aria-label="${isFav(r.s) ? "إزالة من المتابَعة" : "إضافة للمتابَعة"}">${isFav(r.s) ? starIcon(true) : starIcon(false)}</button>${esc(nm(r))}${ext}${r.stale ? `<span class="chip off" style="font-size:10px;padding:1px 6px">قديم</span>` : ""}</div>
-        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}</div>
+        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}${
+          core.has(r.s) ? "" : ` · <span style="color:var(--mut)">يوميّ فقط</span>`}</div>
       </div>
       ${sparkSVG(r.spark, isFinite(r.chg) ? r.chg >= 0 : true)}
       <div class="px">
@@ -5533,12 +5537,23 @@ function renderPlan(rec) {
   });
   if (against.length) {
     const lbls = against.map(x => x.lbl);
+    /* هل جاء اتجاه الخطة من فرضٍ أم من النتيجة؟ الجملة تختلف كلياً:
+       قولُ «اتجاهها من النتيجة» بينما الشرط هو الذي فرضه يصف عكس ما جرى. */
+    const fd = forcedFor(rec.s);
+    const fdLbl = (fd === p.dir)
+      ? (SCANS.find(x => forcedDir(x.id) === fd && (state.signals && state.signals.records || [])
+          .some(g => g.sym === rec.s && g.open && g.scan === x.id)) || {}).lbl || null
+      : null;
     const arch = state.arch && state.arch.scans
       && state.arch.scans.find(x => x.id === against[0].id && x.plan && x.plan.clash && x.plan.agree);
     clash = `<div class="warn" style="margin-bottom:10px">
       <b><svg class="ic-s" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-warn"/></svg>الشرط والخطة في اتجاهين مختلفين.</b><br>
       ظهر هذا السهم في الفرص بشرط <b>${esc(lbls.join(" · "))}</b>، والخطة أدناه
-      ${up ? "شراء" : "بيع"} لأن اتجاهها يُشتقّ من النتيجة الفنية لا من الشرط.
+      ${up ? "شراء" : "بيع"} ${fdLbl
+        ? `لأن <b>${esc(fdLbl)}</b> يفرض اتجاه خطته — قِيس ذلك على الأرشيف فخرج
+           أفضل من اشتقاقه من النتيجة. والنتيجة الفنية نفسها تقول
+           <b>${esc(labelOf(row && row.score, row && row.band).t)}</b>`
+        : "لأن اتجاهها يُشتقّ من النتيجة الفنية لا من الشرط"}.
       ${arch ? `وفي الأرشيف كان توقّع الخطة المتناقضة <span class="num">${bd(fmt(arch.plan.clash.exp, 2))}%</span>
         مقابل <span class="num">${bd(fmt(arch.plan.agree.exp, 2))}%</span> للمتوافقة.` : ""}
       اقرأ الاثنين ولا تأخذ أحدهما وحده.</div>`;
@@ -6435,8 +6450,18 @@ function renderScreen() {
   const fs = fundScores();
   const ctx = { secMed: (fs && fs.secMed) || {} };
 
+  /* الشرط الموسوم `wide` يمرّ على الكون كاملاً (510 رمزاً) لا على
+     المرصودة وحدها (97). وغيابُ الملف تدهورٌ هادئ: يُطلب كسولاً ويُمسح
+     على ما وصل، فتكتمل النتيجة عند وصوله بلا تعطيل. */
+  const wideReady = !!(state.wide && state.wide.rows && state.wide.rows.length);
+  if (scan.wide && !wideReady) need("wide.json");
+  const pool = (scan.wide && wideReady) ? allRows() : state.summary.rows;
+  // الصفّ الواسع يُعرَف بانتمائه لا بغياب حقلٍ فيه: `!r.ar` تكسر بأول
+  // رمزٍ أساسيّ بلا اسم عربي
+  const core = new Set(state.summary.rows.map(r => r.s));
+
   let hits = [];
-  for (const r of state.summary.rows) {
+  for (const r of pool) {
     try { if (scan.test(r, F[r.s], ctx)) hits.push(r); } catch (e) { /* حقل ناقص — تخطَّ الرمز */ }
   }
   // كل مسح يرتّب بمقياسه: الحجم بمضاعف الحجم، والأرباح بالأقرب موعداً.
@@ -6483,7 +6508,8 @@ function renderScreen() {
       <div class="rank num">${i + 1}</div>
       <div class="id">
         <div class="t">${esc(nm(r))}</div>
-        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}</div>
+        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}${
+          core.has(r.s) ? "" : ` · <span style="color:var(--mut)">يوميّ فقط</span>`}</div>
         ${since}
       </div>
       <div class="hitv">${esc(v)}</div>
@@ -6493,7 +6519,12 @@ function renderScreen() {
       </div>
     </div>`;
   }).join("");
-  $("#scanCount").textContent = `${hits.length} من ${state.summary.rows.length} سهماً · حُدّثت ${ago(state.summary.updated)}`;
+  /* المقام هو ما مُسح فعلاً لا ما نملكه: «5 من 97» بينما مُسح 510
+     يصف نسبةً لم تُحسب. وحالةُ الطبقة تُقال وهي تُجلب. */
+  const scope = scan.wide
+    ? (wideReady ? `${bd(pool.length)} رمزاً (الكون كاملاً)` : `${bd(pool.length)} سهماً · الطبقة الواسعة تُجلب…`)
+    : `${bd(pool.length)} سهماً`;
+  $("#scanCount").textContent = `${bd(hits.length)} من ${scope} · حُدّثت ${ago(state.summary.updated)}`;
 }
 
 function renderEarnings() {

@@ -483,6 +483,12 @@
       "sec": "تقنية"
     },
     {
+      "s": "CRWD",
+      "ar": "كراودسترايك",
+      "en": "CrowdStrike",
+      "sec": "تقنية"
+    },
+    {
       "s": "LRCX",
       "ar": "لام ريسيرش",
       "en": "Lam Research",
@@ -1053,11 +1059,6 @@
       "s": "CRH",
       "en": "CRH plc",
       "sec": "مواد"
-    },
-    {
-      "s": "CRWD",
-      "en": "CrowdStrike",
-      "sec": "تقنية"
     },
     {
       "s": "CCI",

@@ -573,9 +573,14 @@ function selfCheck() {
   const t = (name, fn) => { try { fn(); console.log(`  ✓ ${name}`); pass++; } catch (e) { console.log(`  ✗ ${name} — ${e.message}`); fail++; } };
   const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`); };
 
-  t("symbols.json صالح و 90 مرشّحاً أساسياً", () => {
-    if (cfg.symbols.length !== 90) throw new Error(`${cfg.symbols.length}`);
-    if (cfg.top !== 70) throw new Error("top ≠ 70");
+  /* الخاصيّة لا الرقم: `!== 90` كان يُسقط الفحص عند إضافة أيّ مرشّح،
+     فيدفع إلى تخفيف الفحص بدل قراءته. المطلوب أن يكفي المرشّحون للاختيار
+     منهم وأن يكون لكلٍّ حقولُه — لا أن يبقى العدد كما كان يوم كُتب. */
+  t("symbols.json صالح ومرشّحوه يكفون الاختيار", () => {
+    if (!Array.isArray(cfg.symbols) || !cfg.symbols.length) throw new Error("لا مرشّحين");
+    if (!Number.isFinite(cfg.top) || cfg.top <= 0) throw new Error("top غير صالح");
+    if (cfg.symbols.length < cfg.top)
+      throw new Error(`${cfg.symbols.length} مرشّحاً و${cfg.top} مطلوب`);
     for (const s of cfg.symbols) if (!s.s || !s.ar || !s.sec) throw new Error(`حقل ناقص في ${s.s}`);
   });
 

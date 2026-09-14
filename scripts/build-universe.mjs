@@ -210,9 +210,21 @@ function selfCheck() {
     }
   });
 
-  t("الملف الحالي ما زال يقرأ ومرشّحوه 90", () => {
+  /* الخاصيّة لا الرقم. `!== 90` كان يُسقط الفحص عند إضافة أيّ مرشّح،
+     وهذا يدفع إلى **تخفيف الفحص بدل قراءته** — أسوأ ما يفعله اختبار.
+     نفس علاج `SCANS.length !== 8` سابقاً. */
+  t("الملف الحالي يقرأ ومرشّحوه أكثر من المطلوب بلا تكرار", () => {
     const cfg = JSON.parse(fs.readFileSync(CFG_PATH, "utf8"));
-    if (cfg.symbols.length !== 90) throw new Error(`${cfg.symbols.length} مرشّحاً`);
+    if (!Array.isArray(cfg.symbols) || cfg.symbols.length < cfg.top)
+      throw new Error(`${cfg.symbols?.length} مرشّحاً و${cfg.top} مطلوب`);
+    const seen = new Set();
+    for (const x of cfg.symbols) {
+      if (!x.s || !x.ar || !x.en || !x.sec) throw new Error(`${x.s || "?"} حقلٌ ناقص`);
+      if (seen.has(x.s)) throw new Error(`${x.s} مكرّر`);
+      seen.add(x.s);
+    }
+    // رمزٌ في الطبقتين يُجلب مرّتين ويُحسب مرّتين في الاتساع
+    for (const w of cfg.wide || []) if (seen.has(w.s)) throw new Error(`${w.s} في الأساسية والواسعة معاً`);
   });
 
   console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل`);

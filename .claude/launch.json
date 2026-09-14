@@ -4,8 +4,12 @@
     {
       "name": "webtrade",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["local/run.mjs", "serve"],
-      "port": 8080
+      "runtimeArgs": [
+        "local/run.mjs",
+        "serve"
+      ],
+      "port": 8080,
+      "autoPort": true
     }
   ]
 }
