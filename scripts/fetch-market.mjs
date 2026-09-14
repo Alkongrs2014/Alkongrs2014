@@ -787,6 +787,38 @@ function selfCheck() {
     eq(Object.values(tfs(five)).length === 4, true, "allTF ما زالت تجد أربعة");
   });
 
+  t("aggregate ثابتٌ أمام تدحرج النافذة — لا ينزاح بطول المصفوفة", () => {
+    /* المصيدة التي بلّغ عنها مستخدم: التقسيم بالفهرس يزيح حدود
+       المجموعات كلّما تغيّر طولُ السلسلة، فتقع نفس ساعات السوق في
+       مجموعاتٍ مختلفة بين تشغيلٍ وآخر — فتتغيّر شمعة 4h وتنقلب بوابةٌ
+       وزنُها ‎1.5‎ وتتحرّك النتيجة ‎~11‎ نقطة بلا حركة سعر.
+
+       الفحص: نفس السلسلة بأربع بداياتٍ مختلفة يجب أن تعطي **نفس
+       الشمعات** في الذيل المشترك. */
+    const HOUR = 3600e3, start = Date.UTC(2026, 8, 1, 13, 30);
+    const k = [];
+    for (let i = 0; i < 200; i++) {
+      // فجوةٌ ليلية بعد كل ستّ شمعات — كما الجلسة الحقيقية
+      const day = Math.floor(i / 6), hr = i % 6;
+      k.push({ t: start + day * 24 * HOUR + hr * HOUR,
+               o: 100 + i, h: 101 + i, l: 99 + i, c: 100 + i, v: 1000 });
+    }
+    const full = aggregate(k, 4);
+    for (const drop of [1, 2, 3, 5]) {
+      const rolled = aggregate(k.slice(drop), 4);
+      const a = full.slice(-5), b = rolled.slice(-5);
+      for (let i = 0; i < 5; i++)
+        eq([b[i].t, b[i].o, b[i].h, b[i].l, b[i].c, b[i].v],
+           [a[i].t, a[i].o, a[i].h, a[i].l, a[i].c, a[i].v],
+           `إسقاط ${drop} شمعة غيّر شمعة 4h رقم ${i}`);
+    }
+    // وإضافةُ شمعةٍ جديدة لا تعيد تشكيل ما قبلها
+    const grown = aggregate(k.concat([{ t: k[k.length - 1].t + HOUR, o: 300, h: 301, l: 299, c: 300, v: 1 }]), 4);
+    const prev = full.slice(0, -1), now = grown.slice(0, prev.length);
+    for (let i = 0; i < prev.length; i++)
+      eq([now[i].t, now[i].c], [prev[i].t, prev[i].c], `شمعةٌ جديدة أعادت تشكيل 4h رقم ${i}`);
+  });
+
   t("aggregate يبني 4h صحيحة من 1h", () => {
     const c = [{ t: 0, o: 1, h: 5, l: 0.5, c: 2, v: 10 }, { t: 1, o: 2, h: 6, l: 1, c: 3, v: 10 },
                { t: 2, o: 3, h: 4, l: 2, c: 4, v: 10 }, { t: 3, o: 4, h: 9, l: 3, c: 5, v: 10 }];

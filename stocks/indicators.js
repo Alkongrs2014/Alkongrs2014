@@ -449,20 +449,73 @@ function analyze(k) {
     series: { e20: e20, e50: e50, e200: e200 }
   };
 }
-function aggregate(candles, factor) {
-  const out = [];
-  for (let i = 0; i < candles.length; i += factor) {
-    const grp = candles.slice(i, i + factor);
-    if (!grp.length) continue;
-    out.push({
-      t: grp[0].t,
-      o: grp[0].o,
-      h: Math.max(...grp.map(x => x.h)),
-      l: Math.min(...grp.map(x => x.l)),
-      c: grp[grp.length - 1].c,
-      v: grp.reduce((a, x) => a + (x.v || 0), 0)
-    });
+/* =====================================================================
+   التجميع — بشبكةٍ **زمنية** لا بفهرس المصفوفة.
+
+   كان التقسيم بالفهرس (`i += factor` من الصفر)، وهو يفترض أن الصفر
+   ثابت. والافتراض يسقط دائماً: سلسلة الساعة تُطلب بمدى سنتين فتتدحرج
+   نافذتُها (تسقط أقدمُ شمعة وتُضاف أحدثُ)، وفيها فجواتُ الليل وعطلة
+   الأسبوع ونصفُ الجلسات. فكلّ جلبٍ يزيح حدودَ المجموعات — فتقع **نفس
+   ساعات السوق في مجموعاتٍ مختلفة** بين تشغيلٍ وآخر.
+
+   والأثر لم يكن تجميلياً: شمعة 4h يتغيّر فتحُها وأعلاها وأدناها
+   وإغلاقُها، فتتغيّر معها EMA وMACD وRSI على الفريم، فتنقلب بوابةٌ
+   وزنُها ‎1.5‎ فتتحرّك النتيجة الكلية ‎~11‎ نقطة — **بلا أن يتحرّك
+   السعر أصلاً**. قِيس فعلاً: `CRM` تتذبذب ‎72.94 ↔ 61.96‎ بين ‎257.46‎
+   و‎257.61‎، و`AAPL` تتغيّر نتيجتُها والسعر **مطابقٌ بالبايت**
+   (‎326.57‎ في أربع لقطات متتالية). وبلّغ عنها مستخدم قبل أن يكشفها فحص.
+
+   ودليلُ الانزياح مباشر: `t % 14400` لشمعات 4h كان ‎5400‎ يوماً و‎9000‎
+   يوماً تالياً و‎12600‎ بعده — أي أن الشبكة تزحف ساعةً كل يوم.
+
+   فالمفتاح الآن `floor(t / bucket)`: نفس اللحظة تقع في نفس المجموعة
+   مهما تغيّر طول المصفوفة أو بدايتها. وطولُ شمعة المصدر يُشتقّ
+   **بالوسيط** لا بالفرق الأول: الفجوات تجعل بعض الفروق ستّ عشرة ساعة،
+   والوسيط لا يتحرّك بها.
+   ===================================================================== */
+function srcStep(candles) {
+  var d = [];
+  for (var i = 1; i < candles.length; i++) {
+    var x = candles[i].t - candles[i - 1].t;
+    if (Number.isFinite(x) && x > 0) d.push(x);
   }
+  if (d.length < 3) return null;
+  d.sort(function (a, b) { return a - b; });
+  return d[Math.floor(d.length / 2)] || null;
+}
+
+/* شمعةٌ واحدة من مجموعة: الفتح أوّلُها والإغلاق آخرُها والمدى مداها */
+function foldBars(grp) {
+  return {
+    t: grp[0].t,
+    o: grp[0].o,
+    h: Math.max.apply(null, grp.map(function (x) { return x.h; })),
+    l: Math.min.apply(null, grp.map(function (x) { return x.l; })),
+    c: grp[grp.length - 1].c,
+    v: grp.reduce(function (a, x) { return a + (x.v || 0); }, 0)
+  };
+}
+
+function aggregate(candles, factor) {
+  if (!Array.isArray(candles) || !candles.length) return [];
+  var step = srcStep(candles), out = [];
+  if (!step) {
+    // سلسلةٌ أقصر من أن يُشتقّ طولُ شمعتها — التقسيم بالفهرس آخرُ ملاذ
+    for (var i = 0; i < candles.length; i += factor) {
+      var g0 = candles.slice(i, i + factor);
+      if (g0.length) out.push(foldBars(g0));
+    }
+    return out;
+  }
+  var bucket = step * factor, cur = null, key = null;
+  for (var n = 0; n < candles.length; n++) {
+    var x = candles[n];
+    if (!Number.isFinite(x.t)) continue;
+    var k = Math.floor(x.t / bucket);
+    if (k !== key) { if (cur) out.push(foldBars(cur)); cur = [x]; key = k; }
+    else cur.push(x);
+  }
+  if (cur) out.push(foldBars(cur));
   return out;
 }
 
@@ -564,5 +617,5 @@ if (typeof module !== "undefined" && module.exports) {
                      obv: obv, mfi: mfi, stoch: stoch, volumeProfile: volumeProfile,
                      sessionVwap: sessionVwap, openingRange: openingRange,
                      volMedian: volMedian,
-                     analyze: analyze, aggregate: aggregate };
+                     analyze: analyze, aggregate: aggregate, srcStep: srcStep };
 }
