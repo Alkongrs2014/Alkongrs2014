@@ -559,7 +559,9 @@ details[open]{background:var(--card2)}
 .sfind input::placeholder{font-size:14px;font-weight:400;letter-spacing:0;color:var(--mut)}
 .sfind input:focus{outline:none;border-color:var(--acc);
   box-shadow:0 0 0 3px rgba(61,125,219,.18)}
-.sfind .btn{padding:14px 20px;font-size:15px;flex:none}
+/* `.btn` الأساسية `width:100%`، و`flex:none` تُبقيها على عرض الحاوية
+   كاملاً فتفيض 13 بكسل على الهاتف. العرض يُعاد إلى `auto` صراحةً. */
+.sfind .btn{width:auto;flex:0 0 auto;padding:14px 18px;font-size:15px;white-space:nowrap}
 /* نتائج الإكمال أكبر كذلك — قائمةٌ لا تُقرأ لا تُستعمل */
 .sauto-r{padding:11px 12px;font-size:15px}
 .sauto-r b{font-size:16px}
