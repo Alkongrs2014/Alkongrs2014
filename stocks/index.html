@@ -211,7 +211,7 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 .hitv{font-size:11.5px;color:var(--neu);font-weight:700;white-space:nowrap}
 
 /* ---------- التحليل الأساسي ---------- */
-.bars{display:flex;gap:3px;flex:none;width:64px}
+.bars{display:flex;gap:2.5px;flex:none;width:64px}
 .bars i{flex:1;height:26px;background:var(--card2);border-radius:3px;position:relative;overflow:hidden}
 .bars i b{position:absolute;bottom:0;left:0;right:0;border-radius:3px;display:block}
 .fscore{width:34px;text-align:center;flex:none;font-weight:700;font-size:13.5px}
@@ -789,6 +789,36 @@ details[open]{background:var(--card2)}
     <div id="tfTable"><div class="skl" style="height:100px"></div></div>
   </div>
 
+  <!-- الصحّة المالية — البعد الذي كانت «بطاقة الشركة» تتجاهله.
+
+       البطاقة تعرض المكرر والقيمة السوقية والتوزيعات: كلّها تصف **السعر
+       وربحيةً محاسبية**. ولا كلمة عن الدَّين، ولا عن النقد الداخل فعلاً،
+       ولا عن قدرة الشركة على الوفاء بالتزاماتها هذا العام.
+
+       والأرقام كانت تصل في نفس استجابة ياهو التي تجلب المكرر وتُرمى —
+       فكلفة هذا القسم **صفر طلبات**. -->
+  <div class="card" id="cardHealth" style="display:none">
+    <h2>الصحّة المالية</h2>
+    <p class="hint" id="healthHint"></p>
+    <div id="healthOut"></div>
+    <details>
+      <summary>لماذا هذه الأرقام تحديداً؟</summary>
+      <p><b>التدفّق النقدي الحرّ</b> نقدٌ دخل الخزينة فعلاً بعد الإنفاق الرأسمالي. والربح المحاسبي
+      يقبل التجميل (إهلاكٌ مُسرَّع، اعترافٌ مبكّر بالإيراد، مصاريفُ تُرسمَل)، أما النقد فإمّا في
+      الحساب أو ليس فيه. ولهذا يُعرض <b>عائده نسبةً من القيمة السوقية</b>: ليقارَن مباشرةً بعائد
+      السند — شركةٌ عائدها 6% مقابل سندٍ بـ4% معادلةٌ مختلفة عن شركةٍ عائدها 1%.</p>
+      <p><b>الدَّين إلى حقوق الملكية</b> يقول من يملك الشركة فعلاً. وROE مرتفع بسببه ليس جودةً:
+      المقام صغيرٌ لا البسط كبير. ولذلك يُقرأ الرقمان معاً أو لا يُقرآن.</p>
+      <p><b>EV/EBITDA</b> يضمّ الدَّين والنقد إلى ثمن الشركة، فلا تبدو المستدينة رخيصةً لأن سهمها
+      وحده رخيص. ويصير <b>بلا معنى حين تكون EBITDA سالبة</b> — ولا يُعرض حينها.</p>
+      <p><b>PEG</b> المكرر مقسوماً على النمو: مكرر 40 مع نمو 40% ليس كمكرر 40 مع نمو 5%.
+      ورقمه من ياهو مبنيٌّ على نموٍّ متوقَّع — أي أنه <b>تقديرٌ لا واقع</b>، بخلاف بقية أرقام هذه
+      البطاقة. يُقرأ مؤشّراً لا حكماً.</p>
+      <p><b>البنوك والتأمين</b> لا تُعلن نسبة تداول ولا EBITDA ولا تدفّقاً حرّاً بالمعنى نفسه —
+      ميزانيتها مبنيّة على الإقراض لا على الإنتاج. فتظهر لها «—»، وغيابُها ليس ضعفاً.</p>
+    </details>
+  </div>
+
   <div class="card">
     <h2>بطاقة الشركة</h2>
     <p class="hint">الأرقام الأساسية التي تصف الشركة نفسها لا حركة سهمها</p>
@@ -1327,6 +1357,7 @@ details[open]{background:var(--card2)}
         <option value="quality">الأعلى جودة</option>
         <option value="growth">الأسرع نمواً</option>
         <option value="value">الأرخص تسعيراً</option>
+        <option value="solvency">الأمتن ملاءةً</option>
       </select>
     </div>
     <div class="slist" id="fundRank"><div class="skl" style="height:260px;border-radius:0"></div></div>
@@ -1334,18 +1365,27 @@ details[open]{background:var(--card2)}
       <span><i style="background:#16c784"></i>جودة</span>
       <span><i style="background:#3b82f6"></i>نمو</span>
       <span><i style="background:#f0b90b"></i>تسعير</span>
+      <span><i style="background:#9aa7bd"></i>ملاءة</span>
     </div>
     <details>
       <summary>كيف تُحسب هذه الدرجات؟</summary>
-      <p><b>جودة:</b> العائد على حقوق الملكية (ROE) وهامش الربح الصافي — كم تربح الشركة من كل دولار
-      مِلكية ومن كل دولار مبيعات. شركة عالية الجودة تحوّل الإيراد إلى ربح بكفاءة.</p>
-      <p><b>نمو:</b> نمو الإيرادات سنوياً. النمو وحده لا يكفي — شركة تنمو وتخسر ليست استثماراً.</p>
-      <p><b>تسعير:</b> مكرر الربحية ومضاعف القيمة الدفترية <b>مقارنةً بمتوسط قطاعها</b>، لا مطلقاً.
-      مكرر 30 رخيص في التقنية وباهظ في البنوك.</p>
+      <p><b>جودة:</b> العائد على حقوق الملكية (ROE) والعائد على الأصول (ROA) وهامش الربح الصافي
+      والهامش التشغيلي — كم تربح الشركة من كل دولار مِلكية ومن كل دولار أصول ومن كل دولار مبيعات.
+      والهامش التشغيلي بجانب الصافي عمداً: الصافي يتأثّر ببنود لمرة واحدة، والتشغيلي يصف العمل نفسه.</p>
+      <p><b>نمو:</b> نمو الإيرادات ونمو الأرباح. والاثنان معاً لأن افتراقهما معلومة: إيرادٌ ينمو
+      وأرباحٌ لا تنمو يعني أن النمو يُشترى بالخصم أو بالإنفاق.</p>
+      <p><b>تسعير:</b> مكرر الربحية ومضاعف الدفترية ومضاعف المبيعات و<b>EV/EBITDA</b>
+      — كلّها <b>مقارنةً بوسيط قطاعها</b> لا مطلقاً. مكرر 30 رخيص في التقنية وباهظ في البنوك.
+      والأخير يضمّ الدَّين إلى السعر، فلا تبدو الشركة المستدينة رخيصةً لأن سهمها وحده رخيص.</p>
+      <p><b>ملاءة:</b> نسبة الدَّين إلى حقوق الملكية (مقارنةً بالقطاع)، ونسبة التداول،
+      و<b>عائد التدفّق النقدي الحرّ</b>. وهذا البند كان غائباً كلّه — وترتيبُ الشركات بالربحية
+      وحدها يضع أكثرها استدانةً في القمّة، وهي أوّل من يسقط عند أي ضائقة.</p>
       <p>كل درجة <b>مرتبة مئوية بين السبعين</b>: 90 تعني أن الشركة تتفوّق على 90% منهن في ذلك البند.
-      والإجمالي متوسطها الثلاثي.</p>
-      <p><b>حدود هذه الأرقام:</b> كلها ماضية لا مستقبلية، ولا تقيس الدَّين ولا جودة الإدارة ولا
-      المنافسة. شركة ممتازة بسعر باهظ استثمار سيئ، والعكس صحيح.</p>
+      والإجمالي متوسط الأبعاد الأربعة.</p>
+      <p><b>البنك لا يُقاس بمقياس المصنع:</b> البنوك لا تُعلن نسبة تداول ولا EBITDA ولا تدفّقاً حرّاً
+      بالمعنى نفسه، فتظهر لها «—» ولا تُحتسب عليها صفراً. والدرجة تُبنى مما توفّر ويُعلَن عدده.</p>
+      <p><b>حدود هذه الأرقام:</b> كلها ماضية لا مستقبلية، ولا تقيس جودة الإدارة ولا المنافسة ولا
+      المخاطر التنظيمية. شركة ممتازة بسعر باهظ استثمار سيئ، والعكس صحيح.</p>
     </details>
   </div>
 
@@ -4238,6 +4278,7 @@ function renderDetail() {
    * أن يكون الخطأ ظاهراً، لا أن يكون العرض سليماً. */
   const cards = [["الجدول", () => renderTfTable(rec), "#tfTable"],
                  ["الأساسيات", () => renderFund(), null],
+                 ["الصحّة المالية", () => renderHealth(), "#healthOut"],
                  ["القراءة", () => renderWhy(rec), "#whyList"],
                  ["التسلسل", () => renderTrend(rec), "#trendOut"],
                  ["الخطة", () => renderPlan(rec), "#planOut"],
@@ -4276,6 +4317,198 @@ function renderTfTable(rec) {
       <div class="tf-bar"><div class="tf-fill" style="${side}"></div></div>
       <div class="tf-val" style="color:${lb.c}">${lb.t}${ax}</div></div>`;
   }).join("");
+}
+
+/* =====================================================================
+   الصحّة المالية — أربعة أسئلة لا قائمة أرقام.
+
+   قائمةُ نسبٍ لا تفيد من لا يعرف أيّها مهمّ. فالبطاقة مرتّبةٌ على أسئلة:
+   هل تربح؟ وهل يدخلها نقدٌ فعلاً؟ وهل تحتمل ديونها؟ وبكم تُسعَّر؟
+
+   وكل رقمٍ بجانبه **مرجعُ قطاعه** لا مطلقاً: النسبة بلا مرجعها لا تُقرأ.
+   وكلُّ ما يغيب يظهر «—» ولا يُملأ بصفر — والفرق بين «صفر» و«لا نعرف»
+   هو الفرق بين إحصاءٍ صحيح وكاذب.
+   ===================================================================== */
+function renderHealth() {
+  const card = $("#cardHealth"), el = $("#healthOut");
+  if (!card || !el) return;
+  const sym = state.sym; if (!sym) return;
+  const f = state.fund && state.fund.f && state.fund.f[sym];
+  const rec = state.symCache[sym];
+  // العملات الرقمية بلا شركةٍ تُقاس — والبطاقة تنسحب بلا رسالة خطأ
+  if (!f || (rec && rec.mkt === "crypto")) {
+    // تُفرَّغ عند الإخفاء لا تُخفى وحدها: بطاقةٌ مخفيّة تحتفظ بأرقام السهم
+    // السابق، وأيُّ مسارٍ يُظهرها بلا إعادة رسم يعرض شركةً على شاشة أخرى —
+    // وهي أخطر من شاشةٍ فارغة لأن الأرقام تبدو صحيحة وتخصّ سهماً آخر
+    el.innerHTML = ""; $("#healthHint").textContent = "";
+    card.style.display = "none"; return;
+  }
+  card.style.display = "";
+
+  const fsc = fundScores();
+  const m = (fsc && fsc.secMed[rec ? rec.sec : ""]) || {};
+  const sc = fsc && fsc.sc[sym];
+
+  /* الصفّ: قيمة، ووسيط القطاع بجانبها، وجملةٌ تقول ما تعنيه.
+     `good` ثلاثيّ: صحيح/خطأ/`null` — و`null` تعني «لا حكم»، فليست كل
+     نسبةٍ خيراً أو شرّاً (نسبة تداول ‎3‎ قد تكون نقداً عاطلاً لا قوّة). */
+  const row = (lbl, val, med, good, note) => `<div class="row">
+      <div class="l">${lbl}<small>${note || ""}</small></div>
+      <div class="r num" style="color:${good === true ? "var(--up)" : good === false ? "var(--dn)" : "var(--tx)"}">
+        ${val}${med ? `<span style="color:var(--dim);font-size:11px;font-weight:400"> · القطاع ${med}</span>` : ""}</div>
+    </div>`;
+  /* النسبة المتناهية الصغر تُقال صغيرةً لا صفراً: هامش بوينج التشغيلي
+     ‎0.004%‎ كان يُعرض «‎0.0%‎» فيُقرأ «لا ربح»، والفرق بين «ضئيل» و«صفر»
+     هو الفرق بين شركةٍ تتعادل وأخرى تخسر. */
+  const p1 = (v, d) => {
+    if (!Number.isFinite(v)) return "—";
+    if (v !== 0 && Math.abs(v) < 0.05) return (v < 0 ? "أقلّ من ‎−0.1" : "أقلّ من 0.1") + "%";
+    return fmt(v, d === undefined ? 1 : d) + "%";
+  };
+  const H = [];
+
+  /* ---- ١) هل تربح، وبأيّ كفاءة؟ ---- */
+  const g1 = [];
+  if (Number.isFinite(f.opMargin))
+    g1.push(row("الهامش التشغيلي", p1(asPct(f.opMargin)),
+      Number.isFinite(m.opM) ? p1(asPct(m.opM)) : null,
+      Number.isFinite(m.opM) ? f.opMargin > m.opM : null,
+      "ربح العمل نفسه قبل الفوائد والضرائب — أصدق من الصافي لأنه لا يتأثّر ببنود لمرة واحدة"));
+  if (Number.isFinite(f.gMargin) && f.gMargin !== 0)
+    g1.push(row("الهامش الإجمالي", p1(asPct(f.gMargin)), null, null,
+      "ما يبقى بعد كلفة المُنتَج وحدها — سقفُ كل ربحٍ بعده"));
+  if (Number.isFinite(f.roa))
+    g1.push(row("العائد على الأصول", p1(asPct(f.roa)),
+      Number.isFinite(m.roa) ? p1(asPct(m.roa)) : null,
+      Number.isFinite(m.roa) ? f.roa > m.roa : null,
+      "ROE بلا أثر الاستدانة — رقمان متباعدان يعنيان أن الرافعة تصنع العائد"));
+  if (g1.length) H.push(["هل تربح؟", g1]);
+
+  /* ---- ٢) هل يدخلها نقدٌ فعلاً؟ ---- */
+  const g2 = [];
+  const fy = fcfYield(f);
+  if (Number.isFinite(fy))
+    g2.push(row("عائد التدفّق النقدي الحرّ", p1(fy),
+      Number.isFinite(m.fcfY) ? p1(m.fcfY) : null,
+      fy > 4 ? true : fy < 0 ? false : null,
+      `نقدٌ حرّ ${bigNum(f.fcf)} نسبةً إلى قيمتها السوقية — يُقارَن بعائد السند مباشرةً`));
+  else if (Number.isFinite(f.fcf))
+    g2.push(row("التدفّق النقدي الحرّ", bigNum(f.fcf), null, f.fcf > 0, "بعد الإنفاق الرأسمالي"));
+  /* الحصّة الرأسمالية تُعرض حين تكون متّسقة حسابياً وحدها.
+
+     ياهو يحسب `freeCashflow` و`operatingCashflow` على فترتين قد تختلفان،
+     فيخرج الحرُّ أكبر من التشغيلي أحياناً وتصير الحصّة سالبة — بوينج
+     ‎−55%‎. و«حصّةٌ سالبة من التدفّق» لا تعني شيئاً في أي تعريف محاسبي،
+     وعرضُها رقمٌ ملفّق يبدو دقيقاً. سبعة رموز من التسعين تقع خارج المدى. */
+  const capex = (Number.isFinite(f.ocf) && Number.isFinite(f.fcf) && f.ocf > 0)
+    ? (1 - f.fcf / f.ocf) * 100 : null;
+  if (Number.isFinite(capex) && capex >= 0 && capex <= 100)
+    g2.push(row("ما يُنفَق رأسمالياً", p1(capex, 0), null, null,
+      "حصّة التدفّق التشغيلي التي تبتلعها الاستثمارات — المرتفع ينمو أو يلاحق الاستهلاك"));
+  if (g2.length) H.push(["وهل يدخلها نقد؟", g2]);
+
+  /* ---- ٣) هل تحتمل ديونها؟ ---- */
+  const g3 = [];
+  if (Number.isFinite(f.de))
+    // ياهو يعطيها نسبةً مئوية: ‎78.4‎ تعني ‎0.78×‎. عرضُها كما هي يضاعفها مئة مرة
+    g3.push(row("الدَّين إلى حقوق الملكية", fmt(f.de / 100, 2) + "×",
+      Number.isFinite(m.de) ? fmt(m.de / 100, 2) + "×" : null,
+      Number.isFinite(m.de) ? f.de < m.de : null,
+      "لكل دولار مِلكية كم دولار دَين — ويُقرأ مع العائد على الملكية لا وحده"));
+  const nc = netCash(f);
+  if (Number.isFinite(nc))
+    g3.push(row(nc >= 0 ? "صافي نقد" : "صافي دَين", bigNum(Math.abs(nc)), null, nc >= 0,
+      nc >= 0 ? "الخزينة تفيض عن كل التزاماتها المالية"
+              : "الدَّين يتجاوز النقد بهذا المقدار"));
+  if (Number.isFinite(f.cr))
+    g3.push(row("نسبة التداول", fmt(f.cr, 2) + "×", null,
+      f.cr < 1 ? false : f.cr > 1.5 ? true : null,
+      f.cr < 1 ? "أصولٌ متداولة أقلّ من التزامات السنة — تعتمد على التمويل أو على تدفّقها"
+               : "الأصول المتداولة مقابل التزامات السنة"));
+  if (g3.length) H.push(["وهل تحتمل ديونها؟", g3]);
+
+  /* ---- ٤) بكم تُسعَّر؟ ---- */
+  const g4 = [];
+  const relTxt = (v, med) => (Number.isFinite(v) && v > 0 && Number.isFinite(med) && med > 0)
+    ? (v < med ? `أرخص من قطاعه بـ${fmt((1 - v / med) * 100, 0)}%`
+               : `أغلى من قطاعه بـ${fmt((v / med - 1) * 100, 0)}%`)
+    : "";
+  if (Number.isFinite(f.psales) && f.psales > 0)
+    g4.push(row("مضاعف المبيعات", fmt(f.psales, 1) + "×",
+      Number.isFinite(m.ps) ? fmt(m.ps, 1) + "×" : null,
+      Number.isFinite(m.ps) ? f.psales < m.ps : null,
+      relTxt(f.psales, m.ps) || "السعر إلى الإيراد — يعمل حتى مع شركةٍ لا تربح بعد"));
+  if (Number.isFinite(f.evEbitda) && f.evEbitda > 0)
+    g4.push(row("قيمة المنشأة إلى الأرباح التشغيلية", fmt(f.evEbitda, 1) + "×",
+      Number.isFinite(m.evEb) ? fmt(m.evEb, 1) + "×" : null,
+      Number.isFinite(m.evEb) ? f.evEbitda < m.evEb : null,
+      relTxt(f.evEbitda, m.evEb) || "ثمن الشركة كاملةً بدينها ونقدها مقابل أرباحها التشغيلية"));
+  else if (Number.isFinite(f.ebitda) && f.ebitda < 0)
+    g4.push(row("قيمة المنشأة إلى الأرباح التشغيلية", "—", null, null,
+      "أرباحها التشغيلية سالبة فالمضاعف بلا معنى — ولا يُعرض رقمٌ يُقرأ «رخيصاً»"));
+  if (Number.isFinite(f.peg) && f.peg > 0)
+    g4.push(row("المكرر إلى النمو PEG", fmt(f.peg, 2), null,
+      f.peg < 1 ? true : f.peg > 2 ? false : null,
+      "المكرر مقسوماً على النمو المتوقَّع — تقديرٌ لا واقع، بخلاف بقية أرقام هذه البطاقة"));
+  if (Number.isFinite(f.payout) && f.payout > 0)
+    g4.push(row("نسبة توزيع الأرباح", p1(asPct(f.payout), 0), null,
+      f.payout > 1 ? false : null,
+      f.payout > 1 ? "توزّع أكثر ممّا تربح — يُموَّل من النقد أو الدَّين ولا يدوم"
+                   : "حصّة الأرباح الموزَّعة — والباقي يُعاد استثماره"));
+  if (g4.length) H.push(["وبكم تُسعَّر؟", g4]);
+
+  /* ---- هدف المحلّلين ومداه ----
+     المتوسّط وحده يخفي الخلاف: هدفٌ متوسّطه ‎320‎ ومداه من ‎215‎ إلى ‎400‎
+     ليس توقّعاً بل غيابَ توقّع. والاتّساع يُقال بالرقم. */
+  const px = (symRow(sym) || {}).p;
+  let analysts = "";
+  if (Number.isFinite(f.target) && Number.isFinite(px) && px > 0) {
+    const upside = (f.target / px - 1) * 100;
+    const spread = (Number.isFinite(f.targetHi) && Number.isFinite(f.targetLo) && f.targetLo > 0)
+      ? (f.targetHi - f.targetLo) / f.target * 100 : null;
+    analysts = `<div class="note" style="margin-top:12px">
+      متوسّط هدف <b>${bd(f.recN || 0)}</b> محلّلاً <b class="num">${money(f.target)}</b>
+      — <b class="num" style="color:${upside > 0 ? "var(--up)" : "var(--dn)"}">${bd(pct(upside, 0))}</b> عن السعر.
+      ${spread !== null ? `والمدى من <span class="num">${money(f.targetLo)}</span> إلى
+        <span class="num">${money(f.targetHi)}</span>، واتّساعُه <span class="num">${fmt(spread, 0)}%</span>
+        ${spread > 60 ? "<b>— واسعٌ جداً: لا إجماع، والمتوسّط يخفي خلافاً لا يصفه</b>" : "من الهدف نفسه."}` : ""}
+    </div>`;
+  }
+
+  /* ---- مَن يملكه ---- */
+  const own = [];
+  if (Number.isFinite(f.instPct)) own.push(`المؤسسات ${fmt(asPct(f.instPct), 0)}%`);
+  if (Number.isFinite(f.insiderPct) && f.insiderPct > 0.001)
+    own.push(`المطّلعون ${fmt(asPct(f.insiderPct), 1)}%`);
+  if (Number.isFinite(f.shortPct) && f.shortPct > 0)
+    own.push(`البيع على المكشوف ${fmt(asPct(f.shortPct), 1)}% من الأسهم الحرّة` +
+      (f.shortPct > 0.1 ? " — مرتفعٌ يجعل أيّ خبرٍ جيّد حركةً عنيفة" : ""));
+
+  el.innerHTML = (H.length
+    ? H.map(([h, rows]) =>
+        `<div class="sub-h" style="font-size:12.5px;color:var(--mut);margin:12px 0 2px">${h}</div>` +
+        rows.join("")).join("")
+    : `<div class="empty">لا أرقام مالية كافية لهذا الرمز</div>`) +
+    analysts + (own.length ? `<p class="srcline">${own.join(" · ")}</p>` : "");
+
+  $("#healthHint").innerHTML = sc && Number.isFinite(sc.total)
+    ? `درجتها الأساسية <b>${Math.round(sc.total)}</b> من 100 بين المرصودة` +
+      (sc.parts < 4 ? ` — من ${sc.parts} أبعاد لا أربعة، فبعض أرقامها لا يُعلَن في قطاعها` : "") +
+      ` · جودة ${sc.quality === null ? "—" : Math.round(sc.quality)}` +
+      ` · نمو ${sc.growth === null ? "—" : Math.round(sc.growth)}` +
+      ` · تسعير ${sc.value === null ? "—" : Math.round(sc.value)}` +
+      ` · ملاءة ${sc.solvency === null ? "—" : Math.round(sc.solvency)}`
+    : "كل رقمٍ مقارنةً بوسيط قطاعه — النسبة بلا مرجعها لا تُقرأ";
+}
+
+/* اختصار الأرقام الكبيرة: ‎107,721,875,456‎ لا تُقرأ، و«‎107.7‎ مليار» تُقرأ */
+function bigNum(v) {
+  if (!Number.isFinite(v)) return "—";
+  const a = Math.abs(v), sign = v < 0 ? "−" : "";
+  if (a >= 1e12) return sign + "$" + fmt(a / 1e12, 2) + " تريليون";
+  if (a >= 1e9)  return sign + "$" + fmt(a / 1e9, 1) + " مليار";
+  if (a >= 1e6)  return sign + "$" + fmt(a / 1e6, 1) + " مليون";
+  return sign + "$" + fmt(a, 0);
 }
 
 function renderFund() {
@@ -5891,37 +6124,59 @@ function fundScores() {
       pb:     median(f.map(x => x.pb)),
       roe:    median(f.map(x => x.roe)),
       margin: median(f.map(x => x.margin)),
-      grow:   median(f.map(x => x.revGrow))
+      grow:   median(f.map(x => x.revGrow)),
+      // المقاييس المضافة — نفس المنطق: الرقم بلا مرجعِ قطاعه بلا معنى
+      ps:     median(f.map(x => x.psales)),
+      evEb:   median(f.map(x => x.evEbitda)),
+      de:     median(f.map(x => x.de)),
+      opM:    median(f.map(x => x.opMargin)),
+      roa:    median(f.map(x => x.roa)),
+      fcfY:   median(f.map(x => fcfYield(x)))
     };
   }
 
   // الخام أولاً، ثم نحوّله إلى رتب
   const raw = rows.map(r => {
     const f = F[r.s], m = secMed[r.sec] || {};
-    // نسبة إلى القطاع: أقل من 1 = أرخص من أقرانه. بالسالب لأن الأرخص أفضل
+    // نسبة إلى القطاع: أقل من 1 = أرخص من أقرانه. بالسالب لأن الأرخص أفضل.
+    // والشرط `v > 0` ليس تجميلاً: مكرر ربحية سالب (شركةٌ خاسرة) و
+    // EV/EBITDA سالب لا يعنيان «رخيصاً» بل «لا ينطبق» — وترتيبُهما مع
+    // الموجب يضع أخسرَ شركةٍ في الكون على رأس قائمة «الأرخص».
     const rel = (v, med) => (isFinite(v) && v > 0 && isFinite(med) && med > 0) ? -(v / med) : null;
     return {
       s: r.s,
-      quality: [f.roe, f.margin],
-      growth:  [f.revGrow],
-      value:   [rel(f.pe, m.pe), rel(f.pb, m.pb)]
+      quality: [f.roe, f.margin, f.opMargin, f.roa],
+      growth:  [f.revGrow, f.earnGrow],
+      value:   [rel(f.pe, m.pe), rel(f.pb, m.pb), rel(f.psales, m.ps), rel(f.evEbitda, m.evEb)],
+      /* الملاءة — البعد الرابع، وكان غائباً كلّه.
+
+         شركةٌ ROE فيها ‎40%‎ لأنها مموَّلة بالدين ليست شركةَ ROE ‎40%‎:
+         المقام صغيرٌ لا البسط كبير. وترتيبُ الشركات بالربحية وحدها يضع
+         أكثرها استدانةً في القمّة — وهي أوّل من يسقط عند أيّ ضائقة.
+
+         والديون **تُقارَن بالقطاع كذلك**: نسبة دينٍ تقتل شركة برمجيات
+         وتُعدّ متحفّظة في مرفقٍ عام. */
+      solvency: [rel(f.de, m.de), f.cr, fcfYield(f)]
     };
   });
 
   const col = (key, i) => raw.map(x => x[key][i]).filter(isFinite).sort((a, b) => a - b);
-  const dims = { quality: [col("quality", 0), col("quality", 1)],
-                 growth:  [col("growth", 0)],
-                 value:   [col("value", 0), col("value", 1)] };
+  const DIMS = ["quality", "growth", "value", "solvency"];
+  const dims = {};
+  for (const k of DIMS) dims[k] = raw[0][k].map((_, i) => col(k, i));
 
   const out = {};
   for (const x of raw) {
     const sc = {};
-    for (const k of ["quality", "growth", "value"]) {
+    for (const k of DIMS) {
       const parts = x[k].map((v, i) => pctRank(dims[k][i], v)).filter(v => v !== null);
       sc[k] = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null;
+      // عدد المقاييس التي توفّرت لهذا البعد — بنكٌ بلا دينٍ معلن يُقال
+      // عنه ذلك، ولا يُعطى صفراً كأنّه أسوأ من كل أقرانه
+      sc[k + "N"] = parts.length;
     }
-    const have = ["quality", "growth", "value"].map(k => sc[k]).filter(v => v !== null);
-    // إجمالي من بندين فقط أضعف من إجمالي من ثلاثة، فنُعلمه بدل إخفائه
+    const have = DIMS.map(k => sc[k]).filter(v => v !== null);
+    // إجمالي من بندين فقط أضعف من إجمالي من أربعة، فنُعلمه بدل إخفائه
     sc.total = have.length ? have.reduce((a, b) => a + b, 0) / have.length : null;
     sc.parts = have.length;
     out[x.s] = sc;
@@ -5930,8 +6185,33 @@ function fundScores() {
   return fundCache;
 }
 
-const BAR_COL = { quality: "#16c784", growth: "#3b82f6", value: "#f0b90b" };
-const barsHTML = (sc) => `<div class="bars">${["quality", "growth", "value"].map(k => {
+/* =====================================================================
+   عائد التدفّق النقدي الحرّ — أصدق مقياسٍ للرخص عندنا.
+
+   مكرر الربحية يقيس ربحاً محاسبياً يقبل التجميل (إهلاكٌ مُسرَّع، اعترافٌ
+   مبكّر بالإيراد، مصاريفُ تُرسمَل). والتدفّق النقدي الحرّ نقدٌ دخل فعلاً
+   بعد الإنفاق الرأسمالي — يصعب تجميله لأن النقد إمّا في الحساب أو لا.
+
+   ونسبةً من القيمة السوقية ليقارَن بعائد السند: شركةٌ عائدها ‎6%‎ مقابل
+   سندٍ بـ‎4%‎ معادلةٌ مختلفة عن شركةٍ عائدها ‎1%‎.
+   ===================================================================== */
+function fcfYield(f) {
+  // `Number.isFinite` لا العالمية: العالمية تحوّل `null` إلى صفر فتقبله
+  // رقماً صالحاً — فبنكٌ لا يُعلن تدفّقاً حرّاً كان يظهر بعائد `0.0%`،
+  // وهو أسوأ من «—» لأنه يُقرأ «لا نقد يدخلها». مصيدةٌ موثّقة في
+  // `CLAUDE.md` ووقعتُ فيها رغم ذلك.
+  if (!f || !Number.isFinite(f.fcf) || !Number.isFinite(f.mc) || !(f.mc > 0)) return null;
+  return f.fcf / f.mc * 100;
+}
+
+/* صافي النقد بعد الدين — موجبٌ يعني خزينةً تفيض عن التزاماتها */
+function netCash(f) {
+  if (!f || !Number.isFinite(f.cash) || !Number.isFinite(f.debt)) return null;
+  return f.cash - f.debt;
+}
+
+const BAR_COL = { quality: "#16c784", growth: "#3b82f6", value: "#f0b90b", solvency: "#9aa7bd" };
+const barsHTML = (sc) => `<div class="bars">${["quality", "growth", "value", "solvency"].map(k => {
   const v = sc[k];
   return `<i>${v === null ? "" : `<b style="height:${Math.max(4, v)}%;background:${BAR_COL[k]}"></b>`}</i>`;
 }).join("")}</div>`;
