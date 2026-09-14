@@ -19,7 +19,7 @@
    غير متوقّع يجعل العامل وسيطاً لا يُراجَع.
    ===================================================================== */
 
-const V = "webtrade-v5";
+const V = "webtrade-v6";
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";

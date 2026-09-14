@@ -279,6 +279,110 @@ function rankInWindow(series, win) {
    والتباعد والانضغاط تُعرَض وتُستعمل في الشروط، ولا تُدمج في الرقم.
    فصلٌ مقصود: رقمٌ واحد يحمل ستّ معلومات لا يمكن تكذيبه في أيّها.
    ===================================================================== */
+/* =====================================================================
+   مؤشّرات الحجم — الحقل الوحيد الذي نملكه ولا نستعمله.
+
+   كل مؤشّراتنا حتى الآن سعريّة بحتة: المتوسطات وRSI وMACD وبولنجر وADX
+   كلّها دوالٌّ في السعر وحده. والحجم محفوظٌ في كل شمعة منذ اليوم الأول
+   ولا يقرؤه إلا شرطٌ واحد («حجم غير معتاد») يقارنه بمتوسّطه.
+
+   وهو يجيب سؤالاً لا يجيبه السعر: **من يحرّك الحركة**. صعودٌ بحجمٍ
+   متناقص وصعودٌ بحجمٍ متزايد يبدوان واحداً على الشارت ويعنيان نقيضين.
+
+   ثلاثة، وكلٌّ يجيب سؤالاً مختلفاً:
+   • OBV — التراكم: يجمع حجم اليوم الصاعد ويطرح الهابط. اتجاهه مقابل
+     اتجاه السعر هو المعلومة، لا قيمته المطلقة (وهي بلا وحدة).
+   • MFI — «RSI مرجَّحٌ بالحجم»: نطاقه ‎0..100‎ كـRSI، والفرق أنه يزن كل
+     يوم بقيمة ما تُدووِل فيه. تشبّعٌ عند ‎80/20‎ بحجمٍ حقيقي خلفه.
+   • الستوكاستك — موضع الإغلاق داخل مدى النافذة: يقول «أين أغلق ضمن ما
+     تحرّكه»، وهو أسرع من RSI فيلتقط الانعطاف قبله ويُخطئ أكثر منه.
+   ===================================================================== */
+function obv(c, v) {
+  var out = [0];
+  for (var i = 1; i < c.length; i++) {
+    var d = (!Number.isFinite(c[i]) || !Number.isFinite(c[i - 1])) ? 0
+          : c[i] > c[i - 1] ? (v[i] || 0) : c[i] < c[i - 1] ? -(v[i] || 0) : 0;
+    out.push(out[i - 1] + d);
+  }
+  return out;
+}
+
+function mfi(h, l, c, v, p) {
+  p = p || 14;
+  var tp = [], out = new Array(c.length).fill(null);
+  for (var i = 0; i < c.length; i++) tp.push((h[i] + l[i] + c[i]) / 3);
+  for (var j = p; j < c.length; j++) {
+    var pos = 0, neg = 0;
+    for (var m = j - p + 1; m <= j; m++) {
+      var flow = tp[m] * (v[m] || 0);
+      if (!Number.isFinite(flow)) continue;
+      if (tp[m] > tp[m - 1]) pos += flow; else if (tp[m] < tp[m - 1]) neg += flow;
+    }
+    // بلا تدفّق سالب لا نسبة — و‎100‎ هنا صحيحة لا افتراض
+    out[j] = neg === 0 ? (pos > 0 ? 100 : null) : 100 - 100 / (1 + pos / neg);
+  }
+  return out;
+}
+
+function stoch(h, l, c, p, sm) {
+  p = p || 14; sm = sm || 3;
+  var kArr = new Array(c.length).fill(null);
+  for (var i = p - 1; i < c.length; i++) {
+    var hh = -Infinity, ll = Infinity;
+    for (var j = i - p + 1; j <= i; j++) {
+      if (h[j] > hh) hh = h[j];
+      if (l[j] < ll) ll = l[j];
+    }
+    // مدىً صفريّ (سلسلة مجمّدة) لا يُقسم عليه — ولا يُملأ بخمسين
+    kArr[i] = (hh - ll) > 0 ? (c[i] - ll) / (hh - ll) * 100 : null;
+  }
+  /* ‎%D‎ بحلقةٍ صريحة لا بـ`sma`: تلك مجموعٌ متدحرج، وأوّل `NaN` يدخله
+     يبقى فيه إلى آخر السلسلة — فتخرج ‎%D‎ فارغةً كلّها بينما ‎%K‎ سليمة.
+     وقع فعلاً وظهر في الواجهة كخانةٍ ناقصة بلا خطأ ولا استثناء. */
+  var dArr = new Array(c.length).fill(null);
+  for (var t = 0; t < kArr.length; t++) {
+    if (t < sm - 1) continue;
+    var s2 = 0, cnt = 0;
+    for (var u = t - sm + 1; u <= t; u++) if (Number.isFinite(kArr[u])) { s2 += kArr[u]; cnt++; }
+    if (cnt === sm) dArr[t] = s2 / sm;
+  }
+  return { k: kArr, d: dArr };
+}
+
+/* =====================================================================
+   مستوى أكثر الأسعار تداولاً (POC) — الدعم الذي لا تراه المتوسطات.
+
+   المستويات عندنا كلّها مشتقّةٌ من **نقاط**: قمّةٌ سابقة، قاعٌ سابق،
+   بيفوت، متوسّط. وكلّها تصف لحظةً واحدة. أما أكثر سعرٍ تبادل عنده
+   الناس فيصف **أين تراكمت المراكز فعلاً** — وهو السعر الذي يجد عنده
+   الكثيرون أنفسهم متعادلين فيبيعون، أو مقتنعين فيشترون.
+
+   والحساب على نافذةٍ محدودة: توزيعُ سنتين يصف سوقاً لم يعد قائماً.
+   ===================================================================== */
+function volumeProfile(k, bins, win) {
+  bins = bins || 24; win = win || 120;
+  var s = k.slice(-win).filter(function (x) { return Number.isFinite(x.c) && Number.isFinite(x.h); });
+  if (s.length < 20) return null;
+  var lo = Math.min.apply(null, s.map(function (x) { return x.l; }));
+  var hi = Math.max.apply(null, s.map(function (x) { return x.h; }));
+  if (!(hi > lo)) return null;
+  var step = (hi - lo) / bins, buckets = new Array(bins).fill(0);
+  for (var i = 0; i < s.length; i++) {
+    // الحجم يُوزَّع على مدى الشمعة لا يُكدَّس عند إغلاقها: شمعةٌ مداها
+    // ‎5%‎ تُدووِل على طول مداها، ونسبُ كلّه إلى نقطةٍ واحدة يخترع قمّة
+    var a = Math.max(0, Math.min(bins - 1, Math.floor((s[i].l - lo) / step)));
+    var b = Math.max(0, Math.min(bins - 1, Math.floor((s[i].h - lo) / step)));
+    var share = (s[i].v || 0) / (b - a + 1);
+    for (var j = a; j <= b; j++) buckets[j] += share;
+  }
+  var top = 0;
+  for (var n = 1; n < bins; n++) if (buckets[n] > buckets[top]) top = n;
+  var total = buckets.reduce(function (x, y) { return x + y; }, 0);
+  if (!(total > 0)) return null;
+  return { poc: lo + step * (top + 0.5), lo: lo, hi: hi,
+           share: buckets[top] / total * 100, bins: buckets, step: step, base: lo };
+}
+
 function analyze(k) {
   if (!k || k.length < 30) return null;
   var c = k.map(function (x) { return x.c; });
@@ -306,6 +410,29 @@ function analyze(k) {
      أرقامٌ بمقياس السعر فيلزم تطبيعها — تعقيدٌ بلا مقابل هنا. */
   var dv = divergence(h, l, r, at, { lookback: 60 });
 
+  /* الحجم قد يكون غائباً كلّه (Twelve Data وStooq لا يعطيانه، و
+     `Math.round(x.v || 0)` تصفّره) — فمؤشّرات الحجم تسقط كلّها بدل أن
+     تخرج أصفاراً تُقرأ «لا تراكم». الفرق بين «صفر» و«لا نعرف» هو نفس
+     قاعدة «اعرض ‎—‎ لا رقماً ملفّقاً». */
+  var v = k.map(function (x) { return x.v || 0; });
+  var hasVol = v.filter(function (x) { return x > 0; }).length >= Math.min(30, k.length * 0.5);
+  var mf = hasVol ? mfi(h, l, c, v, 14) : [];
+  var sk = stoch(h, l, c, 14, 3);
+  var vp = hasVol ? volumeProfile(k, 24, 120) : null;
+  var obvSlope = null, obvDiv = null;
+  if (hasVol && c.length > 25) {
+    var ob = obv(c, v), n = ob.length;
+    var d0 = ob[n - 21], d1 = ob[n - 1];
+    var scale = Math.max(1, Math.abs(d0) || 1);
+    obvSlope = (d1 - d0) / scale * 100;
+    var pxSlope = (c[n - 1] - c[n - 21]) / c[n - 21] * 100;
+    /* التباعد لا يُعلن إلا حين تتعارض **الإشارتان** فعلاً وبحركةٍ ذات
+       شأن: سعرٌ صعد ‎1%‎ وتراكمٌ نزل ‎1%‎ ضجيجٌ لا تباعد. */
+    if (Number.isFinite(pxSlope) && Math.abs(pxSlope) > 2 && Math.abs(obvSlope) > 5
+        && Math.sign(pxSlope) !== Math.sign(obvSlope))
+      obvDiv = pxSlope > 0 ? -1 : 1;      // سعرٌ صاعد بلا تراكم = سلبي
+  }
+
   return {
     score: norm, px: px, e20: E20, e50: E50, e200: E200, rsi: R,
     hist: H, histPrev: hPrev, histRising: rising, atr: A,
@@ -313,6 +440,12 @@ function analyze(k) {
     adx: last(ax.adx), pdi: last(ax.pdi), mdi: last(ax.mdi),
     bbw: last(w), squeeze: rankInWindow(w, 120),
     div: dv.length ? { dir: dv[0].dir, bars: dv[0].bars, kind: dv[0].kind } : null,
+    mfi: last(mf), stochK: last(sk.k), stochD: last(sk.d),
+    /* اتجاه OBV لا قيمته: الرقم بلا وحدة ولا معنى له منفرداً، وإنما
+       ميلُه على عشرين شمعة مقارَناً بميل السعر. و`obvDiv` حين يختلفان:
+       سعرٌ يصنع قمّةً أعلى وتراكمٌ لا يتبعه. */
+    obvSlope: obvSlope, obvDiv: obvDiv,
+    poc: vp ? { p: vp.poc, share: vp.share } : null,
     series: { e20: e20, e50: e50, e200: e200 }
   };
 }
@@ -337,5 +470,6 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = { sma: sma, ema: ema, rsi: rsi, macd: macd, bb: bb, atr: atr,
                      last: last, adx: adx, adxLabel: adxLabel, pivots: pivots,
                      divergence: divergence, bbWidth: bbWidth, rankInWindow: rankInWindow,
+                     obv: obv, mfi: mfi, stoch: stoch, volumeProfile: volumeProfile,
                      analyze: analyze, aggregate: aggregate };
 }

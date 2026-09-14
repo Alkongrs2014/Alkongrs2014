@@ -12,7 +12,8 @@ const SCORE = require("../../stocks/score.js");
 
 export const {
   sma, ema, rsi, macd, bb, atr, last, adx, adxLabel,
-  pivots, divergence, bbWidth, pctRank, analyze, aggregate
+  pivots, divergence, bbWidth, pctRank, analyze, aggregate,
+  obv, mfi, stoch, volumeProfile
 } = IND;
 
 export const {
