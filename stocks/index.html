@@ -6255,7 +6255,8 @@ function renderSectorMedians() {
   if (!fs) { el.innerHTML = `<div class="empty">البيانات الأساسية لم تصل بعد</div>`; return; }
   const rows = Object.entries(fs.secMed).sort((a, b) => (b[1].roe ?? -9) - (a[1].roe ?? -9));
   el.innerHTML = `<div class="mwrap"><table class="mtable">
-    <tr><th>القطاع</th><th>شركات</th><th>مكرر الربحية</th><th>ROE</th><th>هامش الربح</th><th>نمو الإيراد</th></tr>
+    <tr><th>القطاع</th><th>شركات</th><th>مكرر الربحية</th><th>ROE</th><th>هامش الربح</th>
+        <th>نمو الإيراد</th><th>الدَّين/المِلكية</th><th>عائد التدفّق الحرّ</th></tr>
     ${rows.map(([sec, m]) => `<tr>
       <td>${esc(sec)}</td>
       <td class="num">${m.n}</td>
@@ -6264,10 +6265,14 @@ function renderSectorMedians() {
       <td class="num">${m.margin === null ? "—" : fmt(asPct(m.margin), 0) + "%"}</td>
       <td class="num" style="color:${(m.grow ?? 0) >= 0 ? "var(--up)" : "var(--dn)"}">${
         m.grow === null ? "—" : pct(asPct(m.grow), 0)}</td>
+      <td class="num">${m.de === null ? "—" : fmt(m.de / 100, 2) + "×"}</td>
+      <td class="num">${m.fcfY === null ? "—" : fmt(m.fcfY, 1) + "%"}</td>
     </tr>`).join("")}
   </table></div>
   <p class="scan-why" style="margin-top:10px">الوسيط لا المتوسط: شركة واحدة شاذة لا تحرّك الوسيط،
-  بينما تُفسد المتوسط الحسابي وتجعل القطاع كله يبدو غير ما هو عليه.</p>`;
+  بينما تُفسد المتوسط الحسابي وتجعل القطاع كله يبدو غير ما هو عليه.
+  والعمودان الأخيران يفسّران لماذا لا يُقارَن قطاع بقطاع: المِرفق العام يحمل ديناً يقتل شركة
+  برمجيات، والمالي لا يُعلن تدفّقاً حرّاً أصلاً فيظهر «—» ولا يُقرأ صفراً.</p>`;
 }
 
 /* =======================================================================
