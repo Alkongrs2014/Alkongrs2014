@@ -31,6 +31,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
 import { fetchChart } from "./lib/yahoo.mjs";
+import { isRegularBar } from "./lib/session.mjs";
 import { simulatePlan, summarizePlans } from "./backtest.mjs";
 import { COSTS } from "./lib/costs.mjs";
 
@@ -71,7 +72,7 @@ const med = (a) => { if (!a.length) return null; const b = a.slice().sort((x, y)
    والنتيجة يجب أن تبقى **مطابقة** لما يعطيه `analyze` — وهذا شرطُ
    قبولٍ يفحصه `--check` بمقارنةٍ ذهبية عند شمعاتٍ مختارة.
    ===================================================================== */
-function seriesOf(k) {
+export function seriesOf(k) {
   const c = k.map(x => x.c), h = k.map(x => x.h), l = k.map(x => x.l);
   const v = k.map(x => x.v || 0);
   const hasVol = v.filter(x => x > 0).length >= Math.min(30, k.length * 0.5);
@@ -87,7 +88,7 @@ function seriesOf(k) {
 }
 
 /* قراءةُ المؤشّرات عند شمعةٍ بعينها — نفس حقول `analyze` وبنفس قيمها */
-function anAt(S, j) {
+export function anAt(S, j) {
   if (j < 0 || j >= S.c.length) return null;
   const g = (a) => (a && j < a.length && Number.isFinite(a[j])) ? a[j] : null;
   const hist = g(S.hist);
@@ -275,7 +276,14 @@ async function main() {
     try {
       const series = {};
       for (const tf of ["5m", "15m", "1h", "1d"]) {
-        const { candles } = await fetchChart(sym, { range: RANGES[tf], interval: tf, prePost: false });
+        const { candles: raw } = await fetchChart(sym, { range: RANGES[tf], interval: tf, prePost: false });
+        /* نفس ترشيح `fetch-market`: الجلسة الرسمية وحدها. و`prePost: false`
+           لا يكفي — ياهو يُرفق شمعةَ ‎16:00‎ (مطبعةُ الإغلاق) في بعض
+           الأيام لبعض الرموز وليس كلِّها (قِيس: ABBV ‎18‎ يوماً من ‎60‎،
+           وMSFT صفر). فالسلسلة المقيسة هنا كانت تختلف عن المعروضة في
+           تلك الأيام وحدها — وهي بالضبط علّة «الأرشيف يقيس شرطاً غير
+           الذي يُعرض». */
+        const candles = tf === "1d" ? raw : raw.filter(c => isRegularBar(c.t));
         req++;
         if (candles && candles.length) { series[tf] = candles; bars += candles.length; }
       }

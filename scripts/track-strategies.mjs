@@ -40,7 +40,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
-import { statusNow } from "./lib/session.mjs";
+import { statusNow, sessionOf, currentWindow } from "./lib/session.mjs";
+import { initLog, info, signal as logSignal } from "./lib/log.mjs";
 import { rp } from "./lib/round.mjs";
 import { updateOutcome, guard, guardTotal, stillLive } from "./track-signals.mjs";
 
@@ -183,6 +184,9 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   const liveBy = {};
   for (const s of live) liveBy[stateKey(s.sym, s.strat)] = s;
 
+  initLog(out);
+  info("scanner", `بدء المسح · ${all.length} رمزاً · الجلسة ${sessionOf(now)}`);
+
   let added = 0, symbols = 0, skipped = 0;
   for (const row of all) {
     const rec = readJSON(path.join(out, "sym", `${row.s}.json`));
@@ -191,8 +195,14 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
     if (!(px > 0)) { skipped++; continue; }
     symbols++;
 
-    const sess = statusNow(rec.period, now).state;
-    const c = S.buildCtx({ rec, row, now, px, sess });
+    /* الحالة والنافذة من التقويم لا من `rec.period` المحفوظ: المحفوظة
+       تصف يوم جلبها. و`sessOf` تُمرَّر دالّةً كي يبقى `strategies.js`
+       رياضياتٍ خالصة — وهي التي تجعل خطّ أساس الحجم يقارن ما قبل
+       الافتتاح بما قبل الافتتاح. */
+    const mkt = rec.mkt || row.mkt || null;
+    const sess = sessionOf(now, mkt);
+    const win = currentWindow(now, mkt);
+    const c = S.buildCtx({ rec, row, now, px, sess, win, sessOf: (t) => sessionOf(t, mkt) });
     const opt = onlyPrice ? { only: "price" } : {};
 
     for (const st of S.STRATEGIES) {
@@ -226,6 +236,8 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
       if (isNew && r.active && !liveBy[key]) {
         const snap = snapFor(c, r, plan, carried.at);
         if (snap && !snap.bad) {
+          logSignal(row.s, st.id, r.dir, r.sc,
+            `${r.tfUsed || st.tf}${c.extSess ? " · جلسة ممتدة" : ""}`);
           const sig = { sym: row.s, strat: st.id, at: now, dir: r.dir,
                         sc: r.sc, band: carried.band, mkt: rec.mkt || null,
                         regime: C.marketRegime(c.an), snap, open: true,

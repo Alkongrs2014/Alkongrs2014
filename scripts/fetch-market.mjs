@@ -16,8 +16,10 @@ import {
 } from "./lib/yahoo.mjs";
 import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
 import { fetchCandlesTD, hasTwelveData, tdSleep, tdStats } from "./lib/twelvedata.mjs";
+import { fetchCandles as fetchCandlesBN, bnStats } from "./lib/binance.mjs";
 import { analyze, overallScore, aggregate, TFS, TF_WEIGHT, bandStable } from "./lib/indicators.mjs";
-import { marketStatus, approxMarketStatus } from "./lib/session.mjs";
+import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar } from "./lib/session.mjs";
+import * as PROV from "./providers/index.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -59,6 +61,32 @@ const RANGE   = { "5m": "60d", "15m": "60d", "1h": "730d", "1d": "5y" };
    ===================================================================== */
 const AN_TFS = [...TFS, "5m"];
 
+/* =====================================================================
+   السلسلة الممتدة `tfx` — موازيةٌ لا بديلة، وهذا هو القرار المعماريّ
+   الذي يحكم الملفّ كلَّه.
+
+   البديهيّ أن تُدمج شمعات ما قبل الافتتاح في `tf["15m"]` فيرى الماسح
+   الجلسة كاملة. وهو خطأٌ يُبطل المشروع بصمت: EMA وRSI وATR وبولنجر
+   لكل رمزٍ في الكون تتغيّر، فتتغيّر `score` و`band` وكلُّ شرطٍ في
+   `scans.js` — ومعها **يبطل الأرشيف كلُّه** (‎1,084,574‎ شمعة يومية
+   و‎482,418‎ للحوافّ) لأنه قاس شروطاً على سلاسل لم تعد هي. ولا شيء
+   يقول ذلك: الأرقام تبقى في مداها وتصف شيئاً آخر.
+
+   فـ`tf` تبقى **الجلسة الرسمية حصراً** بايتاً ببايت، و`tfx` سلسلةٌ
+   ثانية تحمل الجلسة الممتدة وتقرؤها استراتيجياتُ ما قبل الافتتاح
+   وحدها. ونفس منطق `AN_TFS` مع فريم ‎5د‎: يُحسب ولا يدخل النتيجة.
+
+   والتكلفة صفرُ طلبات لـ‎15د‎: الطلب يُرسل أصلاً بـ`prePost: true`
+   منذ شهور، وكنّا **نرمي** شمعاته الممتدة. و‎5د‎ يحتاج طلباً ثانياً
+   لأن سلسلته الرسمية تأتي بـ`prePost: false` — والمقارنة أُجريت:
+   اشتقاقُ الرسمية من الاستجابة الممتدة **لا يعطي نفس السلسلة** (مدى
+   الستين يوماً يمتلئ بشمعاتٍ ممتدة فيبدأ من تاريخٍ أقرب: ‎4681‎ شمعة
+   مقابل ‎4661‎، وتختفي ‎6/18‎ كاملةً). فطلبان لا اشتقاق.
+   ===================================================================== */
+const EXT_TFS = ["15m", "5m"];
+const KEEP_X = 260;
+const RANGE_X = { "15m": "60d", "5m": "5d", "1m": "2d" };
+
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
 
 /* ---------- ميزانية طلبات Twelve Data لكل تشغيل ----------
@@ -74,6 +102,11 @@ const tdBudget = { left: TD_PER_RUN };
    وتسقط الحاجة لميزانية الطلبات. يُضبط PREFER_YAHOO=1 في التشغيل المحلي. */
 const PREFER_YAHOO = process.env.PREFER_YAHOO === "1";
 
+/* هل مزوّدُ الأسهم يعطي حجماً في الجلسة الممتدة؟ يُقرأ من القدرة لا
+   من الاسم، ويُمرَّر إلى `extendedCandles` فتقرّر: حجمٌ حقيقي أم
+   «لا نعرف». */
+const EXT_VOL = PROV.has("extendedVolume", "equity");
+
 /* تقريب — Yahoo يعيد 62.014999389648438 والتخزين بلا تقريب يضاعف حجم الملفات */
 const r4 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.round(v * 10000) / 10000;
 
@@ -83,7 +116,10 @@ const r4 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.
 export { rp };
 
 const slimCandles = (c) => c.map(x => ({
-  t: x.t, o: rp(x.o), h: rp(x.h), l: rp(x.l), c: rp(x.c), v: Math.round(x.v || 0)
+  t: x.t, o: rp(x.o), h: rp(x.h), l: rp(x.l), c: rp(x.c),
+  /* `null` يبقى `null`: `Math.round(x.v || 0)` كانت تحوّل «لا نعرف»
+     إلى «صفر تداول» — وهو ما يجعل VWAP وOBV تُحسب على أصفار. */
+  v: (x.v === null || x.v === undefined) ? null : Math.round(x.v)
 }));
 
 /* =====================================================================
@@ -113,10 +149,32 @@ const slimCandles = (c) => c.map(x => ({
    وعلى 15د وحده: اليوميُّ والساعة يأتيان بلا `prePost` ونسبةُ الحجم
    الحقيقي فيهما ‎100%‎، وتطبيقُه عليهما يعرّضهما للبوابة بلا مقابل. */
 const NEED_BARS = 220;                  // EMA200 + هامش
+/* ⚠ الشرطان مقصودان، والثاني أُضيف لخطرٍ **قادم** لا حاضر:
+
+   اليوم يُسقط شرطُ الحجم شمعاتِ الجلسة الممتدة تلقائياً، لأن ياهو
+   يعطي حجمها صفراً حرفياً (قِيس على أربعة رموز وخمسة أيام). فحين يصل
+   مزوّدٌ يعطي حجماً ممتداً حقيقياً — وهو الغرض من طبقة المزوّد كلّها —
+   ستصير تلك الشمعات ذات حجمٍ موجب **فتتسرّب إلى السلسلة الرسمية**
+   وتغيّر كل مؤشّرٍ في الكون، بلا خطأ ولا رسالة. الحارس بالجلسة يمنع
+   ذلك قبل أن يقع.
+
+   والترتيب مهمّ: `isRegularBar` أولاً ثم الحجم، فيبقى سلوك اليوم
+   مطابقاً تماماً (شمعةُ ‎16:00‎ بحجمٍ صفر تسقط بالشرطين معاً). */
 function tradingOnly(candles, tf) {
   if (tf !== "15m") return candles;
-  const live = candles.filter(x => (x.v || 0) > 0);
+  const live = candles.filter(x => isRegularBar(x.t) && (x.v || 0) > 0);
   return live.length >= NEED_BARS ? live : candles;
+}
+
+/* شمعاتُ السلسلة الممتدة: لا تُرشَّح بالحجم إطلاقاً — حذفُها هو العلّة
+   التي نصلحها. لكن حجمَ الشمعة الممتدة **يُكتب `null` لا `0`** حين لا
+   يعطيه المصدر: `0` تعني «لم يتداول أحد» و`null` تعني «لا نعرف»،
+   و`hasVol` في `indicators.js` تفرّق بينهما فتُسقط OBV وMFI بدل أن
+   تحسبهما على أصفارٍ ملفّقة. */
+function extendedCandles(candles, hasExtVolume) {
+  return candles.map(x => (
+    (!hasExtVolume && !isRegularBar(x.t) && !(x.v > 0)) ? { ...x, v: null } : x
+  ));
 }
 
 /* =====================================================================
@@ -201,17 +259,24 @@ function stale(prev, tf, now, live = false) {
    والطبقة الواسعة اليوميَّ وحده. جلب 500 رمز × 3 فريمات كل عشر دقائق
    يستدعي 429 حتى من شبكة منزلية، واليوميُّ وحده يكفي للبحث ولمستويات
    الدعم والمقاومة و52 أسبوعاً — وهو كل ما يُطلب من رمز خارج المرصودة. */
-async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15m"], tier = "core") {
+async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15m"], tier = "core", extBatch = null) {
   const sym = meta.s;
   const prev = readJSON(path.join(prevDir, "sym", `${sym}.json`));
   // نُعيد الشمعات المحفوظة إلى شكل الكائنات فور القراءة، فما بعدها من
   // حساب ورسم يتعامل مع شكل واحد فقط
   for (const o of Object.values(prev?.tf || {})) if (o?.c) o.c = unpackCandles(o.c);
+  /* والسلسلة الممتدة كذلك — نسيانُها هنا يمرّر مصفوفاتٍ مضغوطة حيث
+     يُتوقّع كائنات، فينهار الحساب على `x.c.toFixed` (مصيدةٌ موثّقة
+     وقعت مرّة مع `tf`، ولا تظهر إلا بعد أن يوجد ملفٌّ سابق فعلاً). */
+  for (const o of Object.values(prev?.tfx || {})) if (o?.c) o.c = unpackCandles(o.c);
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
   if (meta.mkt) rec.mkt = meta.mkt;
   let touched = false, errors = [], usedTD = false;
   // سلسلة الساعة كاملةً قبل القصّ — تُستعمل لاشتقاق 4h ولا تُخزَّن
   let full1h = null;
+  // الاستجابة الممتدة لـ‎15د‎ كما وصلت — قبل أن يُسقط `tradingOnly`
+  // شمعاتِ ما قبل الافتتاح. كانت تُرمى، وهي أنفع ما في الطلب.
+  let extRaw = {};
 
   // الترتيب مقصود: اليومي أولاً لأنه أساس الشارت والنتيجة الفنية، فحين
   // تنفد ميزانية الطلبات في تشغيل واحد تكون الفريمات الأهم قد امتلأت
@@ -237,6 +302,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
       const { candles, meta: m } = await fetchChart(sym, {
         range: RANGE[tf], interval: tf, prePost: tf === "15m"
       });
+      if (tf === "15m") extRaw["15m"] = candles;     // قبل الترشيح
       const full = tradingOnly(candles, tf);
       // الساعة تُطلب بمدى سنتين (`RANGE["1h"]`) فتعود بآلاف الشمعات، ثم
       // تُقصّ إلى KEEP. و4h تُشتقّ منها — فاشتقاقُها **بعد** القصّ يعطي
@@ -262,12 +328,30 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
       await tdSleep();                       // حد 8 طلبات/دقيقة على الخطة المجانية
     };
 
+    /* الكريبتو من Binance حصراً: بلا مفتاح وبلا حصّة (وزن الطلب ‎2‎ من
+       ‎6000‎ في الدقيقة)، ويزيل من مصدرهما مصيدتَي ياهو الموثّقتين —
+       `ARB-USD` الأصل الميت المجمَّد، و«أسعار ما قبل الإدراج» التي أعطت
+       عائداً ‎1,573,986%‎ في يوم واحد. وياهو يبقى محاولةً ثانية. */
+    const tryBinance = async () => {
+      if (meta.mkt !== "crypto") return;
+      try {
+        const { candles } = await fetchCandlesBN(sym, { interval: tf });
+        const full = tradingOnly(candles, tf);
+        if (tf === "1h") full1h = full;
+        rec.tf[tf] = { updated: now, c: slimCandles(full.slice(-KEEP)) };
+        rec.src = "binance";
+        touched = true; got = true;
+      } catch (e) { errors.push(`${tf}/bn: ${e.message}`); }
+    };
+
     // ترتيب المصادر يعتمد على مكان التشغيل، لأن الحظر مرتبط بعنوان الشبكة:
     // من رينر سحابي (GitHub) يرفض Yahoo كل طلب بـ429، فـ Twelve Data أولاً
     // بميزانيته المحدودة. من شبكة منزلية Yahoo غير محظور ومجاني بلا سقف،
     // فيصير هو الأول ويُستغنى عن ميزانية الطلبات كلياً.
+    await tryBinance();
     const yahooFirst = PREFER_YAHOO;
-    if (yahooFirst) {
+    if (got) { /* Binance كفى */ }
+    else if (yahooFirst) {
       try { await tryYahoo(); } catch (e) { errors.push(`${tf}: ${e.message}`); }
       if (!got) await tryTD();
     } else {
@@ -324,6 +408,69 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
     rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(rec.tf["1h"].c, 4).slice(-KEEP)), derived: true };
   }
 
+  /* =====================================================================
+     السلسلة الممتدة — تُبنى هنا ولا تمسّ `rec.tf` بحال.
+
+     الكريبتو مستثنى: سوقُه ‎24/7‎ فكلُّ شمعةٍ فيه رسمية، و`tf` تحمل
+     الجلسة كاملة أصلاً. ونسخةٌ ثانية منها تضاعف الملفّ بلا معلومةٍ
+     واحدة جديدة.
+
+     والطبقة الواسعة مستثناة كذلك: يوميُّها وحده يُجلب، ولا جلسة
+     ممتدة في شمعةٍ يومية.
+     ===================================================================== */
+  if (tier === "core" && meta.mkt !== "crypto") {
+    /* =====================================================================
+       ‎15د‎ الممتد: حجمٌ من المزوّد وذيلٌ لحظيّ من ياهو.
+
+       لكلٍّ ما لا يملكه الآخر، والدمج يأخذ من كلٍّ أقواه:
+         · Alpaca SIP: حجمٌ مجمَّع حقيقي، **متأخّر ‎15‎ دقيقة** بالضبط.
+         · ياهو: أسعارٌ لحظية بلا تأخير، **وحجمٌ صفرٌ دائماً**.
+
+       فالشمعات حتى حدّ التأخير تُؤخذ من المزوّد بحجمها، وما بعده يُلحق
+       من ياهو بحجمٍ `null`. وبلا هذا الذيل تكون أحدثُ شمعةٍ عمرُها ربع
+       ساعة — وربعُ ساعةٍ في ما قبل الافتتاح هو الفرق بين الاكتشاف
+       والملاحقة.
+
+       والدمج **بمفتاح الزمن** لا بالموضع: شبكة الشمعات واحدة عند
+       المصدرين (‎04:00، 04:15…‎)، والدمج بالموضع يزيح السلسلة كلَّها
+       عند أوّل شمعةٍ ناقصة — وهي علّة «زحف شبكة 4h» بعينها.
+       ===================================================================== */
+    const yh15 = extRaw["15m"]?.length ? extendedCandles(extRaw["15m"], false) : null;
+    const pv15 = extBatch && extBatch["15m"] && extBatch["15m"][sym];
+    if (pv15?.length) {
+      const byT = new Map(pv15.map(b => [b.t, b]));
+      /* ذيلُ ياهو: ما بعد آخر شمعةٍ عند المزوّد فقط */
+      const lastPv = pv15[pv15.length - 1].t;
+      for (const b of (yh15 || [])) if (b.t > lastPv && !byT.has(b.t)) byT.set(b.t, b);
+      const merged = [...byT.values()].sort((a, b) => a.t - b.t);
+      rec.tfx = rec.tfx || {};
+      rec.tfx["15m"] = { updated: now, src: extBatch.src, c: slimCandles(merged.slice(-KEEP_X)) };
+    } else if (yh15) {
+      rec.tfx = rec.tfx || {};
+      rec.tfx["15m"] = { updated: now, src: "yahoo", c: slimCandles(yh15.slice(-KEEP_X)) };
+    } else if (prev?.tfx?.["15m"]?.c?.length) {
+      rec.tfx = rec.tfx || {};
+      rec.tfx["15m"] = prev.tfx["15m"];              // لم تُجدَّد الساعة الربعية
+    }
+
+    /* =====================================================================
+       ‎5د‎ الممتد يأتي **دفعةً واحدة لكل الكون** لا طلباً لكل رمز.
+
+       قِيس: ‎149‎ رمزاً في **طلبٍ واحد** و‎1.7‎ ثانية، بتغطية ‎93%‎
+       و‎13.1‎ مليون سهمٍ من حجم ما قبل الافتتاح. والبديل الذي كتبتُه
+       أولاً — طلبُ ياهو لكل رمز — كان ‎149‎ طلباً لسعرٍ بلا حجم.
+       ===================================================================== */
+    if (extBatch && extBatch["5m"] && extBatch["5m"][sym]) {
+      rec.tfx = rec.tfx || {};
+      rec.tfx["5m"] = { updated: now, src: extBatch.src,
+                        c: slimCandles(extBatch["5m"][sym].slice(-KEEP_X)) };
+      touched = true;
+    } else if (prev?.tfx?.["5m"]?.c?.length) {
+      rec.tfx = rec.tfx || {};
+      rec.tfx["5m"] = prev.tfx["5m"];
+    }
+  }
+
   // المؤشرات لكل فريم
   rec.an = {};
   for (const tf of AN_TFS) {
@@ -331,6 +478,23 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
     if (!a) continue;
     const { series, ...rest } = a;                    // لا نحفظ السلاسل الكاملة (حجم)
     rec.an[tf] = slimAnalysis(rest);
+  }
+  /* =====================================================================
+     `anx` — مؤشّرات السلسلة الممتدة، **خارج النتيجة الفنية تماماً**.
+
+     نفس حارس `an["5m"]` بالحرف: `overallScore` يدور على `TFS` وحدها،
+     و`allTF` في `scans.js` تشترط `v.length === 4` بالضبط. فتسرّبُ
+     `anx` إلى `an` يغيّر نتيجة كل رمزٍ في الكون ويُسقط شرطَي «توافق
+     الفريمات» بصمت. و`--check` يحرس هذا صراحةً.
+     ===================================================================== */
+  if (rec.tfx) {
+    rec.anx = {};
+    for (const tf of Object.keys(rec.tfx)) {
+      const a = rec.tfx[tf]?.c ? analyze(rec.tfx[tf].c) : null;
+      if (!a) continue;
+      const { series, ...rest } = a;
+      rec.anx[tf] = slimAnalysis(rest);
+    }
   }
   rec.score = r2(overallScore(rec.an));
   /* النطاق المثبَّت — لا يُغيَّر إلا بتجاوز حدّه بهامش. يُحسب هنا لا في
@@ -423,6 +587,41 @@ async function main() {
     await tryQuotes("Yahoo (احتياط)", fetchQuotes);
   }
 
+  /* =====================================================================
+     1.5) الجلسة الممتدة — دفعةٌ واحدة لكل الكون قبل حلقة الرموز.
+
+     طلبان اثنان (‎5د‎ و‎15د‎) يغطّيان الكون كلَّه بحجمٍ مجمَّع حقيقي.
+     وهذا ما يجعل الماسح يعمل من بدء ما قبل الافتتاح بكلفةٍ لا تُذكر:
+     قِيس ‎149‎ رمزاً في **طلبٍ واحد** و‎1.7‎ ثانية بتغطية ‎93%‎.
+
+     والفشل هنا **لا يُسقط التشغيل**: تبقى أسعار ياهو الممتدة (بلا
+     حجم) وتبقى السلسلة الرسمية كما هي. تدهورٌ هادئ لا انهيار.
+     ===================================================================== */
+  let extBatch = null;
+  const extSyms = chosen.filter(m => m.mkt !== "crypto").map(m => m.s);
+  if (extSyms.length) {
+    try {
+      const { provider, caps } = PROV.pick("equity", ["extendedVolume"]);
+      if (caps.extendedVolume && provider.getCandlesBatch) {
+        const from = now - 5 * 86400e3;
+        extBatch = { src: provider.id, delayMs: caps.extendedVolumeDelayMs || 0 };
+        for (const tf of EXT_TFS) {
+          const m = await provider.getCandlesBatch(extSyms, tf, { from });
+          const skipped = m.__skipped || []; delete m.__skipped;
+          extBatch[tf] = m;
+          console.log(`  ✓ الجلسة الممتدة ${tf}: ${Object.keys(m).length} رمزاً من ${extSyms.length}` +
+            (skipped.length ? ` · مستبعَد: ${skipped.join("، ")}` : "") +
+            (caps.extendedVolumeDelayMs ? ` · متأخّر ${Math.round(caps.extendedVolumeDelayMs / 60e3)}د` : ""));
+        }
+      } else {
+        console.log(`  ⓘ لا حجم للجلسة الممتدة (${provider.id}) — الأسعار الممتدة من ياهو والحجم يُعلَن غائباً`);
+      }
+    } catch (e) {
+      console.warn(`  ⚠ تعذّرت الجلسة الممتدة: ${e.message} — نكمل بالأسعار وحدها`);
+      extBatch = null;
+    }
+  }
+
   // 2) الشموع
   // حد Twelve Data (8/دقيقة) عام لا لكل رمز، فالتوازي معه يتجاوزه ويهدر
   // الرصيد على طلبات مرفوضة — نسلسل حين يكون مفعَّلاً
@@ -430,7 +629,7 @@ async function main() {
   // هو المصدر الأول (تشغيل محلي) فلا حد يقيّدنا، فنتوازى ونختصر الوقت
   // من ~28 دقيقة إلى دقائق معدودة لكل الرموز السبعين.
   const lanes = (hasTwelveData() && !PREFER_YAHOO) ? 1 : 3;
-  const results = await pool(jobs, lanes, (j) => buildSymbol(j.m, OUT, now, quotes, j.frames, j.tier));
+  const results = await pool(jobs, lanes, (j) => buildSymbol(j.m, OUT, now, quotes, j.frames, j.tier, extBatch));
   const rows = [], wideRecs = [], failed = [], frozen = [];
   results.forEach((r, i) => {
     const j = jobs[i];
@@ -458,6 +657,10 @@ async function main() {
   const buildRow = (rec, withSpark) => {
     const packed = { ...rec, v: 2, tf: {} };
     for (const [tf, o] of Object.entries(rec.tf)) packed.tf[tf] = { ...o, c: packCandles(o.c) };
+    if (rec.tfx) {
+      packed.tfx = {};
+      for (const [tf, o] of Object.entries(rec.tfx)) packed.tfx[tf] = { ...o, c: packCandles(o.c) };
+    }
     bytes += writeJSON(`sym/${rec.s}.json`, packed);
     const q = quotes?.[rec.s];
     const fnd = fundamentals[rec.s];
@@ -617,7 +820,9 @@ async function main() {
       quotes: quotes ? Object.keys(quotes).length : 0,
       requests: stats.requests, retries: stats.retries, sources: stats.sources,
       finnhub: { requests: fhStats.requests, failures: fhStats.failures },
-      twelvedata: { requests: tdStats.requests, failures: tdStats.failures, budget: TD_PER_RUN }
+      twelvedata: { requests: tdStats.requests, failures: tdStats.failures, budget: TD_PER_RUN },
+      // الوزن لا العدد: حدّ Binance وزنيّ (‎6000‎/دقيقة) وطلب الشمعات ‎2‎
+      binance: { requests: bnStats.requests, failures: bnStats.failures, weight: bnStats.weight }
     }
   });
 
@@ -698,22 +903,34 @@ function selfCheck() {
     eq(stale({ tf: { "1h": { updated: REG - 10 * 60e3 } } }, "1h", REG, true), false, "1h كما كان");
   });
 
-  t("marketStatus يميّز الجلسات الأربع", () => {
-    const base = 1_700_000_000_000;
-    const p = { pre: { start: base, end: base + 5 * H }, regular: { start: base + 5 * H, end: base + 11 * H }, post: { start: base + 11 * H, end: base + 15 * H } };
-    eq(marketStatus(p, base + 1 * H).state, "PRE", "قبل الافتتاح");
-    eq(marketStatus(p, base + 7 * H).state, "REGULAR", "مفتوح");
-    eq(marketStatus(p, base + 12 * H).state, "POST", "بعد الإغلاق");
-    eq(marketStatus(p, base + 20 * H).state, "CLOSED", "مغلق");
-    eq(marketStatus(null, base).state, "UNKNOWN", "بلا فترات");
+  /* الحالة صارت تُحسب من تقويم نيويورك لا من `period` المحفوظ.
+     و`period` كانت تُمرَّر وتُقرأ، وهي **تصف يوم جلبها** — فاستعمالها
+     في اليوم التالي كان يعطي «بعد الإغلاق» والسوق مفتوح. الاختباران
+     أدناه يفحصان البديل: أن الحالة صحيحة بلا `period` أصلاً، وأن
+     `period` قديمة لم تعد تستطيع أن تكذب. */
+  t("حالة السوق تُحسب من التقويم ولا تحتاج فترات ياهو", () => {
+    const at = (iso) => Date.parse(iso);
+    eq(marketStatus(null, at("2026-09-15T10:00:00Z")).state, "PRE", "06:00 ET");
+    eq(marketStatus(null, at("2026-09-15T15:00:00Z")).state, "REGULAR", "11:00 ET");
+    eq(marketStatus(null, at("2026-09-15T21:00:00Z")).state, "POST", "17:00 ET");
+    eq(marketStatus(null, at("2026-09-16T02:00:00Z")).state, "CLOSED", "22:00 ET");
   });
 
-  t("approxMarketStatus يميّز الجلسات بتوقيت نيويورك", () => {
-    // 15 يناير 2024 — لا توقيت صيفي (EST = UTC-5)
-    eq(approxMarketStatus(Date.UTC(2024, 0, 15, 12, 0)).state, "PRE", "7ص محلي");
-    eq(approxMarketStatus(Date.UTC(2024, 0, 15, 15, 0)).state, "REGULAR", "10ص محلي");
-    eq(approxMarketStatus(Date.UTC(2024, 0, 15, 22, 0)).state, "POST", "5م محلي");
-    eq(approxMarketStatus(Date.UTC(2024, 0, 13, 15, 0)).state, "CLOSED", "سبت");
+  t("وفتراتٌ محفوظة من يومٍ مضى لم تعد تستطيع تضليل الحالة", () => {
+    // فترات أمس بالضبط، والآن جلسةٌ مفتوحة. قبل التوحيد كانت تعطي CLOSED
+    const stale = { pre: { start: Date.parse("2026-09-14T08:00:00Z"), end: Date.parse("2026-09-14T13:30:00Z") },
+                    regular: { start: Date.parse("2026-09-14T13:30:00Z"), end: Date.parse("2026-09-14T20:00:00Z") },
+                    post: { start: Date.parse("2026-09-14T20:00:00Z"), end: Date.parse("2026-09-15T00:00:00Z") } };
+    eq(statusNow(stale, Date.parse("2026-09-15T15:00:00Z")).state, "REGULAR", "اليوم مفتوح رغم فترات الأمس");
+  });
+
+  t("العطلات وأنصاف الأيام تدخل الحساب — ‎15 يناير 2024‎ كان يُقرأ يومَ تداول", () => {
+    // MLK 2024-01-15 عطلةٌ رسمية. الاختبار السابق كان يتوقّع فيه «PRE»
+    // و«REGULAR» و«POST» — ومرّ لأن الحساب كان بساعات الحائط بلا تقويم.
+    eq(marketStatus(null, Date.UTC(2026, 0, 19, 15, 0)).state, "CLOSED", "MLK 2026");
+    eq(marketStatus(null, Date.UTC(2026, 0, 20, 15, 0)).state, "REGULAR", "اليوم التالي");
+    // نصفُ يومٍ: ‎13:00 ET‎ إغلاق. ‎2026-11-27‎ شتاءً ⇒ ‎18:00 UTC‎
+    eq(marketStatus(null, Date.parse("2026-11-27T18:30:00Z")).state, "POST", "ما بعد الشكر نصفُ يوم");
   });
 
   t("packCandles/unpackCandles رحلة ذهاب وعودة", () => {
@@ -742,16 +959,57 @@ function selfCheck() {
     eq(sorted, ["فارغ", "ممتلئ"], "الترتيب يقدّم الناقص");
   });
 
-  t("tradingOnly يُسقط حشو الجلسات المغلقة ولا يمحو سلسلةً بلا حجم", () => {
-    // 300 شمعة تداول + 300 حشو بحجم صفر -> يبقى التداول وحده
-    const mk = (n, v) => Array.from({ length: n }, (_, i) => ({ t: i, o: 1, h: 1, l: 1, c: 1, v }));
-    eq(tradingOnly([...mk(300, 5000), ...mk(300, 0)], "15m").length, 300, "الحشو يُسقط");
+  t("tradingOnly يُسقط الجلسة الممتدة والحشو معاً ولا يمحو سلسلةً بلا حجم", () => {
+    /* الطوابع الزمنية **حقيقية**: الفحص السابق كان يستعمل `t: i` (أي
+       ‎1970‎) فكان يقيس شرط الحجم وحده، ولا يمكنه أن يرى شرط الجلسة
+       أصلاً. وهذا هو الفرق بين فحصٍ يحرس وفحصٍ يطمئن. */
+    const H = 3600e3;
+    // شمعات ‎15د‎ داخل الجلسة الرسمية، تلتفّ إلى اليوم التالي عند الإغلاق
+    const reg = (n, v, from = Date.parse("2026-09-14T13:30:00Z")) => {
+      const out = []; let t = from;
+      while (out.length < n) {
+        const w = Date.parse(new Date(t).toISOString().slice(0, 10) + "T13:30:00Z");
+        if (t >= w + 6.5 * H) { t = w + 24 * H; continue; }   // اليوم التالي
+        // ‎300‎ شمعة ‎15د‎ تمتدّ ‎11‎ يوماً فتعبر عطلتَي نهاية أسبوع —
+        // وشمعاتُهما ليست «رسمية» فتسقط. نتخطّاها كما يتخطّاها السوق.
+        if (!isRegularBar(t)) { t += 15 * 60e3; continue; }
+        out.push({ t, o: 1, h: 1, l: 1, c: 1, v });
+        t += 15 * 60e3;
+      }
+      return out;
+    };
+    // وشمعات الجلسة الممتدة: ‎04:00–09:30 ET‎ = ‎08:00–13:30 UTC‎
+    const ext = (n, v, from = Date.parse("2026-09-14T08:00:00Z")) =>
+      Array.from({ length: n }, (_, i) => ({ t: from + i * 15 * 60e3, o: 1, h: 1, l: 1, c: 1, v }));
+
+    eq(tradingOnly([...ext(20, 0), ...reg(300, 5000)], "15m").length, 300, "الحشو الممتد يُسقط");
+
+    /* ⚠ الحارس الذي أُضيف لخطرٍ قادم: شمعةٌ ممتدة **بحجمٍ حقيقي** —
+       وهو ما سيعطيه مزوّدٌ يدعم الجلسة الممتدة. اليوم لا تقع هذه
+       الحالة (حجم ياهو الممتد صفرٌ دائماً)، ولو اعتمد الحارسُ على
+       الحجم وحده لتسرّبت هذه الشمعات إلى السلسلة الرسمية فغيّرت كل
+       مؤشّرٍ في الكون بلا أيّ رسالة. */
+    eq(tradingOnly([...ext(20, 9999), ...reg(300, 5000)], "15m").length, 300,
+       "الممتدة بحجمٍ حقيقي تُسقط أيضاً");
+
     // مصدرٌ لا يعطي حجماً إطلاقاً: الإسقاط يمحو كل شيء، فالبوابة تُعيد الأصل
-    eq(tradingOnly(mk(300, 0), "15m").length, 300, "بلا حجم يبقى الأصل");
-    // ما بقي أقلّ من EMA200 + هامش -> الأصل كذلك، بياناتٌ مشوَّشة أفضل من لا بيانات
-    eq(tradingOnly([...mk(100, 5000), ...mk(300, 0)], "15m").length, 400, "الناقص يبقى الأصل");
-    // الفريمات الأخرى لا تُمسّ: تأتي بلا prePost وحجمها حقيقي أصلاً
-    eq(tradingOnly([...mk(10, 5000), ...mk(10, 0)], "1d").length, 20, "اليومي لا يُمسّ");
+    eq(tradingOnly(reg(300, 0), "15m").length, 300, "بلا حجم يبقى الأصل");
+    // ما بقي أقلّ من EMA200 + هامش -> الأصل كذلك
+    eq(tradingOnly([...reg(100, 5000), ...ext(300, 0)], "15m").length, 400, "الناقص يبقى الأصل");
+    // الفريمات الأخرى لا تُمسّ
+    eq(tradingOnly([...reg(10, 5000), ...ext(10, 0)], "1d").length, 20, "اليومي لا يُمسّ");
+  });
+
+  t("`extendedCandles` تكتب «لا نعرف» لا «صفر تداول» حين يعجز المصدر", () => {
+    const pre = { t: Date.parse("2026-09-15T10:00:00Z"), o: 1, h: 1, l: 1, c: 1, v: 0 };
+    const regBar = { t: Date.parse("2026-09-15T15:00:00Z"), o: 1, h: 1, l: 1, c: 1, v: 0 };
+    const withVol = { t: Date.parse("2026-09-15T10:05:00Z"), o: 1, h: 1, l: 1, c: 1, v: 4200 };
+    const out = extendedCandles([pre, regBar, withVol], false);
+    eq(out[0].v, null, "الممتدة بلا حجم ⇒ null");
+    eq(out[1].v, 0, "الرسمية بحجم صفر ⇒ صفرٌ حقيقي (لم يتداول أحد)");
+    eq(out[2].v, 4200, "الممتدة بحجمٍ حقيقي تبقى");
+    // ومع مزوّدٍ يعطي الحجم الممتد: لا تُمسّ أصلاً
+    eq(extendedCandles([pre], true)[0].v, 0, "مع مزوّدٍ قادر لا نتدخّل");
   });
 
   t("frozenSeries يكشف الأصل الميت ولا يطعن في السهم الهادئ", () => {
@@ -785,6 +1043,30 @@ function selfCheck() {
     eq(Object.keys(tfs(five)).length, 4, "tfScore يبقى بأربعة مفاتيح");
     // و`allTF` في scans.js تشترط أربعة بالضبط — خامسٌ يُسقط الشرطين معاً
     eq(Object.values(tfs(five)).length === 4, true, "allTF ما زالت تجد أربعة");
+  });
+
+  t("السلسلة الممتدة لا تُغيّر النتيجة الفنية ولا تدخل `an`", () => {
+    /* أخطرُ ما في هذه المرحلة: أن تتسرّب شمعةٌ ممتدة إلى `tf` أو
+       مؤشّرٌ ممتد إلى `an`. الأثر ليس خطأً بل **أرقاماً أخرى** لكل
+       رمزٍ في الكون، ومعها يبطل الأرشيف الذي قاس الشروط على السلاسل
+       القديمة. الفحص يقفل البابين معاً. */
+    if (EXT_TFS.some(t => TFS.includes(t) && false)) throw new Error("تعارض");
+    // `anx` ليست `an`: النتيجة تُحسب من `an` وحدها
+    const an = { "15m": { score: 10 }, "1h": { score: 20 }, "4h": { score: 30 }, "1d": { score: 40 } };
+    const before = overallScore(an);
+    const rec = { an, anx: { "15m": { score: -100 }, "5m": { score: -100 } } };
+    eq(overallScore(rec.an), before, "anx لا تدخل الحساب");
+    // ولا يجوز أن يحمل `AN_TFS` فريماً ممتداً: أسماؤها متطابقة والفرق
+    // في السلسلة لا في الاسم، فخلطُها يُقرأ صحيحاً ويحسب خطأً
+    for (const t of AN_TFS) if (String(t).endsWith("x")) throw new Error("فريم ممتد في AN_TFS");
+  });
+
+  t("الشمعة الممتدة لا تدخل السلسلة الرسمية ولو حملت حجماً", () => {
+    const H = 3600e3;
+    const regBar = { t: Date.parse("2026-09-15T15:00:00Z"), o: 1, h: 1, l: 1, c: 1, v: 100 };
+    const preBar = { t: Date.parse("2026-09-15T10:00:00Z"), o: 1, h: 1, l: 1, c: 1, v: 100 };
+    eq(isRegularBar(regBar.t), true, "الرسمية");
+    eq(isRegularBar(preBar.t), false, "الممتدة");
   });
 
   t("aggregate ثابتٌ أمام تدحرج النافذة — لا ينزاح بطول المصفوفة", () => {

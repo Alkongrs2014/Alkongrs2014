@@ -177,11 +177,19 @@ async function main() {
   // 3) الترتيب — أعلى 70 بالقيمة السوقية
   const prevRank = readJSON(path.join(OUT, "ranking.json"));
   const ranked = universe.map(u => u.s).filter(s => mc[s]).sort((a, b) => mc[b] - mc[a]);
+  /* البوابة تحرس من **انهيار الشبكة** لا من رمزٍ أو رمزين بلا قيمة سوقية.
+     وشرطُ التساوي التامّ كان يخلط الاثنين: `cfg.top` صار يساوي عدد
+     المرشّحين كلِّهم بعد توسيع الكون، و`MMC` وحده لا يعطي بيانات عند
+     ياهو (موثَّق) — فـ‎149‎ من ‎151‎ أسقطت الترتيب كلَّه إلى ترتيب الأمس
+     (‎71‎ رمزاً)، أي أن **توسيع الكون لم يُنفَّذ ولا شيء يقول ذلك**.
+     العتبة نسبيّة الآن: تسعون بالمئة تغطيةٌ ليست عطلاً. */
   let top;
-  if (ranked.length >= cfg.top) {
+  if (ranked.length >= cfg.top * 0.9) {
     top = ranked.slice(0, cfg.top);
+    if (ranked.length < cfg.top)
+      console.log(`  ${ranked.length} من ${cfg.top} لها قيمة سوقية — مقبول`);
   } else if (prevRank?.top?.length) {
-    console.warn(`  ⚠ ${ranked.length} رمزاً فقط له قيمة سوقية — نُبقي ترتيب الأمس`);
+    console.warn(`  ⚠ ${ranked.length} من ${cfg.top} فقط له قيمة سوقية — نُبقي ترتيب الأمس`);
     top = prevRank.top;
   } else {
     console.warn(`  ⚠ ترتيب غير مكتمل — نستخدم ترتيب الملف المبدئي`);

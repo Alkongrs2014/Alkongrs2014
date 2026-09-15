@@ -21,9 +21,9 @@ import fs from "node:fs";
 import { rp } from "./lib/round.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
-import { fetchQuotes } from "./lib/yahoo.mjs";
-import { statusNow } from "./lib/session.mjs";
+import { fhStats } from "./lib/finnhub.mjs";
+import { statusNow, sessionOf } from "./lib/session.mjs";
+import * as PROV from "./providers/index.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -43,6 +43,19 @@ const r2 = (v) => v === null ? null : Math.round(v * 100) / 100;
 
 /* يُعاد حسابه من نسب التغيّر الجديدة. الاتساع والنتيجة الفنية لا،
    لأنهما من الشمعات التي لم تتغيّر. */
+/* =====================================================================
+   خطُّ أساس التغيّر يتبع الجلسة — وإلا وصف الاتساعُ يوم أمس.
+
+   `chg` في الصفّ صار **يطابق `p` دائماً**: في الجلسة الرسمية تغيّرُ
+   اليوم، وفي الجلسة الممتدة التغيّرُ عن إغلاق الجلسة الرسمية السابقة.
+   وهذا هو الرقم الذي يقرأه المتداول قبل الافتتاح، ولا معنى لغيره:
+   «تغيّر أمس» ثابتٌ لا يتحرّك، فاتّساعُ سوقٍ محسوبٌ منه يعطي نفس
+   الأرقام كل صباحٍ حتى ‎09:30‎ ثم يقفز.
+
+   والفرق **يُقال في `market.json`** (`basis`) فتكتبه الواجهة بجانب
+   القوائم: «أكثر ارتفاعاً قبل الافتتاح» ليست «أكثر ارتفاعاً اليوم»،
+   وعرضُهما بنفس العنوان يخلط قياسين — نفس قاعدة فصل الكريبتو.
+   ===================================================================== */
 export function recompute(rows, prevMarket) {
   // الكريبتو خارج إحصاء السوق الأمريكي — مداه اليومي أوسع بمراتب فيحتل
   // قائمتَي الرابحين والخاسرين ويزيح متوسطات القطاعات. نفس الاستبعاد في
@@ -71,17 +84,29 @@ export function recompute(rows, prevMarket) {
 /* المؤشرات العامة: Finnhub المجاني يرفض رموزها (^GSPC) ويقبل صناديق
    ETF التي تتبعها. نأخذ نسبة التغيّر من الصندوق ونترك المستوى كما كان
    بدل عرض سعر الصندوق موهماً أنه مستوى المؤشر. */
+/* التغيّر المطابق للسعر المعروض: ممتدٌّ في الجلسة الممتدة ورسميٌّ
+   في الرسمية. موضعٌ واحد له، فلا تختلف الترويسة عن الصفوف. */
+export const chgOf = (q) => {
+  if (!q) return null;
+  const v = (q.sess === "PRE" || q.sess === "AFTER") ? q.extChangePct : q.regularChangePct;
+  return (typeof v === "number" && isFinite(v)) ? v : null;
+};
+
 export function refreshIndices(prevIdx, quotes, cfgIdx = []) {
   // market.json لا يحفظ حقل proxy إلا حين يُستعمل فعلاً، فالاعتماد عليه
   // وحده كان يترك المؤشرات مجمّدة على قيم آخر تشغيل كامل
   const proxyOf = Object.fromEntries(cfgIdx.filter(i => i.proxy).map(i => [i.s, i.proxy]));
   return (prevIdx || []).map(ix => {
     const proxy = ix.proxy || proxyOf[ix.s] || null;
-    let p = num(quotes[ix.s]?.regularMarketPrice);
-    let chg = num(quotes[ix.s]?.regularMarketChangePercent);
+    /* الشكل الموحّد من طبقة المزوّد: `price` و`chgOf` لا حقول ياهو
+       الخام. والمؤشّرات تتبع الجلسة كما تتبعها الأسهم — صندوق SPY له
+       سعرٌ قبل الافتتاح، وتجميدُ المؤشّر وحده يجعل الترويسة تقول
+       «السوق ثابت» والقوائم تحته تتحرّك. */
+    let p = num(quotes[ix.s]?.price);
+    let chg = chgOf(quotes[ix.s]);
     let viaProxy = false;
     if (chg === null && proxy) {
-      const pc = num(quotes[proxy]?.regularMarketChangePercent);
+      const pc = chgOf(quotes[proxy]);
       if (pc !== null) { chg = pc; viaProxy = true; }
     }
     if (p === null && chg === null) return ix;              // لا جديد — أبقِ القديم
@@ -112,41 +137,91 @@ async function main() {
   const wideSyms = wide?.rows?.map(r => r.s) || [];
   console.log(`▶ أسعار ${syms.length} رمزاً${wideSyms.length ? ` + ${wideSyms.length} في الطبقة الواسعة` : ""} …`);
 
-  // ترتيب المصدر يتبع مكان التشغيل: Yahoo يجمع 40 رمزاً في الطلب، وFinnhub
-  // طلبٌ لكل رمز. محلياً Yahoo أولاً، وسحابياً Finnhub لأن Yahoo محظور.
+  /* المصدر يُختار من طبقة المزوّد بالقدرة لا بالاسم. وشرطُ الجلسة
+     الممتدة يدخل الاختيار صراحةً: Finnhub المجاني **لا يتحرّك قبل
+     ‎09:30‎ إطلاقاً** (قِيس: `/quote MSFT` يعيد إغلاق أمس وختمَ أمس
+     في السابعة والنصف صباحاً)، فاختيارُه في الجلسة الممتدة يعيد
+     المشكلة التي نصلحها. */
   const want = [...syms, ...wideSyms, ...extra];
+  const sess = sessionOf(now);
+  const needExt = (sess === "PRE" || sess === "AFTER");
+  const { provider, skipped, degraded } = PROV.pick("equity", needExt ? ["extendedHours"] : []);
+  console.log(`  الجلسة: ${sess}${needExt ? " (ممتدة)" : ""} · المزوّد: ${provider.id}` +
+    (skipped.length ? ` · تُخطّي: ${skipped.map(x => x.id + "(" + x.why + ")").join("، ")}` : ""));
+  if (degraded?.length)
+    console.warn(`  ⚠ المزوّد المختار ينقصه: ${degraded.join("، ")} — البوابات المعتمِدة عليه ستُعلن توقّفها`);
+
   let quotes = null, src = "";
-  const tryQuotes = async (label, fn) => {
-    if (quotes) return;
-    try { quotes = await fn(); if (quotes) src = label; }
-    catch (e) { console.warn(`  ⚠ ${label}: ${e.message}`); }
-  };
-  if (PREFER_YAHOO) {
-    await tryQuotes("Yahoo", () => fetchQuotes(want));
-    await tryQuotes("Finnhub", () => fetchQuotesFinnhub([...syms, ...extra], { pace: 1050 }));
-  } else {
-    await tryQuotes("Finnhub", () => fetchQuotesFinnhub([...syms, ...extra], { pace: 1050 }));
-    await tryQuotes("Yahoo", () => fetchQuotes(want));
+  try {
+    quotes = await provider.getQuotes(provider.caps.batch ? want : [...syms, ...extra], { pace: 1050 });
+    if (quotes) src = provider.id;
+  } catch (e) { console.warn(`  ⚠ ${provider.id}: ${e.message}`); }
+  /* احتياطٌ واحد لا سلسلة: المزوّد التالي في الترتيب المتاح */
+  if (!quotes) {
+    for (const alt of PROV.providers().filter(x => x.available && x.id !== provider.id && x.caps.markets.includes("equity"))) {
+      try {
+        const pv = PROV.get(alt.id);
+        quotes = await pv.getQuotes(pv.caps.batch ? want : [...syms, ...extra], { pace: 1050 });
+        if (quotes) { src = alt.id + " (احتياط)"; break; }
+      } catch (e) { console.warn(`  ⚠ ${alt.id}: ${e.message}`); }
+    }
   }
   if (!quotes) throw new Error("لم يصل أي سعر — لن نكتب فوق بيانات سليمة");
   console.log(`  المصدر: ${src}`);
 
+  /* الكريبتو **يُدمج فوق** المصدر الأول لا يتنافس معه: طلبٌ واحد يجيب كل
+     أزواج Binance، وهو أدقّ من ياهو لهذه الفئة ولا يكلّف شيئاً. ودمجُه
+     بعد النداء الأول يعني أن فشله لا يُسقط أسعار الأسهم — يبقى ما وصل
+     من المصدر الأصلي كما هو. */
+  const cryptoSyms = [...new Set([...syms, ...wideSyms])].filter(s => /-USD$/.test(s));
+  if (cryptoSyms.length) {
+    try {
+      const bn = await PROV.binance.getQuotes(cryptoSyms);
+      if (bn) {
+        Object.assign(quotes, bn);
+        console.log(`  + ${Object.keys(bn).length} من ${cryptoSyms.length} عملة رقمية من Binance (طلب واحد)`);
+      }
+    } catch (e) { console.warn(`  ⚠ Binance: ${e.message}`); }
+  }
+
+  /* =====================================================================
+     **السطر الذي كان يجمّد التطبيق كلَّه قبل الافتتاح.**
+
+     كان: `r.p = rp(num(q.regularMarketPrice))` — وياهو لا يحرّك هذا
+     الحقل قبل ‎09:30‎ إطلاقاً. فكانت دورةُ الدقيقتين تكتب **إغلاق أمس**
+     فوق نفسه كل دقيقتين طوال الجلسة الممتدة، وسعرُ ما قبل الافتتاح
+     يُكتب في `ext` **للعرض وحده**. وكلُّ ماسحٍ وخطةٍ واستراتيجية تقرأ
+     `p`. قياسٌ حيّ ‎2026-09-15 07:28 ET‎: `MSFT.p = 505.41` (إغلاق
+     أمس) و`ext.PRE = 500.11` — والفرق ‎1.05%‎ لم يره المحرّك.
+
+     الآن السعر **سعرُ الجلسة الجارية**، و`p` و`chg` يصفان اللحظة
+     نفسها دائماً. ويبقى `pReg` إغلاقَ الجلسة الرسمية لمن يحتاجه
+     (الفجوة، والبيفوت، وخطّ أساس الحركة).
+     ===================================================================== */
   const applyQuotes = (rows) => {
-    let n = 0;
+    let n = 0, ext = 0;
     for (const r of rows) {
       const q = quotes[r.s];
       if (!q) continue;
-      const p = num(q.regularMarketPrice);
+      const p = num(q.price);
       if (p === null || p <= 0) continue;
       r.p = rp(p);
-      const c = num(q.regularMarketChangePercent);
+      r.psess = q.sess || "REGULAR";
+      if (q.at) r.pAt = q.at;
+      /* الإغلاق الرسمي الأخير — يبقى محفوظاً ولو كان السعر ممتداً */
+      if (num(q.regular) !== null) r.pReg = rp(num(q.regular));
+      /* `chg` يطابق `p`: تغيّرُ الجلسة الممتدة عن الإغلاق السابق حين
+         نكون فيها، وتغيّرُ اليوم حين تكون الجلسة رسمية. */
+      const c = (r.psess === "PRE" || r.psess === "AFTER")
+        ? num(q.extChangePct) : num(q.regularChangePct);
       if (c !== null) r.chg = r2(c);
+      if (r.psess === "PRE" || r.psess === "AFTER") ext++;
       n++;
     }
-    return n;
+    return { n, ext };
   };
 
-  const hit = applyQuotes(summary.rows);
+  const { n: hit, ext: extHit } = applyQuotes(summary.rows);
   // بوابة السلامة: تحديث جزئي جداً يعني عطلاً في المصدر لا سوقاً هادئاً
   if (hit < syms.length * 0.5)
     throw new Error(`${hit} من ${syms.length} فقط وصلت — مرفوض`);
@@ -158,7 +233,7 @@ async function main() {
   // لمسه هنا يجعل fetch-market يظنّ يوميّها حديثاً فلا يجدّده أبداً.
   let wideHit = 0;
   if (wide?.rows?.length) {
-    wideHit = applyQuotes(wide.rows);
+    wideHit = applyQuotes(wide.rows).n;
     wide.updated = now;
     writeJSON("wide.json", wide);
   }
@@ -223,7 +298,7 @@ function selfCheck() {
 
   t("refreshIndices يستعمل الصندوق البديل للنسبة ويُبقي المستوى", () => {
     const prev = [{ s: "^GSPC", ar: "إس آند بي", p: 7000, chg: 0.5, proxy: "SPY" }];
-    const out = refreshIndices(prev, { SPY: { regularMarketChangePercent: 1.25 } });
+    const out = refreshIndices(prev, { SPY: { sess: "REGULAR", regularChangePct: 1.25 } });
     eq(out[0].chg, 1.25, "النسبة من الصندوق");
     eq(out[0].p, 7000, "المستوى لم يُستبدل بسعر الصندوق");
   });
@@ -236,10 +311,25 @@ function selfCheck() {
   t("refreshIndices يجد البديل من الإعدادات لا من الملف المحفوظ", () => {
     // market.json لا يحفظ proxy إلا حين استُعمل، فبدونه كانت المؤشرات تتجمّد
     const prev = [{ s: "^DJI", ar: "داو", p: 53000, chg: 0.4 }];
-    const out = refreshIndices(prev, { DIA: { regularMarketChangePercent: -0.9 } },
+    const out = refreshIndices(prev, { DIA: { sess: "REGULAR", regularChangePct: -0.9 } },
                                [{ s: "^DJI", proxy: "DIA" }]);
     eq(out[0].chg, -0.9, "تحدّثت النسبة");
     eq(out[0].p, 53000, "المستوى كما هو");
+  });
+
+  t("`chgOf` يتبع الجلسة: الممتدة تقيس عن الإغلاق السابق لا عن تغيّر أمس", () => {
+    eq(chgOf({ sess: "PRE",     extChangePct: -1.02, regularChangePct: 1.97 }), -1.02, "قبل الافتتاح");
+    eq(chgOf({ sess: "AFTER",   extChangePct:  0.43, regularChangePct: 1.97 }),  0.43, "بعد الإغلاق");
+    eq(chgOf({ sess: "REGULAR", extChangePct: null,  regularChangePct: 1.97 }),  1.97, "الجلسة");
+    /* والحالة التي كانت تُنتج الرقم الكاذب: جلسةٌ ممتدة بلا تغيّر ممتد.
+       «لا نعرف» لا تُستبدل بتغيّر أمس — ذاك رقمٌ صحيح يصف لحظةً أخرى. */
+    eq(chgOf({ sess: "PRE", extChangePct: null, regularChangePct: 1.97 }), null, "ممتد بلا رقم = —");
+  });
+
+  t("المؤشّرات تتبع الجلسة كما تتبعها الأسهم", () => {
+    const prev = [{ s: "^GSPC", ar: "إس آند بي", p: 7000, chg: 0.5, proxy: "SPY" }];
+    const out = refreshIndices(prev, { SPY: { sess: "PRE", extChangePct: -0.8, regularChangePct: 1.2 } });
+    eq(out[0].chg, -0.8, "نسبة ما قبل الافتتاح");
   });
 
   t("statusNow يتجاهل فترات يوم مضى", () => {

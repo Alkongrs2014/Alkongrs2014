@@ -17,6 +17,10 @@
      node local/run.mjs backtest   الأرشيف التاريخي وحده
      node local/run.mjs signals    تثبيت إشارات اليوم وتحديث المفتوحة
      node local/run.mjs strategies ماسح الاستراتيجيات — الحالة والتسلسل (بلا شبكة)
+     node local/run.mjs replay --date=YYYY-MM-DD --engine=new|old
+                               إعادة تشغيل يومٍ دقيقةً دقيقة بلا نظرٍ إلى المستقبل
+     node local/run.mjs audit  --date=YYYY-MM-DD
+                               تقرير الفرص الفائتة: قديم مقابل جديد
      node local/run.mjs stratbt    الأرشيف اللحظي 60 يوماً (~290 طلباً)
      node local/run.mjs events     تقويم الفدرالي (أحداث قوية قادمة)
      node local/run.mjs learn      قراءة السجل واقتراحات التحسين (بلا شبكة)
@@ -90,32 +94,115 @@ function alive(pid) {
    ===================================================================== */
 const SKIPS = path.join(DATA, ".run.skips.json");
 
-function noteSkip(job, blocker, waited) {
+function noteSkip(job, blocker, waited, outcome) {
   try {
     const all = JSON.parse(fs.readFileSync(SKIPS, "utf8"));
     const list = Array.isArray(all) ? all : [];
-    list.push({ job, blocker, waited, at: Date.now() });
+    list.push({ job, blocker, waited, outcome, at: Date.now() });
     fs.writeFileSync(SKIPS, JSON.stringify(list.slice(-50)));
   } catch (e) {
-    try { fs.writeFileSync(SKIPS, JSON.stringify([{ job, blocker, waited, at: Date.now() }])); }
+    try { fs.writeFileSync(SKIPS, JSON.stringify([{ job, blocker, waited, outcome, at: Date.now() }])); }
     catch (e2) { /* التشخيص لا يُسقط التشغيل */ }
   }
 }
 
-function acquireLock(job) {
+/* =====================================================================
+   الانتظار بدل الانسحاب — والانسحاب حالةٌ قصوى لا قاعدة.
+
+   كان الانسحاب هو القاعدة، فأعطى قياسُ 2026-09-14 **37 دورة أسعار
+   ساقطة من ~113 في 3.8 ساعة** (‎33%‎): ثمانٍ وعشرون حجبتها دورة السوق
+   وسبعٌ حجبتها دورة العقود. أي أن دورة الدقيقتين صارت ثلاث دقائق
+   فعلياً — وهو ما لاحظه المستخدمون ووصفوه بـ«مشكلة بالثلاث دقائق».
+
+   والانسحاب لم يكن يُصلح شيئاً: المهمة المحجوبة ليست خطراً على الحصّة
+   ما دامت **تنتظر** انتهاء السابقة بدل أن تتوازى معها. والغرض الأصلي
+   للقفل — ألّا تعمل مهمّتان معاً — يتحقّق بالانتظار كما يتحقّق
+   بالانسحاب، والفارق أن الانتظار **ينفّذ العمل**.
+
+   والسقف من دورة المهمة نفسها وأقلّ منها دائماً: انتظارٌ أطول من
+   الدورة يجعل تشغيلين ينتظران نفس القفل فيتراكمان بلا نهاية.
+   ===================================================================== */
+const WAIT_CAP = {          // ثوانٍ — أقلّ من دورة كل مهمة
+  quotes: 110, strategies: 110, signals: 110,
+  market: 540, filings: 240, news: 240,
+  options: 1500,
+  daily: 3000, backtest: 3000, stratbt: 3000
+};
+
+/* لماذا لا يُرفع سقف الأسعار فوق ‎110‎ رغم أن دورة السوق تتجاوزها:
+   دورة الأسعار دقيقتان، فسقفٌ أطول يجعل تشغيلَين ينتظران القفل معاً
+   فيتراكمان — وهو ما جاء السقف ليمنعه.
+
+   والانسحاب هنا **ليس فجوة بيانات**: `fetch-market` يجلب أسعار كل
+   الرموز داخل دورته (‎288‎ رمزاً في قياس 2026-09-15)، فالسعر يتجدّد
+   من المهمة الحاجبة نفسها. فوسم `gave-up` أمام `market` معلومةُ
+   تشخيص، والذي يستحقّ الانتباه هو انسحابٌ أمام مهمةٍ **لا تُسعّر**
+   مثل `filings` أو `backtest`. */
+
+/* نومٌ متزامن: الدالّة تُنادى قبل أي عمل غير متزامن، وحلقةُ انتظارٍ
+   بـ await تقتضي جعل مسار الإقلاع كلّه غير متزامن بلا مقابل. */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/* حاملُ القفل الحيّ، أو null إن كان القفل ميتاً أو تالفاً.
+   العملية قد تموت **أثناء انتظارنا**، فيُعاد الفحص في كل دورة استطلاع
+   لا مرّةً واحدة عند الدخول. */
+function lockHolder() {
   try {
     const prev = JSON.parse(fs.readFileSync(LOCK, "utf8"));
-    const age = Date.now() - prev.at;
     // عملية ماتت دون تنظيف تترك قفلاً أبدياً، فنُسقطه بعد عشرين دقيقة
-    if (age < 20 * 60000 && alive(prev.pid)) {
-      const waited = Math.round(age / 1000);
-      console.log(`  ⏭ ${prev.job} ما زالت تعمل منذ ${waited} ثانية — ننسحب`);
-      noteSkip(job, prev.job, waited);
+    if (Date.now() - prev.at < 20 * 60000 && alive(prev.pid)) return prev;
+  } catch (e) { /* لا قفل، أو قفل تالف */ }
+  return null;
+}
+
+/* الكتابة الذرّية: الوضع wx يفشل إن وُجد الملفّ، فلا تبقى فجوة بين
+   «رأيتُه حرّاً» و«كتبتُ فيه» تسمح لتشغيلين بأخذه معاً. */
+function tryWrite(job) {
+  try {
+    const fd = fs.openSync(LOCK, "wx");
+    fs.writeSync(fd, JSON.stringify({ job, pid: process.pid, at: Date.now() }));
+    fs.closeSync(fd);
+    return true;
+  } catch (e) { return false; }
+}
+
+function acquireLock(job) {
+  const cap = (WAIT_CAP[job] ?? 120) * 1000;
+  const t0 = Date.now();
+  let announced = false;
+
+  for (;;) {
+    if (tryWrite(job)) {
+      if (announced) {
+        const sec = Math.round((Date.now() - t0) / 1000);
+        console.log("  ▶ تحرّر القفل بعد " + sec + " ثانية — نبدأ");
+        noteSkip(job, "—", sec, "queued");
+      }
+      return true;
+    }
+
+    const holder = lockHolder();
+    const waited = Date.now() - t0;
+
+    if (!holder) {
+      // قفلٌ ميت أو تالف — نُزيله ونعاود المحاولة فوراً
+      try { fs.unlinkSync(LOCK); continue; } catch (e) { /* سباقٌ مع غيرنا */ }
+    } else if (!announced) {
+      console.log("  ⏳ " + holder.job + " تعمل — ننتظر دورنا (سقف " + (cap / 1000) + " ثانية)");
+      announced = true;
+    }
+
+    if (waited >= cap) {
+      const who = holder ? holder.job : "قفل عالق";
+      const age = holder ? Math.round((Date.now() - holder.at) / 1000) : 0;
+      console.log("  ⏭ " + who + " ما زالت تعمل منذ " + age + " ثانية — انتهى سقف الانتظار، ننسحب");
+      noteSkip(job, who, Math.round(waited / 1000), "gave-up");
       return false;
     }
-  } catch (e) { /* لا قفل، أو قفل تالف — امضِ */ }
-  fs.writeFileSync(LOCK, JSON.stringify({ job, pid: process.pid, at: Date.now() }));
-  return true;
+    sleepSync(2000);
+  }
 }
 
 const releaseLock = () => { try { fs.unlinkSync(LOCK); } catch (e) {} };
@@ -293,6 +380,7 @@ else {
 
   // الأخبار مع كل تحديث سوق: دورتها دقائق لا يوم، وهي أرخص جزء في
   // التشغيل (بضع خلاصات RSS) فلا تكلّف شيئاً أن تُرافق الأسعار
+  const rest = process.argv.slice(3).filter(a => a !== "--publish");
   const jobs = cmd === "quotes" ? ["fetch-quotes.mjs", "track-strategies.mjs --only-price"]
              // التتبّع بعد الشمعات مباشرة: يقرأ summary.json الذي كتبته
              // للتوّ، بلا أي طلب شبكة — فتُثبَّت الإشارة لحظة ظهورها
@@ -303,6 +391,10 @@ else {
              // طلباً). نافذته أقصر بكثير من الأرشيف اليومي لأن ياهو لا
              // يعطي فريماً لحظياً أبعد من ذلك — وهو حدٌّ معلن لا خيار.
              : cmd === "stratbt" ? ["backtest-strategies.mjs"]
+             /* إعادةُ التشغيل والتدقيق يأخذان وسائطَهما كما هي:
+                `run.mjs replay --date=2026-09-14 --engine=new` */
+             : cmd === "replay" ? ["replay.mjs " + rest.join(" ")]
+             : cmd === "audit" ? ["audit-missed.mjs " + rest.join(" ")]
              : cmd === "news"   ? ["fetch-news.mjs"]
              // الأرشيف مع الدورة اليومية: يجلب خمس سنوات لكل رمز (~500
              // طلب) فلا مكان له في دورة عشر دقائق، ونتيجته لا تتغيّر
@@ -321,9 +413,19 @@ else {
              : cmd === "filings" ? ["fetch-filings.mjs"]
              : ["fetch-daily.mjs", "fetch-events.mjs", "fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "fetch-news.mjs", "fetch-filings.mjs", "fetch-options.mjs", "backtest.mjs", "backtest-strategies.mjs", "analytics.mjs", "learn.mjs"];
 
-  // الانسحاب أمام تشغيل جارٍ ليس فشلاً — نخرج بصفر حتى لا تُعلَّم المهمة
-  // المجدولة كفاشلة كل دورة متداخلة
-  if (!acquireLock(cmd)) process.exit(0);
+  // `acquireLock` تنتظر دورها أولاً، ولا تصل هنا إلا بعد استنفاد سقف
+  // الانتظار. والانسحاب حينها ليس فشلاً — نخرج بصفر حتى لا تُعلَّم المهمة
+  // المجدولة كفاشلة، والسبب مكتوبٌ في `.run.skips.json` بوسم `gave-up`
+  /* =====================================================================
+     القفل يحمي **الكتابة على بيانات مشتركة**، ولا شأن له بالتحليل.
+
+     `replay` و`audit` يقرآن ويكتبان في `data/replay/` و`data/audit/`
+     وحدهما — لا يمسّان `summary.json` ولا ملفّات الرموز. فإخضاعهما
+     للقفل يجعل تحليلاً يدويّاً ينتظر دورةَ جلبٍ ثم **ينسحب** بعد
+     انتهاء السقف، فيُقرأ ذلك فشلاً في التحليل وهو ازدحامٌ على قفل.
+     وقع فعلاً عند أوّل تجربة: «market تعمل — ننتظر دورنا» ثم انسحاب. */
+  const READ_ONLY = ["replay", "audit"];
+  if (!READ_ONLY.includes(cmd) && !acquireLock(cmd)) process.exit(0);
   process.on("exit", releaseLock);
   for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { releaseLock(); process.exit(1); });
 

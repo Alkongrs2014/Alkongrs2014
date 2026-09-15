@@ -536,9 +536,28 @@ function aggregate(candles, factor) {
    تُدووِل فعلاً، فحسابهما بوزنٍ متساوٍ يناقض الوزن الذي بُني عليه
    المركز نفسه.
    ===================================================================== */
+/* =====================================================================
+   نافذةُ الجلسة — تقبل شكلين، وهذا ما يفتح الجلسة الممتدة.
+
+   كان الوسيط `period` من ياهو ويُقرأ منه `period.regular` **حصراً**،
+   فكلُّ ما يُبنى عليه (VWAP ونطاق الافتتاح) محصورٌ في الجلسة الرسمية
+   بنيوياً — لا بقرار. ومن أراد VWAP لجلسة ما قبل الافتتاح لم يكن
+   أمامه إلا نسخةٌ ثانية من الدالّة.
+
+   الآن تقبل `{start,end}` مباشرةً (نافذةُ الجلسة الجارية أيّاً كانت)
+   وتبقى تقبل `{regular:{…}}` كما كانت — فلا مستدعٍ قديم ينكسر.
+   ===================================================================== */
+function winOf(p) {
+  if (!p) return null;
+  if (Number.isFinite(p.start) && Number.isFinite(p.end)) return p;
+  if (p.regular && Number.isFinite(p.regular.start)) return p.regular;
+  return null;
+}
+
 function sessionVwap(k, period) {
-  if (!Array.isArray(k) || !period || !period.regular) return null;
-  var s0 = period.regular.start, s1 = period.regular.end;
+  var w = winOf(period);
+  if (!Array.isArray(k) || !w) return null;
+  var s0 = w.start, s1 = w.end;
   if (!Number.isFinite(s0) || !Number.isFinite(s1)) return null;
   var tps = [], vs = [], pv = 0, vol = 0;
   for (var i = 0; i < k.length; i++) {
@@ -571,8 +590,9 @@ function sessionVwap(k, period) {
    ===================================================================== */
 function openingRange(k, period, minutes) {
   minutes = minutes || 15;
-  if (!Array.isArray(k) || !period || !period.regular) return null;
-  var s0 = period.regular.start;
+  var w = winOf(period);
+  if (!Array.isArray(k) || !w) return null;
+  var s0 = w.start;
   if (!Number.isFinite(s0)) return null;
   var s1 = s0 + minutes * 60000;
   var hi = -Infinity, lo = Infinity, n = 0, lastT = 0;

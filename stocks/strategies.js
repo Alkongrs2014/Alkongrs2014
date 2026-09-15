@@ -196,20 +196,98 @@ function buildCtx(o) {
   var k = {}, tfs = rec.tf || {};
   for (var tf in tfs) { var cc = tfs[tf] && tfs[tf].c; if (cc && cc.length) k[tf] = unpackK(cc); }
 
+  /* =====================================================================
+     السلسلة الممتدة — سلسلةٌ ثانية لا بديلٌ عن الأولى.
+
+     `kx` تحمل الجلسة الممتدة (ما قبل الافتتاح وما بعد الإغلاق) و`k`
+     تبقى الجلسة الرسمية وحدها. ولا تُدمجان: دمجُهما يغيّر EMA وRSI
+     وATR لكل رمزٍ في الكون فيُبطل الأرشيف الذي قاس الشروط على
+     السلاسل الرسمية — بلا خطأ، بأرقامٍ أخرى وحسب.
+
+     فالشروط الرسمية تقرأ `k` كما كانت، واستراتيجياتُ الجلسة الممتدة
+     تقرأ `kx`. ومن يحتاج «أيّهما يصف اللحظة الآن؟» يستعمل `c.ik`
+     أدناه.
+     ===================================================================== */
+  var kx = {}, tfxs = rec.tfx || {};
+  for (var tx in tfxs) { var cx = tfxs[tx] && tfxs[tx].c; if (cx && cx.length) kx[tx] = unpackK(cx); }
+
   var px = [o.px, row.p, an["5m"] && an["5m"].px, an["1d"] && an["1d"].px]
              .filter(Number.isFinite)[0];
   var period = rec.period || null;
+  var mkt = rec.mkt || row.mkt || null;
+  var sess = o.sess || null;
+  /* نافذةُ الجلسة **الجارية** — تُمرَّر ولا تُشتقّ، كما تُمرَّر `sess`:
+     هذا الملفّ رياضياتٌ خالصة بلا استيراد بيئة، والتقويم يعرفه
+     المستدعي (`session.js` في الطرفين). وهي التي تجعل نطاق الافتتاح
+     وVWAP يعملان في **أيّ** جلسة بدل الرسمية وحدها. */
+  var win = o.win || null;
+  /* مصنّفُ الجلسة — دالّةٌ تُمرَّر لا تُستورَد (نفس سبب `sess`) */
+  var sessOf = (typeof o.sessOf === "function") ? o.sessOf : null;
+
+  /* =====================================================================
+     يومُ الكريبتو يبدأ عند منتصف ليل UTC — لا جلسةَ نيويورك.
+
+     `orb` و`vwapRec` تشترطان `sess === "REGULAR"`، والكريبتو لا يمرّ
+     بهذه الحالة أبداً لأن الحالة تُشتقّ من السوق الأمريكي. فكانت
+     **استراتيجيتان من عشر معطَّلتين على الكريبتو دائماً** رغم أنه
+     يتداول ‎24/7‎ — وهو بالضبط ما يُراد تشغيله حين يُغلق الأمريكي.
+
+     و«افتتاح» الكريبتو ليس اصطلاحاً مخترَعاً: شمعات Binance اليومية
+     مرتكزة على ‎00:00 UTC‎ (قِيس: `t % 86400` ثابت)، فنطاق الافتتاح
+     وVWAP يُقاسان من نفس الحدّ الذي تقيس منه المنصّة يومها. */
+  if (mkt === "crypto") {
+    var d = new Date(now);
+    var day0 = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    period = { regular: { start: day0, end: day0 + 86400000 } };
+    sess = "REGULAR";
+    win = period.regular;
+  }
+  /* بلا نافذةٍ ممرَّرة نسقط إلى الفترة المحفوظة — يبقى المستدعي القديم
+     يعمل، ويبقى سلوكُه هو سلوكَه (الجلسة الرسمية وحدها). */
+  if (!win && period && period.regular) win = period.regular;
+
   /* الفترات المحفوظة تصف **يوم جلبها** — مصيدة موثّقة. فاستعمالها في
      يومٍ تالٍ يعطي نطاق افتتاحٍ من الأمس تحت عنوان اليوم. */
-  var today = !!(period && period.regular && sameUtcDay(period.regular.start, now));
+  /* «اليوم» تُقاس على النافذة الجارية: نافذةٌ محسوبةٌ من التقويم تصف
+     اليوم دائماً، والمحفوظة من ياهو تصف يوم جلبها — وهي المصيدة التي
+     كانت تعطي نطاق افتتاحٍ من الأمس تحت عنوان اليوم. */
+  var today = !!(win && Number.isFinite(win.start) && now >= win.start - 6 * 3600000
+                 && now <= (win.end || win.start) + 6 * 3600000);
 
-  var iTf = k["5m"] ? "5m" : (k["15m"] ? "15m" : null);
-  var lv = { iTf: iTf };
+  /* الفريم اللحظي يجب أن **يغطّي بدايةَ الجلسة**، وإلا عاد نطاق الافتتاح
+     فارغاً بلا خطأ ولا سبب ظاهر.
+
+     ‎260‎ شمعة من ‎5د‎ تساوي ‎21.7‎ ساعة، وجلسةُ نيويورك ‎6.5‎ ساعات
+     فتُغطّى دائماً. أما يوم الكريبتو فـ‎24‎ ساعة — فمن ‎21:40 UTC‎
+     فصاعداً تكون شمعاتُ الافتتاح قد خرجت من النافذة المحفوظة، ويسقط
+     `orb` صامتاً في آخر ساعتين من كل يوم. و‎260‎ شمعة من ‎15د‎ تساوي
+     ‎65‎ ساعة فتغطّيه كلَّه.
+
+     فالاختيار بالتغطية لا بالتفضيل: أصغرُ فريمٍ يصل إلى بداية الجلسة. */
+  /* =====================================================================
+     أيُّ سلسلةٍ تصف الجلسة الجارية؟
+
+     في الجلسة الرسمية: `k` — وهي ما كان دائماً.
+     في الممتدة: `kx` — و`k` لا تحوي شمعةً واحدة من الجلسة الجارية
+     أصلاً، فنطاقُ الافتتاح وVWAP عليها يعيدان `null` دائماً. وهذا
+     بالضبط ما كان يعطّل `orb` و`vwapRec` قبل الافتتاح.
+     ===================================================================== */
+  var extSess = (sess === "PRE" || sess === "AFTER");
+  var ik = (extSess && (kx["5m"] || kx["15m"])) ? kx : k;
+
+  var covers = function (t) {
+    var kk = ik[t];
+    return !!(kk && kk.length && win && kk[0].t <= win.start);
+  };
+  var iTf = covers("5m") ? "5m"
+          : covers("15m") ? "15m"
+          : (ik["5m"] ? "5m" : (ik["15m"] ? "15m" : null));
+  var lv = { iTf: iTf, ext: extSess, kind: (ik === kx ? "ext" : "reg") };
   if (iTf && today) {
-    lv.vwap = sessionVwap(k[iTf], period);
+    lv.vwap = sessionVwap(ik[iTf], win);
     // نافذة النطاق تتبع الفريم: ‎15د‎ على ‎5د‎ تعطي ثلاث شمعات، وعلى
     // ‎15د‎ تعطي واحدة — و«نطاق» من شمعةٍ واحدة هو الشمعة نفسها.
-    lv.or = openingRange(k[iTf], period, iTf === "5m" ? 15 : 30);
+    lv.or = openingRange(ik[iTf], win, iTf === "5m" ? 15 : 30);
   }
   var base = an["4h"] || an["1d"] || null;
   lv.L = (k["1d"] && base) ? levelsFrom({
@@ -225,21 +303,61 @@ function buildCtx(o) {
     bw[t] = bbWidth(k[t].map(function (x) { return x.c; }), 20, 2);
   });
 
-  return { s: rec.s || row.s, px: px, now: now, k: k, an: an, row: row,
-           f: o.f || null, period: period, today: today, sess: o.sess || null,
-           mkt: rec.mkt || row.mkt || null, lv: lv, bw: bw,
+  /* التحليل المطابق للسلسلة الجارية. `an` محسوبةٌ على السلسلة الرسمية
+     و`anx` على الممتدة، وقراءةُ `an["5m"]` بينما السلسلة الجارية ممتدة
+     تخلط قياسين: ATR رسميٌّ يُقاس عليه بُعدُ سعرٍ ممتد. وهي نفس مصيدة
+     «وحدة الزمن في ETA يجب أن تكون شمعةَ ATR نفسه». */
+  var ian = (ik === kx) ? (rec.anx || {}) : an;
+
+  return { s: rec.s || row.s, px: px, now: now, k: k, kx: kx, ik: ik,
+           an: an, anx: rec.anx || {}, ian: ian, row: row, sessOf: sessOf,
+           f: o.f || null, period: period, win: win, today: today, sess: sess,
+           extSess: extSess, mkt: mkt, lv: lv, bw: bw,
+           /* عمرُ أحدث شمعةٍ ممتدة — الحجم المجمَّع متأخّرٌ ‎15‎ دقيقة
+              على الخطة المجانية، وإشارةٌ مبنيّةٌ عليه يجب أن تقول ذلك */
+           extAge: (function () {
+             var a = kx["15m"] || kx["5m"];
+             return (a && a.length) ? now - a[a.length - 1].t : null;
+           })(),
            tfScore: row.tfScore || null, wide: !!o.wide };
 }
 
 /* حجم الشمعة **المكتملة** الأخيرة لا الجارية: الجارية تتراكم، فمقارنة
    حجمٍ نصفِ مكتمل بوسيط شمعاتٍ كاملة تقول «الحجم ضعيف» في أول دقائق
    كل شمعة ثم «قوي» في آخرها — تذبذبٌ مصدرُه القياس لا السوق. */
+/* =====================================================================
+   الحجم النسبيّ — **خطُّ الأساس من نفس نوع الجلسة**.
+
+   البديهيّ أن يُقارَن حجمُ الشمعة الأخيرة بوسيط العشرين السابقة. وهو
+   صحيحٌ داخل الجلسة الرسمية وخاطئٌ تماماً قبل الافتتاح: سلسلةُ الجلسة
+   الممتدة تخلط شمعاتِ ما قبل الافتتاح (آلافُ الأسهم) بشمعات الجلسة
+   الرسمية (ملايين)، فوسيطُها تحكمه الرسمية. فكلُّ شمعةٍ قبل الافتتاح
+   تخرج «ضعيفة الحجم» — كل صباح، لكل رمز، مهما كان الحجم استثنائياً.
+   NVDA اليوم ‎3.1‎ مليون سهمٍ قبل الافتتاح وتُقرأ ‎0.05×‎ من وسيطها
+   اليومي: رقمٌ صحيحٌ حسابياً يجيب سؤالاً لم يُطرح.
+
+   فالمقارنة تُقيَّد بنوع الجلسة: شمعةُ ما قبل الافتتاح تُقاس بوسيط
+   شمعات ما قبل الافتتاح. و`c.sessOf` تُمرَّر من المستدعي (التقويم
+   بيئةٌ، وهذا الملفّ رياضياتٌ خالصة) — وبدونها نسقط إلى السلوك القديم
+   بلا تقييد.
+   ===================================================================== */
 function volRatio(c, tf, win) {
-  var a = c.k[tf];
+  var a = (c.ik && c.ik[tf]) || c.k[tf];
   if (!a || a.length < 8) return null;
   var last = a[a.length - 2];
-  var med = volMedian(a.slice(0, -1), win || 20);
-  if (!last || !Number.isFinite(last.v) || !(last.v > 0) || !(med > 0)) return null;
+  if (!last || !Number.isFinite(last.v) || !(last.v > 0)) return null;
+  var base = a.slice(0, -1);
+  if (typeof c.sessOf === "function") {
+    var kind = c.sessOf(last.t);
+    var same = [];
+    for (var i = 0; i < base.length; i++) if (c.sessOf(base[i].t) === kind) same.push(base[i]);
+    /* ثماني شمعاتٍ حدٌّ أدنى للوسيط — أقلُّ منها يقيس حظّاً لا عادة.
+       وحين لا تكفي نعيد `null`: «لا نعرف» لا «الحجم عادي». */
+    if (same.length < 8) return null;
+    base = same;
+  }
+  var med = volMedian(base, win || 20);
+  if (!(med > 0)) return null;
   return last.v / med;
 }
 /* موضع الإغلاق داخل مدى الشمعة: ‎1‎ عند القمّة و‎0‎ عند القاع. شمعةُ
@@ -295,34 +413,39 @@ var STRATEGIES = [
   why: "أول خمس عشرة دقيقة من الجلسة ترسم نطاقاً يحمل معظم سيولة الافتتاح، والخروج منه بوضوح يُقرأ قراراً. لا يعمل إلا داخل الجلسة الرسمية وبعد اكتمال النطاق — ونطاقٌ قيد التكوّن لا يُكسَر.",
   ready: function (c) {
     if (!c.lv.iTf) return "لا فريم لحظي لهذا الرمز (الوضع المُصغَّر)";
-    if (c.sess !== "REGULAR") return "خارج الجلسة الرسمية — لا نطاق افتتاح";
-    if (!c.today) return "فترات الجلسة المحفوظة تصف يوماً سابقاً";
+    /* **كان `c.sess !== "REGULAR"`** — فتتعطّل الاستراتيجية في كل
+       جلسةٍ ممتدة. وهو شرطٌ كان صحيحاً بالبيانات القديمة: `k` لا تحوي
+       شمعةً واحدة قبل الافتتاح، فنطاقُ الافتتاح عليها فارغٌ حتماً.
+       الآن `c.ik` تصف الجلسة الجارية، و«نطاق الافتتاح» يعني نطاق
+       افتتاح **هذه** الجلسة — ولما قبل الافتتاح افتتاحٌ كما للرسمية. */
+    if (!c.win) return "خارج ساعات التداول — لا جلسة جارية";
+    if (!c.today) return "نافذة الجلسة لا تصف اللحظة الحالية";
     if (!c.lv.or) return "شمعات الافتتاح لم تصل بعد";
     if (!c.lv.or.complete) return "نطاق الافتتاح ما زال يتكوّن";
     return null;
   },
   side: function (c) {
-    var a = c.an[c.lv.iTf], or = c.lv.or;
+    var a = c.ian[c.lv.iTf], or = c.lv.or;
     if (!a || !or) return 0;
     var t = tolOf(a.atr);
     return c.px > or.hi + t ? 1 : (c.px < or.lo - t ? -1 : 0);
   },
   gates: [
     { id: "orClear", lbl: "وضوح الكسر", w: 2.0, kind: "price", v: function (c, d) {
-        var a = c.an[c.lv.iTf], or = c.lv.or;
+        var a = c.ian[c.lv.iTf], or = c.lv.or;
         if (!a || !or || !(a.atr > 0)) return null;
         var x = (c.px - (d > 0 ? or.hi : or.lo)) * d / a.atr;
         return x >= 0.4 ? 1 : (x >= 0.2 ? 0 : -1); } },
     { id: "orChase", lbl: "لم يفت الكسر", w: 1.5, kind: "price", v: function (c, d) {
-        var a = c.an[c.lv.iTf], or = c.lv.or;
+        var a = c.ian[c.lv.iTf], or = c.lv.or;
         if (!a || !or || !(a.atr > 0)) return null;
         var x = (c.px - (d > 0 ? or.hi : or.lo)) * d / a.atr;
         return x <= 1.5 ? 1 : (x <= 2.5 ? 0 : -1); } },
     { id: "vwapSide", lbl: "الجهة الصحيحة من VWAP", w: 2.0, kind: "price", v: function (c, d) {
-        var a = c.an[c.lv.iTf];
+        var a = c.ian[c.lv.iTf];
         return (c.lv.vwap && a) ? cmpD(c.px, c.lv.vwap.vwap, a.atr, d) : null; } },
     { id: "orWidth", lbl: "اتّساع نطاق معقول", w: 1.0, kind: "ind", v: function (c) {
-        var a = c.an[c.lv.iTf], or = c.lv.or;
+        var a = c.ian[c.lv.iTf], or = c.lv.or;
         if (!a || !or || !(a.atr > 0)) return null;
         return inRange((or.hi - or.lo) / a.atr, 0.8, 5); } },
     { id: "volConf", lbl: "حجم مؤكِّد", w: 1.5, kind: "ind", v: function (c) {
@@ -343,13 +466,18 @@ var STRATEGIES = [
   why: "VWAP متوسّط سعر الجلسة مرجّحاً بالحجم — سعرُ تعادلِ من دخلوا اليوم. وعبورُه رجوعاً بعد أن كان السعر في الجهة الأخرى تحوّلٌ في ميزان الجلسة. والشرط عبورٌ فعلي لا بقاءٌ في الجهة: شمعةٌ من الستّ الأخيرة على الجهة المقابلة.",
   ready: function (c) {
     if (!c.lv.iTf) return "لا فريم لحظي لهذا الرمز (الوضع المُصغَّر)";
-    if (c.sess !== "REGULAR") return "خارج الجلسة الرسمية — لا VWAP جلسة";
-    if (!c.today) return "فترات الجلسة المحفوظة تصف يوماً سابقاً";
-    if (!c.lv.vwap) return "لا حجم في شمعات الجلسة — وVWAP بلا حجم رقمٌ ملفّق";
+    if (!c.win) return "خارج ساعات التداول — لا جلسة جارية";
+    if (!c.today) return "نافذة الجلسة لا تصف اللحظة الحالية";
+    /* يبقى الشرط الأهمّ كما هو: VWAP بلا حجم رقمٌ ملفّق. وهو الذي
+       يُبقي الاستراتيجية صامتةً حين لا يعطي المزوّد حجماً ممتداً —
+       فالفتح أمام الجلسة الممتدة لا يعني اختراع بياناتها. */
+    if (!c.lv.vwap) return c.extSess
+      ? "لا حجم في الجلسة الممتدة عند هذا المزوّد — وVWAP بلا حجم رقمٌ ملفّق"
+      : "لا حجم في شمعات الجلسة — وVWAP بلا حجم رقمٌ ملفّق";
     return null;
   },
   side: function (c) {
-    var a = c.an[c.lv.iTf], vw = c.lv.vwap, k = c.k[c.lv.iTf];
+    var a = c.ian[c.lv.iTf], vw = c.lv.vwap, k = c.ik[c.lv.iTf];
     if (!a || !vw || !k) return 0;
     var t = tolOf(a.atr), r = k.slice(-6);
     if (c.px > vw.vwap + t && r.some(function (x) { return x.c < vw.vwap; })) return 1;
@@ -358,17 +486,17 @@ var STRATEGIES = [
   },
   gates: [
     { id: "vwDist", lbl: "قريب من VWAP", w: 2.0, kind: "price", v: function (c, d) {
-        var a = c.an[c.lv.iTf];
+        var a = c.ian[c.lv.iTf];
         if (!a || !(a.atr > 0) || !c.lv.vwap) return null;
         var x = (c.px - c.lv.vwap.vwap) * d / a.atr;
         return x <= 1 ? 1 : (x <= 2 ? 0 : -1); } },
     { id: "vwBand", lbl: "داخل شريط الانحراف", w: 1.5, kind: "price", v: function (c, d) {
-        var vw = c.lv.vwap, a = c.an[c.lv.iTf];
+        var vw = c.lv.vwap, a = c.ian[c.lv.iTf];
         if (!vw || !a) return null;
         // خارج ‎±1σ‎ في جهة الحركة امتدادٌ لا استعادة
         return cmpD(d > 0 ? vw.upper : vw.lower, c.px, a.atr, d); } },
     { id: "vwTrend", lbl: "المتوسّط القصير في الجهة", w: 1.5, kind: "ind", v: function (c, d) {
-        var a = c.an[c.lv.iTf];
+        var a = c.ian[c.lv.iTf];
         return (a && c.lv.vwap) ? cmpD(a.e20, c.lv.vwap.vwap, a.atr, d) : null; } },
     { id: "volConf", lbl: "حجم مؤكِّد", w: 1.5, kind: "ind", v: function (c) {
         var x = volRatio(c, c.lv.iTf, 20);
@@ -376,7 +504,7 @@ var STRATEGIES = [
     { id: "h1Trend", lbl: "موافقة فريم الساعة", w: 1.5, kind: "ind", v: function (c, d) {
         return c.an["1h"] ? agree(c.an["1h"].score, d, 15) : null; } },
     { id: "rsiRoom", lbl: "متّسع في RSI", w: 1.0, kind: "ind", v: function (c, d) {
-        var a = c.an[c.lv.iTf];
+        var a = c.ian[c.lv.iTf];
         if (!a || !Number.isFinite(a.rsi)) return null;
         var r = d > 0 ? a.rsi : 100 - a.rsi;
         return r <= 65 ? 1 : (r <= 75 ? 0 : -1); } },

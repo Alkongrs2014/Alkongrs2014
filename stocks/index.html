@@ -264,6 +264,14 @@ input:focus,select:focus{outline:none;border-color:var(--acc)}
   border-radius:11px;padding:11px 12px;font-size:13px;margin-top:10px}
 .ok{background:rgba(22,199,132,.09);border:1px solid rgba(22,199,132,.3);color:#8ce0c0;
   border-radius:11px;padding:11px 12px;font-size:13px;margin-top:10px}
+/* شريط الطزاجة داخل الترويسة، فيبقى مرئياً مهما كانت الشاشة أو موضع
+   التمرير — تحذيرٌ يحتاج تمريراً ليُرى لا يحذّر أحداً. */
+.stalebar{font-size:12.5px;padding:7px 12px;border-top:1px solid var(--line);
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;line-height:1.5}
+.stalebar[hidden]{display:none}
+.stalebar.late{background:rgba(245,185,18,.12);color:#f0c95a}
+.stalebar.dead{background:rgba(234,57,67,.16);color:#ffb3b8}
+.stalebar b{font-variant-numeric:tabular-nums}
 .note{background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.28);color:#e8cf8a;
   border-radius:11px;padding:11px 12px;font-size:12.5px}
 .news-item{display:block;padding:11px 0;border-bottom:1px solid var(--line)}
@@ -678,12 +686,20 @@ details[open]{background:var(--card2)}
       <div class="tb-sub">
         <span class="chip off" id="mkState">…</span>
         <span id="mkCountdown"></span>
+        <!-- متى يبدأ الماسح — بتوقيت الرياض، ومحسوبٌ من ‎04:00‎ نيويورك
+             فيتبع التوقيت الصيفي تلقائياً (‎11:00‎ صيفاً · ‎12:00‎ شتاءً) -->
+        <span id="scanStart" class="mut"></span>
         <span id="stamp">جارِ التحميل…</span>
       </div>
       </div>
     </div>
+    <button class="refresh" id="btnInstall" hidden aria-label="تثبيت التطبيق" title="تثبيت التطبيق">⤓</button>
     <button class="refresh" id="btnRefresh" aria-label="تحديث">⟳</button>
   </div>
+  <!-- حارس الطزاجة: `stale` على الصفّ تصف **رمزاً**، وهذا يصف **النظام**.
+       بلا هذا الشريط يتجمّد الموقع كلّه على آخر لقطة والزائر يرى سعراً
+       ورسماً ومؤشّرات تبدو سليمة — وهي كلّها من أمس. أخطر من شاشة فارغة. -->
+  <div id="staleBar" class="stalebar" role="status" hidden></div>
 </header>
 
 <main>
@@ -731,7 +747,9 @@ details[open]{background:var(--card2)}
 
   <div class="card">
     <h2>ميزان السوق الآن</h2>
-    <p class="hint">متوسط القراءة الفنية لأكبر 70 شركة على 4 فريمات زمنية</p>
+    <!-- العدد من البيانات لا من النصّ: كان مكتوباً «70» والكون ‎1155‎.
+         أربعةُ نصوصٍ كذبت دفعةً واحدة بتغييرٍ في ملفّ إعدادات. -->
+    <p class="hint">متوسط القراءة الفنية لـ<span id="mktUniv">…</span> على 4 فريمات زمنية</p>
     <div class="verdict" id="vVerdict">—</div>
     <div class="verdict-sub" id="vSub">—</div>
     <div class="meter">
@@ -743,7 +761,7 @@ details[open]{background:var(--card2)}
       <p>لكل سهم نقرأ على كل فريم: موقع السعر من متوسطات <b>EMA 20 / 50 / 200</b>، إشارة <b>MACD</b>،
       قيمة <b>RSI</b>، وموقع السعر داخل <b>بولنجر</b>. كل قراءة تعطي نقاطاً موجبة أو سالبة،
       والفريمات الكبيرة (يومي و4 ساعات) لها وزن أكبر لأنها أبطأ وأقل خداعاً.
-      ثم نأخذ متوسط نتائج الـ70 سهماً.</p>
+      ثم نأخذ متوسط نتائج الأسهم المرصودة.</p>
       <p><b>مهم:</b> هذا وصف لحالة السوق الحالية وليس تنبؤاً. المؤشرات تتأخر خلف السعر دائماً.
       لا تعتبرها توصية بيع أو شراء.</p>
     </details>
@@ -800,7 +818,7 @@ details[open]{background:var(--card2)}
 
   <div class="card">
     <h2>اتساع السوق</h2>
-    <p class="hint">كم سهماً من الـ70 صاعد وكم هابط — يكشف إن كانت الحركة عامة أم من أسهم قليلة</p>
+    <p class="hint">كم سهماً من المرصودة صاعد وكم هابط — يكشف إن كانت الحركة عامة أم من أسهم قليلة</p>
     <div id="breadth"><div class="skl" style="height:70px"></div></div>
     <details>
       <summary>لماذا الاتساع مهم؟</summary>
@@ -1200,7 +1218,17 @@ details[open]{background:var(--card2)}
 <section data-view="screen">
   <div class="card">
     <h2>ماسح الفرص</h2>
-    <p class="hint">مسح آلي على السبعين بشروط جاهزة — نقطة بداية للبحث لا توصية بالشراء</p>
+    <!-- العدد يأتي من `scanCount` بعد المسح: رقمٌ مكتوب في الصفحة يتقادم
+         مع أوّل توسيعٍ للكون، وكان يقول «السبعين» والكون ألفٌ ومئة. -->
+    <p class="hint">مسح آلي بشروط جاهزة على الكون كلّه — نقطة بداية للبحث لا توصية بالشراء</p>
+    <!-- إبرازُ ما كان مدفوناً في كاشفٍ مطويّ: أهمّ ما يميّز هذه الشاشة
+         أن حافّة كل شرط **مقيسة ومعروضة**، بما فيها السالبة. ومن لا يفتح
+         الكاشف يظنّها قائمة توصيات كأيّ قائمة. -->
+    <p class="srcline" style="border-right:2px solid var(--acc);padding-right:8px;margin-bottom:8px">
+      كلُّ شرطٍ هنا مقيسٌ على أرشيف عشر سنوات، و<b>حافّتُه معروضة كما خرجت</b> —
+      موجبةً كانت أو سالبة. أكثرُ الشروط تحقّقاً هو أسوأُها حافّةً، وهذا مكتوبٌ
+      بجانبه لا مخفيّ.
+    </p>
     <div class="scans" id="scanPicker"></div>
     <p class="scan-why" id="scanWhy"></p>
     <div id="scanHist"></div>
@@ -1494,7 +1522,7 @@ details[open]{background:var(--card2)}
       <p><b>ملاءة:</b> نسبة الدَّين إلى حقوق الملكية (مقارنةً بالقطاع)، ونسبة التداول،
       و<b>عائد التدفّق النقدي الحرّ</b>. وهذا البند كان غائباً كلّه — وترتيبُ الشركات بالربحية
       وحدها يضع أكثرها استدانةً في القمّة، وهي أوّل من يسقط عند أي ضائقة.</p>
-      <p>كل درجة <b>مرتبة مئوية بين السبعين</b>: 90 تعني أن الشركة تتفوّق على 90% منهن في ذلك البند.
+      <p>كل درجة <b>مرتبة مئوية بين الأسهم المرصودة</b>: 90 تعني أن الشركة تتفوّق على 90% منها في ذلك البند.
       والإجمالي متوسط الأبعاد الأربعة.</p>
       <p><b>البنك لا يُقاس بمقياس المصنع:</b> البنوك لا تُعلن نسبة تداول ولا EBITDA ولا تدفّقاً حرّاً
       بالمعنى نفسه، فتظهر لها «—» ولا تُحتسب عليها صفراً. والدرجة تُبنى مما توفّر ويُعلَن عدده.</p>
@@ -1804,6 +1832,7 @@ details[open]{background:var(--card2)}
 <script src="config.js"></script>
 <script src="score.js"></script>
 <script src="indicators.js"></script>
+<script src="session.js"></script>
 <script src="scans.js"></script>
 <!-- نواة الخطة وطبقة التقييم: نسخة واحدة يقرأها المتصفح والخادم، فما
      يحفظه السجلّ هو ما رآه المستخدم بالضبط لا حساباً موازياً له -->
@@ -2004,43 +2033,24 @@ function setFavOnly(on) {
 /* التقدير المحلي بساعات نيويورك — يُستخدم حين لا تصل فترات التداول من
    المصدر (يحدث حين يُحظر المزوّد الذي يوفّرها). بلا هذا كانت الترويسة
    تعرض "غير معروف" رغم أن الخادم حسب الحالة الصحيحة أصلاً. */
-function approxStatus(now) {
-  const p = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York", hour12: false,
-    weekday: "short", hour: "2-digit", minute: "2-digit"
-  }).formatToParts(now);
-  const g = (t) => (p.find(x => x.type === t) || {}).value;
-  const wd = g("weekday"), m = +g("hour") * 60 + +g("minute");
-  const off = { state: "CLOSED", ar: "السوق مغلق", cls: "off", next: null, nextAr: "" };
-  if (wd === "Sat" || wd === "Sun" || m < 240) return off;
-  if (m < 570) return { state: "PRE", ar: "ما قبل الافتتاح", cls: "pre", next: null, nextAr: "" };
-  if (m < 960) return { state: "REGULAR", ar: "السوق مفتوح", cls: "up", next: null, nextAr: "" };
-  if (m < 1200) return { state: "POST", ar: "بعد الإغلاق", cls: "pre", next: null, nextAr: "" };
-  return off;
-}
+/* =====================================================================
+   حالة السوق — من `session.js` المشترك، لا من نسخةٍ محلية.
+
+   كانت هنا نسختان: `approxStatus` بساعات نيويورك بلا عطلات، و
+   `marketStatus` تقرأ `period` المحفوظ من ياهو. وكلتاهما تختلف عن
+   حساب الخادم: الخادم يعرف العطلات وأنصاف الأيام والآن يعرف مرساة
+   الماسح، والمتصفّح لا. فيقول الماسح «ما قبل الافتتاح» والترويسة
+   «مغلق» في اللحظة نفسها — بلا خطأ، بنسختين.
+
+   الصنف (`cls`) يبقى هنا لأنه شأنُ عرضٍ خالص لا يعني الخادم شيئاً.
+   ===================================================================== */
+const SESS_CLS = { PRE: "pre", REGULAR: "up", AFTER: "pre", POST: "pre", CLOSED: "off", OPEN24: "up" };
 
 function marketStatus(period, now = Date.now()) {
-  if (!period || !period.regular) return approxStatus(now);
-  const { pre, regular, post } = period;
-  /* الفترات المحفوظة تصف يوم جلبها. حين تتوقّف مهمة الشمعات ليلاً وتبقى
-     الأسعار تتحدّث، تصير فترات الأمس هي المرجع فتُقرأ الترويسة "السوق
-     مغلق" والسوق مفتوح فعلاً. خارج نافذة يومها نرجع للتقدير بساعات
-     نيويورك — وهو مبنيّ على الوقت الحالي فلا يشيخ. */
-  const dayEnd = (post && post.end) || regular.end;
-  const dayStart = (pre && pre.start) || regular.start;
-  if (now > dayEnd || now < dayStart - 86400000) return approxStatus(now);
-  if (now >= regular.start && now < regular.end)
-    return { state: "REGULAR", ar: "السوق مفتوح", cls: "up", next: regular.end, nextAr: "يغلق بعد" };
-  if (pre && now >= pre.start && now < regular.start)
-    return { state: "PRE", ar: "ما قبل الافتتاح", cls: "pre", next: regular.start, nextAr: "يفتتح بعد" };
-  if (post && now >= regular.end && now < post.end)
-    return { state: "POST", ar: "بعد الإغلاق", cls: "pre", next: post.end, nextAr: "تنتهي الجلسة بعد" };
-
-  // خارج فترات اليوم — نقدّر الافتتاح القادم بتخطّي العطلة الأسبوعية
-  let nxt = regular.start;
-  let guard = 0;
-  while ((nxt <= now || [0, 6].includes(new Date(nxt).getUTCDay())) && guard++ < 10) nxt += 86400000;
-  return { state: "CLOSED", ar: "السوق مغلق", cls: "off", next: guard < 10 ? nxt : null, nextAr: "يفتتح تقريباً بعد" };
+  const st = statusAt(now);
+  return { state: st.state === "AFTER" ? "POST" : st.state,
+           ar: st.ar, cls: SESS_CLS[st.state] || "off",
+           next: st.next, nextAr: st.nextAr, half: st.half };
 }
 
 /* =======================================================================
@@ -2123,12 +2133,85 @@ function renderTop() {
   const st = marketStatus(state.market && state.market.period);
   const el = $("#mkState");
   el.className = "chip " + st.cls + (st.state === "REGULAR" ? " live" : "");
-  el.textContent = st.ar;
+  /* الجلسة الممتدة صارت حالةَ عملٍ لا حالةَ انتظار: الماسح يعمل فيها،
+     فالشارة تقول ذلك بدل أن تُقرأ «السوق مغلق فانتظر». */
+  const working = st.state === "PRE" || st.state === "POST";
+  el.textContent = st.ar + (working ? " · الماسح يعمل" : "");
+  if (working) el.classList.add("live");
   $("#mkCountdown").textContent = st.next ? `${st.nextAr} ${dur(st.next - Date.now())}` : "";
+
+  /* «يبدأ ‎11:00‎ صباحاً» — بتوقيت الرياض دائماً، ومحسوبةً من
+     ‎04:00‎ نيويورك فتتبع التوقيت الصيفي وحدها: ‎11:00‎ صيفاً
+     و‎12:00‎ شتاءً. رقمٌ مكتوب في النصّ يكذب نصف السنة. */
+  const sb = $("#scanStart");
+  if (sb) {
+    const now = Date.now();
+    const start = scanStartOf(now);
+    sb.textContent = working || st.state === "REGULAR"
+      ? `الماسح يعمل منذ ${ksaTime(start)}`
+      : `يبدأ الماسح ${ksaTime(nextScanStart(now) || start)}`;
+  }
+
+  /* عددُ الكون من البيانات لا من النصّ */
+  const uv = $("#mktUniv");
+  if (uv && state.summary && state.summary.rows) {
+    const n = state.summary.rows.filter(r => r.mkt !== "crypto").length;
+    uv.textContent = `${n} شركة`;
+  }
 
   const src = state.liveOn && (Date.now() - state.liveAt < 60000) ? "لحظي" : "من الملفات";
   const upd = state.summary && state.summary.updated;
   $("#stamp").textContent = state.lastOk ? `${src} · حُدّثت ${ago(upd)}` : "جارِ التحميل…";
+  renderStale();
+}
+
+/* =====================================================================
+   حارس الطزاجة — «لا شيء يبدو معطلاً» هي الحالة الخطرة.
+
+   حين يتوقّف الجهاز أو المجدول أو تنقطع الشبكة، يبقى الموقع المنشور
+   يعرض آخر لقطة: سعرٌ ورسمٌ ومؤشّرات وخططٌ **كلّها تبدو سليمة** وكلّها
+   من أمس. ولا شيء في الواجهة كان يقول ذلك — الشارة `قديم` على الصفّ
+   تصف رمزاً تخلّف عن إخوته، لا نظاماً توقّف كلّه.
+
+   والعتبة **نسبةٌ من دورة كل مهمة** لا رقمٌ واحد: تأخّرُ خمس دقائق
+   كارثةٌ في دورة الدقيقتين وطبيعيٌّ تماماً في دورة نصف الساعة. */
+const FRESH = [
+  { k: "quotesRun",      cyc:  2, ar: "الأسعار" },
+  { k: "marketUpdated",  cyc: 10, ar: "الشموع والمؤشّرات" },
+  { k: "filingsUpdated", cyc: 10, ar: "إيداعات SEC" },
+  { k: "optionsUpdated", cyc: 30, ar: "عقود الخيارات" }
+];
+
+function renderStale() {
+  const bar = $("#staleBar");
+  if (!bar) return;
+  const m = state.meta;
+  if (!m) { bar.hidden = true; return; }
+  const now = Date.now();
+
+  const rows = [];
+  for (const f of FRESH) {
+    const v = m[f.k];
+    // `quotesRun` كائنٌ بحقل `at`، وبقيتُها أرقامٌ مباشرة
+    const at = typeof v === "object" && v ? Date.parse(v.at) : v;
+    if (!Number.isFinite(at)) continue;
+    const mins = (now - at) / 60000;
+    // ‎2.5‎ دورة = تأخّر · ‎6‎ دورات = متوقّف. ودورةٌ واحدة فائتة طبيعية:
+    // القفل يجعل المهمة تنتظر دورها، وهذا تصميمٌ لا عطل.
+    const r = mins / f.cyc;
+    if (r >= 2.5) rows.push({ ar: f.ar, at, dead: r >= 6 });
+  }
+  if (!rows.length) { bar.hidden = true; return; }
+
+  const dead = rows.some(r => r.dead);
+  bar.className = "stalebar " + (dead ? "dead" : "late");
+  bar.hidden = false;
+  /* النصّ يسمّي **ما** توقّف و**منذ متى**: «البيانات قديمة» وحدها لا
+     تخبر المستخدم أيَّ جزءٍ من الشاشة يصدّق. و`age` لا `dur` — الأخيرة
+     عدّادٌ بصيغة ساعة الحائط ومصيدةٌ موثّقة. */
+  bar.innerHTML = (dead ? "توقّف التحديث · " : "تأخّر التحديث · ") +
+    rows.map(r => esc(r.ar) + " منذ <b>" + esc(age(now - r.at)) + "</b>").join(" · ") +
+    (dead ? " — الأرقام المعروضة قديمة، لا تُبنى عليها قرارات." : "");
 }
 
 /* =====================================================================
@@ -7234,6 +7317,12 @@ function syncTabs(active) {
 const scState = { sym: null, res: null, cons: null, ctx: null, hi: -1 };
 
 /* أنماط الحالة الستّ — ترث ألوان التطبيق ولا تستعمل إيموجي */
+/* طول شمعة كل فريم بالملّي — لمعرفة متى يتأخّر وصولُ شمعةٍ جديدة.
+   الاسم `TF_MS` لأن `TFS` مأخوذ في الملفّات المشتركة، وتعارضُ اسمٍ بين
+   الصفحة وملفٍّ مشترك يغلب فيه آخرُ تحميل بلا أي خطأ — مصيدة `pctRank`
+   الموثّقة، ويحرسها `check-ui`. */
+const TF_MS = { "5m": 3e5, "15m": 9e5, "1h": 36e5, "4h": 144e5, "1d": 864e5 };
+
 const SC_ST = {
   NEW: "var(--up)", FRESH: "var(--up)", ACTIVE: "var(--neu)",
   LATE: "#d98b4f", EXTENDED: "#d98b4f", EXPIRED: "var(--dn)"
@@ -7321,7 +7410,13 @@ async function scAnalyze(sym) {
     const rec = await getSymbol(sym);
     const now = Date.now();
     const st = marketStatus(rec.period || (state.market && state.market.period), now);
-    const ctx = buildCtx({ rec, row, now, px: row.p, sess: st.state, wide: !scIsCore(sym) });
+    /* النافذة والمصنّف يُمرَّران كما يمرّرهما الخادم بالضبط — وإلا
+       حسب المتصفّح نطاقَ افتتاحٍ لجلسةٍ أخرى وعرض نتيجةً غير التي
+       يحفظها السجلّ. نفس سبب مشاركة `plan.js` و`scans.js`. */
+    const mkt = rec.mkt || row.mkt || null;
+    const ctx = buildCtx({ rec, row, now, px: row.p, sess: sessionOf(now, mkt),
+                           win: currentWindow(now, mkt), sessOf: (t) => sessionOf(t, mkt),
+                           wide: !scIsCore(sym) });
     const res = evalAll(ctx);
     // الطزاجة وجودة الدخول تحتاجان لحظةَ البدء — من الخادم لا من الآن
     for (const r of res) {
@@ -7518,7 +7613,37 @@ function scRow(r, E, ctx) {
     </summary>
       <p class="hint">${esc(why)}</p>
       <p class="mut" style="font-size:12px">عائلة: ${esc(famT)} · فريم المشغِّل: ${esc(tfName(r.tfUsed || r.tf))}${
-        (r.tfUsed && r.tfUsed !== r.tf) ? ` <em>(سقط إلى اليومي — الفريم اللحظي غير متاح لهذا الرمز)</em>` : ""
+        /* عمرُ الشمعة لا اسمُ الفريم وحده: صفٌّ محسوبٌ على شمعة أمس يبدو
+           لحظياً تماماً كجاره ما لم يُقَل عمرُه — وهو ما وصفه المستخدمون
+           بـ«بيانات متأخرة أو غير صحيحة»: الرقم صحيح ويصف لحظةً أخرى.
+
+           ويُحسب من `ctx` لا من صفّ الخادم: هذه البطاقة تُعيد التقييم في
+           المتصفّح بالسعر الحيّ، فقراءةُ زمنٍ محفوظ من دورةٍ سابقة تصف
+           حساباً آخر غير المعروض. والتحذير عند تجاوز الشمعةِ ضِعفَ طولها
+           — أي أن شمعةً جديدة كان يجب أن تُغلق ولم تصل. */
+        (() => {
+          const tfU = r.tfUsed || r.tf;
+          const kk = ctx && ctx.k && ctx.k[tfU];
+          if (!kk || !kk.length) return "";
+          const ageMs = Date.now() - kk[kk.length - 1].t;
+          const len = TF_MS[tfU] || 0;
+          const late = len && ageMs > len * 2;
+          return ` · آخر شمعة <b class="num"${late ? ' style="color:var(--neu)"' : ""}>${esc(ageShort(ageMs))}</b>`;
+        })()
+      }${
+        /* النصّ يشترط أن يكون الفريم المعلَن **غائباً فعلاً**، ولا
+           يفترض سبباً.
+
+           كان ثابتاً على «سقط إلى اليومي» وهو خطأ من وجهين: الفريم قد
+           ينزل إلى ‎15د‎ لا إلى اليومي (نطاق الافتتاح على الكريبتو، حيث
+           ‎260‎ شمعة خمسِ دقائق لا تصل إلى بداية يوم UTC)، و**أكثرُ
+           الاختلافات ليست سقوطاً أصلاً**: `iTf15` تُفضّل ‎15د‎ بالتصميم
+           في استراتيجياتٍ فريمُها المعلَن ساعة. فكان يقول «ساعة غير
+           متاح» ولملفّ الرمز شمعاتُ ساعةٍ كاملة — عذرٌ مخترَع عن قرارٍ
+           مقصود، وهو أسوأ من الصمت. */
+        (r.tfUsed && r.tfUsed !== r.tf && ctx && ctx.k && !ctx.k[r.tf])
+          ? ` <em>(${esc(tfName(r.tf))} غير متاح لهذا الرمز — الحساب على ${esc(tfName(r.tfUsed))})</em>`
+          : ""
       }${p ? ` · مقياس الصفقة: ${esc(tfName(p.atrTf))}` : ""}</p>
 
       ${stT ? `<div class="note"><b>${esc(stT.t)}</b> — ${esc(stT.why)}${
@@ -8021,6 +8146,10 @@ async function refresh(force = false) {
   }).catch(() => {});
   // تقويم الفدرالي — يومي، وغيابه يُخفي البطاقة لا يكسر الصفحة
   getJSON("events.json").then(j => { state.events = j; renderEvents(); }).catch(() => {});
+  /* حالة المهام — منها وحدها يُعرف أن التحديث توقّف. وفشلُ جلبها يترك
+     الشريط مخفيّاً: «لا أعرف» ليست «متوقّف»، وإنذارٌ من غياب ملفٍ
+     إنذارٌ كاذب يُدرَّب المستخدم على تجاهله. */
+  getJSON("meta.json").then(j => { state.meta = j; renderStale(); }).catch(() => {});
   // سجلّ الإشارات نفسه — منه تعرف شاشة السهم متى ظهرت الإشارة وما بلغه
   // السعر بعدها، وبلا لحظة بداية لا معنى لـ"تحقق المستوى"
   getJSON("signals.json").then(j => {
@@ -8062,15 +8191,49 @@ function boot() {
   const link = document.createElement("link");
   link.rel = "icon"; link.type = "image/svg+xml"; link.href = ICON;
   document.head.appendChild(link);
-  try {
-    const man = {
-      name: "مرصد الأسهم الأمريكية", short_name: "الأسهم", start_url: ".", scope: ".",
-      display: "standalone", orientation: "portrait", dir: "rtl", lang: "ar",
-      background_color: "#0b0e13", theme_color: "#0b0e13",
-      icons: [{ src: ICON, sizes: "any", type: "image/svg+xml", purpose: "any" }]
-    };
-    $("#manifest").href = URL.createObjectURL(new Blob([JSON.stringify(man)], { type: "application/manifest+json" }));
-  } catch (e) {}
+  /* =====================================================================
+     المنيفست ملفٌّ حقيقيّ لا Blob.
+
+     كان يُولَّد في الذاكرة ويُربط بـ `URL.createObjectURL`، وهو يبدو
+     سليماً في أدوات المطوّر ولا يُثبِّت شيئاً: كروم يشترط منيفستاً من
+     **نفس الأصل** ليعدّ التطبيق قابلاً للتثبيت، و`start_url` و`scope`
+     النسبيّان يُحلّان عندئذٍ مقابل عنوان الـBlob لا مقابل الصفحة —
+     فيخرجان خارج النطاق. فلا يظهر زرّ التثبيت ولا شيء يقول لماذا.
+
+     ولذلك `manifest.json` و`icon.svg` ملفّان في `CORE` داخل `sw.js`،
+     و`check-ui` يحرس تطابق القائمتين. */
+  $("#manifest").href = "manifest.json";
+
+  /* =====================================================================
+     زرّ التثبيت — يظهر حين يسمح المتصفّح وحده.
+
+     `beforeinstallprompt` لا يُطلق إلا إذا استوفت الصفحة شروط التثبيت
+     ولم تكن مثبَّتةً أصلاً. فزرٌّ ثابتٌ في الواجهة يكون **معطَّلاً في
+     أغلب الحالات** — على iOS الذي لا يدعم الحدث، وداخل التطبيق
+     المثبَّت نفسه. فالزرّ يُبنى من الحدث لا العكس.
+
+     ولا `Notification` ولا `push` هنا بقرارٍ صريح: التنبيهات خارج نطاق
+     هذه المرحلة. */
+  let installEvt = null;
+  addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    installEvt = e;
+    const b = $("#btnInstall");
+    if (b) b.hidden = false;
+  });
+  addEventListener("appinstalled", () => {
+    installEvt = null;
+    const b = $("#btnInstall");
+    if (b) b.hidden = true;
+  });
+  const bi = $("#btnInstall");
+  if (bi) bi.onclick = async () => {
+    if (!installEvt) return;
+    bi.hidden = true;                    // الحدث يُستهلك مرّة واحدة
+    installEvt.prompt();
+    try { await installEvt.userChoice; } catch (e) {}
+    installEvt = null;
+  };
 
   state.favs = (load("favs", []) || []).filter(x => typeof x === "string");
   state.chartOv = load("chartOv", true) !== false;
