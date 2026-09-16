@@ -25,6 +25,7 @@ const { SCANS, forcedDir } = require("../stocks/scans.js");
 // نفس نواة الخطة وطبقة التقييم التي يقرأها المتصفح — نسخةٌ ثانية هنا
 // تجعل السجلّ يقول إن الهدف كان 106 والمستخدم رأى 112
 const { levelsFrom, planFrom, planPair, planDirOf, validatePlan } = require("../stocks/plan.js");
+const { resolveOpp, conflictOf } = require("../stocks/direction.js");
 const { freshness, scanTF, entryQuality, etaFor, horizonsOf } = require("../stocks/evaluate.js");
 // حدود النطاقات من نواة النتيجة نفسها: كانت مكتوبة هنا مرةً ثانية، وكان
 // `bandOf` المحلي يخالف `labelOf` عند الحدّ بالضبط (‎−45‎ عنده «هابط قوي»
@@ -218,7 +219,13 @@ export function buildSnap({ row, sym, an, k4h, k1d, f, at }) {
   /* `row.__scan` هو الشرط الذي أطلق هذه الإشارة — والشرط قد يفرض اتجاه
      خطته. يُقرأ هنا لا في المتصفح وحده: السجلّ يحفظ ما رآه المستخدم،
      فاختلافُ الاتجاه بين الخادم والواجهة يجعل المحفوظ غير المرئي. */
-  const dir = planDirOf(row.score, forcedDir(row.__scan));
+  /* الاتجاه يصل **محلولاً** من `resolveOpp` على مستوى الرمز، ولا
+     يُشتقّ هنا لكلّ شرطٍ على حدة: سهمٌ يُطلق `alignDn` و`divBull` معاً
+     كان يخرج بسجلّين متعاكسين للحظة الواحدة — والواجهة تعرض اتجاهاً
+     واحداً، فيصير المحفوظ غير المرئي. و`planDirOf` تبقى البديل حين
+     يُنادى `buildSnap` بلا قرارٍ مسبق (الفحص الذاتي والأرشيف). */
+  const dir = (row.__dir === 1 || row.__dir === -1)
+    ? row.__dir : planDirOf(row.score, forcedDir(row.__scan));
   const { a: p, b: pb } = planPair({ px: L.px, atr, resAll: L.resAll, supAll: L.supAll }, dir);
   if (!p) return null;
   const bad = validatePlan(p);
@@ -362,9 +369,21 @@ export function updateOutcome(sig, price, now, tr = "a") {
     if ((price - tp) * d >= 0) out.hit[i] = now;
   });
   const reached = out.hit.filter(x => x !== null).length;
-  if (reached >= 3) { out.st = "t3"; sig[T.open] = false; sig[T.closed] = now; }
-  else if (reached === 2) out.st = "t2";
-  else if (reached === 1) out.st = "t1";
+  if (reached) out.st = `t${reached}`;
+  /* الفرصة تكتمل ببلوغ **كلّ** أهدافها لا ببلوغ ثلاثة.
+
+     كان الشرط `reached >= 3` — رقمٌ مثبَّت يفترض ضمناً أن كلّ خطة
+     ثلاثية الأهداف. والافتراض يسقط في ‎141‎ من ‎399‎ سجلاً مفتوحاً
+     (‎50‎ بلا هدف · ‎43‎ بهدف · ‎48‎ بهدفين): خطةٌ بهدفين تبلغ هدفيها
+     **كليهما** فتبقى «جارية» حتى ينتهي أفقُها بعد ‎28‎ يوماً. وأثرُه
+     ليس إحصائياً فقط: `openKey` يمنع أيّ إشارة جديدة لنفس
+     `الرمز|الشرط` ما دامت مفتوحة، فتُحجب الشركة عن تحليلٍ جديد
+     شهراً كاملاً بينما فرصتُها المعروضة انتهت فعلاً.
+
+     والمقام لا يتأثّر: `hitRate` يشترط `tgts(s).length > i` أصلاً،
+     فخطةٌ بهدفين لا تدخل مقام الهدف الثالث لا قبل التعديل ولا بعده. */
+  const nT = TG.filter(Number.isFinite).length;
+  if (nT > 0 && reached >= nT) { sig[T.open] = false; sig[T.closed] = now; }
 
   // ٤) انتهاء الأفق وهي مفتوحة
   if (sig[T.open] && now - sig.at >= HOLD_DAYS * DAY) {
@@ -544,6 +563,31 @@ async function main() {
   if (reDir) console.log(`  ⟳ هجرة سياسة الاتجاه: أُغلق ${reDir} سجلاً بُني باتجاه النتيجة`);
   if (gone) console.log(`  ⟳ شروطٌ أُزيلت: أُغلق ${gone} سجلاً بلا تعريف`);
 
+  /* ٠ب٢) سجلٌّ فُرض اتجاهُه ضدّ قراءةٍ قاطعة — سياسةٌ لم تعد قائمة.
+
+     كان الفرض مطلقاً: شرطٌ يحمل `planDir` يغلب النتيجة مهما بلغت. فسهمٌ
+     نتيجتُه ‎−88.8‎ وفريماتُه الأربعة هابطة تُبنى له خطةُ **شراء** لأن
+     `low52` أو `vol` يُطلق — وهو ما بلّغ عنه المستخدم في `AVGO`. الفرض
+     الآن مقيَّد بألّا يعاكس نطاقاً متطرّفاً، فسجلّاتُ السياسة السابقة
+     تُغلق ولا تُحوَّل: `snap` تُكتب مرّة ولا تُلمس، و`mfe`/`mae` مسارٌ
+     تراكمي لا يُشتقّ من سعرٍ واحد.
+
+     والحكم بنتيجة السجلّ **لحظة إشارته** (`sc`) لا بنتيجة اليوم: الحكم
+     ببيانات لاحقة هو بعينه النظرُ إلى المستقبل الذي تمنعه المرحلة
+     الثامنة. وسجلٌّ بلا `sc` لا يُحكم عليه — «لا نعرف» ليست «مخالف». */
+  let uniDir = 0;
+  for (const sig of records) {
+    if (sig.conv || !sig.snap) continue;
+    const fd = forcedDir(sig.scan);
+    if (fd !== 1 && fd !== -1) continue;
+    if (!Number.isFinite(sig.sc)) continue;
+    if (!conflictOf(fd, bandOf(sig.sc))) continue;
+    sig.conv = "unidir";
+    if (sig.open) { sig.open = false; sig.closed = now; }
+    uniDir++;
+  }
+  if (uniDir) console.log(`  ⟳ توحيد الاتجاه: أُغلق ${uniDir} سجلاً فُرض اتجاهُه ضدّ قراءةٍ قاطعة`);
+
   /* ٠ج) لقطةٌ لا تصف خطةً صالحة — تُغلق ولا تُصحَّح.
 
      `snap` تُكتب مرّة ولا تُلمس، وهذا الفصل هو ما يمنع النظر إلى
@@ -603,12 +647,22 @@ async function main() {
 
   const openNow = new Set(records.filter(s => s.open).map(openKey));
   let added = 0, snapped = 0, noSnap = 0;
+  let conflicted = 0, offDir = 0;
   for (const r of rows) {
     const f = F[r.s] || null;
-    for (const scan of SCANS) {
-      let hit = false;
-      try { hit = !!scan.test(r, f, ctx); } catch { hit = false; }
-      if (!hit) continue;
+    /* قرارُ الاتجاه مرّةً للرمز لا مرّةً لكلّ شرط — نفس `oppDirOf` في
+       الواجهة وبنفس الملفّ المشترك، وإلا حفظ الخادم إشارةً لا تُعرض أو
+       عرضت الواجهة فرصةً لا تُقاس. */
+    const hitScans = SCANS.filter(sc => { try { return !!sc.test(r, f, ctx); } catch { return false; } });
+    if (!hitScans.length) continue;
+    const R = resolveOpp({ score: r.score, band: r.band,
+      hits: hitScans.map(sc => ({ id: sc.id, dir: sc.dir === -1 ? -1 : 1, forced: forcedDir(sc.id) })) });
+    // تعارضٌ جوهري: لا فرصة تُعرض فلا إشارة تُسجَّل
+    if (!R.dir) { conflicted += hitScans.length; continue; }
+    const keepIds = new Set(R.kept.map(h => h.id));
+    for (const scan of hitScans) {
+      // شرطٌ لا يوافق اتجاه الرمز يسقط — لا يُسجَّل بجهةٍ تخالف المعروض
+      if (!keepIds.has(scan.id)) { offDir++; continue; }
       const key = `${r.s}|${scan.id}`;
       if (openNow.has(key)) continue;
       if (!(r.p > 0)) continue;
@@ -618,7 +672,7 @@ async function main() {
       let snap = null;
       try {
         const sf = symFile(r.s);
-        if (sf) snap = buildSnap({ row: { ...r, __scan: scan.id }, sym: r.s, an: sf.an,
+        if (sf) snap = buildSnap({ row: { ...r, __scan: scan.id, __dir: R.dir }, sym: r.s, an: sf.an,
           k4h: sf.tf && sf.tf["4h"] && sf.tf["4h"].c, k1d: sf.tf && sf.tf["1d"] && sf.tf["1d"].c,
           f, at: now });
       } catch (e) { console.warn(`  ⚠ لقطة ${r.s}: ${e.message}`); }
@@ -741,7 +795,7 @@ async function main() {
   fs.writeFileSync(path.join(OUT, "meta.json"), JSON.stringify({
     ...prevMeta, signalsUpdated: now,
     signalsRun: { at: new Date(now).toISOString(), open: openRecs.length, history: hist.length,
-                  added, closed: closedNow, snapped, noSnap,
+                  added, closed: closedNow, snapped, noSnap, conflicted, offDir,
                   trendSyms: Object.keys(syms).length,
                   trendPts: Object.values(syms).reduce((a, b) => a + b.length, 0) }
   }));
@@ -749,6 +803,10 @@ async function main() {
   const st = outcomeStats(all), stB = outcomeStats(all, "b");
   console.log(`✔ ${openRecs.length} مفتوحة · ${hist.length} في السجلّ (+${added} جديدة · ${closedNow} أُغلقت اليوم)`);
   if (added) console.log(`  لقطات: ${snapped} بُنيت${noSnap ? ` · ${noSnap} بلا لقطة (لا ملف شمعات)` : ""}`);
+  /* التعارض يُقال ولا يُبتلع: حجبُ فرصةٍ حدثٌ يستحقّ سطراً، وصمتُه
+     يجعل «لماذا اختفى هذا السهم؟» سؤالاً بلا جواب. */
+  if (conflicted || offDir)
+    console.log(`  اتجاه: ${conflicted} شرطاً حُجب بتعارضٍ جوهري · ${offDir} أُسقط لمخالفته اتجاه رمزه`);
   console.log(`  دخول الارتداد: ${st.open} جارية · ${st.waiting} تنتظر الدخول · ${st.closed} مغلقة` +
     (st.closed ? ` (${st.win} رابحة · ${st.loss} خاسرة)` : "") +
     (st.t1 !== null ? ` · الهدف الأول ${st.t1}%` : ""));
@@ -934,6 +992,37 @@ function selfCheck() {
     eq(s.out.st, "t2", "الهدف الثاني");
     updateOutcome(s, 119, T0 + 24e5);
     eq([s.out.st, s.open, verdictOf(s)], ["t3", false, "win"], "الثالث يُغلق الصفقة رابحة");
+  });
+
+  t("خطةٌ بهدفين تُغلق ببلوغ هدفيها — لا تنتظر ثالثاً لا وجود له", () => {
+    /* كان `reached >= 3` مثبَّتاً، فخطةٌ بهدفين تبلغ كلَّ ما وعدت به
+       وتبقى «جارية» حتى ينتهي أفقُها — و`openKey` يحجب الشركة عن أيّ
+       إشارة جديدة طوال المدّة. */
+    const s = mkSig({ snap: { px: 100, e: 98, s: 95, atr: 3, dir: 1, t: [104, 110] },
+                      out: { st: "wait", hit: [null, null], stopAt: null, enterAt: null } });
+    updateOutcome(s, 98, T0 + 6e5);
+    updateOutcome(s, 105, T0 + 12e5);
+    eq([s.out.st, s.open], ["t1", true], "الأول لا يُغلق — بقي هدف");
+    updateOutcome(s, 111, T0 + 18e5);
+    eq([s.out.st, s.open, verdictOf(s)], ["t2", false, "win"], "الثاني آخرُها فتُغلق رابحة");
+  });
+
+  t("خطةٌ بهدفٍ واحد تُغلق ببلوغه", () => {
+    const s = mkSig({ snap: { px: 100, e: 98, s: 95, atr: 3, dir: 1, t: [104] },
+                      out: { st: "wait", hit: [null], stopAt: null, enterAt: null } });
+    updateOutcome(s, 98, T0 + 6e5);
+    updateOutcome(s, 105, T0 + 12e5);
+    eq([s.out.st, s.open, verdictOf(s)], ["t1", false, "win"], "هدفٌ واحد بلغه فاكتملت");
+  });
+
+  t("خطةٌ هابطة بهدفين تُغلق كذلك — التعديل موقَّع لا خاصٌّ بالصعود", () => {
+    const s = mkSig({ snap: { px: 100, e: 102, s: 105, atr: 3, dir: -1, t: [96, 90] },
+                      out: { st: "wait", hit: [null, null], stopAt: null, enterAt: null } });
+    updateOutcome(s, 102, T0 + 6e5);
+    updateOutcome(s, 95,  T0 + 12e5);
+    eq([s.out.st, s.open], ["t1", true], "الأول وحده");
+    updateOutcome(s, 89,  T0 + 18e5);
+    eq([s.out.st, s.open, verdictOf(s)], ["t2", false, "win"], "بلغت هدفيها الهابطين");
   });
 
   t("الوقف يُغلق الصفقة خاسرة ويمنع تسجيل هدف بعده", () => {

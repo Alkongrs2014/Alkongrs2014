@@ -144,16 +144,54 @@ export async function fetchCandles(sym, { interval = "1d" } = {}) {
    حجمُه مليار وحدة من عملةٍ سعرها جزءٌ من سنت ليس أكثر سيولةً من زوجٍ
    حجمُه ألف بيتكوين.
    ===================================================================== */
-export async function listUsdtPairs({ minQuoteVolume = 0 } = {}) {
+/* =====================================================================
+   السهم الأمريكي المرمَّز عند Binance ليس عملةً — ويُستبعَد **بالهوية
+   السعرية** لا بنمطٍ نصّي.
+
+   القياس الذي أوجب هذا: `AAPLBUSDT` و`SPYBUSDT` و`NVDABUSDT` وأمثالُها
+   أصولٌ حيّة تُتداول فعلاً، فتسرّب منها ‎34‎ رمزاً إلى كون الكريبتو —
+   أي أن `AAPL` كانت في التطبيق مرّتين: سهماً حقيقياً و«عملة» اسمها
+   `AAPLB-USD`. وهي أسوأ من رمزٍ زائد: سعرُها يتتبّع السهم ضمن ‎0.1%‎
+   فتبدو سليمة تماماً، بينما **حجمُها ‎0.0006%–0.023%‎ من حجم السهم
+   الحقيقي** (MSFT: ‎207‎ سهماً مقابل ‎35.4‎ مليون) وشمعاتُها ‎24/7‎ لا
+   على شبكة جلسة نيويورك. فكلُّ بوابة حجمٍ عليها ضجيج، وكلُّ حسابِ
+   جلسةٍ (VWAP، نطاق الافتتاح، البيفوت) يُبنى على شبكةٍ خاطئة.
+
+   **ولا يصلح النمط النصّي** `/B$/`: `BNB` و`SHIB` و`ARB` و`TRB` و`CKB`
+   و`DGB` عملاتٌ حقيقية تنتهي بالحرف نفسه — وحذفُها يمحو بايننس كوين
+   وشيبا إينو وأربيتروم. والمميّز الصحيح أن المرمَّز **يتتبّع سهمه**:
+   الفجوة المقيسة بين أقصى مرمَّز (‎0.43%‎) وأدنى كريبتو (‎99.91%‎)
+   واسعةٌ بحيث لا التباس. وهذا هو مبدأ «الدمج بالهوية لا بالاسم» نفسه
+   الذي حلّ `GOOGL`/`GOOG` بـ`cik.json`.
+
+   و`stockPx` اختيارية: بلا أسعار أسهم لا يُستبعد شيء **ويُعلَن ذلك** —
+   مرشِّحٌ صامتٌ عاجز أسوأ من غيابه. */
+const TOKENIZED_TOL = 0.03;
+export function tokenizedStocks(pairs, stockPx) {
+  const out = new Set();
+  if (!stockPx || !stockPx.size) return out;
+  for (const t of pairs) {
+    const base = t.sym.replace(/USDT$/, "");
+    if (!/B$/.test(base)) continue;
+    const px = stockPx.get(base.slice(0, -1));
+    if (!(px > 0) || !(t.price > 0)) continue;
+    if (Math.abs(t.price - px) / px < TOKENIZED_TOL) out.add(t.sym);
+  }
+  return out;
+}
+
+export async function listUsdtPairs({ minQuoteVolume = 0, stockPx = null } = {}) {
   const tick = await fetchTickers({ maxAge: 0 });
   /* العملات المستقرّة تُستبعد: `USDCUSDT` تصدّرت قائمة الحجم وسعرها ثابت
      عند الواحد، فكلُّ مؤشّرٍ فنيّ عليها ضجيجٌ حول خطٍّ مستقيم. */
   const STABLE = /^(USDC|FDUSD|TUSD|BUSD|USD1|DAI|USDP|EURI|AEUR|XUSD|USDE|PYUSD|RLUSD|USDS|USDF|FDUSDT)$/;
-  return [...tick.values()]
+  const all = [...tick.values()]
     .filter(t => t.quoteVolume >= minQuoteVolume)
     .filter(t => !STABLE.test(t.sym.replace(/USDT$/, "")))
     /* الرافعة المرمَّزة (`BTCUP`/`ETHDOWN`) مشتقّاتٌ تتآكل يومياً ولا
        تتبع الأصل — عرضُها كعملةٍ يضلّل. */
     .filter(t => !/(UP|DOWN|BULL|BEAR)USDT$/.test(t.sym))
     .sort((a, b) => b.quoteVolume - a.quoteVolume);
+  const tok = tokenizedStocks(all, stockPx);
+  return tok.size ? all.filter(t => !tok.has(t.sym)) : all;
 }

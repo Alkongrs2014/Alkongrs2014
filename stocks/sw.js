@@ -19,7 +19,7 @@
    غير متوقّع يجعل العامل وسيطاً لا يُراجَع.
    ===================================================================== */
 
-const V = "webtrade-v14";
+const V = "webtrade-v15";
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";
@@ -35,7 +35,7 @@ const FONT = V + "-font";
    في الزيارة الأولى — وقع هذا فعلاً وأوهم أن السكربت لا يُحمَّل. */
 const CORE = ["./", "./index.html", "./config.js", "./score.js",
               "./session.js",
-              "./indicators.js", "./scans.js", "./plan.js", "./evaluate.js",
+              "./indicators.js", "./scans.js", "./plan.js", "./direction.js", "./evaluate.js",
   "./strategies.js",
   "./consensus.js",
   "./confluence.js",

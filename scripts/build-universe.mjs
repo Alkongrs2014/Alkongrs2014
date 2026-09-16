@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchQuotes } from "./lib/yahoo.mjs";
-import { listUsdtPairs } from "./lib/binance.mjs";
+import { listUsdtPairs, tokenizedStocks } from "./lib/binance.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CFG_PATH = path.join(ROOT, "stocks/symbols.json");
@@ -181,8 +181,25 @@ async function main() {
 
   /* ---------- الكريبتو من Binance بطبقتين ---------- */
   console.log("  جلب كون Binance …");
-  const pairs = await listUsdtPairs();
+  /* أسعار الأسهم الحقيقية — مفتاحُ استبعاد الأسهم المرمَّزة عند
+     Binance (`AAPLB` · `NVDAB` · `SPYB` …). المقارنة بالسعر لأن النمط
+     النصّي يمحو `BNB` و`SHIB` و`ARB` معها. */
+  const stockPx = new Map();
+  for (const c of [...cfg.symbols, ...wide]) {
+    const px = quotes[c.s]?.regularMarketPrice;
+    if (px > 0) stockPx.set(c.s, px);
+  }
+  /* نداءٌ واحد ثم ترشيحٌ محلّي: `listUsdtPairs({ stockPx })` مرّةً ثانية
+     يعيد ضرب الشبكة بلا داعٍ (`fetchTickers` بـ`maxAge: 0`). */
+  const pairsAll = await listUsdtPairs();
+  const tokSet = tokenizedStocks(pairsAll, stockPx);
+  const pairs = pairsAll.filter(t => !tokSet.has(t.sym));
   if (pairs.length < 100) throw new Error(`${pairs.length} زوجاً فقط — يبدو خللاً في الشبكة`);
+  /* يُقال بعددِه لا صامتاً: مرشِّحٌ بلا أسعارٍ يمرّ صفراً، وصفرٌ صامت
+     يُقرأ «لا تسرّب» بينما هو «لم يُفحص». */
+  console.log(stockPx.size
+    ? `  استُبعد ${tokSet.size} سهماً مرمَّزاً (سعرُه يتتبّع سهماً أمريكياً ضمن 3%) — قُورن بـ${stockPx.size} سعر سهم`
+    : `  ⚠ لا أسعار أسهم — لم يُفحص تسرّب الأسهم المرمَّزة`);
 
   // `mkt` صريح لا استنتاج من اسم القطاع: الواجهة والخادم يفرزان عليه،
   // ومقارنة نصّ عربي لتقرير سوق الرمز تنكسر بأول تغيير في التسمية.
@@ -225,6 +242,24 @@ function selfCheck() {
   let pass = 0, fail = 0;
   const t = (name, fn) => { try { fn(); console.log(`  ✓ ${name}`); pass++; } catch (e) { console.log(`  ✗ ${name} — ${e.message}`); fail++; } };
   const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`); };
+
+  t("المرشِّح يستبعد السهم المرمَّز ويُبقي العملة المنتهية بالحرف نفسه", () => {
+    /* `BNB` و`SHIB` و`ARB` و`DGB` عملاتٌ حقيقية تنتهي بـ`B` — ونمطٌ
+       نصّي يمحوها مع `AAPLB`. المميّز هو تتبّع السعر. */
+    const pairs = [
+      { sym: "AAPLBUSDT", price: 332.50 }, { sym: "NVDABUSDT", price: 214.70 },
+      { sym: "SPYBUSDT",  price: 754.94 }, { sym: "BNBUSDT",   price: 1000 },
+      { sym: "SHIBUSDT",  price: 0.0000051 }, { sym: "DGBUSDT", price: 0.00412 },
+      { sym: "ARBUSDT",   price: 0.1353 }, { sym: "BTCUSDT",   price: 95000 }
+    ];
+    const px = new Map([["AAPL", 332.18], ["NVDA", 214.74], ["SPY", 754.20],
+                        ["BN", 50], ["SHI", 6], ["DG", 123.01], ["AR", 30]]);
+    const got = [...tokenizedStocks(pairs, px)].sort();
+    eq(got, ["AAPLBUSDT", "NVDABUSDT", "SPYBUSDT"], "المرمَّزة وحدها");
+    // وبلا أسعار أسهم لا يُستبعد شيء — والمرشِّح يُعلن عجزَه ولا يمرّ صامتاً
+    eq(tokenizedStocks(pairs, null).size, 0, "بلا أسعار");
+    eq(tokenizedStocks(pairs, new Map()).size, 0, "خريطة فارغة");
+  });
 
   t("toYahoo يحوّل النقطة إلى شرطة", () => {
     eq([toYahoo("BRK.B"), toYahoo("BF.B"), toYahoo("AAPL")], ["BRK-B", "BF-B", "AAPL"], "toYahoo");
