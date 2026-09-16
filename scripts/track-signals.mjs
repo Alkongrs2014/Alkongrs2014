@@ -24,7 +24,8 @@ const require = createRequire(import.meta.url);
 const { SCANS, forcedDir } = require("../stocks/scans.js");
 // نفس نواة الخطة وطبقة التقييم التي يقرأها المتصفح — نسخةٌ ثانية هنا
 // تجعل السجلّ يقول إن الهدف كان 106 والمستخدم رأى 112
-const { levelsFrom, planFrom, planPair, planDirOf, validatePlan } = require("../stocks/plan.js");
+const { levelsFrom, planFrom, planPair, planDirOf, validatePlan,
+        TRACK_MARKS, oppSpent } = require("../stocks/plan.js");
 const { resolveOpp, conflictOf } = require("../stocks/direction.js");
 const { freshness, scanTF, entryQuality, etaFor, horizonsOf } = require("../stocks/evaluate.js");
 // حدود النطاقات من نواة النتيجة نفسها: كانت مكتوبة هنا مرةً ثانية، وكان
@@ -588,6 +589,26 @@ async function main() {
   }
   if (uniDir) console.log(`  ⟳ توحيد الاتجاه: أُغلق ${uniDir} سجلاً فُرض اتجاهُه ضدّ قراءةٍ قاطعة`);
 
+  /* ٠د) سجلٌّ بلا لقطة — لا يُقاس ولا يُغلق، ويثبّت عمر الفرصة إلى الأبد.
+
+     `updateOutcome` تردّ فوراً عند غياب `snap`، فلا `out` ولا دخول ولا
+     وقف ولا هدف: يبقى `open` حتى ينتهي أفقُه بعد ‎28‎ يوماً وهو يمسك
+     شارة «منذ 8 أيام · عند $X» في قائمة الفرص. قِيس: ‎109‎ من ‎370‎
+     مفتوحة (‎29%‎)، **كلُّها بعمر ‎8.5‎ يوم** — دفعةٌ أُنشئت حين لم تكن
+     ملفّات الشمعات متوفّرة، وهي مصدر كلّ «منذ 8 أيام» في القائمة.
+
+     تُغلق ولا تُرمَّم: بناء لقطةٍ لها اليوم بأسعار اليوم يجعل السجلّ
+     يدّعي أنه رأى ما لم يره. ويُنشأ بدلُها سجلٌّ جديد في الدورة التالية
+     بسعر يومه — ‎75‎ من ‎79‎ رمزاً تنجح لقطتُه الآن. */
+  let phantom = 0;
+  for (const sig of records) {
+    if (sig.conv || sig.snap || !sig.open) continue;
+    sig.conv = "nosnap";
+    sig.open = false; sig.closed = now;
+    phantom++;
+  }
+  if (phantom) console.log(`  ⟳ سجلّات بلا لقطة: أُغلق ${phantom} سجلاً لا يُقاس (يُعاد بناؤه بسعر اليوم)`);
+
   /* ٠ج) لقطةٌ لا تصف خطةً صالحة — تُغلق ولا تُصحَّح.
 
      `snap` تُكتب مرّة ولا تُلمس، وهذا الفصل هو ما يمنع النظر إلى
@@ -645,7 +666,18 @@ async function main() {
     return (symCache[s] = readJSON(path.join(OUT, "sym", `${s}.json`)));
   };
 
-  const openNow = new Set(records.filter(s => s.open).map(openKey));
+  /* =====================================================================
+     الحجب للفرصة **الحيّة** وحدها — لا للمستهلَكة.
+
+     `NEAR-USD` ظلّت ثامنَ أيامها في الفرص بسعرِ ‎8‎ أيام مضت وقد تحرّك
+     ‎+11.7%‎ وبلغ مستوياته الثلاثة كلَّها: الشرط ما زال يُطلق، والسجلّ
+     المفتوح يحجب أيَّ سجلٍّ جديد، فيبقى المعروضُ تحليلاً انتهى.
+
+     والمستهلَكة **لا تُغلق**: خطتُها تبقى تُقاس إلى نهايتها فلا يُبتر
+     إحصاء الأهداف (‎19‎ من ‎37‎ منها خطتُها `wait` لم تُفعَّل قط، وإغلاقُها
+     يسجّل انتهاءً لم يقع). تُرفع عن البوابة فحسب، فيُنشأ لنفس الشرط
+     سجلٌّ جديد بسعر اليوم وخطةٍ جديدة — وهو التحليل الجديد المطلوب. */
+  const openNow = new Set(records.filter(s => s.open && !oppSpent(s)).map(openKey));
   let added = 0, snapped = 0, noSnap = 0;
   let conflicted = 0, offDir = 0;
   for (const r of rows) {
@@ -677,6 +709,14 @@ async function main() {
           f, at: now });
       } catch (e) { console.warn(`  ⚠ لقطة ${r.s}: ${e.message}`); }
       snap ? snapped++ : noSnap++;
+      /* سجلٌّ بلا لقطة سجلٌّ لا يُقاس: `updateOutcome` تردّ فوراً عند
+         غياب `snap`، فلا دخولَ ولا وقفَ ولا هدف — ويبقى مفتوحاً حتى
+         ينتهي أفقُه بعد ‎28‎ يوماً وهو يثبّت عمرَ الفرصة وسعرَها طوال
+         المدّة. كانت ‎109‎ من ‎370‎ مفتوحة (‎29%‎) كلُّها من دفعةٍ واحدة
+         عمرُها ‎8.5‎ يوم، وهي مصدر «منذ 8 أيام» في القائمة كلّها.
+         ولا يُنشأ بديلاً عنه: الشرط يُطلق في الدورة التالية، ويُبنى حين
+         تتوفّر شمعاتُه — ‎75‎ من ‎79‎ رمزاً تنجح لقطتُه الآن. */
+      if (!snap) continue;
 
       const rec = {
         sym: r.s, scan: scan.id, at: now, at2: now,
@@ -1100,6 +1140,39 @@ function selfCheck() {
     eq(guardTotal(100, 105), true, "نموّ");
     throws(() => guardTotal(100, 60), "ضياع");
     eq(guardTotal(100, 60, { pruning: true }), true, "تشذيب معلن");
+  });
+
+  t("الفرصة المستهلَكة لا تحجب تحليلاً جديداً — وخطتُها تبقى تُقاس", () => {
+    /* `NEAR-USD`: ‎8‎ أيام · ‎mfe +11.7%‎ · بلغ ‎+1/+2/+5%‎ كلَّها، والشرط
+       ما زال يُطلق — فبقي المعروض تحليلاً انتهى. */
+    const live  = { sym: "NEAR-USD", scan: "align", open: true, mfe: 3.1 };
+    const spent = { sym: "NEAR-USD", scan: "align", open: true, mfe: 11.72 };
+    eq(oppSpent(live), false, "لم تبلغ الثلاثة بعد");
+    eq(oppSpent(spent), true, "بلغت الثلاثة");
+    // البوابة: الحيّة تحجب والمستهلَكة لا
+    const gate = (recs) => new Set(recs.filter(x => x.open && !oppSpent(x)).map(openKey));
+    if (!gate([live]).has("NEAR-USD|align")) throw new Error("الحيّة يجب أن تحجب");
+    if (gate([spent]).has("NEAR-USD|align")) throw new Error("المستهلَكة يجب ألّا تحجب");
+    // ولا تُغلق: الخطة تبقى تُقاس
+    eq(spent.open, true, "المستهلَكة تبقى مفتوحة للقياس");
+  });
+
+  t("الحدّ هو أعلى علامةٍ معروضة لا رقماً مستقلاً", () => {
+    const top = TRACK_MARKS[TRACK_MARKS.length - 1];
+    eq(oppSpent({ mfe: top }), true, "المساواة تكفي");
+    eq(oppSpent({ mfe: top - 0.01 }), false, "ما دونها لا");
+    // لو تغيّرت العلامات المعروضة تتبعها البوابة تلقائياً
+    if (TRACK_MARKS.length < 2) throw new Error("العلامات أقلّ من اثنتين");
+  });
+
+  t("السجلّ بلا لقطة لا يُقاس — فلا يُنشأ ولا يبقى مفتوحاً", () => {
+    // `updateOutcome` تردّ فوراً بلا `snap` — لا دخول ولا وقف ولا هدف
+    const s = { sym: "X", scan: "align", at: T0, entry: 100, last: 100,
+                ret: 0, mfe: 0, mae: 0, open: true };
+    const before = JSON.stringify(s);
+    updateOutcome(s, 120, T0 + 6e5);
+    eq(JSON.stringify(s), before, "بلا لقطة لا يتغيّر شيء مهما بلغ السعر");
+    eq(s.out, undefined, "ولا تُنشأ له حالة");
   });
 
   t("openKey يمنع تكرار نفس الإشارة للرمز نفسه", () => {

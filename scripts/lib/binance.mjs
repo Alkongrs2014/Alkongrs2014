@@ -166,6 +166,50 @@ export async function fetchCandles(sym, { interval = "1d" } = {}) {
 
    و`stockPx` اختيارية: بلا أسعار أسهم لا يُستبعد شيء **ويُعلَن ذلك** —
    مرشِّحٌ صامتٌ عاجز أسوأ من غيابه. */
+/* =====================================================================
+   قائمة الأسهم المرمَّزة **من تصنيف Binance الرسمي** — لا استدلالاً.
+
+   واجهة Binance تصنّف منتجاتها بوسوم، ومنها `bStocks`: ‎77‎ منتجاً
+   أسماؤها عند Binance نفسها «NVIDIA (bStocks)» و«Apple (bStocks)»،
+   أصلُها `NVDAB` لا `NVDA` ومقابلُها USDT لا USD.
+
+   وهذا هو الجواب الموثَّق عن «هل يعطي Binance أسهماً أمريكية؟»: القسم
+   موجود، ومحتواه رموزٌ مرمَّزة لا أسهماً. القياس على AAPL/NVDA/MSFT/SPY:
+   السعر يطابق ضمن ‎0.01–0.12%‎، والحجم بالدولار **‎0.0006%–0.025%‎** من
+   حجم السهم الحقيقي (MSFT: ‎0.1‎ مليون مقابل ‎17.4‎ مليار)، والشموع
+   اليومية فيها **‎8‎ عطلات أسبوع من ‎30‎** — أي سوقٌ يعمل ‎24/7‎ على
+   شبكةٍ غير شبكة جلسة نيويورك.
+
+   النقطة خارج `api.binance.com` فقد تتغيّر أو تُحجب — ولذلك تُلتقط
+   أخطاؤها ويبقى الاستدلال السعري بديلاً، ويُعلَن أيُّهما عمل. */
+const PRODUCTS_URL =
+  "https://www.binance.com/bapi/asset/v2/public/asset-service/product/get-products";
+let bStocksCache = null, bStocksAt = 0;
+
+export async function listTaggedStocks({ maxAge = 6 * 3600e3 } = {}) {
+  if (bStocksCache && Date.now() - bStocksAt < maxAge) return bStocksCache;
+  try {
+    const r = await fetch(PRODUCTS_URL, {
+      headers: {
+        // نفس درس BLS وSEC: لا يُحجب الآليّ بل الطلبُ الذي لا يشبه متصفّحاً
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
+        "Accept": "application/json"
+      }
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    const out = new Set();
+    for (const x of (j.data || []))
+      if ((x.tags || []).includes("bStocks") && x.s) out.add(x.s);
+    // صفرٌ يعني تغيّر شكل الردّ لا اختفاء القسم — لا يُقبل بصمت
+    if (!out.size) throw new Error("صفر منتجاً موسوماً bStocks");
+    bStocksCache = out; bStocksAt = Date.now();
+    return out;
+  } catch (e) {
+    return null;                      // البديل السعري يتكفّل، ويُعلن المستدعي
+  }
+}
+
 const TOKENIZED_TOL = 0.03;
 export function tokenizedStocks(pairs, stockPx) {
   const out = new Set();
@@ -180,7 +224,7 @@ export function tokenizedStocks(pairs, stockPx) {
   return out;
 }
 
-export async function listUsdtPairs({ minQuoteVolume = 0, stockPx = null } = {}) {
+export async function listUsdtPairs({ minQuoteVolume = 0 } = {}) {
   const tick = await fetchTickers({ maxAge: 0 });
   /* العملات المستقرّة تُستبعد: `USDCUSDT` تصدّرت قائمة الحجم وسعرها ثابت
      عند الواحد، فكلُّ مؤشّرٍ فنيّ عليها ضجيجٌ حول خطٍّ مستقيم. */
@@ -192,6 +236,8 @@ export async function listUsdtPairs({ minQuoteVolume = 0, stockPx = null } = {})
        تتبع الأصل — عرضُها كعملةٍ يضلّل. */
     .filter(t => !/(UP|DOWN|BULL|BEAR)USDT$/.test(t.sym))
     .sort((a, b) => b.quoteVolume - a.quoteVolume);
-  const tok = tokenizedStocks(all, stockPx);
-  return tok.size ? all.filter(t => !tok.has(t.sym)) : all;
+  /* الأسهم المرمَّزة تُرشَّح عند **بناء الكون** لا هنا: المرشِّح يحتاج
+     الوسم الرسمي (نداءُ شبكةٍ ثانٍ) أو أسعار الأسهم، وكلاهما يخصّ
+     المستدعي. وهذه الدالّة تبقى قراءةً خالصة لسوق Binance. */
+  return all;
 }

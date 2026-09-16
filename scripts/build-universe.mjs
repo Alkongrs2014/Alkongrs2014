@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchQuotes } from "./lib/yahoo.mjs";
-import { listUsdtPairs, tokenizedStocks } from "./lib/binance.mjs";
+import { listUsdtPairs, tokenizedStocks, listTaggedStocks } from "./lib/binance.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CFG_PATH = path.join(ROOT, "stocks/symbols.json");
@@ -192,14 +192,20 @@ async function main() {
   /* نداءٌ واحد ثم ترشيحٌ محلّي: `listUsdtPairs({ stockPx })` مرّةً ثانية
      يعيد ضرب الشبكة بلا داعٍ (`fetchTickers` بـ`maxAge: 0`). */
   const pairsAll = await listUsdtPairs();
-  const tokSet = tokenizedStocks(pairsAll, stockPx);
+  /* الوسم الرسمي `bStocks` أولاً — قائمةٌ من Binance نفسها لا استدلال.
+     والاستدلال السعري بديلٌ حين تتعذّر النقطة، ويُقال أيُّهما عمل. */
+  const tagged = await listTaggedStocks();
+  const tokSet = tagged
+    ? new Set(pairsAll.filter(t => tagged.has(t.sym)).map(t => t.sym))
+    : tokenizedStocks(pairsAll, stockPx);
+  const tokSrc = tagged ? `وسم bStocks الرسمي (${tagged.size} منتجاً)` : "الاستدلال السعري";
   const pairs = pairsAll.filter(t => !tokSet.has(t.sym));
   if (pairs.length < 100) throw new Error(`${pairs.length} زوجاً فقط — يبدو خللاً في الشبكة`);
   /* يُقال بعددِه لا صامتاً: مرشِّحٌ بلا أسعارٍ يمرّ صفراً، وصفرٌ صامت
      يُقرأ «لا تسرّب» بينما هو «لم يُفحص». */
-  console.log(stockPx.size
-    ? `  استُبعد ${tokSet.size} سهماً مرمَّزاً (سعرُه يتتبّع سهماً أمريكياً ضمن 3%) — قُورن بـ${stockPx.size} سعر سهم`
-    : `  ⚠ لا أسعار أسهم — لم يُفحص تسرّب الأسهم المرمَّزة`);
+  console.log((tagged || stockPx.size)
+    ? `  استُبعد ${tokSet.size} سهماً مرمَّزاً — المصدر: ${tokSrc}`
+    : `  ⚠ لا وسم رسمي ولا أسعار أسهم — لم يُفحص تسرّب الأسهم المرمَّزة`);
 
   // `mkt` صريح لا استنتاج من اسم القطاع: الواجهة والخادم يفرزان عليه،
   // ومقارنة نصّ عربي لتقرير سوق الرمز تنكسر بأول تغيير في التسمية.

@@ -6338,11 +6338,15 @@ function renderTrackedLevels(rec, p) {
   const el = $("#planLevels"); if (!el) return;
   // سجلات ما قبل تصحيح الاتجاه (`conv`) تُستبعد: مقاييسها بمواضعة الشراء
   // فقراءتها كإشارة هبوط تقلب معناها. تُستبدل بأخرى صحيحة في أول دورة.
+  /* المفتوحة غير المستهلَكة وحدها: سجلٌّ مغلق أو بلغ مستوياته الثلاثة
+     يقيس حركةً انتهت، وعرضُه تحت خطةٍ حيّة يخلط تحليلين. */
   const sig = (state.signals && state.signals.records || [])
-    .filter(s => s.sym === rec.s && !s.conv)
+    .filter(s => s.sym === rec.s && !s.conv && s.open && !oppSpent(s))
     .sort((a, b) => b.at - a.at)[0];
 
-  const marks = [1, 2, 5];
+  // مشتركة مع الخادم: رقمان مختلفان يجعلان الشاشة تقول «بلغت الثلاثة»
+  // والسجلَّ يُبقيها فرصةً نشطة — وهي علّة `NEAR-USD` بعينها
+  const marks = TRACK_MARKS;
   if (!sig) {
     // بلا إشارة متتبَّعة تُقاس المستويات من السعر الحالي، وباتجاه الخطة
     // المعروضة فوقها — لا صعوداً دائماً
@@ -7200,9 +7204,14 @@ function renderScreen() {
   // لحظتها يقول كم تحرّك السهم قبل أن تراه.
   const now = Date.now();
   const openSig = {};
+  /* المرساة هي الفرصة **الحيّة** لا أيّ سجلٍّ مفتوح: سجلٌّ بلغ مستوياته
+     الثلاثة تحرّك سهمُه ‎5%‎ فأكثر منذ رأيناه، فتثبيتُ عمره وسعره يعرض
+     تحليلاً انتهى على أنه الفرصة الحالية (`NEAR-USD`: ‎8‎ أيام و‎+11.7%‎).
+     ويُؤخذ **الأحدث** من غير المستهلَكة لا الأقدم: بعد استهلاك القديم
+     يُنشأ سجلٌّ جديد بسعر يومه، وهو الذي يصف الفرصة الآن. */
   for (const s of ((state.signals && state.signals.records) || [])) {
-    if (!s.open || s.scan !== scan.id || s.conv) continue;
-    if (!openSig[s.sym] || s.at < openSig[s.sym].at) openSig[s.sym] = s;
+    if (!s.open || s.scan !== scan.id || s.conv || oppSpent(s)) continue;
+    if (!openSig[s.sym] || s.at > openSig[s.sym].at) openSig[s.sym] = s;
   }
 
   el.innerHTML = hits.map((r, i) => {
