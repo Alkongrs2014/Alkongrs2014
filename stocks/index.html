@@ -198,6 +198,30 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 .srow .px{text-align:left;flex:none;min-width:88px}
 .srow .px .p{font-size:14px;font-weight:700}
 .srow .px .c{font-size:12px;font-weight:700}
+
+/* ---- توجّه السوق ----
+   صفٌّ ثلاثيّ: هويّة · ثلاثة آفاق · إجمالي. ويلتفّ على الهاتف بدل أن
+   يُقصّ: القيمة كلُّها في مقارنة الآفاق الثلاثة، وقصُّ أحدها يُفرغ
+   الصفّ من معناه — والقاعدة الموثّقة أن `nowrap` مع قصٍّ يخفي النصّ
+   بصمت. */
+.md-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:11px 12px;
+  border-bottom:1px solid var(--line);transition:background .15s}
+.md-row:last-child{border-bottom:0}
+.md-row[data-open]{cursor:pointer}
+.md-row[data-open]:active{background:var(--card2)}
+.md-row.bench{background:var(--card2);border-bottom:1px solid var(--line)}
+.md-id{flex:1 1 150px;min-width:0}
+.md-id .t{font-size:14px;font-weight:700}
+.md-id .n{font-size:11.5px;color:var(--mut)}
+.md-tfs{display:flex;gap:12px;flex:2 1 220px;flex-wrap:wrap}
+.md-tf{display:flex;flex-direction:column;gap:2px;min-width:64px}
+.md-tf .lbl{font-size:10.5px;color:var(--dim)}
+.md-tf .cnt{font-size:10px;color:var(--dim)}
+.md-pill{font-size:12px;font-weight:700;white-space:nowrap}
+.md-all{flex:none;min-width:82px;text-align:left}
+.md-all .t{font-size:12.5px;font-weight:700}
+.md-all .v{font-size:19px;font-weight:800;line-height:1.1}
+.md-all .sub{font-size:10px;color:var(--dim)}
 .dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
 .empty{text-align:center;color:var(--dim);font-size:13px;padding:26px 10px}
 
@@ -852,6 +876,37 @@ details[open]{background:var(--card2)}
   </p>
 </section>
 
+<!-- ================= توجه السوق =================
+
+     قسمٌ **مستقلّ لا يؤثّر في شيء**: لا يُقرأ من شروط الفرص ولا من
+     الماسح ولا من السجلّ. سؤالُه واحد — إلى أين يميل السوق الآن،
+     وبأيّ قوّة، وهل تتّفق آفاقُه الثلاثة أم تتعارض؟
+
+     ولا فريم ‎15د‎ فيه بقرار: ربعُ ساعةٍ على مؤشّرٍ يضيف ضجيجاً لا
+     ميلاً، والسؤال عن الميل لا عن اللحظة.
+
+     والأرقام **لقطةُ خادم**: ستّة عشر أصلاً × ثلاثة فريمات × إحدى
+     عشرة طريقة = 528 تقييماً تحتاج ملفَّ شمعاتٍ لكل أصل. تُحسب مرّةً
+     كل دورة وتُقرأ هنا، ويُقال ذلك في سطر المصدر بدل الإيهام. -->
+<section data-view="mdir">
+  <div class="card" id="mdHead"><div class="skl" style="height:110px"></div></div>
+
+  <div class="card">
+    <h2>الأصول</h2>
+    <p class="hint" id="mdHint">المؤشّر وأكبر الشركات — لكلٍّ توجّهٌ على ثلاثة آفاق</p>
+    <div id="mdList"><div class="skl" style="height:220px"></div></div>
+    <p class="srcline" id="mdSrc"></p>
+  </div>
+
+  <div class="card">
+    <h2>كيف تُحسب النسبة؟</h2>
+    <details class="plain">
+      <summary>الطريقة كاملةً</summary>
+      <div id="mdMethod"></div>
+    </details>
+  </div>
+</section>
+
 <!-- ================= الأسهم ================= -->
 <section data-view="list">
   <div class="toolbar">
@@ -919,6 +974,25 @@ details[open]{background:var(--card2)}
     <h2>الاتجاه على كل فريم</h2>
     <p class="hint">قراءة مستقلة لكل إطار زمني — التوافق بينها أهم من أي إشارة منفردة</p>
     <div id="tfTable"><div class="skl" style="height:100px"></div></div>
+  </div>
+
+  <!-- الاستراتيجيات العشر — **طبقةُ تقييمٍ ثانية لا بديلٌ عن محرّك الفرص**.
+
+       المحرّكان يسألان سؤالين مختلفين: الفرص تسأل «هل تحقّق شرطٌ معروف
+       الحافّة؟» والماسح يسأل «كم طريقةً مستقلّة ترى نفس الجهة الآن؟».
+       واتّفاقُهما معلومة واختلافُهما معلومةٌ أهمّ — ولا قياس عندنا يقول
+       أيّهما أصدق، فيُعرضان معاً ولا يُحسم أحدهما على الآخر.
+
+       والأرقام لقطةُ خادم من `strategies.json`: بناؤها هنا بكلفة صفر
+       طلبات، ولحظةُ البدء (`at`) لا يملكها المتصفّح أصلاً لأنه لم يكن
+       يعمل حين انقلبت الجهة. -->
+  <!-- `cardStrat` مأخوذ لـ«باني الاستراتيجيات» في شاشة العقود، و`stratOut`
+       كذلك بجواره. والمعرّف المكرّر يعيد أوّلَ عنصرٍ في المستند لكل
+       `$("#…")` — فتُرسم بطاقةٌ في شاشةٍ أخرى بلا أيّ خطأ ظاهر. -->
+  <div class="card" id="cardScans" style="display:none">
+    <h2>الاستراتيجيات</h2>
+    <p class="hint" id="scansHint"></p>
+    <div id="scansOut"></div>
   </div>
 
   <!-- الصحّة المالية — البعد الذي كانت «بطاقة الشركة» تتجاهله.
@@ -1807,6 +1881,10 @@ details[open]{background:var(--card2)}
   <g id="i-news" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <path d="M4 5.5h12.5v13H6a2 2 0 0 1-2-2z"/><path d="M16.5 9H20v7.5a2 2 0 0 1-2 2"/>
     <path d="M7 9h6.5M7 12.5h6.5M7 16h4"/></g>
+  <!-- توجّه السوق: بوصلةٌ لا سهمٌ صاعد — القسم يقيس الميل بجهتيه،
+       وأيقونةٌ صاعدة تُوحي بأنه يبحث عن الصعود وحده -->
+  <g id="i-mdir" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/><path d="m15.2 8.8-2 5.4-5.4 2 2-5.4 5.4-2Z"/></g>
 </defs></svg>
 <nav class="tabbar" id="tabbar" role="tablist" aria-label="أقسام التطبيق">
   <div class="side-brand">
@@ -1820,6 +1898,11 @@ details[open]{background:var(--card2)}
     <div class="nm">مرصد الأسهم<small>الأمريكية والعقود</small></div>
   </div>
   <button data-go="now" class="on"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-now"/></svg>الآن</button>
+  <!-- وسمُ التبويب «السوق» لا «توجه السوق»: الثمانية الأخرى كلمةٌ واحدة
+       بسطرٍ واحد، والعاشرُ بسطرين يكسر إيقاع الشريط على الهاتف (قِيس:
+       ‎41.7‎ بكسل لكل تبويب، و«توجه السوق» تلتفّ). واسمُ القسم كاملٌ
+       داخله: «توجّه السوق العام». -->
+  <button data-go="mdir"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mdir"/></svg>السوق</button>
   <button data-go="list"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>الأسهم</button>
   <button data-go="screen"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-screen"/></svg>الفرص</button>
   <button data-go="scanner"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-scan"/></svg>الماسح</button>
@@ -1842,6 +1925,10 @@ details[open]{background:var(--card2)}
      كي يكون ما يُحفظ في `strategies.json` هو ما يُعرض بالضبط -->
 <script src="strategies.js"></script>
 <script src="consensus.js"></script>
+<!-- درجة التوافق: تحويل الإجماع إلى رقمٍ موقَّع، وبناؤه من اللقطة
+     المخزَّنة. يقرؤها ترتيبُ الكون وبطاقةُ السهم وقسمُ «توجه السوق» —
+     ثلاثةُ مستهلكين، فنسخةٌ واحدة -->
+<script src="confluence.js"></script>
 <script>
 "use strict";
 
@@ -2443,6 +2530,146 @@ function filteredRows() {
   return rows.sort(cmp);
 }
 
+/* =====================================================================
+   توجّه السوق — عرضُ لقطةٍ خادمية، والسعر وحده حيّ.
+
+   والاسم `renderMarketDir` لا `renderTrend`: الأخير **مأخوذ** لتسلسل
+   النتيجة في بطاقة السهم. وتعريفٌ ثانٍ بنفس الاسم يرفع ويغلب بلا خطأ
+   ولا تحذير — البطاقة القديمة تختفي والجديدة تُنادى من مكانٍ لم
+   يقصدها. مصيدةٌ موثّقة وقعت مع `renderEarnings`.
+   ===================================================================== */
+function mdPill(d) {
+  if (!d || d.pct === null || d.pct === undefined)
+    return `<span class="md-pill" style="color:var(--mut)">—</span>`;
+  if (d.mixed)
+    return `<span class="md-pill" style="color:var(--neu)" title="كتلةُ الجهة المخالفة فوق الحدّ">متعارض</span>`;
+  const lb = dirLabelOf(d.dir, d.pct);
+  return `<span class="md-pill" style="color:${lb.c}">${lb.t}
+    <b class="num">${d.pct}%</b></span>`;
+}
+
+function renderMarketDir() {
+  const head = $("#mdHead"), list = $("#mdList");
+  if (!head || !list) return;
+  const M = state.mdir;
+  if (!M || !Array.isArray(M.rows)) {
+    head.innerHTML = `<div class="skl" style="height:110px"></div>`;
+    list.innerHTML = `<div class="skl" style="height:220px"></div>`;
+    return;
+  }
+  const m = M.market || {};
+  const lb = dirLabelOf(m.dir, m.pct);
+  const c = m.counts || { up: 0, flat: 0, dn: 0 };
+
+  head.innerHTML = `
+    <h2 style="margin-bottom:6px">توجّه السوق العام</h2>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <div style="font-size:26px;font-weight:800;color:${lb.c}">${lb.t}
+        <span class="num">${m.pct === null || m.pct === undefined ? "—" : m.pct + "%"}</span></div>
+      <div style="font-size:12.5px;color:var(--mut)">
+        ${bd(c.up)} صاعد · ${bd(c.flat)} محايد · ${bd(c.dn)} هابط</div>
+    </div>
+    <div class="sep"></div>
+    <div class="grid3">
+      <div class="stat"><div class="v num">${m.agree === null || m.agree === undefined
+        ? "—" : Math.round(m.agree * 100) + "%"}</div><div class="k">توافق الأصول</div>
+        <div class="sub">كتلةُ الموافقة لجهة السوق من كتلة ذوات الجهة</div></div>
+      <div class="stat"><div class="v num">${bd(M.rows.length)}</div><div class="k">أصلاً</div>
+        <div class="sub">المؤشّر وأكبر ${bd(M.top)} شركة بالقيمة السوقية</div></div>
+      <div class="stat"><div class="v">${esc(ago(M.updated))}</div><div class="k">آخر حساب</div>
+        <div class="sub">لقطةُ خادم — تُحدَّث مع دورة السوق</div></div>
+    </div>
+    ${m.pct !== null && m.pct < DIR_ON ? `<div class="note" style="margin-top:10px">
+      النسبة دون عتبة الوسم (${DIR_ON}%) — فالسوق يُقرأ <b>محايداً</b>: الآفاق
+      الثلاثة لا تتّفق على جهة، وهذه حالةٌ تُقال لا نقصٌ في البيانات.</div>` : ""}
+    ${M.missing ? `<div class="warn" style="margin-top:10px">${bd(M.missing)}
+      أصلاً بلا ملفّ شمعات — خارج الحساب.</div>` : ""}`;
+
+  /* الترتيب: المؤشّر أولاً دائماً (هو المرجع لا صفٌّ بين صفوف)، ثم
+     الشركات بقوّة توجّهها — لا بالأبجدية ولا بالقيمة السوقية: السؤال
+     «أين أقوى ميل؟» لا «أيُّها أكبر؟». */
+  const rows = M.rows.slice().sort((a, b) =>
+    (b.bench ? 1 : 0) - (a.bench ? 1 : 0) ||
+    Math.abs((b.all && b.all.scs) || 0) - Math.abs((a.all && a.all.scs) || 0));
+
+  const now = Date.now();
+  list.innerHTML = rows.map(r => {
+    // السعر والتغيّر **حيّان** من الملخّص، والتوجّه من اللقطة. الخلط
+    // مقصود ومُعلَن: السعر يتحرّك كل دقيقتين والتوجّه كل عشر.
+    const row = symRow(r.s);
+    const idx = r.bench && state.market
+      ? (state.market.indices || []).find(i => i.s === r.idx) : null;
+    /* البديل لا صفَّ له في الملخّص عمداً، فسعرُه **مستوى المؤشّر** من
+       `market.indices` لا سعرُ الصندوق: من يقرأ «إس آند بي 500» ينتظر
+       ‎7,585‎ لا ‎757‎. وحين لا يعطيه ياهو يبقى شرطة — نفس القاعدة التي
+       تمنع عرضَ سعر ETF موهماً أنه مستوى المؤشّر. */
+    const p = idx ? idx.p : (row ? row.p : null);
+    const chg = idx ? idx.chg : (row ? row.chg : null);
+    const col = !isFinite(chg) ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
+    const all = r.all || {};
+    const alb = dirLabelOf(all.dir, all.pct);
+    return `<div class="md-row${r.bench ? " bench" : ""}"${r.bench ? "" : ` data-open="${esc(r.s)}"`}>
+      <div class="md-id">
+        <div class="t">${esc(r.ar || r.s)}${r.bench ? ` <span style="color:var(--mut);font-weight:500">مؤشّر</span>` : ""}</div>
+        <div class="n"><span class="tick">${esc(r.s)}</span>
+          ${p !== null ? ` · <span class="num">${money(p)}</span>` : ""}
+          ${isFinite(chg) ? ` · <span class="num" style="color:${col}">${pct(chg)}</span>` : ""}
+          ${r.at ? ` · <span style="color:var(--dim)">أقدم إشارة ${esc(age(now - r.at * 1000))}</span>` : ""}
+          ${r.stale ? ` · <span style="color:var(--dn)">بيانات قديمة</span>` : ""}</div>
+      </div>
+      <div class="md-tfs">
+        ${(M.tfs || []).map(tf => `<div class="md-tf">
+          <span class="lbl">${esc(TF_LABEL[tf] || tf)}</span>${mdPill(r.tf && r.tf[tf])}
+          <span class="cnt">${r.tf && r.tf[tf] ? `${bd(r.tf[tf].n)}/${bd(r.tf[tf].on)}` : ""}</span>
+        </div>`).join("")}
+      </div>
+      <div class="md-all" style="color:${alb.c}">
+        <div class="t">${alb.t}</div>
+        <div class="num v">${all.pct === null || all.pct === undefined ? "—" : all.pct + "%"}</div>
+        <div class="sub">${bd(all.legs || 0)} ساق${r.align ? " · توافق الفريمات" : ""}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  $("#mdList").querySelectorAll("[data-open]").forEach(el =>
+    el.onclick = () => openSym(el.dataset.open));
+
+  $("#mdSrc").textContent =
+    `لقطةُ خادم من آخر دورة سوق (${ago(M.updated)}) — السعر والتغيّر حيّان من الملخّص. ` +
+    (M.merged && M.merged.length ? `فئاتُ أسهمٍ مدموجة لنفس الشركة: ${M.merged.join("، ")}. ` : "") +
+    `الفريمات: ${(M.tfs || []).map(t => TF_LABEL[t] || t).join(" · ")}.`;
+
+  const W = M.weights || {};
+  $("#mdMethod").innerHTML = `
+    <p>لكل أصلٍ ولكل فريم تُقيَّم <b>إحدى عشرة طريقة</b>: الاستراتيجيات العشر
+    في الماسح مثبَّتةً على ذلك الفريم، ومعها <b>محرّك الفرص</b> ممثَّلاً بنتيجته
+    الفنية عليه. ثم يُجمَع رأيُها بنفس محرّك الإجماع الذي يستعمله الماسح —
+    بأوزان الحافّة المقيسة نفسها لا بأوزانٍ جديدة.</p>
+    <p>والنسبة تُشتقّ من كتلتين: <span class="num">(كتلة الصعود − كتلة الهبوط)
+    ÷ مجموعهما</span> فيعاقَب التعارض، مضروبةً في معامل تغطية يرفع الإشارة
+    المتعدّدة فوق المنفردة. فإشارةٌ واحدة مقتنعة تماماً لا تبلغ ‎100%‎.</p>
+    <p><b>وما لا يُقاس على فريمٍ يُعلَن «متعذّراً» ولا يُحشى محايداً</b>:
+    «كسر نطاق الافتتاح» و«استعادة VWAP» استراتيجيتا جلسةٍ داخل اليوم،
+    و«توافق الفريمات» حكمٌ عابرٌ للفريمات فيُحسب على مستوى الأصل لا في عمود،
+    و«ارتداد داخل اتجاه» يحتاج فريماً أعلى فلا يعمل على اليوميّ. العدد المعروض
+    بجانب كل عمود هو <span class="num">النشطة / العاملة</span>.</p>
+    <table class="tbl"><thead><tr><th>الوزن</th><th>القيمة</th><th>من أين</th></tr></thead>
+    <tbody>
+      ${(M.tfs || []).map(tf => `<tr><td>فريم ${esc(TF_LABEL[tf] || tf)}</td>
+        <td class="num">${(W.tf || {})[tf]}</td><td>TF_WEIGHT في النتيجة الفنية</td></tr>`).join("")}
+      <tr><td>توافق الفريمات (ساق الأصل)</td><td class="num">${W.align}</td>
+        <td>أدنى وزنٍ في الجدول — حافّته المقيسة سالبة</td></tr>
+      <tr><td>المؤشّر مقابل السهم</td><td class="num">${W.bench}×</td>
+        <td>يمثّل خمسمئة شركة لا شركة</td></tr>
+      <tr><td>عتبة «للفريم جهة»</td><td class="num">±${W.oppMin}</td>
+        <td>نفس عتبة «توافق الفريمات» في الفرص</td></tr>
+      <tr><td>حدّ «صاعد قوي»</td><td class="num">${(M.bands || {}).strong}%</td><td>—</td></tr>
+      <tr><td>حدّ «محايد»</td><td class="num">دون ${(M.bands || {}).on}%</td><td>—</td></tr>
+    </tbody></table>
+    <p class="srcline">وهذا القسم <b>لا يؤثّر في الفرص ولا في الماسح ولا في السجلّ</b> —
+    تحليلٌ مستقلّ يُعرض ولا يُغذّي شيئاً.</p>`;
+}
+
 function renderList() {
   if (!state.summary) return;
   const rows = filteredRows();
@@ -2496,9 +2723,12 @@ async function openSymbol(sym) {
   }
   state.sym = sym;
   state.hover = null;
-  // ثلاثة ملفات تقرأ منها بطاقات هذه الشاشة: الأساسيات والأخبار
-  // والأداء النسبي. تُطلب معاً لا متسلسلة، وكلٌّ يرسم بطاقته حين يصل
+  /* خمسة ملفات تقرأ منها بطاقات هذه الشاشة: الأساسيات والأخبار والأداء
+     النسبي، ثم لقطةُ الاستراتيجيات وحوافُّها لبطاقة «الاستراتيجيات».
+     تُطلب معاً لا متسلسلة، وكلٌّ يرسم بطاقته حين يصل — وغيابُ أيٍّ
+     منها يُخفي بطاقتَه ولا يعطّل الشاشة. */
   need("fundamentals.json"); need("news.json"); need("analytics.json");
+  need("strategies.json"); need("strategy-edge.json");
   go("detail");
   $("#dHead").innerHTML = `<div class="skl" style="height:90px"></div>`;
   $("#tfTable").innerHTML = `<div class="skl" style="height:100px"></div>`;
@@ -4418,10 +4648,19 @@ const LAZY = {
     if (!j || !Array.isArray(j.rows)) return;
     state.strategies = j;
     if (state.view === "scanner") { renderScRank(); if (scState.sym) scAnalyze(scState.sym); }
+    // ثلاثةُ مستهلكين لا واحد بعد إضافة درجة التوافق: الماسح، وبطاقة
+    // السهم، وترتيبُ الفرص. وكلٌّ يُعاد رسمه حين يصل الملفّ لا قبله.
+    if (state.sym) renderStrategies(state.symCache[state.sym] || { s: state.sym });
+    if (state.view === "screen") renderScreen();
+    if (state.view === "mdir") renderMarketDir();
   },
   "strategy-edge.json": (j) => {
     state.stratEdge = j;
     if (state.view === "scanner") { renderScRank(); if (scState.sym) scAnalyze(scState.sym); }
+    // الحوافّ هي أوزان الإجماع، فتغيّرها يغيّر كلَّ درجة توافق معروضة
+    if (state.sym) renderStrategies(state.symCache[state.sym] || { s: state.sym });
+    if (state.view === "screen") renderScreen();
+    if (state.view === "mdir") renderMarketDir();
   },
   "filings.json": (f) => {
     if (!f || !Array.isArray(f.rows)) return;
@@ -4445,6 +4684,13 @@ const LAZY = {
      شاشة افتراضية — تُطلب أول مرة يكتب المستخدم بحثاً، أو يبدّل نطاق
      القائمة، أو يفتح العقود (وأغلب رموزها منها). وبدونها يبقى التطبيق
      كما كان على المرصودة، فغيابها تدهورٌ هادئ لا عطل. */
+  /* توجّه السوق: لقطةٌ خادمية ثقيلة نسبياً (‎8‎ ك.ب) لا تلزم أيّ شاشة
+     افتراضية — تُطلب أوّل فتحةٍ لتبويبها وحده. */
+  "market-dir.json": (j) => {
+    if (!j || !Array.isArray(j.rows)) return;
+    state.mdir = j;
+    if (state.view === "mdir") renderMarketDir();
+  },
   "wide.json": (w) => {
     if (!w || !Array.isArray(w.rows)) return;
     state.wide = w;
@@ -4470,7 +4716,8 @@ const LAZY_TTL = {
   /* دورةُ الأسعار تكتبه كل دقيقتين، وهو مصدر «متى بدأت الإشارة» —
      فصلاحيةٌ أطول تجعل العمر المعروض متأخّراً عن الحقيقة. */
   "strategies.json": 90e3,
-  "strategy-edge.json": 6 * 3600e3  // يُبنى مع الدورة اليومية
+  "strategy-edge.json": 6 * 3600e3, // يُبنى مع الدورة اليومية
+  "market-dir.json": 5 * 60e3       // يُكتب مع دورة السوق (عشر دقائق)
 };
 const lazyWait = {};
 const lazyAt = {};
@@ -4565,6 +4812,7 @@ function renderDetail() {
    * والخطأ لا يُبتلَع: يُسجَّل في `diag` ويُكتب في البطاقة نفسها. القاعدة
    * أن يكون الخطأ ظاهراً، لا أن يكون العرض سليماً. */
   const cards = [["الجدول", () => renderTfTable(rec), "#tfTable"],
+                 ["الاستراتيجيات", () => renderStrategies(rec), "#scansOut"],
                  ["الأساسيات", () => renderFund(), null],
                  ["الصحّة المالية", () => renderHealth(), "#healthOut"],
                  ["القراءة", () => renderWhy(rec), "#whyList"],
@@ -4605,6 +4853,119 @@ function renderTfTable(rec) {
       <div class="tf-bar"><div class="tf-fill" style="${side}"></div></div>
       <div class="tf-val" style="color:${lb.c}">${lb.t}${ax}</div></div>`;
   }).join("");
+}
+
+/* =====================================================================
+   بطاقة «الاستراتيجيات» — طبقةُ تقييمٍ ثانية، ولا تحلّ محلّ محرّك الفرص.
+
+   ثلاث قواعد تحكم عرضها، وكلُّها مطبَّقةٌ في المشروع من قبل:
+
+   ١. **الحالة `off` تُسمّى «متعذّرة» لا «محايدة».** «لا إشارة الآن»
+      حالةُ سوقٍ تُقرأ، و«لا يمكن التقييم» نقصُ بيانات — وخلطُهما يجعل
+      الرمز السليم يبدو ناقصاً والناقصَ يبدو سليماً.
+   ٢. **الرقم يُقال بمصدره**: لقطةُ خادم لا حسابٌ لحظي. ولحظةُ البدء
+      (`at`) لا يملكها المتصفّح أصلاً — لم يكن يعمل حين انقلبت الجهة.
+   ٣. **التوافق يُقارن باتجاه الفرصة لا باتجاه السعر**: السؤال «هل
+      تؤيّد هذه الطريقةُ الخطةَ المعروضة؟».
+   ===================================================================== */
+function renderStrategies(rec) {
+  const card = $("#cardScans"), el = $("#scansOut"), hint = $("#scansHint");
+  if (!card || !el) return;
+  // الإفراغ عند الإخفاء: بطاقةٌ مخفيّة تحتفظ بأرقام السهم السابق، وأيُّ
+  // مسارٍ يُظهرها بلا إعادة رسم يعرض رمزاً على شاشة رمزٍ آخر
+  const hide = (why) => { el.innerHTML = ""; if (hint) hint.textContent = ""; card.style.display = "none"; card._why = why; };
+
+  const snap = consSnapshot(rec.s);
+  if (!snap) { hide("لم يصل strategies.json"); return; }
+  const { res, cons } = snap;
+  const S_ = scsFrom(cons);
+  const od = oppDirOf(symRow(rec.s));
+  const sd = od ? od.dir : null;
+
+  const fam = (id) => (STRAT_BY_ID[id] && FAMS[STRAT_BY_ID[id].fam]) || "";
+  const now = Date.now();
+
+  /* =====================================================================
+     العشر كلُّها تُعرض، لا ما ظهر في اللقطة وحده.
+
+     `strategies.json` يحفظ صفّاً لِما له **جهة** فقط (`!r.dir` ⇒
+     `continue` في `track-strategies`) — فبناءُ البطاقة من صفوفه يعطي
+     أربعة صفوف من عشرة، ويُقرأ «الست الباقية غير موجودة» بدل «الست
+     الباقية لم تُطلق». وهو نفس خطأ «وسمُ ما لا يعمل يملأ القائمة بلا
+     شيء ويُقرأ عطلاً» مقلوباً: إخفاءُ ما يعمل يُقرأ نقصاً.
+
+     فالقائمة تُبنى من `STRATEGIES` ويُدمج فوقها المحفوظ. والغائب
+     يُسمّى «بلا إشارة» لا «متعذّر»: اللقطة لا تفرّق بين «قُيّم فلم
+     يُطلق» و«تعذّر تقييمه»، والادّعاء بأحدهما كذبٌ في الحالتين —
+     ويُقال ذلك في سطر المصدر صراحةً. */
+  const byId = {};
+  for (const r of res) if (!String(r.id).startsWith("_q")) byId[r.id] = r;
+  const rank = (r) => {
+    if (!r.seen) return 3;
+    if (!r.dir || !r.active) return 2;
+    return (sd && r.dir === sd) ? 0 : 1;
+  };
+  const rows = STRATEGIES.map(st => {
+    const r = byId[st.id];
+    return r ? { ...r, seen: true }
+             : { id: st.id, lbl: st.lbl, fam: st.fam, dir: 0, sc: null,
+                 active: false, at: null, seen: false };
+  }).sort((a, b) => rank(a) - rank(b) || (b.sc || 0) - (a.sc || 0));
+  if (!rows.length) { hide("لا صفوف"); return; }
+
+  const line = (r) => {
+    const meta = STRAT_BY_ID[r.id] || {};
+    let state_, col;
+    if (!r.seen) { state_ = "بلا إشارة"; col = "var(--mut)"; }
+    else if (!r.dir || !r.active) { state_ = "لم تتفعّل"; col = "var(--mut)"; }
+    else if (!sd) { state_ = r.dir > 0 ? "▲ صعود" : "▼ هبوط"; col = r.dir > 0 ? "var(--up)" : "var(--dn)"; }
+    else if (r.dir === sd) { state_ = "متوافقة"; col = "var(--up)"; }
+    else { state_ = "مخالِفة"; col = "var(--dn)"; }
+
+    const sc = Number.isFinite(r.sc) ? r.sc : null;
+    const w = sc === null ? 0 : sc;
+    const since = (r.active && r.at)
+      ? `<span style="color:var(--dim)">منذ ${esc(age(now - r.at * 1000))}</span>` : "";
+    return `<div class="tf">
+      <div class="tf-name">${esc(meta.lbl || r.id)}<small style="display:block;color:var(--dim);font-weight:400">${
+        esc(fam(r.id))}${meta.tf ? " · " + esc(TF_LABEL[meta.tf] || meta.tf) : ""}</small></div>
+      <div class="tf-bar"><div class="tf-fill" style="right:0;width:${w}%;background:${col}"></div></div>
+      <div class="tf-val" style="color:${col}">${state_}${
+        sc === null ? "" : ` <span class="num">${sc}</span>`}</div>
+    </div>${since ? `<div class="n" style="margin:-4px 0 8px;font-size:11.5px">${since}</div>` : ""}`;
+  };
+
+  /* السطر الختامي: الدرجة الموحّدة وأثرها **بالنقاط** لا بوصفٍ مبهم.
+     ومن يقرأ «‎+9‎ نقاط» يعرف ما جرى؛ ومن يقرأ «تعزيز» لا يعرف. */
+  const nOn = rows.filter(r => r.dir && r.active).length;
+  const nOff = rows.filter(r => !r.seen).length;
+  let foot;
+  if (S_.scs === null) {
+    foot = `<div class="note">لا استراتيجية متفعّلة على هذا الرمز الآن — وهذه نتيجة صحيحة لا عطل.</div>`;
+  } else if (S_.mixed) {
+    foot = `<div class="warn">الاستراتيجيات متعارضة (كتلةُ المخالفة فوق الحدّ) — لا جهة،
+      ولا تعديل على درجة الفرصة.</div>`;
+  } else {
+    const q = oppQualityOf(0.5, S_.scs, sd);
+    const pts = Math.round(q.adj * 100);
+    const lb = dirLabelOf(S_.dir, S_.pct);
+    foot = `<div class="note">درجة التوافق:
+      <b style="color:${lb.c}">${lb.t} ${S_.pct}%</b> · ${bd(nOn)} متفعّلة من ${bd(rows.length)}
+      ${nOff ? `· ${bd(nOff)} بلا إشارة` : ""} · الثقة ${esc(cons.confT || "—")}
+      ${sd ? `<br>الأثر على درجة الفرصة: <b class="num" style="color:${
+        pts > 0 ? "var(--up)" : pts < 0 ? "var(--dn)" : "var(--mut)"
+      }">${pts > 0 ? "+" : ""}${pts}</b> نقطة من مئة${
+        pts < 0 ? " — الاستراتيجيات تخالف جهة الخطة" : pts > 0 ? " — الاستراتيجيات تؤيّد جهة الخطة" : ""}`
+        : `<br>لا شرط فرصةٍ محقَّق على هذا الرمز، فلا جهةَ تُقارن بها — وهذه معلومة لا نقص.`}</div>`;
+  }
+
+  el.innerHTML = rows.map(line).join("") + foot +
+    `<p class="srcline">لقطةُ الخادم من آخر دورة مسح — لا حسابٌ لحظي.
+     ${state.strategies && state.strategies.updated ? "حُدّثت " + esc(ago(state.strategies.updated)) + ". " : ""}
+     واللقطة تحفظ ما له جهةٌ فقط، فـ«بلا إشارة» تشمل ما قُيّم فلم يُطلق
+     وما تعذّر تقييمه معاً — ولا تُنسب إلى أحدهما.</p>`;
+  if (hint) hint.textContent = "عشرُ قراءاتٍ مستقلّة بجانب محرّك الفرص — تعزّز أو تُضعف، ولا تحلّ محلّه";
+  card.style.display = "";
 }
 
 /* =====================================================================
@@ -6778,6 +7139,40 @@ function renderScreen() {
     return (isFinite(x) ? x : Infinity) - (isFinite(y) ? y : Infinity);
   });
 
+  /* =====================================================================
+     درجةُ الفرصة = رتبتُها في المسح ‎±‎ توافقُ الاستراتيجيات العشر.
+
+     **لماذا الرتبة المئوية لا قيمة `scan.rank` نفسها**: المقياس يختلف
+     بين مسحٍ وآخر — سعرٌ هنا وRSI هناك ومضاعفُ حجمٍ في ثالث، وكلُّها
+     تصاعدية. فضربُها أو جمعُها بمعاملِ توافقٍ خلطُ وحدات يعطي رقماً
+     بلا معنى. أما الرتبة فبلا وحدة وتصلح لكل المسوح بصيغةٍ واحدة.
+
+     والأساس يبقى المسح: التوافق يزيح **±15 نقطة من مئة** فيفرّق بين
+     المتقاربين ولا يقلب القائمة، وهو بالضبط معنى «تعزيزٌ أو إضعاف لا
+     تغييرٌ لطبيعة النظام».
+
+     وبلا `strategies.json` لا تعديل — `scs = null` تمرّ من
+     `oppQualityOf` بلا مساس، ويُقال ذلك في سطر العدد بدل أن يُخفى. */
+  const confReady = !!stratIndex();
+  const E = confReady ? scEdge() : null;
+  let nAdj = 0;
+  if (hits.length) {
+    const denom = Math.max(1, hits.length - 1);
+    hits.forEach((r, i) => {
+      const base = 1 - (i / denom);              // 0..1 — الأفضل 1
+      const sn = confReady ? consSnapshot(r.s, E) : null;
+      const sc = sn ? scsFrom(sn.cons) : { scs: null, pct: null, dir: 0, mixed: false };
+      const od = oppDirOf(r, F, ctx);
+      const q = oppQualityOf(base, sc.scs, od ? od.dir : null);
+      r._conf = { scs: sc.scs, pct: sc.pct, dir: sc.dir, mixed: sc.mixed,
+                  sd: od ? od.dir : null, adj: q.adj, q: q.q,
+                  n: sn ? sn.res.filter(x => x.dir && x.active).length : 0 };
+      if (q.adj) nAdj++;
+    });
+    // الترتيب النهائي بالدرجة تنازلياً، والرتبة الخام تفصل عند التساوي
+    hits.sort((a, b) => (b._conf.q - a._conf.q) || (key(a) - key(b)));
+  }
+
   // نتائج المسح الأخير تُحفظ للتصدير: إعادةُ بنائها في زرّ التصدير
   // تعني نسخةً ثانية من الشرط والترتيب تتباعد بأول تعديل
   state.lastScanRows = hits;
@@ -6810,15 +7205,34 @@ function renderScreen() {
       ? `<div class="n" style="color:var(--dim)">${fr && fr.i ? fr.i + " " : ""}${esc(age(now - sg.at))} · عند
          <span class="num">${money(sg.entry)}</span>${fr ? ` · ${esc(fr.t)}` : ""}</div>`
       : "";
+    /* سطرُ التوافق: الأثر **بالنقاط** لا بوصف. ويُقال في ثلاث حالات
+       مختلفة لا واحدة — مؤيّد، مخالف، متعارض — والرابعة (لا إشارة)
+       تُترك بلا سطر: صفٌّ يقول «لا شيء» عن كل رمزٍ يملأ القائمة ضجيجاً. */
+    const cf = r._conf || {};
+    let conf = "";
+    if (cf.mixed) {
+      conf = `<div class="n" style="color:var(--mut)">الاستراتيجيات متعارضة — لا تعديل</div>`;
+    } else if (Number.isFinite(cf.adj) && cf.adj !== 0) {
+      const p = Math.round(cf.adj * 100);
+      /* **«منفردة» لا «توافق 1»**: استراتيجيةٌ واحدة تتّفق مع نفسها،
+         وتسميةُ ذلك توافقاً هي بعينها ما تمنعه قاعدة «الإشارة المنفردة
+         لا تُسمّى إجماعاً». والوسم يتبع العدد لا الإشارة. */
+      const w = cf.n === 1 ? "إشارة منفردة"
+              : `${p > 0 ? "توافق" : "تعارض"} ${bd(cf.n)} استراتيجيات`;
+      conf = `<div class="n" style="color:${p > 0 ? "var(--up)" : "var(--dn)"}">${w} ·
+        ${p > 0 ? "+" : ""}${p} نقطة</div>`;
+    }
     return `<div class="srow" data-open="${esc(r.s)}">
       <div class="rank num">${i + 1}</div>
       <div class="id">
         <div class="t">${esc(nm(r))}</div>
         <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}${
           core.has(r.s) ? "" : ` · <span style="color:var(--mut)">يوميّ فقط</span>`}</div>
-        ${since}
+        ${since}${conf}
       </div>
-      <div class="hitv">${esc(v)}</div>
+      <div class="hitv">${esc(v)}${Number.isFinite(cf.q)
+        ? `<div class="n" style="color:var(--dim)">درجة <span class="num">${
+            Math.round(cf.q * 100)}</span></div>` : ""}</div>
       <div class="px">
         <div class="p num">${money(r.p)}</div>
         <div class="c num" style="color:${col}">${pct(r.chg)}</div>
@@ -6830,7 +7244,14 @@ function renderScreen() {
   const scope = scan.wide
     ? (wideReady ? `${bd(pool.length)} رمزاً (الكون كاملاً)` : `${bd(pool.length)} سهماً · الطبقة الواسعة تُجلب…`)
     : `${bd(pool.length)} سهماً`;
-  $("#scanCount").textContent = `${bd(hits.length)} من ${scope} · حُدّثت ${ago(state.summary.updated)}`;
+  /* حالةُ التوافق تُقال صراحةً: ترتيبٌ عُدِّل بـ‎n‎ صفّاً، أو ترتيبُ
+     المسح الخام لأن اللقطة لم تصل. إخفاؤها يجعل ترتيبين مختلفين
+     يبدوان واحداً. */
+  const confNote = !confReady
+    ? " · لقطة الاستراتيجيات تُجلب — الترتيب بالمسح وحده"
+    : (nAdj ? ` · التوافق عدّل ${bd(nAdj)} صفّاً (±15 نقطة)` : " · لا توافق يعدّل الترتيب الآن");
+  $("#scanCount").textContent =
+    `${bd(hits.length)} من ${scope}${confNote} · حُدّثت ${ago(state.summary.updated)}`;
 }
 
 function renderEarnings() {
@@ -7341,6 +7762,62 @@ const scEdge = () => {
   return out;
 };
 
+/* =====================================================================
+   الإجماع من اللقطة المخزَّنة — مصدرٌ واحد لثلاثة مستهلكين.
+
+   `strategies.json` يحمل صفّاً لكل (رمز × استراتيجية متفعّلة)، فبناءُ
+   الإجماع منه لا يكلّف طلباً واحداً ولا يحتاج ملفّ الرمز. وهو **لقطةُ
+   خادم لا حسابٌ لحظي** — يُقال ذلك في كل شاشةٍ تعرضه.
+
+   الفهرسة تُبنى مرّةً وتُحفظ ما دام الملفّ هو نفسه: `rkRows` تنادي
+   هذه على ‎1155‎ رمزاً، وإعادةُ تجميع ‎1090‎ صفّاً عند كل رمز كلفةٌ
+   تربيعية — وهي المصيدة التي كلّفت الأرشيف اللحظي ساعاتٍ مرّة.
+   ===================================================================== */
+const stratIdx = { src: null, byS: null, meta: null, total: 0 };
+function stratIndex() {
+  const st = state.strategies;
+  if (!st || !Array.isArray(st.rows)) return null;
+  if (stratIdx.src === st) return stratIdx;
+  const byS = {};
+  for (const r of st.rows) (byS[r.s] ||= []).push(r);
+  stratIdx.src = st; stratIdx.byS = byS;
+  stratIdx.meta = STRAT_BY_ID;
+  stratIdx.total = STRATEGIES.length;
+  return stratIdx;
+}
+
+/* إجماعُ رمزٍ واحد من اللقطة — أو `null` إن لم يصل الملفّ بعد.
+   و`null` ليست «لا إشارة»: الأولى «لم نقرأ» والثانية «قرأنا فلم نجد»،
+   وخلطُهما يجعل بطءَ الشبكة يُقرأ حياداً في السوق. */
+function consSnapshot(sym, E) {
+  const ix = stratIndex();
+  if (!ix) return null;
+  return consFromRows(ix.byS[sym] || [], ix.meta,
+                      { total: ix.total, edge: E || scEdge() });
+}
+
+/* =====================================================================
+   اتجاهُ محرّك الفرص لرمز — نسخة واحدة لثلاثة مستهلكين.
+
+   وهو **ليس** إشارة النتيجة الفنية وحدها: شرطٌ يفرض اتجاه خطته
+   (`planDir`) يغلبها، وهي القاعدة التي جعلت `AVGO` تعرض «▼ خطة هبوط»
+   تحت «تباعد صاعد ▲» قبل إصلاحها. فالترتيب هنا هو ترتيبُ `planDirOf`
+   بالحرف: الشرط المفروض أولاً، ثم النتيجة.
+
+   ويُعاد `null` حين لا شرط محقَّق — لا صفر: «لا فرصة هنا» ليست
+   «فرصةٌ بلا جهة». */
+function oppDirOf(row, F, ctxScan) {
+  if (!row) return null;
+  try {
+    const f = F ? F[row.s] : ((state.fund && state.fund.f) || {})[row.s];
+    const ctx = ctxScan || { secMed: (fundScores() || {}).secMed || {} };
+    const hits = SCANS.filter(sc => { try { return !!sc.test(row, f, ctx); } catch { return false; } });
+    if (!hits.length) return null;
+    const forced = hits.map(h => forcedDir(h.id)).find(d => d === 1 || d === -1);
+    return { dir: planDirOf(row.score, forced), hits, forced: forced ?? null };
+  } catch (e) { diag("scan", `اتجاه الفرصة ${row.s}`, e.message); return null; }
+}
+
 /* البحث: يعمّ الكون كاملاً بمجرّد كتابة نص — من كتب «بيتكوين» يقصده،
    وحصرُ البحث في المرصودة يعيد «لا نتائج» عن رمزٍ موجود. */
 function scFind(q) {
@@ -7482,17 +7959,13 @@ function renderScCons(row, ctx, res, cons, regime, mkt) {
   const oldest = ages.length ? ages[ages.length - 1] : null;
 
   // مقارنة بمحرّك الفرص — بسياق القطاعات الحقيقي لا `{}` فارغة
-  let cmpEng = null;
-  try {
-    const ctxScan = { secMed: (fundScores() || {}).secMed || {} };
-    const F = (state.fund && state.fund.rows) || {};
-    const hits = SCANS.filter(sc => { try { return !!sc.test(row, F[row.s], ctxScan); } catch { return false; } });
-    if (hits.length) {
-      const forced = hits.map(h => forcedDir(h.id)).find(d => d === 1 || d === -1);
-      const sd = planDirOf(row.score, forced);
-      cmpEng = { r: compareEngines(sd, cons), hits, sd };
-    }
-  } catch (e) { diag("scanner", "مقارنة المحرّكين", e.message); }
+  /* عبر `oppDirOf` المشتركة. وكانت مكتوبةً هنا بخريطة `state.fund.rows`
+     — و`fundamentals.json` يحمل `f` لا `rows`، فالخريطة تخرج فارغةً
+     دائماً ويقرأ كلُّ شرطٍ أساسيّ (`cheap` وغيره) `undefined`. لا خطأ
+     ولا استثناء: فقط شروطٌ لا يمكن أن تظهر في المقارنة أبداً — نفس
+     عائلة `{ secMed: {} }` الموثّقة. وتوحيدُ المسار يقفل بابها. */
+  const od = oppDirOf(row);
+  const cmpEng = od ? { r: compareEngines(od.dir, cons), hits: od.hits, sd: od.dir } : null;
 
   const eqs = side.map(r => r.eq).filter(Number.isFinite);
   const bestEq = eqs.length ? Math.max.apply(null, eqs) : null;
@@ -7836,10 +8309,7 @@ const RK_PAGE = 100;
 let rkMore = false;
 
 function rkRows() {
-  const st = state.strategies;
-  if (!st || !Array.isArray(st.rows)) return null;
-  const byS = {};
-  for (const r of st.rows) (byS[r.s] ||= []).push(r);
+  if (!stratIndex()) return null;
 
   const scope = ($("#rkScope") && $("#rkScope").value) || "us";
   const universe = allRows().filter(r => {
@@ -7848,26 +8318,17 @@ function rkRows() {
     return true;
   });
 
-  const E = scEdge();
+  /* البناء عبر `consFromRows` المشتركة — وكان مكتوباً هنا وحده، فنسخُه
+     إلى بطاقة السهم و«توجه السوق» كان سيكرّر حشوَ غير المتفعّلة ثلاث
+     مرّات، وسطرٌ واحد ينساه الناسخ يقلب معنى «كم لم تتفعّل». */
+  const E = scEdge(), now = Date.now();
   const seen = new Set(), out = [];
   for (const row of universe) {
     if (seen.has(row.s)) continue;
     seen.add(row.s);
-    const mine = byS[row.s] || [];
-    /* الحشو بعددٍ من غير المتفعّلة: `consensusOf` تحسب «كم لم تتفعّل»
-       من طول المصفوفة، و`strategies.json` لا يحفظ إلا ما تفعّل — فبلا
-       الحشو يقول السطر «0 لم تتفعّل» عن رمزٍ تفعّلت فيه واحدة من عشر. */
-    const res = mine.map(r => {
-      const meta = STRAT_BY_ID[r.st] || {};
-      return { id: r.st, lbl: meta.lbl || r.st, fam: meta.fam || "trend",
-               dir: r.dir, sc: r.sc, band: r.band, active: !!r.act, at: r.at };
-    });
-    const pad = Math.max(0, STRATEGIES.length - res.length);
-    for (let i = 0; i < pad; i++) res.push({ id: "_q" + i, dir: 0, sc: null, active: false });
-
-    const cons = consensusOf(res, { edge: E });
-    const ats = res.filter(r => r.active && r.at).map(r => Date.now() - r.at * 1000);
-    out.push({ row, cons, fresh: ats.length ? Math.min.apply(null, ats) : null,
+    const { res, cons } = consSnapshot(row.s, E);
+    const at = oldestActiveAt(res);
+    out.push({ row, cons, fresh: at === null ? null : now - at,
                n: res.filter(r => r.dir && r.active).length });
   }
 
@@ -7994,8 +8455,15 @@ function go(view) {
   window.scrollTo({ top: 0, behavior: "instant" });
   if (isDetail) setTimeout(drawChart, 60);
   // كل شاشة تطلب ما تحتاجه أول مرة تُفتح فيها
+  if (view === "mdir") { need("market-dir.json"); renderMarketDir(); }
   if (view === "list") renderList();
-  if (view === "screen") { need("fundamentals.json"); renderScreen(); renderEarnings(); renderArchive(); }
+  /* الفرص: الأساسيات لشروطها، ولقطةُ الاستراتيجيات وحوافُّها لدرجة
+     التوافق التي تعدّل الترتيب. وغيابُ الأخيرتين تدهورٌ هادئ — القائمة
+     تُعرض بترتيب المسح الخام ويُقال ذلك في سطر العدد. */
+  if (view === "screen") {
+    need("fundamentals.json"); need("strategies.json"); need("strategy-edge.json");
+    renderScreen(); renderEarnings(); renderArchive();
+  }
   if (view === "opts") { need("options.json"); need("wide.json"); renderOpts(); }
   // الماسح: لحظاتُ البدء والحوافّ المقيسة. والتحليل نفسه يُحسب في
   // المتصفح من ملف الرمز، فلا يُجلب شيءٌ ثقيل قبل أن يبحث المستخدم.

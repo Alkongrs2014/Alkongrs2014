@@ -238,6 +238,8 @@ if (typeof module !== "undefined" && module.exports) {
     REGIMES: REGIMES, marketRegime: marketRegime,
     edgeWeight: edgeWeight, weightFor: weightFor, W_MIN: W_MIN, W_MAX: W_MAX,
     consensusOf: consensusOf, confluenceOf: confluenceOf, compareEngines: compareEngines,
-    MIX_SHARE: MIX_SHARE, HOT_AGREE: HOT_AGREE, HOT_FAMS: HOT_FAMS, HOT_EQ: HOT_EQ
+    MIX_SHARE: MIX_SHARE, HOT_AGREE: HOT_AGREE, HOT_FAMS: HOT_FAMS, HOT_EQ: HOT_EQ,
+    // يقرؤها `confluence.js` ليشتقّ منها حدَّي وسم التوجّه بدل كتابتهما
+    CONF_HI: CONF_HI, CONF_MD: CONF_MD
   };
 }

@@ -184,6 +184,55 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   const liveBy = {};
   for (const s of live) liveBy[stateKey(s.sym, s.strat)] = s;
 
+  /* =====================================================================
+     سجلٌّ بُني بتعريفٍ تغيّر يُغلق ولا يُحوَّل — `conv`.
+
+     نفس مسار `conv: "dir"`/`"gone"`/`"snap"` في `track-signals.mjs`،
+     ولنفس السبب: `snap` تُكتب مرّةً ولا تُلمس، وإعادةُ بنائها بمعطيات
+     اليوم تجعل السجلَّ يدّعي أنه رأى ما لم يره. و`mfe`/`mae` مسارٌ
+     تراكميّ لا يُعاد حسابه من سعرٍ واحد أصلاً.
+
+     والحالتان هنا:
+
+       `"gone"` — استراتيجيةٌ حُذف معرّفُها من `STRATEGIES`، فلا وسم
+                  لها ولا حافّة ولا شيءٌ يُقارن به.
+       `"tf"`   — استراتيجيةٌ تغيّر **فريمُها** المعلن. وهذا أخطر من
+                  الحذف لأنه لا يبدو تغييراً: الاسم نفسه والمعرّف
+                  نفسه، والسجلّ يبقى مفتوحاً — فتُخلط صفقاتُ `orb`
+                  على ‎5د‎ بصفقاته على ‎15د‎ في مقامٍ واحد، ويُنسب إلى
+                  «نسبة نجاح كسر نطاق الافتتاح» رقمٌ يصف تعريفين.
+
+     و`conv` يُفحص **بالصدق** لا بمساواة قيمة — مجموعة قيمه مفتوحة،
+     وهي القاعدة التي كلّف نسيانُها ثلثَي مقام نسبة النجاح مرّة.
+
+     ---------------------------------------------------------------
+     وكشفُ «تغيّر الفريم» يحتاج حقلاً صريحاً، و`snap.tf` **لا يصلح**:
+     هو فريمُ ATR الصفقة لا فريمُ المشغِّل، وهما مختلفان عمداً — خطةُ
+     `orb` كانت تُقاس بـ‎15د‎ بينما مشغِّلُه ‎5د‎، فالحقلان متساويان
+     قبل التغيير وبعده ولا يكشفان شيئاً.
+
+     فيُكتب `stf` (فريم الاستراتيجية المعلن) في كل سجلٍّ جديد، ويصير
+     الكشفُ بعدها آلياً ودقيقاً. أما السجلات المكتوبة **قبل** وجود
+     الحقل فتُعرف بغيابه: وغيابُه على استراتيجيةٍ `intraday` يعني
+     `orb` أو `vwapRec` — وهما بالضبط المنقولتان من ‎5د‎ إلى ‎15د‎.
+     قاعدةٌ تنطفئ بنفسها: بعد أوّل تشغيل يحمل كلُّ سجلٍّ `stf`. */
+  {
+    const known = new Map(S.STRATEGIES.map(s => [s.id, s.tf]));
+    let convGone = 0, convTf = 0;
+    for (const sig of live) {
+      if (sig.conv || !sig.open) continue;
+      const tfNow = known.get(sig.strat);
+      const st = S.STRAT_BY_ID[sig.strat];
+      if (tfNow === undefined) { sig.conv = "gone"; convGone++; }
+      else if (sig.stf ? sig.stf !== tfNow : (st && st.src === "intraday")) {
+        sig.conv = "tf"; convTf++;
+      }
+      if (sig.conv) { sig.open = false; sig.closed = now; }
+    }
+    if (convGone || convTf)
+      info("scanner", `هجرة سجلات: ${convGone} لاستراتيجيةٍ محذوفة · ${convTf} لفريمٍ تغيّر`);
+  }
+
   initLog(out);
   info("scanner", `بدء المسح · ${all.length} رمزاً · الجلسة ${sessionOf(now)}`);
 
@@ -240,6 +289,8 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
             `${r.tfUsed || st.tf}${c.extSess ? " · جلسة ممتدة" : ""}`);
           const sig = { sym: row.s, strat: st.id, at: now, dir: r.dir,
                         sc: r.sc, band: carried.band, mkt: rec.mkt || null,
+                        // فريمُ المشغِّل المعلن — يكشف تغيّر التعريف لاحقاً
+                        stf: st.tf,
                         regime: C.marketRegime(c.an), snap, open: true,
                         out: { st: "wait", hit: snap.t.map(() => null), stopAt: null, enterAt: null } };
           live.push(sig); liveBy[key] = sig; added++;
@@ -371,6 +422,35 @@ function selfTest() {
     const s2 = snapFor(c, r, good);
     ok(s2 && !s2.bad, "الخطة السليمة تمرّ");
     ok(s2.e - s2.s > 0, "والفرق يبقى موجباً بعد التقريب");
+  });
+
+  t("السجلّ الذي تغيّر تعريفُه يُغلق ولا يُحوَّل", () => {
+    /* المحاكاة تستنسخ منطق الهجرة لا تستدعيه (هو داخل `run` التي تحتاج
+       القرص). والفحص يحرس الحالات الأربع التي تفترق فيها القاعدة. */
+    const known = new Map(S.STRATEGIES.map(s => [s.id, s.tf]));
+    const migrate = (sig) => {
+      if (sig.conv || !sig.open) return sig;
+      const tfNow = known.get(sig.strat);
+      const st = S.STRAT_BY_ID[sig.strat];
+      if (tfNow === undefined) sig.conv = "gone";
+      else if (sig.stf ? sig.stf !== tfNow : (st && st.src === "intraday")) sig.conv = "tf";
+      if (sig.conv) { sig.open = false; sig.closed = 1; }
+      return sig;
+    };
+    const mk = (o) => Object.assign({ sym: "X", open: true, snap: { tf: "15m" } }, o);
+
+    // ١) استراتيجيةٌ اختفى معرّفُها
+    eq(migrate(mk({ strat: "squeeze" })).conv, "gone", "المحذوفة تُغلق");
+    // ٢) سجلٌّ قديم بلا `stf` لاستراتيجيةٍ لحظية = ما قبل نقل الفريم
+    eq(migrate(mk({ strat: "orb" })).conv, "tf", "القديم اللحظي يُهاجَر");
+    // ٣) وسجلٌّ قديم لاستراتيجيةٍ لم يتغيّر فريمُها يبقى مفتوحاً
+    eq(migrate(mk({ strat: "brk" })).open, true, "غيرُ اللحظية لا تُمسّ");
+    // ٤) والجديد الحامل `stf` المطابق يبقى — فالقاعدة تنطفئ بنفسها
+    eq(migrate(mk({ strat: "orb", stf: "15m" })).open, true, "الجديد المطابق يبقى");
+    eq(migrate(mk({ strat: "orb", stf: "5m" })).conv, "tf", "والمخالف يُهاجَر");
+    // ٥) و`conv` يُفحص بالصدق: قيمةٌ رابعة لا تتسرّب إلى الإحصاء
+    const already = mk({ strat: "orb", conv: "snap", open: false });
+    eq(migrate(already).conv, "snap", "الموسوم سابقاً لا يُعاد وسمُه");
   });
 
   t("اللقطة بشكلٍ تقبله updateOutcome بلا تحويل", () => {

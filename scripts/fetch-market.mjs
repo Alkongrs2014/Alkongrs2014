@@ -27,7 +27,7 @@ const CHECK = args.includes("--check");
 const OUT = (() => { const i = args.indexOf("--out"); return i >= 0 ? path.resolve(args[i + 1]) : path.join(ROOT, "out"); })();
 
 const KEEP = 260;                 // يكفي لـ EMA200 مع هامش، ويُبقي الملفات خفيفة
-const MAX_AGE = { "5m": 0, "15m": 0, "1h": 55 * 60e3, "1d": 20 * 3600e3 };
+const MAX_AGE = { "15m": 0, "1h": 55 * 60e3, "1d": 20 * 3600e3 };
 // صلاحية الفريم اليومي **أثناء الجلسة**. شمعةُ اليوم قيد التكوّن ما دامت
 // الجلسة قائمة، فتجميدها عشرين ساعة يعني أن ارتفاع اليوم وانخفاضه لا
 // يدخلان الحساب قبل الغد. والعشرون ساعة لا تقسم الأربعةَ والعشرين، فوقتُ
@@ -39,27 +39,26 @@ const DAILY_LIVE_AGE = 30 * 60e3;
 // السوق عشر دقائق، فـ 60 رمزاً/تشغيل تكفي لتجديد 414 رمزاً في ~70 دقيقة
 // دون أن ترتفع دورة واحدة إلى مئات الطلبات فتستدعي 429.
 const WIDE_PER_RUN = Number(process.env.WIDE_PER_RUN || 60);
-const RANGE   = { "5m": "60d", "15m": "60d", "1h": "730d", "1d": "5y" };
+const RANGE   = { "15m": "60d", "1h": "730d", "1d": "5y" };
 
 /* =====================================================================
-   فريم 5 دقائق — يُحسب ولا يدخل النتيجة الفنية.
+   أربعة فريمات لا خمسة — و‎5د‎ أُزيل من المشروع كلِّه.
 
-   `TFS` أربعةٌ بأوزانها، و`overallScore` و`tfScore` يدوران عليها وحدها،
-   و`allTF` في `scans.js` تشترط `v.length === 4` بالضبط. فإضافةُ خامسٍ
-   إليها تغيّر نتيجة كل رمز في الكون، فتُبطل الأرشيف كلَّه وتُسقط شرطَي
-   «توافق الفريمات» **بصمت** — لا خطأ ولا استثناء، فقط أرقامٌ أخرى.
+   كان ‎5د‎ يُجلب ويُحلَّل في طبقةٍ موازية (`AN_TFS` الخامس و`tfx["5m"]`)
+   ويقرؤه ماسح الاستراتيجيات وحده، فيما `TFS` الأربعة تحكم النتيجة
+   الفنية. والطبقتان كلفتا طلباً ثانياً لكل رمز وفرعاً ثانياً في كل
+   مسار اختيارِ فريم — بلا أن يظهر رقمُ ‎5د‎ في شاشةٍ واحدة.
 
-   ولهذا `AN_TFS` قائمةٌ منفصلة للتحليل وحده: `rec.an["5m"]` يُكتب
-   ويقرؤه ماسح الاستراتيجيات، و`rec.score` و`tfScore` لا يريانه.
-   و`check-ui` يحرس هذا الفصل صراحةً.
+   فصار `AN_TFS` هو `TFS` نفسه. وهذا **لا يمسّ النتيجة الفنية بحرف**:
+   `overallScore` و`tfScore` كانا يدوران على `TFS` وحدها أصلاً، و`allTF`
+   في `scans.js` تشترط `v.length === 4` بالضبط — فالأرشيف اليومي
+   (‎1,084,574‎ شمعة) يبقى صالحاً بايتاً ببايت.
 
-   وبلا `prePost`: نطاق الافتتاح وVWAP الجلسة يحتاجان الجلسة الرسمية
-   وحدها، وهي بالضبط ما يعطيه الطلب بلا جلسات ممتدة. ومكسبٌ ثانٍ أن
-   260 شمعة تصير 3.3 يوم تداول بدل 1.8، فتكفي EMA200 بهامش. ولذلك لا
-   يمرّ 5د بـ`tradingOnly`: حجمه حقيقيٌّ كله، والبوابة عليه تعريضٌ بلا
-   مقابل (نفس سبب استثناء الساعة واليومي منها).
+   والحارس في `--check` **مقلوبٌ عمداً**: كان يؤكّد وجود ‎5د‎ في
+   `AN_TFS`، وصار يؤكّد غيابه عن `TFS` و`AN_TFS` و`EXT_TFS` معاً. حذفُ
+   الحارس بدل قلبه يترك البابَ مفتوحاً لعودته بلا أن يعترض شيء.
    ===================================================================== */
-const AN_TFS = [...TFS, "5m"];
+const AN_TFS = TFS;
 
 /* =====================================================================
    السلسلة الممتدة `tfx` — موازيةٌ لا بديلة، وهذا هو القرار المعماريّ
@@ -74,18 +73,16 @@ const AN_TFS = [...TFS, "5m"];
 
    فـ`tf` تبقى **الجلسة الرسمية حصراً** بايتاً ببايت، و`tfx` سلسلةٌ
    ثانية تحمل الجلسة الممتدة وتقرؤها استراتيجياتُ ما قبل الافتتاح
-   وحدها. ونفس منطق `AN_TFS` مع فريم ‎5د‎: يُحسب ولا يدخل النتيجة.
+   وحدها: تُحسب ولا تدخل النتيجة.
 
-   والتكلفة صفرُ طلبات لـ‎15د‎: الطلب يُرسل أصلاً بـ`prePost: true`
-   منذ شهور، وكنّا **نرمي** شمعاته الممتدة. و‎5د‎ يحتاج طلباً ثانياً
-   لأن سلسلته الرسمية تأتي بـ`prePost: false` — والمقارنة أُجريت:
-   اشتقاقُ الرسمية من الاستجابة الممتدة **لا يعطي نفس السلسلة** (مدى
-   الستين يوماً يمتلئ بشمعاتٍ ممتدة فيبدأ من تاريخٍ أقرب: ‎4681‎ شمعة
-   مقابل ‎4661‎، وتختفي ‎6/18‎ كاملةً). فطلبان لا اشتقاق.
+   والتكلفة صفرُ طلبات: الطلب يُرسل أصلاً بـ`prePost: true` منذ شهور،
+   وكنّا **نرمي** شمعاته الممتدة. وكان معه ‎5د‎ ممتدٌّ بطلبٍ ثانٍ لكل
+   رمز (سلسلته الرسمية تأتي بـ`prePost: false` فلا تُشتقّ منها) — وقد
+   سقط مع إزالة ‎5د‎ من المشروع، فبقيت ‎15د‎ وحدها بكلفةٍ صفر.
    ===================================================================== */
-const EXT_TFS = ["15m", "5m"];
+const EXT_TFS = ["15m"];
 const KEEP_X = 260;
-const RANGE_X = { "15m": "60d", "5m": "5d", "1m": "2d" };
+const RANGE_X = { "15m": "60d" };
 
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
 
@@ -453,22 +450,10 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
       rec.tfx["15m"] = prev.tfx["15m"];              // لم تُجدَّد الساعة الربعية
     }
 
-    /* =====================================================================
-       ‎5د‎ الممتد يأتي **دفعةً واحدة لكل الكون** لا طلباً لكل رمز.
-
-       قِيس: ‎149‎ رمزاً في **طلبٍ واحد** و‎1.7‎ ثانية، بتغطية ‎93%‎
-       و‎13.1‎ مليون سهمٍ من حجم ما قبل الافتتاح. والبديل الذي كتبتُه
-       أولاً — طلبُ ياهو لكل رمز — كان ‎149‎ طلباً لسعرٍ بلا حجم.
-       ===================================================================== */
-    if (extBatch && extBatch["5m"] && extBatch["5m"][sym]) {
-      rec.tfx = rec.tfx || {};
-      rec.tfx["5m"] = { updated: now, src: extBatch.src,
-                        c: slimCandles(extBatch["5m"][sym].slice(-KEEP_X)) };
-      touched = true;
-    } else if (prev?.tfx?.["5m"]?.c?.length) {
-      rec.tfx = rec.tfx || {};
-      rec.tfx["5m"] = prev.tfx["5m"];
-    }
+    /* `tfx` تُبنى من `EXT_TFS` وحدها. وحذفُ ‎5د‎ من القائمة يكفي لمحوه
+       من الملفّات المخزَّنة: `rec` يُبنى فارغاً في كل تشغيل ولا يُنقل
+       إليه من `prev` إلا ما تذكره الشيفرة صراحةً — فالمفتاح الذي لا
+       يُذكر يسقط من الملفّ عند أوّل كتابة، بلا حاجة إلى تنقيةٍ لاحقة. */
   }
 
   // المؤشرات لكل فريم
@@ -557,7 +542,7 @@ async function main() {
     console.log(`  الطبقة الواسعة: ${wideDue.length} مستحقّ من ${wideAll.length} (سقف ${WIDE_PER_RUN}/تشغيل)`);
 
   // الوظائف: الأساسية والكريبتو بالفريمات الثلاثة، والواسعة باليومي وحده
-  const FULL = ["1d", "1h", "15m", "5m"];
+  const FULL = ["1d", "1h", "15m"];
   const jobs = [
     ...chosen.map(m => ({ m, frames: FULL, tier: "core" })),
     ...cryptoAll.map(m => ({ m, frames: FULL, tier: "core" })),
@@ -629,10 +614,32 @@ async function main() {
   // هو المصدر الأول (تشغيل محلي) فلا حد يقيّدنا، فنتوازى ونختصر الوقت
   // من ~28 دقيقة إلى دقائق معدودة لكل الرموز السبعين.
   const lanes = (hasTwelveData() && !PREFER_YAHOO) ? 1 : 3;
-  const results = await pool(jobs, lanes, (j) => buildSymbol(j.m, OUT, now, quotes, j.frames, j.tier, extBatch));
-  const rows = [], wideRecs = [], failed = [], frozen = [];
+
+  /* =====================================================================
+     بدائل المؤشّرات — شمعاتٌ تُخزَّن، **وصفٌّ لا يُضاف إلى الملخّص**.
+
+     `cfg.indices` تُجلب أسعارُها منذ البداية ولا تُحفظ شمعاتُها، فلا
+     يملك المشروع سلسلةً واحدة لـ S&P 500 — وقسمُ «توجه السوق» يحتاجها
+     كي تعمل عليه الاستراتيجياتُ كما تعمل على أيّ سهم.
+
+     والقرار المعماريّ هنا هو **ألّا يدخل صفٌّ إلى `summary.rows`**:
+     شرطُ «ليس كريبتو» (`mkt !== "crypto"`) مكرَّرٌ في اثني عشر موضعاً
+     — الاتساع والقطاعات والرابحون والخاسرون والبحث والقوائم وحاسبة
+     الارتباط. وإضافةُ طبقةٍ ثالثة تفرض مراجعتها كلَّها، ونسيانُ
+     واحدةٍ يُدخل `SPY` في «اتساع السوق» فيُحسب المؤشّرُ سهماً داخل
+     المؤشّر. فالملفّ يُكتب ويُقرأ بالاسم، ولا يعرف به أحدٌ سواه.
+     ===================================================================== */
+  const benchMeta = (cfg.indices || [])
+    .filter(ix => ix.proxy)
+    .map(ix => ({ s: ix.proxy, ar: ix.ar, en: ix.en, sec: "مؤشر", idx: ix.s }));
+  const benchJobs = benchMeta.map(m => ({ m, frames: FULL, tier: "bench" }));
+
+  const results = await pool(jobs.concat(benchJobs), lanes,
+    (j) => buildSymbol(j.m, OUT, now, quotes, j.frames, j.tier === "bench" ? "core" : j.tier, extBatch));
+  const allJobs = jobs.concat(benchJobs);
+  const rows = [], wideRecs = [], benchRecs = [], failed = [], frozen = [];
   results.forEach((r, i) => {
-    const j = jobs[i];
+    const j = allJobs[i];
     if (!r.ok) { failed.push({ s: j.m.s, error: r.error }); console.warn(`  ✗ ${j.m.s}: ${r.error}`); return; }
     // رمزٌ مجمَّد يُستبعد من الملخّص كاملاً: وجودُه بسعرٍ وهميّ أسوأ من
     // غيابه، لأنه يبدو حالةَ سوق ويدخل الإحصاء والفرص
@@ -641,10 +648,11 @@ async function main() {
       console.warn(`  ⃠ ${j.m.s}: سلسلة مجمّدة بلا حجم — مستبعد`);
       return;
     }
-    (j.tier === "wide" ? wideRecs : rows).push(r.value);
+    (j.tier === "wide" ? wideRecs : j.tier === "bench" ? benchRecs : rows).push(r.value);
   });
   if (frozen.length) console.warn(`  ⃠ مستبعدة لتجمّد سلسلتها: ${frozen.join(" ")}`);
-  console.log(`  ✓ نجح ${rows.length + wideRecs.length} / ${jobs.length}`);
+  console.log(`  ✓ نجح ${rows.length + wideRecs.length} / ${jobs.length}` +
+              (benchRecs.length ? ` · ${benchRecs.length} بديل مؤشّر` : ""));
   // بوابة السلامة على الطبقة الأساسية وحدها: الواسعة تراكمية، وتشغيل لم
   // يستحقّ فيه أي رمز واسع تحديثاً ليس فشلاً.
   if (!rows.length) throw new Error("لم ينجح أي رمز أساسي — لن نكتب فوق البيانات السليمة");
@@ -719,6 +727,19 @@ async function main() {
 
   const summary = rows.map(rec => buildRow(rec, true));
   summary.sort((a, b) => (b.mc ?? 0) - (a.mc ?? 0));
+
+  /* بدائل المؤشّرات: `buildRow` تُنادى **لأثرها الجانبي** — كتابةِ
+     `sym/{PROXY}.json` — ويُرمى الصفّ الناتج عمداً. وهي نفس الدالّة
+     لا نسخةٌ منها: الشمعات تُضغط بنفس التضمين، فيقرؤها `unpackCandles`
+     بلا فرع. ويُحفظ صفٌّ مصغَّر في `bench` ليعرف المستهلك أيُّ مؤشّرٍ
+     يخصّه أيُّ بديل. */
+  const bench = [];
+  for (const rec of benchRecs) {
+    buildRow(rec, false);
+    const m = benchMeta.find(x => x.s === rec.s);
+    bench.push({ s: rec.s, idx: m ? m.idx : null, ar: rec.ar, en: rec.en,
+                 score: rec.score, band: rec.band, stale: !!rec.stale });
+  }
 
   // الطبقة الواسعة تراكمية: كل تشغيل يجدّد حصّته فقط، فندمج الجديد فوق
   // القديم بدل استبداله. بلا الدمج يخرج الملف بستين صفاً كل مرة وينهار
@@ -802,7 +823,12 @@ async function main() {
     // ساعة يُقرأ إشاراتٍ متناقضة لا رقماً يهتزّ
     ...(Number.isFinite(mktBand) ? { band: mktBand } : {}),
     gainers: [...withChg].sort((a, b) => b.chg - a.chg).slice(0, 5).map(r => ({ s: r.s, ar: r.ar, chg: r.chg, p: r.p })),
-    losers:  [...withChg].sort((a, b) => a.chg - b.chg).slice(0, 5).map(r => ({ s: r.s, ar: r.ar, chg: r.chg, p: r.p }))
+    losers:  [...withChg].sort((a, b) => a.chg - b.chg).slice(0, 5).map(r => ({ s: r.s, ar: r.ar, chg: r.chg, p: r.p })),
+    /* أيُّ بديلٍ له ملفُّ شمعات — يقرؤه «توجه السوق» ليعرف أن `^GSPC`
+       يُحلَّل عبر `SPY`. وهو **خارج `breadth` و`sectors` و`gainers`
+       عمداً**: البديل ليس سهماً في السوق، وعدُّه فيها يحسب المؤشّر
+       داخل نفسه. */
+    ...(bench.length ? { bench } : {})
   });
 
   writeJSON("summary.json", { updated: now, count: summary.length, rows: summary });
@@ -1028,21 +1054,57 @@ function selfCheck() {
     if (frozenSeries(rec(bars(10, 1, 0)))) throw new Error("القصيرة لا يُحكم عليها");
   });
 
-  t("فريم 5د يُحلَّل ولا يتسرّب إلى النتيجة الفنية", () => {
-    // الحارس الحقيقي: `overallScore` و`tfScore` يدوران على `TFS` وحدها،
-    // فوجود `an["5m"]` يجب ألّا يغيّر رقماً واحداً. وبلا هذا الفحص يمرّ
-    // تعديلٌ يضيف 5د إلى `TFS` بلا أن يبدو شيءٌ معطّلاً — فتتغيّر نتيجة
-    // كل رمز في الكون ويُبطل الأرشيف بصمت.
-    eq(TFS.length, 4, "TFS أربعة لا خمسة");
-    if (TFS.includes("5m")) throw new Error("5د تسرّب إلى TFS");
-    if (!AN_TFS.includes("5m")) throw new Error("5د غائب عن قائمة التحليل");
+  t("لا فريم دون 15د في أيّ قائمة يجلبها الملفّ", () => {
+    /* الحارس مقلوبٌ عمداً بعد إزالة ‎5د‎: كان يؤكّد وجوده في `AN_TFS`،
+       وصار يؤكّد غيابه عن القوائم الثلاث وعن خرائط المدى والصلاحية.
+       وحذفُه بدل قلبه يترك البابَ مفتوحاً لعودته بلا اعتراض.
+
+       والفريم الصغير لا يعود بخطأ بل **بأرقامٍ أخرى**: طلبٌ ثانٍ لكل
+       رمز، وفرعٌ ثانٍ في كل مسار اختيارِ فريم، ونتيجةُ استراتيجيةٍ
+       تُقاس على سلسلةٍ لا تُعرض. */
+    const SMALL = ["1m", "2m", "3m", "5m", "10m"];
+    for (const lst of [["TFS", TFS], ["AN_TFS", AN_TFS], ["EXT_TFS", EXT_TFS]])
+      for (const s of SMALL)
+        if (lst[1].includes(s)) throw new Error(`${s} تسرّب إلى ${lst[0]}`);
+    for (const [nm, map] of [["RANGE", RANGE], ["RANGE_X", RANGE_X], ["MAX_AGE", MAX_AGE]])
+      for (const s of SMALL)
+        if (s in map) throw new Error(`${s} باقٍ في ${nm}`);
+    eq(TFS.length, 4, "TFS أربعة");
+    eq(AN_TFS.length, TFS.length, "قائمة التحليل هي الأربعة نفسها");
+    // والنتيجة الكلية لا تتحرّك: هذا هو شرط القبول الذي يُبقي الأرشيف صالحاً
     const four = { "15m": { score: 10 }, "1h": { score: 20 }, "4h": { score: 30 }, "1d": { score: 40 } };
-    const five = { ...four, "5m": { score: -100 } };
-    eq(overallScore(five), overallScore(four), "5د لا يغيّر النتيجة الكلية");
+    eq(overallScore(four), overallScore({ ...four, "5m": { score: -100 } }),
+       "فريمٌ دخيل لا يغيّر النتيجة الكلية");
     const tfs = (an) => Object.fromEntries(TFS.filter(t => an[t]).map(t => [t, an[t].score]));
-    eq(Object.keys(tfs(five)).length, 4, "tfScore يبقى بأربعة مفاتيح");
-    // و`allTF` في scans.js تشترط أربعة بالضبط — خامسٌ يُسقط الشرطين معاً
-    eq(Object.values(tfs(five)).length === 4, true, "allTF ما زالت تجد أربعة");
+    // و`allTF` في scans.js تشترط أربعة بالضبط
+    eq(Object.keys(tfs(four)).length, 4, "allTF ما زالت تجد أربعة");
+  });
+
+  t("بديلُ المؤشّر له ملفّ شمعات ولا صفَّ له في الملخّص", () => {
+    /* `SPY` يُجلب ليُحلَّل، ولا يدخل `summary.rows` — وإلا حُسب
+       المؤشّرُ سهماً داخل «اتساع السوق» و«القطاعات» و«الرابحين»،
+       وظهر في البحث والقوائم وحاسبة الارتباط. اثنا عشر موضعاً تفحص
+       `mkt !== "crypto"` ولا واحد منها يعرف الطبقة الثالثة.
+
+       والفحص على البيانات المكتوبة فعلاً لا على النيّة. */
+    const proxies = (cfg.indices || []).map(i => i.proxy).filter(Boolean);
+    if (!proxies.length) return;
+    const sfile = path.join(OUT, "summary.json");
+    if (!fs.existsSync(sfile)) { console.log("      (لا بيانات محلية — تُخطّى)"); return; }
+    const sum = JSON.parse(fs.readFileSync(sfile, "utf8"));
+    for (const p of proxies)
+      if ((sum.rows || []).some(r => r.s === p))
+        throw new Error(`${p} تسرّب إلى summary.rows — سيُحسب داخل اتساع السوق`);
+    const mfile = path.join(OUT, "market.json");
+    if (fs.existsSync(mfile)) {
+      const m = JSON.parse(fs.readFileSync(mfile, "utf8"));
+      for (const p of proxies)
+        if ((m.gainers || []).concat(m.losers || []).some(r => r.s === p))
+          throw new Error(`${p} في قوائم الرابحين/الخاسرين`);
+    }
+    // ولا تُعدّ الطبقة الثالثة في المقام: `allJobs` تجمعها، و`jobs` وحدها
+    // هي مقام «نجح كذا من كذا»
+    eq(typeof benchMeta === "undefined", true, "benchMeta محلّية في main لا عالمية");
   });
 
   t("السلسلة الممتدة لا تُغيّر النتيجة الفنية ولا تدخل `an`", () => {
@@ -1054,7 +1116,7 @@ function selfCheck() {
     // `anx` ليست `an`: النتيجة تُحسب من `an` وحدها
     const an = { "15m": { score: 10 }, "1h": { score: 20 }, "4h": { score: 30 }, "1d": { score: 40 } };
     const before = overallScore(an);
-    const rec = { an, anx: { "15m": { score: -100 }, "5m": { score: -100 } } };
+    const rec = { an, anx: { "15m": { score: -100 } } };
     eq(overallScore(rec.an), before, "anx لا تدخل الحساب");
     // ولا يجوز أن يحمل `AN_TFS` فريماً ممتداً: أسماؤها متطابقة والفرق
     // في السلسلة لا في الاسم، فخلطُها يُقرأ صحيحاً ويحسب خطأً

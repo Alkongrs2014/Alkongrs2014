@@ -62,15 +62,15 @@ const r2 = (v) => Number.isFinite(v) ? Math.round(v * 100) / 100 : null;
    «هل اكتشفنا ما اكتشفناه؟». تُبنى من **السعر وحده**، ثم تُقابَل
    بالإشارات.
    ===================================================================== */
-export function findOpportunities(sym, k5, atr, prevClose, win) {
-  if (!(atr > 0) || !(prevClose > 0) || !k5.length) return [];
+export function findOpportunities(sym, k15, atr, prevClose, win) {
+  if (!(atr > 0) || !(prevClose > 0) || !k15.length) return [];
   const thr = MOVE_ATR * atr, startThr = START_ATR * atr;
   const out = [];
 
   for (const dir of [1, -1]) {
     /* أقصى امتدادٍ في هذا الاتجاه عن إغلاق الأمس */
     let peak = 0, peakAt = null, peakPx = prevClose;
-    for (const b of k5) {
+    for (const b of k15) {
       const ext = dir > 0 ? (b.h - prevClose) : (prevClose - b.l);
       if (ext > peak) { peak = ext; peakAt = b.t; peakPx = dir > 0 ? b.h : b.l; }
     }
@@ -79,7 +79,7 @@ export function findOpportunities(sym, k5, atr, prevClose, win) {
     /* بدايةُ الحركة: أوّل شمعةٍ تجاوزت نصفَ العتبة **ولم يرجع** السعر
        تحتها قبل بلوغ العتبة كاملة. هذا يمنع عدّ تذبذبٍ عابر بدايةً. */
     let startAt = null, startPx = null;
-    for (const b of k5) {
+    for (const b of k15) {
       if (b.t > peakAt) break;
       const ext = dir > 0 ? (b.h - prevClose) : (prevClose - b.l);
       if (startAt === null && ext >= startThr) { startAt = b.t; startPx = b.c; }
@@ -153,16 +153,16 @@ async function main() {
 
   const { provider } = PROV.pick("equity", ["extendedVolume"]);
   const dayStart = Date.parse(`${date}T00:00:00Z`);
-  const bars5 = await provider.getCandlesBatch(universe, "5m", { from: dayStart, to: dayStart + 86400e3 });
-  delete bars5.__skipped;
+  const bars15 = await provider.getCandlesBatch(universe, "15m", { from: dayStart, to: dayStart + 86400e3 });
+  delete bars15.__skipped;
   const barsD = await provider.getCandlesBatch(universe, "1d", { from: dayStart - 40 * 86400e3, to: dayStart });
   delete barsD.__skipped;
 
   const win = sessionWindows(Date.parse(`${date}T15:00:00Z`));
   const opps = [];
   for (const sym of universe) {
-    const k5 = bars5[sym] || [], kd = barsD[sym] || [];
-    if (k5.length < 10 || kd.length < 15) continue;
+    const k15 = bars15[sym] || [], kd = barsD[sym] || [];
+    if (k15.length < 10 || kd.length < 15) continue;
     /* ATR بسيط على أربعة عشر يوماً — المدى الحقيقي لا مدى الشمعة، كي
        تُحتسب الفجوات (وهي بالضبط ما يقع قبل الافتتاح) */
     const tr = [];
@@ -172,7 +172,7 @@ async function main() {
     }
     const atr = tr.slice(-14).reduce((a, b) => a + b, 0) / Math.min(14, tr.length);
     const prevClose = kd[kd.length - 1].c;
-    opps.push(...findOpportunities(sym, k5, atr, prevClose, win));
+    opps.push(...findOpportunities(sym, k15, atr, prevClose, win));
   }
 
   const ext = opps.filter(o => o.startedExtended);
@@ -180,7 +180,7 @@ async function main() {
     const sn = matchSignal(newRun.signals, o);
     const so = matchSignal(oldRun.signals, o);
     const en = earlySignal(newRun.signals, o);
-    const openBar = (bars5[o.sym] || []).find(b => b.t >= win.regular.start);
+    const openBar = (bars15[o.sym] || []).find(b => b.t >= win.regular.start);
     return {
       ...o,
       openPx: openBar ? r2(openBar.o) : null,

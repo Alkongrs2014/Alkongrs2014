@@ -58,14 +58,21 @@ const argOf = (k, d = null) => {
 };
 const OUT = path.resolve(argOf("out", path.join(ROOT, "data")));
 
-/* خطوةُ الساعة الافتراضية. خمس دقائق هي فريم الاكتشاف نفسه، وخطوةٌ
-   أدقّ منه تعيد تقييم نفس الشمعة مراراً بلا معلومةٍ جديدة. */
-const STEP_MS = 5 * 60e3;
-/* تسخينان لا واحد: فريمُ ‎5د‎ يحتاج ‎200‎ شمعة (يومان تداول تقريباً،
-   و‎12‎ يوماً هامشٌ واسع)، والفريمُ اليوميّ يحتاج ‎200‎ **يوم تداول**.
-   وخلطُهما يعطي ثماني شمعاتٍ يومية — فتسقط EMA200 وADX ومعها كلُّ
-   بوابةٍ تقرأ الاتجاه الأمّ، ويخرج الرمز «بلا بيانات كافية». */
-const WARM_DAYS = 12;
+/* خطوةُ الساعة الافتراضية = فريمُ الاكتشاف نفسه، وخطوةٌ أدقّ منه تعيد
+   تقييم نفس الشمعة مراراً بلا معلومةٍ جديدة.
+
+   وكانت خمس دقائق، فصارت خمس عشرة مع توحيد المشروع على أربعة فريمات.
+   والأثر يُقال ولا يُخفى: **دقّة لحظةِ الاكتشاف تنزل من ٥ دقائق إلى
+   ١٥**، فرقمُ «اكتُشفت قبل الجرس بكذا» يصير مقرَّباً إلى أقرب ربع
+   ساعة. وهو خطأٌ في اتجاهٍ واحد — يُظهر الاكتشاف **أبطأ** مما هو، لا
+   أسرع — وهو الاتجاه المقبول. */
+const STEP_MS = 15 * 60e3;
+/* تسخينان لا واحد: فريمُ ‎15د‎ يحتاج ‎200‎ شمعة، والجلسةُ الرسمية
+   ‎26‎ شمعة في اليوم — أي ثمانيةَ أيام تداول، و‎30‎ يوماً تقويمياً
+   هامشٌ واسع. والفريمُ اليوميّ يحتاج ‎200‎ **يوم تداول**، وخلطُهما
+   يعطي ثماني شمعاتٍ يومية فتسقط EMA200 وADX ومعها كلُّ بوابةٍ تقرأ
+   الاتجاه الأمّ، ويخرج الرمز «بلا بيانات كافية». */
+const WARM_DAYS = 30;
 const WARM_DAYS_D = 400;
 
 /* =====================================================================
@@ -85,7 +92,7 @@ function makeClock() {
     },
     get now() { return vnow; },
     /* فهرسُ آخر شمعةٍ **اكتملت** عند `vnow`. الشمعة تكتمل بعد مرور
-       طولها: شمعةُ ‎09:30‎ على ‎5د‎ لا تُقرأ قبل ‎09:35‎. وقراءتُها
+       طولها: شمعةُ ‎09:30‎ على ‎15د‎ لا تُقرأ قبل ‎09:45‎. وقراءتُها
        عند فتحها هي النظر إلى المستقبل بعينه — وأشيعُ صوره. */
     lastIdx(key, arr, barMs) {
       let i = cursors.get(key) ?? -1;
@@ -116,7 +123,7 @@ async function loadDay(symbols, date, log = console.log) {
   const dayStart = Date.parse(`${date}T00:00:00Z`);
   const to = dayStart + 86400e3;
   const out = {};
-  for (const tf of ["5m", "1d"]) {
+  for (const tf of ["15m", "1d"]) {
     const from = dayStart - (tf === "1d" ? WARM_DAYS_D : WARM_DAYS) * 86400e3;
     const m = await provider.getCandlesBatch(symbols, tf, { from, to });
     const skipped = m.__skipped || []; delete m.__skipped;
@@ -150,19 +157,21 @@ function aggByTime(k, bucketMs) {
 /* =====================================================================
    محرّك إعادة التشغيل
    ===================================================================== */
-export function replaySymbol({ sym, mkt, k5, k1d, date, engine, clock, onSignal }) {
-  const { reg: reg5, ext: ext5 } = splitSessions(k5);
-  const reg15 = aggByTime(reg5, TF_MS["15m"]);
-  const ext15 = aggByTime(ext5, TF_MS["15m"]);
-  const reg1h = aggByTime(reg5, TF_MS["1h"]);
-  const reg4h = aggByTime(reg5, TF_MS["4h"]);
+export function replaySymbol({ sym, mkt, k15, k1d, date, engine, clock, onSignal }) {
+  const { reg: reg15, ext: ext15 } = splitSessions(k15);
+  /* الساعة و‎4‎ ساعات تُشتقّان من ‎15د‎ بمفتاحٍ زمنيّ — والنتيجة مطابقة
+     لاشتقاقهما من ‎5د‎ لأن التجميع بـ`floor(t / bucket)` تجميعيّ:
+     دلوُ الساعة يضمّ نفس الشمعات سواء بُني من ثلاث شمعاتِ ‎15د‎ أو
+     اثنتي عشرة شمعةَ ‎5د‎. */
+  const reg1h = aggByTime(reg15, TF_MS["1h"]);
+  const reg4h = aggByTime(reg15, TF_MS["4h"]);
 
   /* السلاسل تُحسب **مرّة** ثم تُقرأ بالفهرس — الكلفة التربيعية موثّقة */
   const SER = {
-    "5m": seriesOf(reg5), "15m": seriesOf(reg15), "1h": seriesOf(reg1h),
+    "15m": seriesOf(reg15), "1h": seriesOf(reg1h),
     "4h": seriesOf(reg4h), "1d": seriesOf(k1d)
   };
-  const SERX = { "5m": seriesOf(ext5), "15m": seriesOf(ext15) };
+  const SERX = { "15m": seriesOf(ext15) };
 
   const win = sessionWindows(Date.parse(`${date}T15:00:00Z`));
   if (!win.regular) return [];
@@ -193,25 +202,25 @@ export function replaySymbol({ sym, mkt, k5, k1d, date, engine, clock, onSignal 
     }
 
     const idx = {};
-    for (const tf of ["5m", "15m", "1h", "4h", "1d"]) idx[tf] = clock.lastIdx(`r${tf}`, SER[tf].k, TF_MS[tf]);
-    if (idx["5m"] < 210 || idx["1d"] < 1) continue;        // تسخين
+    for (const tf of ["15m", "1h", "4h", "1d"]) idx[tf] = clock.lastIdx(`r${tf}`, SER[tf].k, TF_MS[tf]);
+    if (idx["15m"] < 210 || idx["1d"] < 1) continue;       // تسخين
 
     /* السعر: المحرّك الجديد يرى آخر إغلاقٍ في الجلسة الجارية،
        والقديم إغلاقَ الجلسة الرسمية السابقة قبل ‎09:30‎ */
-    const ix5 = clock.lastIdx("x5m", SERX["5m"].k, TF_MS["5m"]);
+    const ix15 = clock.lastIdx("x15m", SERX["15m"].k, TF_MS["15m"]);
     const px = oldEngine
-      ? SER["5m"].k[idx["5m"]]?.c
-      : (ix5 >= 0 ? SERX["5m"].k[ix5].c : SER["5m"].k[idx["5m"]]?.c);
+      ? SER["15m"].k[idx["15m"]]?.c
+      : (ix15 >= 0 ? SERX["15m"].k[ix15].c : SER["15m"].k[idx["15m"]]?.c);
     if (!(px > 0)) continue;
 
     const rec = { s: sym, mkt, tf: {}, tfx: {}, an: {}, anx: {} };
-    for (const tf of ["5m", "15m", "1h", "4h", "1d"]) {
+    for (const tf of ["15m", "1h", "4h", "1d"]) {
       if (idx[tf] < 0) continue;
       rec.tf[tf] = { c: SER[tf].k.slice(0, idx[tf] + 1) };
       rec.an[tf] = anAt(SER[tf], idx[tf]);
     }
     if (!oldEngine) {
-      for (const tf of ["5m", "15m"]) {
+      for (const tf of ["15m"]) {
         const j = clock.lastIdx(`x${tf}`, SERX[tf].k, TF_MS[tf]);
         if (j < 0) continue;
         rec.tfx[tf] = { c: SERX[tf].k.slice(0, j + 1) };
@@ -281,8 +290,8 @@ export function replaySymbol({ sym, mkt, k5, k1d, date, engine, clock, onSignal 
    فصلُ القياس عن الاكتشاف ليس ترتيباً بل شرطُ صحّة: خلطُهما يجعل
    الاكتشاف يرى ما بعده.
    ===================================================================== */
-export function outcomeOf(sig, k5, win) {
-  const after = k5.filter(b => b.t > sig.at);
+export function outcomeOf(sig, k15, win) {
+  const after = k15.filter(b => b.t > sig.at);
   if (!after.length) return null;
   const d = sig.dir;
   let mfe = 0, mae = 0, hitT1 = null, hitStop = null;
@@ -296,7 +305,7 @@ export function outcomeOf(sig, k5, win) {
     if (hitStop === null && sig.stop &&
         ((d > 0 && b.l <= sig.stop) || (d < 0 && b.h >= sig.stop))) hitStop = b.t;
   }
-  const atOpen = k5.find(b => b.t >= win.regular.start);
+  const atOpen = k15.find(b => b.t >= win.regular.start);
   const last = after[after.length - 1];
   return {
     mfe: +mfe.toFixed(2), mae: +mae.toFixed(2),
@@ -339,13 +348,13 @@ async function main() {
   let evaluated = 0, noData = 0;
 
   for (const sym of syms) {
-    const k5 = (bars["5m"][sym] || []);
+    const k15 = (bars["15m"][sym] || []);
     const k1d = (bars["1d"][sym] || []);
-    if (k5.length < 260 || k1d.length < 60) { noData++; continue; }
+    if (k15.length < 260 || k1d.length < 60) { noData++; continue; }
     evaluated++;
-    const { fired: sigs, consensus: cons } = replaySymbol({ sym, mkt: null, k5, k1d, date, engine, clock });
-    for (const s of sigs) { s.out = outcomeOf(s, k5, win); all.push(s); }
-    for (const c of cons) { c.out = outcomeOf({ ...c, targets: [], stop: null }, k5, win); allCons.push(c); }
+    const { fired: sigs, consensus: cons } = replaySymbol({ sym, mkt: null, k15, k1d, date, engine, clock });
+    for (const s of sigs) { s.out = outcomeOf(s, k15, win); all.push(s); }
+    for (const c of cons) { c.out = outcomeOf({ ...c, targets: [], stop: null }, k15, win); allCons.push(c); }
   }
 
   const dir = path.join(OUT, "replay");

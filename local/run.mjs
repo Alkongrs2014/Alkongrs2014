@@ -17,6 +17,7 @@
      node local/run.mjs backtest   الأرشيف التاريخي وحده
      node local/run.mjs signals    تثبيت إشارات اليوم وتحديث المفتوحة
      node local/run.mjs strategies ماسح الاستراتيجيات — الحالة والتسلسل (بلا شبكة)
+     node local/run.mjs mdir       توجّه السوق — المؤشّر وأكبر الشركات (بلا شبكة)
      node local/run.mjs replay --date=YYYY-MM-DD --engine=new|old
                                إعادة تشغيل يومٍ دقيقةً دقيقة بلا نظرٍ إلى المستقبل
      node local/run.mjs audit  --date=YYYY-MM-DD
@@ -123,7 +124,7 @@ function noteSkip(job, blocker, waited, outcome) {
    الدورة يجعل تشغيلين ينتظران نفس القفل فيتراكمان بلا نهاية.
    ===================================================================== */
 const WAIT_CAP = {          // ثوانٍ — أقلّ من دورة كل مهمة
-  quotes: 110, strategies: 110, signals: 110,
+  quotes: 110, strategies: 110, signals: 110, mdir: 110,
   market: 540, filings: 240, news: 240,
   options: 1500,
   daily: 3000, backtest: 3000, stratbt: 3000
@@ -384,10 +385,14 @@ else {
   const jobs = cmd === "quotes" ? ["fetch-quotes.mjs", "track-strategies.mjs --only-price"]
              // التتبّع بعد الشمعات مباشرة: يقرأ summary.json الذي كتبته
              // للتوّ، بلا أي طلب شبكة — فتُثبَّت الإشارة لحظة ظهورها
-             : cmd === "market" ? ["fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "fetch-news.mjs"]
+             : cmd === "market" ? ["fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "market-direction.mjs", "fetch-news.mjs"]
              : cmd === "signals" ? ["track-signals.mjs"]
-             : cmd === "strategies" ? ["track-strategies.mjs"]
-             // الأرشيف اللحظي: 60 يوماً من 5د/15د لكل رمزٍ مرصود (~290
+             : cmd === "strategies" ? ["track-strategies.mjs", "market-direction.mjs"]
+             /* توجّه السوق: بلا شبكة — يقرأ ملفات الرموز المكتوبة للتوّ.
+                يلي `track-strategies` لا يسبقه: كلاهما يقرأ نفس الملفات،
+                والترتيب يجعل السجلَّ يُثبَّت قبل أن يُقرأ للعرض. */
+             : cmd === "mdir" ? ["market-direction.mjs"]
+             // الأرشيف اللحظي: 60 يوماً من 15د لكل رمزٍ مرصود (~220
              // طلباً). نافذته أقصر بكثير من الأرشيف اليومي لأن ياهو لا
              // يعطي فريماً لحظياً أبعد من ذلك — وهو حدٌّ معلن لا خيار.
              : cmd === "stratbt" ? ["backtest-strategies.mjs"]
@@ -411,7 +416,7 @@ else {
              // علاقة لها بدورة الأسعار، ولا تحتاج مفتاحاً ولا حصّة — فدمجُها
              // في دورة السوق يجعلها تتقاسم قفلاً وميزانيةً بلا سبب
              : cmd === "filings" ? ["fetch-filings.mjs"]
-             : ["fetch-daily.mjs", "fetch-events.mjs", "fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "fetch-news.mjs", "fetch-filings.mjs", "fetch-options.mjs", "backtest.mjs", "backtest-strategies.mjs", "analytics.mjs", "learn.mjs"];
+             : ["fetch-daily.mjs", "fetch-events.mjs", "fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "market-direction.mjs", "fetch-news.mjs", "fetch-filings.mjs", "fetch-options.mjs", "backtest.mjs", "backtest-strategies.mjs", "analytics.mjs", "learn.mjs"];
 
   // `acquireLock` تنتظر دورها أولاً، ولا تصل هنا إلا بعد استنفاد سقف
   // الانتظار. والانسحاب حينها ليس فشلاً — نخرج بصفر حتى لا تُعلَّم المهمة

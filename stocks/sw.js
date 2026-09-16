@@ -19,7 +19,7 @@
    غير متوقّع يجعل العامل وسيطاً لا يُراجَع.
    ===================================================================== */
 
-const V = "webtrade-v13";
+const V = "webtrade-v14";
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";
@@ -38,6 +38,7 @@ const CORE = ["./", "./index.html", "./config.js", "./score.js",
               "./indicators.js", "./scans.js", "./plan.js", "./evaluate.js",
   "./strategies.js",
   "./consensus.js",
+  "./confluence.js",
   // المنيفست والأيقونة جزءٌ من الهيكل: بدونهما لا يُعرض التطبيق مثبَّتاً
   // بلا شبكة، ويسقط شرطُ التثبيت نفسه عند أوّل زيارةٍ بشبكةٍ ضعيفة
   "./manifest.json", "./icon.svg"];

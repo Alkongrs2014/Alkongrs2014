@@ -55,7 +55,11 @@ const OOS_FRAC = 0.3;
 const WARMUP = 210;                     // EMA200 بهامش
 const COOLDOWN = 8;                     // شمعات — تمنع عدّ نفس الإشارة مراراً
 const SIM_BARS = 60;
-const RANGES = { "5m": "60d", "15m": "60d", "1h": "730d", "1d": "5y" };
+/* ‎5د‎ أُزيل من المشروع كلِّه، فسقط من هنا كذلك — والأرشيف يجب أن يقيس
+   ما يُعرض حرفياً، وإلا شهد لاستراتيجيةٍ بحافّةٍ تخصّ فريماً لا يراه
+   المستخدم. ومعنى ذلك أن حافّتَي `orb` و`vwapRec` **تُعاد قياسهما من
+   الصفر** على ‎15د‎ ولا تُنقلان عن القياس القديم. */
+const RANGES = { "15m": "60d", "1h": "730d", "1d": "5y" };
 
 const r2 = (v) => Number.isFinite(v) ? Math.round(v * 100) / 100 : null;
 const med = (a) => { if (!a.length) return null; const b = a.slice().sort((x, y) => x - y);
@@ -146,10 +150,12 @@ function ctxAt(SS, cur, meta) {
   }
   if (!an[meta.tf]) return null;
   const px = an[meta.tf].px, tEnd = SS[meta.tf].k[cur[meta.tf]].t;
-  const lv = { iTf: k["5m"] ? "5m" : (k["15m"] ? "15m" : null) };
+  // نفس نافذة `buildCtx` بالضبط: ثلاثون دقيقة على ‎15د‎. اختلافُهما
+  // يجعل الأرشيف يقيس نطاقَ افتتاحٍ غير الذي يعرضه التطبيق.
+  const lv = { iTf: k["15m"] ? "15m" : null };
   if (lv.iTf && meta.period) {
     lv.vwap = IND.sessionVwap(k[lv.iTf], meta.period);
-    lv.or = IND.openingRange(k[lv.iTf], meta.period, lv.iTf === "5m" ? 15 : 30);
+    lv.or = IND.openingRange(k[lv.iTf], meta.period, 30);
   }
   const d = k["1d"] || k["1h"];
   lv.L = d ? PLAN.levelsFrom({ k4h: k["4h"], k1d: d, px,
@@ -157,6 +163,39 @@ function ctxAt(SS, cur, meta) {
   const tfScore = {};
   for (const tf of SC.TFS) if (an[tf] && Number.isFinite(an[tf].score)) tfScore[tf] = an[tf].score;
   return { s: meta.s, px, now: tEnd, k, an, bw, lv, period: meta.period, today: true,
+           /* `win` — **النافذة الجارية، وغيابُها كان يقتل استراتيجيتَي
+              الجلسة في الأرشيف بصمت.**
+
+              `buildCtx` تشتقّها من التقويم وتسقط إلى `period.regular`،
+              و`orb`/`vwapRec` تشترطانها (`if (!c.win) return …`). وهذا
+              السياق لم يكن يضعها قط — فكانتا تخرجان `off` عند **كل**
+              شمعة، وتظهران في الملفّ بـ`n: 0` و`edge: null`.
+
+              ولم يظهر ذلك لأن الملفّ احتفظ بأرقامٍ قديمة: قِيست
+              ‎45,481‎ و‎28,673‎ حالة في بناءٍ سابق **قبل** إضافة الحارس،
+              فبقيت معروضةً وموزوناً بها الإجماع بينما صار قياسُها
+              مستحيلاً. رقمٌ صحيحٌ يوماً ما، ويصف نظاماً لم يعد قائماً. */
+           win: (meta.period && meta.period.regular) || null,
+           /* `ian` و`ik` — **السلسلة الجارية ومؤشّراتها**، وغيابُهما كان
+              يكمل ما بدأه غيابُ `win`.
+
+              `buildCtx` تفرّق بين الرسمية والممتدة (`ik = extSess && kx
+              ? kx : k`) وتعطي `ian` مؤشّراتِ ما اختير. والأرشيف بلا
+              جلسةٍ ممتدة أصلاً، فهما `k` و`an` نفسهما — لكن **الاسم
+              الغائب لا يُقرأ مرادفاً**: `c.ian[...]` على `undefined`
+              ترمي، فيُبتلع الاستثناء وتخرج الاستراتيجية «بلا جهة» عند
+              كل شمعة.
+
+              وهي ما أبقى `orb` و`vwapRec` على صفرٍ حتى بعد إصلاح
+              `win`: حقلان ناقصان لا حقلٌ واحد. */
+           ik: k, ian: an, kx: {}, anx: {}, extSess: false, extAge: null,
+           mkt: meta.mkt || null, wide: false,
+           /* `sessOf` — بها يقارن `volRatio` حجمَ الشمعة بوسيط شمعاتٍ
+              **من نفس نوع الجلسة**. والأرشيف يرشّح إلى الجلسة الرسمية
+              وحدها قبل القياس، فكلُّ شمعةٍ فيه رسمية. وتمريرُ دالّةٍ
+              ثابتة أصدقُ من تركها غائبةً: الغائبة تُسقط خطّ الأساس،
+              والثابتة تصف الحقيقة. */
+           sessOf: () => "REGULAR",
            sess: "REGULAR", row: { s: meta.s, p: px, w52h: meta.w52h, w52l: meta.w52l },
            tfScore, f: null, _SS: SS, _cur: cur };
 }
@@ -275,7 +314,7 @@ async function main() {
   for (const sym of syms) {
     try {
       const series = {};
-      for (const tf of ["5m", "15m", "1h", "1d"]) {
+      for (const tf of ["15m", "1h", "1d"]) {
         const { candles: raw } = await fetchChart(sym, { range: RANGES[tf], interval: tf, prePost: false });
         /* نفس ترشيح `fetch-market`: الجلسة الرسمية وحدها. و`prePost: false`
            لا يكفي — ياهو يُرفق شمعةَ ‎16:00‎ (مطبعةُ الإغلاق) في بعض
@@ -361,6 +400,28 @@ async function main() {
   fs.writeFileSync(path.join(OUT, "strategy-edge.json"), JSON.stringify(out));
   console.log(`✔ ${ok} رمزاً · ${bars.toLocaleString("en")} شمعة · ${req} طلباً · ` +
               `${measured} استراتيجية مقيسة و${thin} تحت حدّ العيّنة`);
+
+  /* =====================================================================
+     **صفرُ حالةٍ في مليون شمعة ليس ندرةَ سوق بل سياقاً مكسوراً.**
+
+     استراتيجيةٌ «تحت حدّ العيّنة» تُعلَن ويُقال عددُها، أما التي تخرج
+     بصفرٍ تامّ فتمرّ صامتةً في السطر نفسه — وهي بالضبط الحالة التي
+     أخفت أن `ctxAt` لا تضع `win`، فبقيت حافّتا `orb` و`vwapRec`
+     معروضتين من بناءٍ أقدم وموزوناً بهما الإجماع بينما صار قياسُهما
+     مستحيلاً. الصفر يُصاح به لا يُبتلع. */
+  const dead = rows.filter(r => !r.n);
+  /* والحدُّ **المعلن** يُقال ولا يُنذَر به: `btNA` تصف استراتيجيةً
+     يُعرف سلفاً أنها لا تُقاس في هذا الإطار. وإنذارٌ يصيح عنها في كل
+     تشغيل يُدرَّب المستخدم على تجاهله، فيُبتلع معه صفرٌ حقيقيّ حين
+     يقع — نفس قاعدة «إنذارٌ كاذب يُدرَّب المستخدم على تجاهله». */
+  const known = dead.filter(r => S.STRAT_BY_ID[r.id] && S.STRAT_BY_ID[r.id].btNA);
+  const odd = dead.filter(r => !(S.STRAT_BY_ID[r.id] && S.STRAT_BY_ID[r.id].btNA));
+  for (const r of known)
+    console.log(`  ⓘ ${r.id}: لا يُقاس هنا بحدٍّ معلن — ${S.STRAT_BY_ID[r.id].btNA}`);
+  if (odd.length)
+    console.warn(`  ⚠ صفرُ حالة على ${bars.toLocaleString("en")} شمعة: ` +
+                 `${odd.map(r => r.id).join("، ")} — راجع شروط السياق، ` +
+                 `فهذا سياقٌ مكسور غالباً لا ندرةُ سوق`);
 }
 
 /* =====================================================================
@@ -451,6 +512,61 @@ function selfTest() {
   t("الاستراتيجيات كلها لها فريمٌ قابل للقياس", () => {
     for (const st of S.STRATEGIES)
       ok(RANGES[st.tf], `${st.id} فريمُه ${st.tf} بلا مدىً معرَّف`);
+  });
+
+  t("الحدُّ المعلن يُقال ولا يُنذَر به — والصفرُ غيرُ المعلن يُنذَر", () => {
+    /* التمييز شرطُ ألّا يصير الإنذار ضجيجاً: استراتيجيةٌ يُعرف سلفاً
+       أنها لا تُقاس هنا تُذكر بسببها، وصفرٌ غيرُ متوقَّع يُصاح به.
+       وخلطُهما يُبطل الاثنين — الأوّل يزعج والثاني يضيع. */
+    const na = S.STRATEGIES.filter(s => s.btNA);
+    ok(na.length, "استراتيجيةٌ واحدة على الأقل بحدٍّ معلن");
+    for (const s of na)
+      ok(typeof s.btNA === "string" && s.btNA.length > 20,
+         `${s.id}: \`btNA\` يجب أن تشرح السبب لا أن تكون علماً`);
+    // و`btNA` لا تُمنح لما يُقاس فعلاً: ذلك يُخفي عطلاً حقيقياً
+    const file = path.join(OUT, "strategy-edge.json");
+    if (!fs.existsSync(file)) return;
+    const rows = JSON.parse(fs.readFileSync(file, "utf8")).rows || [];
+    for (const r of rows) {
+      const st = S.STRAT_BY_ID[r.id];
+      if (st && st.btNA && r.n)
+        throw new Error(`${r.id} موسومٌ «لا يُقاس» وقد قِيس ${r.n} حالة — أزِل الوسم`);
+    }
+  });
+
+  t("سياقُ الأرشيف يحمل كلَّ حقلٍ يبنيه `buildCtx`", () => {
+    /* كلّف هذا تشخيصاً مرّتين. أوّلاً غابت `win` فخرجت `orb`/`vwapRec`
+       بـ`off` عند كل شمعة. وبعد إصلاحها بقيتا على صفر: `orb.side` تقرأ
+       `c.ian` وهي غائبةٌ كذلك — `undefined[...]` ترمي، فيُبتلع
+       الاستثناء وتخرج «بلا جهة». حقلان ناقصان لا حقلٌ واحد.
+
+       **وأوّل صيغةٍ لهذا الفحص كتبتْ قائمةَ الحقول بيدٍ — فنسيتْ `ian`
+       بالضبط كما نسيتها الشيفرة**، ومرّت. قائمةٌ مكتوبة تنسى ما نسيه
+       كاتبُها، فهي تعيد إنتاج الخطأ لا تكشفه.
+
+       والصيغة الصحيحة: القائمة **تُشتقّ من `buildCtx` نفسها** وقتَ
+       التشغيل. فأيُّ حقلٍ يُضاف هناك يصير مطلوباً هنا تلقائياً، ولا
+       يمكن أن يُنسى في الاثنين معاً. */
+    const live = S.buildCtx({ rec: { s: "X", tf: {}, an: {} }, row: { s: "X", p: 100 },
+                              now: Date.now(), px: 100, sess: "REGULAR" });
+    const bars = Array.from({ length: 60 }, (_, i) => ({
+      t: Date.UTC(2026, 8, 14, 13, 30) + i * 900e3,
+      o: 100 + i * 0.1, h: 100.5 + i * 0.1, l: 99.5 + i * 0.1, c: 100 + i * 0.1, v: 1000 }));
+    const SS = { "15m": seriesOf(bars) };
+    const day = { start: bars[0].t, end: bars[bars.length - 1].t };
+    const c = ctxAt(SS, { "15m": 59 }, { s: "X", tf: "15m", period: { regular: day } });
+    ok(c, "السياق يُبنى");
+
+    /* `tfPin` مستثناة وحدها: خيارٌ يخصّ «توجّه السوق» ولا يستعمله
+       الأرشيف — وغيابُه يعني «بلا تثبيت» وهو المطلوب هنا. */
+    const skip = new Set(["tfPin"]);
+    const missing = Object.keys(live).filter(f => !skip.has(f) && !(f in c));
+    ok(!missing.length,
+       `حقولٌ في \`buildCtx\` وليست في سياق الأرشيف: ${missing.join("، ")} — ` +
+       `الاستراتيجية التي تقرؤها تصمت للأبد`);
+    ok(c.win && c.win.start === day.start, "و`win` هي نافذة الجلسة لا كائنٌ فارغ");
+    ok(c.ian === c.an, "و`ian` هي مؤشّرات السلسلة الجارية — الرسمية هنا");
+    console.log(`      (${Object.keys(live).length - skip.size} حقلاً قُوبل)`);
   });
 
   console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل\n`);
