@@ -118,7 +118,10 @@ let session = null;
 export async function getSession() {
   if (session) return session;
   try {
-    const r1 = await fetch("https://fc.yahoo.com", { headers: { "User-Agent": UA } })
+    // بلا مهلة كانت تُعلَّق إلى الأبد عند توقّف الشبكة — لا خطأ ولا سجلّ،
+    // فتُقتَل المهمّة بعد 25 دقيقة وتتكرّر العلّة كل دورة إلى أن تعود الشبكة.
+    const r1 = await fetch("https://fc.yahoo.com",
+      { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(20000) })
       .catch(() => null);
     const cookies = r1?.headers?.getSetCookie?.() || [];
     const cookie = cookies.map(c => c.split(";")[0]).join("; ");

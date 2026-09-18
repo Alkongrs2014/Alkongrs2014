@@ -44,7 +44,8 @@ async function get(url, { json = false } = {}) {
       // لا `Referer` ولا `Origin`: درسٌ موثّق — إرسالهما من الخادم يجعل
       // الطلب يبدو تجاوزاً لـ CORS فيزيد الرفض لا يقلّه
       "Accept": json ? "application/json" : "application/atom+xml, application/xml, text/xml"
-    }
+    },
+    signal: AbortSignal.timeout(20000)
   });
   if (!r.ok) { secStats.failures++; throw new Error(`HTTP ${r.status} — ${url.slice(0, 80)}`); }
   return json ? r.json() : r.text();

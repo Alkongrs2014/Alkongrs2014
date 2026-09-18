@@ -219,7 +219,7 @@ async function fetchBLS(now) {
   const out = [];
   for (const b of BLS) {
     try {
-      const r = await fetch(b.url, { headers: BROWSER_HEADERS });
+      const r = await fetch(b.url, { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(20000) });
       if (!r.ok) throw new Error(`ردّ ${r.status}`);
       const rows = parseBLS(await r.text(), b, now);
       if (!rows.length) console.warn(`  ⚠ ${b.ar}: لا مواعيد داخل النافذة`);
@@ -236,7 +236,8 @@ async function main() {
   const now = Date.now();
   console.log("▶ تقويم الفدرالي …");
   const res = await fetch(FED_URL, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; webtrade/1.0)" }
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; webtrade/1.0)" },
+    signal: AbortSignal.timeout(20000)
   });
   if (!res.ok) throw new Error(`الفدرالي ردّ ${res.status}`);
   // الملف يبدأ بعلامة ترتيب البايتات، وJSON.parse لا يقبلها
