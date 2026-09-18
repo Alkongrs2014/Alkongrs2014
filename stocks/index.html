@@ -1303,6 +1303,13 @@ details[open]{background:var(--card2)}
       موجبةً كانت أو سالبة. أكثرُ الشروط تحقّقاً هو أسوأُها حافّةً، وهذا مكتوبٌ
       بجانبه لا مخفيّ.
     </p>
+    <div class="toolbar">
+      <select id="scrMkt" aria-label="نوع السوق">
+        <option value="all">كل الأصول (أسهم وعملات)</option>
+        <option value="us">الأسهم فقط</option>
+        <option value="crypto">العملات فقط</option>
+      </select>
+    </div>
     <div class="scans" id="scanPicker"></div>
     <p class="scan-why" id="scanWhy"></p>
     <div id="scanHist"></div>
@@ -7159,7 +7166,14 @@ function renderScreen() {
      على ما وصل، فتكتمل النتيجة عند وصوله بلا تعطيل. */
   const wideReady = !!(state.wide && state.wide.rows && state.wide.rows.length);
   if (scan.wide && !wideReady) need("wide.json");
-  const pool = (scan.wide && wideReady) ? allRows() : state.summary.rows;
+  let pool = (scan.wide && wideReady) ? allRows() : state.summary.rows;
+  /* نوع السوق فلترٌ مستقلٌّ عن شرط الفرصة، ويُطبَّق على المجمَّع الخام
+     قبل أي حساب — لا شكلياً بعد العرض. التصنيف من `r.mkt` نفسه الذي
+     يميّز الكريبتو في كل مكانٍ آخر بالتطبيق (الاتساع، القوائم، ترتيب
+     الكون)، لا تصنيفٌ جديد يتباعد عنها بأول تعديل. */
+  const mktSel = ($("#scrMkt") && $("#scrMkt").value) || "all";
+  if (mktSel === "us") pool = pool.filter(r => r.mkt !== "crypto");
+  else if (mktSel === "crypto") pool = pool.filter(r => r.mkt === "crypto");
   // الصفّ الواسع يُعرَف بانتمائه لا بغياب حقلٍ فيه: `!r.ar` تكسر بأول
   // رمزٍ أساسيّ بلا اسم عربي
   const core = new Set(state.summary.rows.map(r => r.s));
@@ -7215,8 +7229,9 @@ function renderScreen() {
   state.lastScanRows = hits;
   { const b = $("#scanExport"); if (b) b.style.display = hits.length ? "" : "none"; }
 
+  const unitWord = mktSel === "crypto" ? "عملة" : mktSel === "us" ? "سهم" : "رمز";
   if (!hits.length) {
-    el.innerHTML = `<div class="empty">لا سهم ينطبق عليه هذا الشرط الآن — وهذا نتيجة صحيحة لا عطل</div>`;
+    el.innerHTML = `<div class="empty">لا ${esc(unitWord)} ينطبق عليه هذا الشرط الآن — وهذا نتيجة صحيحة لا عطل</div>`;
     $("#scanCount").textContent = "";
     return;
   }
@@ -7283,9 +7298,11 @@ function renderScreen() {
   }).join("");
   /* المقام هو ما مُسح فعلاً لا ما نملكه: «5 من 97» بينما مُسح 510
      يصف نسبةً لم تُحسب. وحالةُ الطبقة تُقال وهي تُجلب. */
+  const unitWordN = mktSel === "crypto" ? "عملة" : mktSel === "us" ? "سهماً" : "رمزاً";
+  const mktNote = mktSel === "us" ? " (الأسهم فقط)" : mktSel === "crypto" ? " (العملات فقط)" : "";
   const scope = scan.wide
-    ? (wideReady ? `${bd(pool.length)} رمزاً (الكون كاملاً)` : `${bd(pool.length)} سهماً · الطبقة الواسعة تُجلب…`)
-    : `${bd(pool.length)} سهماً`;
+    ? (wideReady ? `${bd(pool.length)} ${unitWordN}${mktNote} (الكون كاملاً)` : `${bd(pool.length)} ${unitWordN}${mktNote} · الطبقة الواسعة تُجلب…`)
+    : `${bd(pool.length)} ${unitWordN}${mktNote}`;
   /* حالةُ التوافق تُقال صراحةً: ترتيبٌ عُدِّل بـ‎n‎ صفّاً، أو ترتيبُ
      المسح الخام لأن اللقطة لم تصل. إخفاؤها يجعل ترتيبين مختلفين
      يبدوان واحداً. */
@@ -9118,6 +9135,7 @@ function boot() {
     if (k) k.onchange = () => { stratOverride = []; renderStrat(); };
     if (q) q.onchange = renderStrat; }
 
+  { const e = $("#scrMkt"); if (e) e.onchange = renderScreen; }
   ["#rsSector", "#rsHz", "#rsLayer"].forEach(id => { const e = $(id); if (e) e.onchange = renderRS; });
   { const e = $("#heatBy"); if (e) e.onchange = renderHeat; }
   { const e = $("#corrSym"); if (e) e.onchange = renderCorr; }
