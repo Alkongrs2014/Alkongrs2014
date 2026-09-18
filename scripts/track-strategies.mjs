@@ -35,6 +35,21 @@
    الإيقاعان: `--only-price` يعيد حساب البوابات السعرية وحدها من سعرٍ
    حيّ ومؤشّراتٍ مجمَّدة (دورة الدقيقتين)، وبدونه يُعاد كل شيء (دورة
    العشر دقائق). ونفس الدالّة في الحالتين.
+
+   ---------------------------------------------------------------------
+   CONFIRMED مقابل LIVE — لا علاقة له بالإيقاعين أعلاه.
+
+   `dir`/`sc`/`band` المكتوبة في كل صفّ هي **CONFIRMED**: مُقيَّمة بسعر
+   إغلاق آخر شمعةٍ مغلقة لفريم الاستراتيجية (`S.confirmCtx`)، فلا تتغيّر
+   إلا حين تُغلَق شمعةٌ جديدة فعلاً — بصرف النظر عن كم دورة أسعارٍ مرّت
+   بينهما. هي ما يقرأه التوافق (`consFromRows`) والترتيب في الفرص.
+
+   `ldir`/`lsc`/`lband` **LIVE**: نفس التقييم بالسعر اللحظي كما كان
+   دائماً — بادجٌ تكميليّ يتحدّث كل دورة أسعار، ولا يدخل التوافق ولا
+   الترتيب ولا السجلّ الحيّ.
+
+   وكلاهما من `evalStrategy`/`evalGates` نفسهما بلا نسخ — سياقٌ مختلف
+   لا مسارٌ مختلف. راجع التعليق فوق `confirmCtx` في `strategies.js`.
    ===================================================================== */
 import fs from "fs";
 import path from "path";
@@ -257,11 +272,23 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
     for (const st of S.STRATEGIES) {
       const key = stateKey(row.s, st.id);
       const prev = prevBy[key];
-      const r = S.evalStrategy(st, c, Object.assign({ prev }, opt));
-      if (!r.dir || !Number.isFinite(r.sc)) continue;       // لم يتفعّل أو متعذّر
 
-      const carried = carryState(prev, r, now, px);
-      const plan = S.planFor(c, r);
+      /* CONFIRMED — بسعر إغلاق آخر شمعة مغلقة لفريم الاستراتيجية، لا
+         السعر اللحظي. تُحسب دائماً كاملة (بلا `only`/`prev`): مدخلُها
+         الوحيد لا يتغيّر بين دورتي أسعار ما لم تُغلَق شمعةٌ جديدة،
+         فهي ثابتةٌ تلقائياً بلا حاجة لتجميدٍ يدويّ. هذا ما يقرأه
+         التوافق والترتيب والثقة — لا يتحرّك بتذبذب السعر اللحظي. */
+      const rC = S.evalStrategy(st, S.confirmCtx(st, c), {});
+      if (!rC.dir || !Number.isFinite(rC.sc)) continue;     // لم يتفعّل أو متعذّر
+
+      /* LIVE — كما كانت الدالة دائماً: بادجٌ تكميلي يتحدّث كل دورة، ولا
+         يُنشئ صفّاً بمفرده ولا يُغيّر التوافق أو الترتيب. */
+      const rL = S.evalStrategy(st, c, Object.assign({ prev }, opt));
+      const lBandPrev = (prev && prev.ldir === rL.dir) ? prev.lband : null;
+      const lband = Number.isFinite(rL.sc) ? S.sBandStable(rL.sc, lBandPrev) : null;
+
+      const carried = carryState(prev, rC, now, px);
+      const plan = S.planFor(c, rC);
       const lv = (plan && !plan.bad) ? {
         e: rp(plan.entry), s: rp(plan.stop), atr: rp(plan.atr),
         t: plan.targets.map(x => rp(x.p)),
@@ -269,26 +296,28 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
       } : null;
 
       rows.push({
-        s: row.s, st: st.id, dir: r.dir, sc: r.sc, band: carried.band,
-        at: carried.at, px0: carried.px0, act: !!r.active,
-        g: r.g, lv, pAt: Math.round(now / 1000)
+        s: row.s, st: st.id, dir: rC.dir, sc: rC.sc, band: carried.band,
+        at: carried.at, px0: carried.px0, act: !!rC.active,
+        // LIVE — تكميليٌّ لا يُستهلَك في التوافق ولا الترتيب
+        ldir: rL.dir || 0, lsc: Number.isFinite(rL.sc) ? rL.sc : null, lband,
+        g: rC.g, lv, pAt: Math.round(now / 1000)
       });
 
-      // ----- التسلسل -----
-      const pt = [Math.round(now / 1000), st.id, r.dir, r.sc, rp(px)];
+      // ----- التسلسل — CONFIRMED وحده -----
+      const pt = [Math.round(now / 1000), st.id, rC.dir, rC.sc, rp(px)];
       const tl = (trends[row.s] ||= []);
-      pushPoint(tl, { t: pt[0], id: st.id, dir: r.dir, sc: r.sc, band: carried.band, raw: pt },
+      pushPoint(tl, { t: pt[0], id: st.id, dir: rC.dir, sc: rC.sc, band: carried.band, raw: pt },
                 prev ? { dir: prev.dir, sc: prev.sc, band: prev.band } : null);
 
-      // ----- السجلّ الحيّ: تُسجَّل الإشارة حين **تبدأ** وهي نشطة -----
-      const isNew = !prev || prev.dir !== r.dir;
-      if (isNew && r.active && !liveBy[key]) {
-        const snap = snapFor(c, r, plan, carried.at);
+      // ----- السجلّ الحيّ: تُسجَّل الإشارة حين **تبدأ** وهي نشطة، بجهةٍ CONFIRMED -----
+      const isNew = !prev || prev.dir !== rC.dir;
+      if (isNew && rC.active && !liveBy[key]) {
+        const snap = snapFor(c, rC, plan, carried.at);
         if (snap && !snap.bad) {
-          logSignal(row.s, st.id, r.dir, r.sc,
-            `${r.tfUsed || st.tf}${c.extSess ? " · جلسة ممتدة" : ""}`);
-          const sig = { sym: row.s, strat: st.id, at: now, dir: r.dir,
-                        sc: r.sc, band: carried.band, mkt: rec.mkt || null,
+          logSignal(row.s, st.id, rC.dir, rC.sc,
+            `${rC.tfUsed || st.tf}${c.extSess ? " · جلسة ممتدة" : ""}`);
+          const sig = { sym: row.s, strat: st.id, at: now, dir: rC.dir,
+                        sc: rC.sc, band: carried.band, mkt: rec.mkt || null,
                         // فريمُ المشغِّل المعلن — يكشف تغيّر التعريف لاحقاً
                         stf: st.tf,
                         regime: C.marketRegime(c.an), snap, open: true,

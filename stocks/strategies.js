@@ -123,6 +123,56 @@ function inRange(v, lo, hi) {
 var lastOf = function (a) { return (a && a.length) ? a[a.length - 1] : null; };
 
 /* =====================================================================
+   CONFIRMED مقابل LIVE — سياقٌ بسعرٍ من آخر شمعة مغلقة لا السعر اللحظي.
+
+   `side()` وبوابات `kind:"price"` تقرأ `c.px` مباشرةً، فتُعاد حسابها
+   كل دقيقتين بالسعر اللحظي مقابل مستوىً (EMA، VWAP، حدّ نطاق افتتاح)
+   محسوبٍ من شمعةٍ مغلقة — دون أيّ هيستريسس على مستوى الاتجاه نفسه
+   (بخلاف `sBandStable` أعلاه التي تُثبِّت **قوّة** النتيجة لا **جهتها**).
+   فسعرٌ يتذبذب عند حافّة المستوى يقلب `dir` كل دورتي دقائق، وبما أن
+   عدّة استراتيجيات تُقاس بمستويات مترابطة قرب نفس السعر، تنقلب دفعةً
+   واحدة — وهي العلّة المقيسة التي جعلت فرصة «صعود 90%» تصير «هبوط 90%»
+   خلال دقائق بلا إغلاق شمعة.
+
+   الحلّ: تقييم الاستراتيجية **بسعرين** من نفس `evalGates`/`evalStrategy`
+   بلا نسخ — CONFIRMED بسعر إغلاق آخر شمعةٍ **مغلقة** لفريم الاستراتيجية
+   المُستعمَل (`tfUsed`)، وLIVE بالسعر الحالي كما كان دائماً. فالاتجاه
+   والنتيجة المعروضان في الفرص/التوافق/الترتيب لا يتغيّران إلا حين
+   تتغيّر تلك الشمعة المغلقة فعلاً — بصرف النظر عن تذبذب السعر اللحظي.
+
+   والعنصر الأخير في `k[tf]`/`ik[tf]` قد يكون جارياً لا مغلقاً — نفس
+   اصطلاح `k[length-2]` المستعمل أصلاً في `volRatio`/`donch`/`follow`. */
+function lastClosedPx(c, tf) {
+  var a = (c.ik && c.ik[tf]) || (c.k && c.k[tf]);
+  if (!a || a.length < 2) return null;
+  var b = a[a.length - 2];
+  return (b && Number.isFinite(b.c)) ? b.c : null;
+}
+function confirmCtx(st, c) {
+  var tf = st.tfOf ? st.tfOf(c) : st.tf;
+  var px = tf ? lastClosedPx(c, tf) : null;
+  return Number.isFinite(px) ? Object.assign({}, c, { px: px }) : c;
+}
+
+/* =====================================================================
+   إثباتٌ برمجي لا نصٌّ ثابت: أيّ فريمٍ ممنوع فعلاً موجودٌ في بيانات
+   هذا السياق؟ يُفحص **ما وصل فعلاً** (`c.k`/`c.an`/`c.bw`/`c.kx`) لا
+   استدعاءٌ يُعترَض — فريمٌ ممنوعٌ لا يمكن أن يدخل الحساب إن لم يكن له
+   وجودٌ في البيانات نفسها من الأصل، وهذا ما يبنيه `buildCtx` من
+   `rec.tf`/`rec.an` المكتوبين خادمياً بأربعة فريماتٍ فقط أصلاً.
+   ===================================================================== */
+var ALLOWED_TFS = ["15m", "1h", "4h", "1d"];
+function forbiddenTfUsage(c) {
+  var seen = {};
+  [c && c.k, c && c.an, c && c.bw, c && c.kx, c && c.anx].forEach(function (box) {
+    if (box) for (var tf in box) seen[tf] = true;
+  });
+  var out = {};
+  for (var tf in seen) if (ALLOWED_TFS.indexOf(tf) < 0) out[tf] = (out[tf] || 0) + 1;
+  return out;                                   // {} يعني صفر مخالفة
+}
+
+/* =====================================================================
    نواة التقييم — دالّةٌ واحدة للإيقاعين.
 
    `only: "price"` تعيد حساب البوابات السعرية وحدها وتأخذ تصويت
@@ -1136,6 +1186,16 @@ function evalAll(c, prevBy) {
   });
 }
 
+/* نظيرُ `evalAll` بسعر CONFIRMED — لأدوات التشخيص وحدها حالياً. لا
+   تستبدل `evalAll` في مستهلكيها الحاليين (`market-direction.mjs`،
+   `check-strategies.mjs`، شاشة البحث الحيّة): هذه دالّةٌ إضافية، لا
+   تغييرٌ في سلوك قائم — نفس مبدأ عدم كسر ميزةٍ عاملة لإصلاح أخرى. */
+function evalAllConfirmed(c) {
+  return STRATEGIES.map(function (st) {
+    return evalStrategy(st, confirmCtx(st, c), {});
+  });
+}
+
 var STRAT_BY_ID = {};
 for (var _i = 0; _i < STRATEGIES.length; _i++) STRAT_BY_ID[STRATEGIES[_i].id] = STRATEGIES[_i];
 
@@ -1146,9 +1206,12 @@ if (typeof module !== "undefined" && module.exports) {
     sBandOf: sBandOf, sBandStable: sBandStable,
     tolOf: tolOf, cmp: cmp, cmpD: cmpD, agree: agree, inRange: inRange,
     evalGates: evalGates, evalStrategy: evalStrategy, evalAll: evalAll,
+    evalAllConfirmed: evalAllConfirmed,
     buildCtx: buildCtx, sameUtcDay: sameUtcDay, volRatio: volRatio, closePos: closePos,
     donch: donch, pctOf: pctOf, iTf15: iTf15, sqTf: sqTf,
     divTf: divTf, upTf: upTf, TF_UP: TF_UP, TF_DN: TF_DN,
-    withLevels: withLevels, planFor: planFor
+    withLevels: withLevels, planFor: planFor,
+    lastClosedPx: lastClosedPx, confirmCtx: confirmCtx,
+    ALLOWED_TFS: ALLOWED_TFS, forbiddenTfUsage: forbiddenTfUsage
   };
 }

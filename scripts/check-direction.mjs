@@ -17,7 +17,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { SCANS, forcedDir } = require("../stocks/scans.js");
-const { resolveOpp, baseDirOf, conflictOf } = require("../stocks/direction.js");
+const { resolveOpp, baseDirOf, conflictOf, allTfDir, tfConflict } = require("../stocks/direction.js");
 const { levelsFrom, planFrom, validatePlan } = require("../stocks/plan.js");
 const { TFS, TF_WEIGHT } = require("../stocks/score.js");
 
@@ -62,7 +62,7 @@ const resolveFor = (r) => {
   const hs = SCANS.filter(sc => { try { return !!sc.test(r, f, ctx); } catch { return false; } });
   if (!hs.length) return null;
   const R = resolveOpp({
-    score: r.score, band: r.band,
+    score: r.score, band: r.band, tfScore: r.tfScore,
     hits: hs.map(sc => ({ id: sc.id, dir: sc.dir === -1 ? -1 : 1, forced: forcedDir(sc.id) }))
   });
   return { hs, R };
@@ -141,6 +141,71 @@ t("الفحص يُسقط نفسه لو عاد الاتجاه يُشتقّ بأو
   must(now.dir === -1, `المنطق الجديد يجب أن يعيد هبوطاً لا ${now.dir}`);
   must(now.dropped.some(h => h.id === "divBull"), "الشرط المفروض يجب أن يسقط");
   return "قديم ▲ · جديد ▼";
+});
+
+/* ---------- ٢ب) إجماع الفريمات الأربعة — Regression: GS ---------- */
+
+/* بلّغ مستخدم عن `GS`: فرصة «صعود» فوق أربعة فريماتٍ هابطة بالإجماع
+   (15د ‎−47.1‎ · ساعة ‎−58.8‎ · 4 ساعات ‎−58.8‎ · يومي ‎−29.4‎)، والنتيجة
+   ‎−45.88‎ — بينما النطاق المحفوظ ‎1‎ لا ‎0‎ لأن `bandStable` لم يلحق
+   بعد. فمرّ `vol` و`pullback` (`planDir: 1`) من `conflictOf` (يفحص
+   النطاق المتأخّر وحده) وغلبا `alignDn` الهابط. الخمسة اختباراتٍ
+   أدناه بمدخلاتٍ اصطناعية بحتة — لا تعتمد على `data/summary.json`،
+   فتبقى صالحةً حتى حين يتغيّر السوق ولا تكرَّر حالة `GS` فيه بعينها. */
+const GS_TF = { "15m": -47.1, "1h": -58.8, "4h": -58.8, "1d": -29.4 };
+const GS_HITS = [
+  { id: "alignDn", dir: -1, forced: null },
+  { id: "vol", dir: undefined, forced: 1 },
+  { id: "pullback", dir: undefined, forced: 1 }
+];
+
+t("Test A — إجماع هابط تامّ: لا فرصة صاعدة مهما فُرض", () => {
+  const tfScore = { "15m": -20, "1h": -20, "4h": -20, "1d": -20 };
+  const hits = [{ id: "x", dir: -1, forced: null }, { id: "y", dir: 1, forced: 1 }];
+  const R = resolveOpp({ score: -20, band: 1, tfScore, hits });
+  must(R.dir !== 1, `الاتجاه خرج صاعداً (${R.dir}) رغم إجماع الفريمات الأربعة هابطاً`);
+  must(allTfDir(tfScore) === -1, "allTfDir لم يقرأ الإجماع الهابط");
+  return `dir=${R.dir}`;
+});
+
+t("Test B — إجماع صاعد تامّ: لا فرصة هابطة مهما فُرض", () => {
+  const tfScore = { "15m": 20, "1h": 20, "4h": 20, "1d": 20 };
+  const hits = [{ id: "x", dir: 1, forced: null }, { id: "y", dir: -1, forced: -1 }];
+  const R = resolveOpp({ score: 20, band: 3, tfScore, hits });
+  must(R.dir !== -1, `الاتجاه خرج هابطاً (${R.dir}) رغم إجماع الفريمات الأربعة صاعداً`);
+  must(allTfDir(tfScore) === 1, "allTfDir لم يقرأ الإجماع الصاعد");
+  return `dir=${R.dir}`;
+});
+
+t("Test C — فريماتٌ متعارضة: يبقى منطق الفرض/النطاق الحالي هو الحاكم", () => {
+  // فريمٌ واحد يخالف الثلاثة — لا إجماع، فـ`allTfDir` تعود صفراً ولا
+  // تتدخّل. القرار يبقى لـ`conflictOf` كما كان قبل هذا الإصلاح بالحرف.
+  const tfScore = { "15m": -20, "1h": 20, "4h": -20, "1d": 20 };
+  must(allTfDir(tfScore) === 0, "فريمٌ متعارض لا يجوز أن يُقرأ إجماعاً");
+  const R = resolveOpp({ score: -68.8, band: 0, tfScore, hits: GS_HITS.map(h => ({ ...h })) });
+  const R0 = resolveOpp({ score: -68.8, band: 0, hits: GS_HITS.map(h => ({ ...h })) }); // بلا tfScore أصلاً
+  must(R.dir === R0.dir, `وجود فريماتٍ متعارضة غيّر القرار: ${R.dir} مقابل ${R0.dir}`);
+  return `dir=${R.dir} (كما قبل الإصلاح تماماً)`;
+});
+
+t("Test D — نفس المدخلات عشر مرّات: نفس الاتجاه دائماً", () => {
+  const dirs = new Set();
+  for (let i = 0; i < 10; i++) {
+    dirs.add(resolveOpp({ score: -45.88, band: 1, tfScore: GS_TF, hits: GS_HITS.map(h => ({ ...h })) }).dir);
+  }
+  must(dirs.size === 1, `تغيّر الاتجاه بين التكرارات: ${[...dirs].join(",")}`);
+  return `ثابتٌ عند dir=${[...dirs][0]}`;
+});
+
+t("Test E — سيناريو GS بعينه لا يتكرر", () => {
+  must(tfConflict(1, GS_TF) === true, "tfConflict كان يجب أن يمنع الفرض الصاعد على GS");
+  must(conflictOf(1, 1) === false, "conflictOf وحدها (نطاق 1) لا تمنعه — وهذا بالضبط ما كان يمرّ قبل الإصلاح");
+  const R = resolveOpp({ score: -45.88, band: 1, tfScore: GS_TF, hits: GS_HITS.map(h => ({ ...h })) });
+  must(R.dir === -1, `GS يجب أن يُحسم هابطاً (كان يخرج ${1} صاعداً قبل الإصلاح) — خرج ${R.dir}`);
+  must(R.kept.some(h => h.id === "alignDn"), "alignDn الهابط يجب أن يبقى");
+  must(R.dropped.some(h => h.id === "vol") && R.dropped.some(h => h.id === "pullback"),
+    "vol وpullback (المفروضان صعوداً) يجب أن يسقطا أمام إجماع الفريمات");
+  return `dir=${R.dir} · محتفَظ=[${R.kept.map(h => h.id).join(",")}] · ساقط=[${R.dropped.map(h => h.id).join(",")}]`;
 });
 
 /* ---------- ٣) اختبار القبول على الكون الحيّ ---------- */

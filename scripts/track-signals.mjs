@@ -687,7 +687,7 @@ async function main() {
        عرضت الواجهة فرصةً لا تُقاس. */
     const hitScans = SCANS.filter(sc => { try { return !!sc.test(r, f, ctx); } catch { return false; } });
     if (!hitScans.length) continue;
-    const R = resolveOpp({ score: r.score, band: r.band,
+    const R = resolveOpp({ score: r.score, band: r.band, tfScore: r.tfScore,
       hits: hitScans.map(sc => ({ id: sc.id, dir: sc.dir === -1 ? -1 : 1, forced: forcedDir(sc.id) })) });
     // تعارضٌ جوهري: لا فرصة تُعرض فلا إشارة تُسجَّل
     if (!R.dir) { conflicted += hitScans.length; continue; }

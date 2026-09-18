@@ -1726,6 +1726,8 @@ details[open]{background:var(--card2)}
       <input id="scIn" type="search" dir="auto" placeholder="رمز أو اسم شركة — مثل AAPL أو أبل" autocomplete="off"
              role="combobox" aria-expanded="false" aria-controls="scAuto" aria-label="ابحث عن رمز لتحليله">
       <button class="btn" id="scGo">حلّل</button>
+      <button class="btn" id="scDbgBtn" type="button" aria-pressed="false"
+              title="لوحة تشخيص: تفصيل CONFIRMED/LIVE لكل فريم، وإثبات صفر مساهمة للفريمات الممنوعة">تشخيص</button>
     </div>
     <div id="scAuto" class="sauto" role="listbox" aria-label="نتائج البحث"></div>
     <p class="srcline" id="scScope"></p>
@@ -1734,6 +1736,7 @@ details[open]{background:var(--card2)}
   <div class="card" id="scCons" style="display:none"></div>
   <div class="card" id="scCards" style="display:none"></div>
   <div class="card" id="scTl" style="display:none"></div>
+  <div class="card" id="scDebug" style="display:none"></div>
   <div class="card" id="scRankCard">
     <h2>ترتيب الكون بتوافق الاستراتيجيات</h2>
     <p class="hint">كل رمزٍ مرتَّباً بكتلة التوافق: من اتّفقت عليه أكثرُ الاستراتيجيات وأقواها إلى من لم تتفعّل عليه واحدة. اضغط أيّ صفّ ليُحلَّل بالسعر الحيّ</p>
@@ -2584,7 +2587,9 @@ function renderMarketDir() {
       النسبة دون عتبة الوسم (${DIR_ON}%) — فالسوق يُقرأ <b>محايداً</b>: الآفاق
       الثلاثة لا تتّفق على جهة، وهذه حالةٌ تُقال لا نقصٌ في البيانات.</div>` : ""}
     ${M.missing ? `<div class="warn" style="margin-top:10px">${bd(M.missing)}
-      أصلاً بلا ملفّ شمعات — خارج الحساب.</div>` : ""}`;
+      أصلاً بلا ملفّ شمعات — خارج الحساب.</div>` : ""}
+    <p class="srcline" style="margin-top:8px">النسبة مقياسُ توافق الفريمات
+      والطرائق الإحدى عشرة — لا احتمال نجاح إحصائي.</p>`;
 
   /* الترتيب: المؤشّر أولاً دائماً (هو المرجع لا صفٌّ بين صفوف)، ثم
      الشركات بقوّة توجّهها — لا بالأبجدية ولا بالقيمة السوقية: السؤال
@@ -4950,8 +4955,11 @@ function renderStrategies(rec) {
     const q = oppQualityOf(0.5, S_.scs, sd);
     const pts = Math.round(q.adj * 100);
     const lb = dirLabelOf(S_.dir, S_.pct);
+    /* الرقم نقاءُ توافقٍ مُطبَّعٌ (نقاء × اتساع)، لا احتمال نجاح — نفس
+       تعريف `scsFrom` في `confluence.js`. `title` توضيحٌ فوريّ بلا
+       إثقال السطر، والجملة الكاملة في `srcline` أسفل البطاقة. */
     foot = `<div class="note">درجة التوافق:
-      <b style="color:${lb.c}">${lb.t} ${S_.pct}%</b> · ${bd(nOn)} متفعّلة من ${bd(rows.length)}
+      <b style="color:${lb.c}" title="نقاء واتساع توافق الاستراتيجيات — ليست احتمال نجاح">${lb.t} ${S_.pct}%</b> · ${bd(nOn)} متفعّلة من ${bd(rows.length)}
       ${nOff ? `· ${bd(nOff)} بلا إشارة` : ""} · الثقة ${esc(cons.confT || "—")}
       ${sd ? `<br>الأثر على درجة الفرصة: <b class="num" style="color:${
         pts > 0 ? "var(--up)" : pts < 0 ? "var(--dn)" : "var(--mut)"
@@ -4964,7 +4972,10 @@ function renderStrategies(rec) {
     `<p class="srcline">لقطةُ الخادم من آخر دورة مسح — لا حسابٌ لحظي.
      ${state.strategies && state.strategies.updated ? "حُدّثت " + esc(ago(state.strategies.updated)) + ". " : ""}
      واللقطة تحفظ ما له جهةٌ فقط، فـ«بلا إشارة» تشمل ما قُيّم فلم يُطلق
-     وما تعذّر تقييمه معاً — ولا تُنسب إلى أحدهما.</p>`;
+     وما تعذّر تقييمه معاً — ولا تُنسب إلى أحدهما.
+     والنسبة أعلاه مقياسُ توافقٍ (نقاء اتفاق الاستراتيجيات × عددها) لا
+     احتمال نجاح إحصائي — سهمٌ بنسبة ٩٠٪ ليس أرجح ٩٠٪ مرّة من مئة
+     تحرّكاً في تلك الجهة.</p>`;
   if (hint) hint.textContent = "عشرُ قراءاتٍ مستقلّة بجانب محرّك الفرص — تعزّز أو تُضعف، ولا تحلّ محلّه";
   card.style.display = "";
 }
@@ -5538,12 +5549,21 @@ function renderTrend(rec) {
   }
 
   /* ---------- آخر انقلاب اتجاه ---------- */
-  // النطاق يتغيّر بعبور ‎±15‎ أو ‎±45‎ — نفس حدود `labelOf` كي لا يقول
-  // التسلسل «انقلب» والعنوان فوقه يقول غير ذلك
-  const band = (s) => [-45, -15, 15, 45].filter(b => s >= b).length;
+  /* النطاق المستقرّ لكل نقطة — بهيستريسس `bandStable` المشتركة (نفس
+     ‎BANDS‎/‎BAND_MARGIN‎ في `score.js`)، لا عتبةٍ خامٍ بلا ذاكرة.
+     الأخيرة كانت تُقلِّب النطاق عند كل عبورٍ خفيف لحدٍّ (‎±0.1‎ نقطة)
+     فتُظهر «انقلب الاتجاه منذ 5 دقائق» رغم أن `row.band` المستقرّ في
+     الخادم لم يتغيّر — نفس مصيدة «الوسم يُثبَّت بهيستريسس والرقم لا
+     يُثبَّت» بعينها، مطبَّقةً هنا على تسلسل العرض بدل النتيجة الحيّة.
+     تُحسب بالمشي من الأقدم للأحدث، تماماً كما يفعل الخادم دورةً بعد
+     دورة، لا بإعادة اشتقاقٍ مستقلّ لكل نقطة. */
+  const stableBands = [];
+  { let prevB = null;
+    for (let i = 0; i < pts.length; i++) { prevB = bandStable(pts[i][1], prevB); stableBands.push(prevB); } }
+  const band = (i) => stableBands[i];
   let flip = null;
   for (let i = pts.length - 1; i > 0; i--) {
-    if (band(pts[i][1]) !== band(pts[i - 1][1])) { flip = { to: pts[i], from: pts[i - 1] }; break; }
+    if (band(i) !== band(i - 1)) { flip = { to: pts[i], from: pts[i - 1] }; break; }
   }
   if (flip) {
     const t = flip.to[0] * 1000, a = labelOf(flip.from[1]), b2 = labelOf(flip.to[1]);
@@ -5571,9 +5591,10 @@ function renderTrend(rec) {
   /* ---------- التسلسل كاملاً — مطويّ حتى يُطلب ---------- */
   if (pts.length) {
     const rowsHtml = pts.slice().reverse().map((p, i, arr) => {
-      const l = labelOf(p[1]);
+      const idx = pts.length - 1 - i;                 // فهرسه في `pts` الأصلية (غير المقلوبة)
+      const l = labelOf(p[1], band(idx));
       const prev = arr[i + 1];                       // الأقدم منه (القائمة مقلوبة)
-      const flipped = prev && band(p[1]) !== band(prev[1]);
+      const flipped = prev && idx > 0 && band(idx) !== band(idx - 1);
       const delta = prev ? p[1] - prev[1] : null;
       return `<div class="row"><div class="l">${flipped ? flipMark() : ""}${bd(stamp(p[0] * 1000))}
         <small style="color:${l.c}">${esc(l.t)}${p[2] !== null && p[2] !== undefined
@@ -7756,7 +7777,7 @@ function syncTabs(active) {
    استثناءٌ في بطاقةٍ واحدة كان يُبقي بيانات السهم السابق معروضة — وهي
    أخطر من شاشةٍ فارغة، لأن الأرقام تبدو صحيحة وتخصّ سهماً آخر.
    ===================================================================== */
-const scState = { sym: null, res: null, cons: null, ctx: null, hi: -1 };
+const scState = { sym: null, res: null, cons: null, ctx: null, hi: -1, debug: false };
 
 /* أنماط الحالة الستّ — ترث ألوان التطبيق ولا تستعمل إيموجي */
 /* طول شمعة كل فريم بالملّي — لمعرفة متى يتأخّر وصولُ شمعةٍ جديدة.
@@ -7837,7 +7858,7 @@ function oppDirOf(row, F, ctxScan) {
     /* اتجاهٌ واحد للرمز عبر `direction.js`، ثم تُسقَط الشروط التي لا
        توافقه. فلا يمكن أن يظهر Call وPut للسهم نفسه، ولا أن تُبنى
        أهدافٌ في جهةٍ غير جهة الفرصة المعروضة. */
-    const R = resolveOpp({ score: row.score, band: row.band,
+    const R = resolveOpp({ score: row.score, band: row.band, tfScore: row.tfScore,
       hits: all.map(sc => ({ id: sc.id, dir: sc.dir === -1 ? -1 : 1, forced: forcedDir(sc.id) })) });
     if (!R.dir) return null;              // تعارضٌ جوهري — لا فرصة أصلاً
     const keep = new Set(R.kept.map(h => h.id));
@@ -7952,6 +7973,8 @@ async function scAnalyze(sym) {
     scCard("#scCons", () => renderScCons(row, ctx, res, cons, regime, st));
     scCard("#scCards", () => renderScCards(row, ctx, res, cons));
     loadStratTl(sym).then(() => { if (scState.sym === sym) scCard("#scTl", () => renderScTl(sym)); });
+    if (scState.debug) scCard("#scDebug", () => renderScDebug(sym, ctx, res));
+    else { const dc = $("#scDebug"); if (dc) { dc.style.display = "none"; dc.innerHTML = ""; } }
   } catch (e) {
     diag("scanner", `تعذّر تحليل ${sym}`, e.message);
     $("#scCons").innerHTML = `<div class="warn">تعذّر تحليل ${esc(sym)} — ${esc(e.message)}</div>`;
@@ -8283,6 +8306,141 @@ function renderScTl(sym) {
 }
 
 /* =====================================================================
+   لوحة تشخيص — CONFIRMED مقابل LIVE لكل فريم، وإثباتُ صفر مساهمة
+   للفريمات الممنوعة. تُبنى من نفس `ctx`/`res` التي رسمت البطاقات
+   الأخرى، ولا تُنشئ مساراً حسابياً موازياً — `evalAllConfirmed` هي
+   `evalStrategy` نفسها بسياقٍ مختلف (`confirmCtx`)، لا نسخة.
+   ===================================================================== */
+function renderScDebug(sym, ctx, resLive) {
+  const el = $("#scDebug");
+  if (!el) return;
+  const resC = evalAllConfirmed(ctx);
+  const forb = forbiddenTfUsage(ctx);
+  const TF_MS = { "15m": 9e5, "1h": 36e5, "4h": 144e5, "1d": 864e5 };
+  const now = Date.now();
+
+  const byTf = {};
+  ALLOWED_TFS.forEach(tf => byTf[tf] = []);
+  for (let i = 0; i < STRATEGIES.length; i++) {
+    const st = STRATEGIES[i], rc = resC[i], rl = (resLive && resLive[i]) || null;
+    const tf = rc.tfUsed || (rl && rl.tfUsed) || st.tf;
+    (byTf[tf] || (byTf[tf] = [])).push({ id: st.id, lbl: st.lbl, rc, rl });
+  }
+
+  const dirMark = (d) => !d ? "—" : d > 0 ? "▲" : "▼";
+  const tfBlock = (tf) => {
+    const rows = byTf[tf] || [];
+    const k = (ctx.ik && ctx.ik[tf]) || (ctx.k && ctx.k[tf]);
+    const last = k && k.length ? k[k.length - 1] : null;
+    const closed = last ? (now >= last.t + (TF_MS[tf] || 0)) : null;
+    return `<div class="dbg-tf" style="margin-bottom:10px">
+      <div class="row"><div class="l"><b>${esc(TF_LABEL[tf] || tf)}</b>
+        <small>وقت الشمعة الأخيرة: ${last ? bd(stamp(last.t)) : "—"}</small></div>
+        <div class="r" style="color:${closed === true ? "var(--up)" : closed === false ? "var(--dn)" : "var(--mut)"}">${
+          closed === true ? "CLOSED" : closed === false ? "LIVE" : "—"}</div></div>
+      ${rows.length ? rows.map(r => `<div class="row" style="padding-inline-start:12px">
+          <div class="l" style="font-size:12.5px">${esc(r.lbl)}</div>
+          <div class="r num" style="font-size:12px">
+            CONFIRMED <span style="color:${r.rc && r.rc.dir > 0 ? "var(--up)" : r.rc && r.rc.dir < 0 ? "var(--dn)" : "var(--mut)"}">${
+              dirMark(r.rc && r.rc.dir)} ${r.rc && Number.isFinite(r.rc.sc) ? r.rc.sc : "—"}</span>
+            <span style="color:var(--mut)"> · LIVE ${dirMark(r.rl && r.rl.dir)} ${r.rl && Number.isFinite(r.rl.sc) ? r.rl.sc : "—"}</span>
+          </div></div>`).join("")
+        : `<div class="n mut" style="padding-inline-start:12px;font-size:12px">لا استراتيجية تستعمل هذا الفريم على هذا الرمز الآن</div>`}
+    </div>`;
+  };
+
+  const regime = marketRegime(ctx.an);
+  const consC = consensusOf(resC, { regime, edge: scEdge() });
+  const scC = scsFrom(consC);
+  const lbC = dirLabelOf(scC.dir, scC.pct);
+
+  const forbSet = ["1m", "2m", "3m", "5m", "10m"];
+  const forbText = forbSet.map(tf => `${tf}:${forb[tf] || 0}`).join("  ");
+  const extra = Object.keys(forb).filter(tf => !forbSet.includes(tf));
+  const anyForbidden = Object.keys(forb).length > 0;
+
+  el.innerHTML = `<h2>لوحة تشخيص — ${esc(sym)}</h2>
+    <p class="hint">CONFIRMED من آخر شمعة مغلقة لكل فريم — لا تتغيّر إلا حين تُغلَق شمعةٌ جديدة.
+      LIVE بالسعر الحالي — بادجٌ تكميليّ لا يدخل الاتجاه النهائي.</p>
+    ${ALLOWED_TFS.map(tfBlock).join("")}
+    <div class="sep"></div>
+    <div class="row"><div class="l">Final direction (CONFIRMED)</div>
+      <div class="r" style="color:${lbC.c}">${lbC.t}</div></div>
+    <div class="row"><div class="l">Final score / confidence (CONFIRMED)</div>
+      <div class="r num">${scC.pct === null ? "—" : scC.pct + "%"}</div></div>
+    <div class="row"><div class="l">Ranking score (درجة الفرصة الموحّدة)</div>
+      <div class="r num">${Number.isFinite(ctx.row && ctx.row.score) ? bd(fmt(ctx.row.score, 0)) : "—"}</div></div>
+    <div class="sep"></div>
+    <div class="row"><div class="l">Forbidden timeframe usage</div>
+      <div class="r num" style="color:${anyForbidden ? "var(--dn)" : "var(--up)"}">${esc(forbText)}${anyForbidden ? "" : "  ✓ صفر"}</div></div>
+    ${anyForbidden ? `<div class="warn">فريمٌ ممنوع ظهر فعلاً في بيانات هذا السياق: ${esc(JSON.stringify(forb))}${
+        extra.length ? ` (إضافةً إلى: ${extra.join(", ")})` : ""}</div>` : ""}
+    <p class="srcline">مُشتقٌّ من البيانات الفعلية الواصلة لهذا الرمز (${esc(sym)})،
+      لا من قائمةٍ ثابتة — أي فريمٍ دون ١٥ دقيقة يظهر هنا لو دخل الحساب فعلاً.</p>
+    ${renderOppDirDebug(sym, ctx.row || {})}`;
+}
+
+/* =====================================================================
+   تتبّع اتجاه الفرصة — `scan row` ← `score/band` ← `oppDirOf` ←
+   `conflictOf`/`tfConflict` ← `resolveOpp` ← ما يُعرض فعلاً.
+
+   بلّغ مستخدم عن `GS`: فرصة «صعود» فوق أربعة فريماتٍ هابطة بالإجماع.
+   والسطر الذي يكشف مثل هذا فوراً هو `tf consensus` هنا مقابل
+   `oppDirOf` — إن اختلفا فالمنطق يجب أن يحسم للإجماع (`resolveOpp`
+   أدناه)، وإن ظلّا مختلفين فهو خللٌ لم يُصلَح بعد لا بيانات نعرضها
+   ونتجاهلها. القيم كلها من `row.tfScore`/`row.score`/`row.band`
+   المحفوظة نفسها — لا حسابٌ موازٍ يشهد لشيءٍ لا يعمل. */
+function renderOppDirDebug(sym, row) {
+  const tfRows = TFS.map(tf => {
+    const sc = row.tfScore && row.tfScore[tf];
+    const lb = labelOf(sc);
+    return `<div class="row" style="padding-inline-start:12px">
+      <div class="l" style="font-size:12.5px">${esc(TF_LABEL[tf] || tf)}</div>
+      <div class="r num" style="font-size:12px;color:${lb.c}">${esc(lb.t)}${
+        Number.isFinite(sc) ? ` (${bd(fmt(sc, 1))})` : ""}</div>
+    </div>`;
+  }).join("");
+
+  const uni = allTfDir(row.tfScore);
+  const uniTxt = uni > 0 ? "إجماعٌ صاعد (▲▲▲▲)" : uni < 0 ? "إجماعٌ هابط (▼▼▼▼)" : "لا إجماع — الفريمات مختلَفة أو ناقصة";
+  const bandLb = labelOf(row.score, row.band);
+  const od = oppDirOf(row);
+  const forcedLbl = (od && od.forced && od.hits)
+    ? (od.hits.find(h => forcedDir(h.id) === od.forced) || {}).lbl : null;
+  const cOf = (od && od.forced) ? conflictOf(od.forced, row.band) : false;
+  const tOf = (od && od.forced) ? tfConflict(od.forced, row.tfScore) : false;
+
+  let reason;
+  if (!od) reason = "لا شرطٍ محقَّق على هذا الرمز الآن، أو أسقط التعارضُ كل الشروط — لا فرصة تُعرض";
+  else if (uni !== 0) reason = `حسمه إجماع الفريمات الأربعة (${uniTxt}) — يعلو على الفرض والنطاق معاً`;
+  else if (od.forced) reason = `فرضه الشرط «${esc(forcedLbl || "—")}» (${od.forced > 0 ? "▲" : "▼"}) ولم يعارض نطاقاً متطرّفاً ولا إجماع فريمات`;
+  else reason = `من النطاق المثبَّت — ${esc(bandLb.t)}`;
+
+  const finalTxt = !od ? "لا فرصة" : od.dir > 0 ? "▲ صعود" : "▼ هبوط";
+  const finalCol = !od ? "var(--mut)" : od.dir > 0 ? "var(--up)" : "var(--dn)";
+
+  return `<div class="sep"></div>
+    <h2 style="margin-top:0">اتجاه الفرصة — ${esc(sym)}</h2>
+    <p class="hint">من نفس المسار الذي يُبنى منه ما يُعرض في «الفرص»: scan row ← score/band ← oppDirOf ← conflictOf/tfConflict ← resolveOpp.</p>
+    ${tfRows}
+    <div class="row"><div class="l">tf consensus (allTfDir)</div><div class="r" style="color:${
+      uni > 0 ? "var(--up)" : uni < 0 ? "var(--dn)" : "var(--mut)"}">${esc(uniTxt)}</div></div>
+    <div class="sep"></div>
+    <div class="row"><div class="l">row.score</div><div class="r num">${Number.isFinite(row.score) ? bd(fmt(row.score, 2)) : "—"}</div></div>
+    <div class="row"><div class="l">row.band</div><div class="r" style="color:${bandLb.c}">${
+      Number.isFinite(row.band) ? row.band : "—"} — ${esc(bandLb.t)}</div></div>
+    <div class="row"><div class="l">oppDirOf.base</div><div class="r num">${od ? (od.base ?? "—") : "—"}</div></div>
+    <div class="row"><div class="l">oppDirOf.forced</div><div class="r num">${od && od.forced ? (od.forced > 0 ? "+1 (▲)" : "−1 (▼)") : "—"}</div></div>
+    <div class="row"><div class="l">conflictOf(forced, band)</div><div class="r" style="color:${cOf ? "var(--dn)" : "var(--mut)"}">${cOf}</div></div>
+    <div class="row"><div class="l">tfConflict(forced, tfScore)</div><div class="r" style="color:${tOf ? "var(--dn)" : "var(--mut)"}">${tOf}</div></div>
+    <div class="row"><div class="l">resolveOpp.kept</div><div class="r" style="font-size:12px">${od && od.hits.length ? esc(od.hits.map(h => h.id).join(", ")) : "—"}</div></div>
+    <div class="row"><div class="l">resolveOpp.dropped</div><div class="r" style="font-size:12px">${od && od.dropped.length ? esc(od.dropped.map(h => h.id).join(", ")) : "—"}</div></div>
+    <div class="sep"></div>
+    <div class="row"><div class="l"><b>Final direction</b></div><div class="r" style="color:${finalCol}"><b>${finalTxt}</b></div></div>
+    <p class="srcline">${reason}</p>`;
+}
+
+/* =====================================================================
    الأحداث
    ===================================================================== */
 function scWire() {
@@ -8313,6 +8471,15 @@ function scWire() {
     } else if (e.key === "Escape") { auto.classList.remove("on"); inp.setAttribute("aria-expanded", "false"); }
   });
   if (btn) btn.addEventListener("click", run);
+  const dbgBtn = $("#scDbgBtn");
+  if (dbgBtn) dbgBtn.addEventListener("click", () => {
+    scState.debug = !scState.debug;
+    dbgBtn.setAttribute("aria-pressed", String(scState.debug));
+    dbgBtn.classList.toggle("on", scState.debug);
+    const card = $("#scDebug");
+    if (!scState.debug) { if (card) { card.style.display = "none"; card.innerHTML = ""; } return; }
+    if (scState.sym && scState.ctx) scCard("#scDebug", () => renderScDebug(scState.sym, scState.ctx, scState.res));
+  });
   auto.addEventListener("click", (e) => {
     const r = e.target.closest("[data-sym]");
     if (r) { inp.value = r.dataset.sym; scAnalyze(r.dataset.sym); }

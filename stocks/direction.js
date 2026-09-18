@@ -55,6 +55,49 @@ function conflictOf(forced, band) {
 }
 
 /* =====================================================================
+   إجماع الفريمات الأربعة — قاعدةٌ مطلقة تعلو على الفرض **وعلى النطاق
+   المثبَّت نفسه**، ولا تحتاج هيستريسس لأنها لا تُقرأ إلا حين تتّفق
+   الفريمات الأربعة تماماً.
+
+   بلّغ مستخدم عن `GS`: فرصة «صعود» فوق أربعة فريماتٍ هابطة بالإجماع
+   (15د ‎−47.1‎ · ساعة ‎−58.8‎ · 4 ساعات ‎−58.8‎ · يومي ‎−29.4‎)، والنتيجة
+   الكلية ‎−45.88‎. والسبب **ليس** فرضاً أعمى: `conflictOf` يعمل تماماً
+   كما صُمِّم — يمنع الفرض ضدّ نطاقٍ متطرّف (‎0‎ أو ‎4‎) فقط. والنطاقُ
+   المحفوظ لـ`GS` كان ‎1‎ لا ‎0‎، لأن `bandStable` (هيستريسس ‎3‎ نقاط)
+   لم يكن قد لحق بعد بسقوط النتيجة الحادّ إلى ‎−45.88‎ (يحتاج ‎−48‎ ليهبط
+   من نطاق ‎1‎ إلى ‎0‎). فشرطا `vol` و`pullback` — كلاهما `planDir: 1`
+   — مرّا من `conflictOf` لأن بوابتهما تقرأ نطاقاً متأخّراً خطوةً واحدة
+   عن النتيجة الفعلية، فغلبا `alignDn` الهابط السليم.
+
+   هذا تأخّرٌ بنيويّ في `conflictOf` لا خطأً فيها: الهيستريسس مطلوبٌ في
+   النطاق لأنه يُقرأ كوسمٍ مستقرّ عبر دوراتٍ متتالية. أما الفريمات
+   الأربعة فقراءةٌ مباشرة بلا هيستريسس — كل فريمٍ رقمٌ واحد من مصدرٍ
+   واحد في نفس اللحظة، فلا معنى لتثبيته. وحين تتّفق الأربعة كلّها على
+   جهةٍ واحدة (كلٌّ تحت ‎−15‎ أو كلٌّ فوق ‎+15‎ — نفس عتبة `allTF` في
+   `scans.js` بالحرف لا رقمٌ جديد) فهي **أقوى** من أيّ قراءةٍ مشتقّة من
+   النطاق المتأخّر، ويجب أن تحسم بصرف النظر عن الفرض أو تأخّر النطاق.
+
+   ولا تُطلق على الاختلاف: فريمٌ واحد يخالف الثلاثة الباقية معلومةٌ
+   حقيقية (تعارضٌ بين الآجال)، ومنعُها من الحسم هناك يُبقي القرار
+   لمنطق الفرض/النطاق الحالي كما هو — التغيير هنا في حالة الإجماع التامّ
+   وحدها. */
+function allTfDir(tfScore) {
+  var v = tfScore ? Object.values(tfScore) : [];
+  if (v.length !== 4 || !v.every(Number.isFinite)) return 0;
+  if (v.every(function (x) { return x < -15; })) return -1;
+  if (v.every(function (x) { return x > 15; })) return 1;
+  return 0;
+}
+
+/* هل يعاكس اتجاهٌ مفروضٌ إجماعَ الفريمات الأربعة؟ نظيرُ `conflictOf`
+   بمصدرٍ مختلف — تلك تقرأ النطاق المتأخّر، وهذه تقرأ الفريمات مباشرة. */
+function tfConflict(dir, tfScore) {
+  if (dir !== 1 && dir !== -1) return false;
+  var u = allTfDir(tfScore);
+  return u !== 0 && u !== dir;
+}
+
+/* =====================================================================
    القرار الواحد.
 
    يعيد `dir` — وهو الاتجاه الذي **يجب** أن تُبنى به الخطة والمستويات
@@ -65,12 +108,16 @@ function conflictOf(forced, band) {
    أن حقلاً غيابُه له معنى لا يُفحص بالصدق.
    ===================================================================== */
 function resolveDir(o) {
-  var score = o && o.score, band = o && o.band, forced = o && o.forced;
+  var score = o && o.score, band = o && o.band, forced = o && o.forced, tfScore = o && o.tfScore;
   var base = baseDirOf(score, band);
-  if (forced !== 1 && forced !== -1) {
-    return { dir: base, base: base, forced: null, conflict: false };
+  var uni = allTfDir(tfScore);
+  var isForced = forced === 1 || forced === -1;
+  var blocked = isForced && (conflictOf(forced, band) || tfConflict(forced, tfScore));
+  if (!isForced || blocked) {
+    var dir = (uni !== 0) ? uni : base;
+    return { dir: dir, base: base, forced: null, conflict: blocked, tf: uni };
   }
-  return { dir: forced, base: base, forced: forced, conflict: conflictOf(forced, band) };
+  return { dir: (uni !== 0) ? uni : forced, base: base, forced: forced, conflict: false, tf: uni };
 }
 
 /* =====================================================================
@@ -87,19 +134,32 @@ function resolveDir(o) {
    الملفّ تعريفات الشروط ولا يصير الأرشيف محتاجاً إلى الواجهة.
    ===================================================================== */
 function resolveOpp(o) {
-  var score = o && o.score, band = o && o.band;
+  var score = o && o.score, band = o && o.band, tfScore = o && o.tfScore;
   var hits = (o && o.hits) || [];
   var base = baseDirOf(score, band);
-  if (!hits.length) return { dir: null, base: base, kept: [], dropped: [], conflict: false };
+  var uni = allTfDir(tfScore);
 
-  /* الفرض يغلب النطاق **ما لم** يكن النطاق متطرّفاً — وهي نفس مفاضلة
-     `planDirOf` مع حدٍّ واحد مضاف: لا فرضَ ضدّ قراءةٍ قاطعة. */
+  if (!hits.length) {
+    var dir0 = (uni !== 0) ? uni : base;
+    return { dir: dir0, base: base, tf: uni, kept: [], dropped: [], conflict: false };
+  }
+
+  /* الفرض يغلب النطاق **ما لم** يكن النطاق متطرّفاً، وما لم يعاكس
+     إجماع الفريمات الأربعة — وهي نفس مفاضلة `planDirOf` مع حدّين
+     مضافين: لا فرضَ ضدّ قراءةٍ قاطعة ولا ضدّ إجماعٍ تامّ. */
   var forced = null;
   for (var i = 0; i < hits.length; i++) {
     var fd = hits[i] && hits[i].forced;
-    if ((fd === 1 || fd === -1) && !conflictOf(fd, band)) { forced = fd; break; }
+    if ((fd === 1 || fd === -1) && !conflictOf(fd, band) && !tfConflict(fd, tfScore)) { forced = fd; break; }
   }
   var dir = (forced === 1 || forced === -1) ? forced : base;
+
+  /* إجماعُ الفريمات الأربعة يعلو حتى على الأساس، لا على الفرض وحده.
+     الأساس مشتقٌّ من `band` وهو **متأخّرٌ عن النتيجة الفعلية بهيستريسس
+     ثلاث نقاط** (`bandStable`) — وهو بالضبط ما جعل `GS` تُحسم بنطاقٍ
+     ‎1‎ بينما نتيجتُها ‎−45.88‎ تقع فعلياً في نطاق ‎0‎. الفريمات الأربعة
+     بلا هذا التأخّر، فحين تتّفق كلُّها فهي الحكم الأخير. */
+  if (uni !== 0) dir = uni;
 
   /* اتجاهُ الشرط نفسه: المفروض باتجاه فرضه، وغيرُ المفروض باتجاه الرمز.
      فشرطٌ هابط (`dir = −1` في تعريفه) لا يُقبل تحت فرصةٍ صاعدة. */
@@ -110,10 +170,10 @@ function resolveOpp(o) {
             : ((h && (h.dir === 1 || h.dir === -1)) ? h.dir : dir);
     (own === dir ? kept : dropped).push(h);
   }
-  return { dir: kept.length ? dir : null, base: base,
+  return { dir: kept.length ? dir : null, base: base, tf: uni,
            kept: kept, dropped: dropped, conflict: !kept.length };
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { DIR_CUT, baseDirOf, conflictOf, resolveDir, resolveOpp };
+  module.exports = { DIR_CUT, baseDirOf, conflictOf, allTfDir, tfConflict, resolveDir, resolveOpp };
 }
