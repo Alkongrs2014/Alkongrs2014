@@ -28,6 +28,7 @@ const require = createRequire(import.meta.url);
 const S = require(path.join(ROOT, "stocks/strategies.js"));
 const P = require(path.join(ROOT, "stocks/plan.js"));
 const IND = require(path.join(ROOT, "stocks/indicators.js"));
+const SC = require(path.join(ROOT, "stocks/score.js"));
 const { sessionOf, currentWindow } = await import(
   new URL("./lib/session.mjs", import.meta.url).href);
 
@@ -46,7 +47,13 @@ const ok = (c, m) => { if (!c) throw new Error(m); };
    سياقٌ مُصطنع: ٣٠ شمعةً مسطَّحة قرب ‎100‎ على ‎15د‎ — نطاق دونشيان
    المشتق منها (باستثناء آخر شمعتين، كما يفعل `donch`) ضيّقٌ ومعروف.
    ===================================================================== */
-function flatCandles(n = 30, base = 100, noise = 0.05, t0 = 1_700_000_000_000, step = 900000) {
+/* المرساة ربعُ الساعة **الجاري** لا ختمٌ ثابت في 2023: «الشمعة
+   الجارية» صفةٌ زمنية لا موضعٌ في مصفوفة (انظر `closedBars`)، وسلسلةٌ
+   كلُّها في الماضي آخرُها **مغلقة** — فاختبارٌ يفترض أن الأخيرة تُحذف
+   دائماً يقيس افتراضه لا الشيفرة. */
+function flatCandles(n = 30, base = 100, noise = 0.05,
+                     t0 = Math.floor(Date.now() / 900000) * 900000 - 29 * 900000,
+                     step = 900000) {
   const out = [];
   for (let i = 0; i < n; i++) {
     const c = base + (i % 2 === 0 ? noise : -noise);
@@ -215,11 +222,15 @@ t("evalAllConfirmed يعيد العشرة دائماً — لا استثناءٌ
 const DATA = path.join(ROOT, "data");
 const rdj = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return d; } };
 
-/* مؤشّراتٌ معادةٌ من السلسلة — نفس ما يفعله `fetch-market` كل دورة. */
-function reAnalyze(box) {
+/* مؤشّراتٌ معادةٌ من السلسلة — نفس ما يفعله `fetch-market` كل دورة،
+   و**على الشمعات المغلقة وحدها** كما صار يفعل. و`legacy` يعيد سلوكه
+   السابق (السلسلة كاملةً بشمعتها الجارية) كي يبقى للمقارنة معنى:
+   نظامان متكاملان يُقارَنان، لا نصفُ نظامٍ بنصف آخر. */
+function reAnalyze(box, now, legacy) {
   const o = {};
   for (const tf in (box || {})) {
-    const a = IND.analyze(P.unpackK(box[tf].c));
+    const k = P.unpackK(box[tf].c);
+    const a = IND.analyze(legacy ? k : IND.closedBars(k, tf, now));
     if (!a) continue;
     delete a.series;
     o[tf] = a;
@@ -227,8 +238,15 @@ function reAnalyze(box) {
   return o;
 }
 
-/* دورةُ خادمٍ أخرى بعد دقائق: الشمعة الجارية تحرّكت، والمؤشّرات أُعيدت. */
-function nextCycle(rec, f) {
+/* دورةُ خادمٍ أخرى بعد دقائق: الشمعة **الجارية** تحرّكت، والمؤشّرات
+   أُعيدت.
+
+   والتحريك يقع على الجارية وحدها لا على الأخيرة مطلقاً: شمعةٌ **مغلقة**
+   لا يعيد المصدر كتابتها، وتشويهُها محاكاةُ فسادِ بياناتٍ لا محاكاةُ
+   دورة. وهذا التمييز ماديٌّ لا يخصّ نظاماً دون آخر، فيُطبَّق على
+   المسارين معاً — وإلا صار الاختبار يقارن مدخلَين مختلفَين ويسمّي
+   الفرقَ أثراً للشيفرة. */
+function nextCycle(rec, f, now) {
   const r = JSON.parse(JSON.stringify(rec));
   for (const box of [r.tf, r.tfx]) {
     for (const tf in (box || {})) {
@@ -236,13 +254,12 @@ function nextCycle(rec, f) {
       if (!c || c.length < 2) continue;
       const b = c[c.length - 1];
       if (!Array.isArray(b)) continue;
+      if (!IND.isLiveBar(tf, IND.barTime(b), now)) continue;
       const base = b[4];
       b[1] = base * f; b[2] = base * f * 1.03; b[3] = base * f * 0.97; b[4] = base * f;
       b[5] = Math.round((b[5] || 1000) * (1 + Math.abs(f - 1) * 40));
     }
   }
-  r.an = reAnalyze(r.tf);
-  if (r.tfx) r.anx = reAnalyze(r.tfx);
   return r;
 }
 
@@ -250,6 +267,16 @@ function nextCycle(rec, f) {
    السعر وحده) كي يُثبَت أن الاختبار ليس دائم النجاح. */
 function evalSym(rec, row, px, now, legacy) {
   const mkt = rec.mkt || row.mkt || null;
+  rec.an = reAnalyze(rec.tf, now, legacy);
+  if (rec.tfx) rec.anx = reAnalyze(rec.tfx, now, legacy);
+  /* وصفُّ الملخّص يُعاد بناؤه كذلك — `buildCtx` يقرأ منه `tfScore`
+     و`w52h/l`، وتثبيتُه يدوياً يخفي أيَّ تسرّبٍ يمرّ عبره. وهي نفس
+     المصيدة الموثّقة: محاكاةٌ ناقصة لمسار الخادم تقيس نصف العلّة. */
+  row = Object.assign({}, row, {
+    score: SC.overallScore(rec.an),
+    tfScore: Object.fromEntries(SC.TFS.filter(x => rec.an[x])
+                                      .map(x => [x, +rec.an[x].score.toFixed(1)]))
+  });
   const c = S.buildCtx({ rec, row, now, px, sess: sessionOf(now, mkt),
                          win: currentWindow(now, mkt), sessOf: (t) => sessionOf(t, mkt) });
   const list = legacy
@@ -267,11 +294,20 @@ function evalSym(rec, row, px, now, legacy) {
   return out;
 }
 
-/* مسحُ الكون الحيّ ذهاباً وإياباً — يعيد عدد الاختلافات. */
+/* مسحُ الكون الحيّ ذهاباً وإياباً — يعيد عدد الاختلافات.
+
+   **والساعة تُرسى على البيانات لا على ساعة الحائط.** الاختبار يدّعي
+   «داخل نفس ربع الساعة»، فلا بدّ أن تقع خطواته كلُّها داخل ربعٍ واحد
+   فعلاً: `Date.now()` عشوائيٌّ بالنسبة إلى الشبكة، فقفزةُ تسع دقائق
+   منه تعبر حدَّ شمعةٍ في أغلب الأحيان — فيُقرأ **إغلاقُ شمعةٍ صحيح**
+   خللاً في الثبات. والمرساة هي لحظةُ كتابة الملفّات: عندها كانت
+   الشمعات الجارية جاريةً فعلاً، فالمحاكاة تصف دورةَ خادمٍ وقعت حقاً. */
 function sweep(legacy) {
   const sum = rdj(path.join(DATA, "summary.json"));
   if (!sum || !Array.isArray(sum.rows)) return null;      // لا بيانات محليّة
-  const now = Date.now();
+  const anchor = Number.isFinite(sum.updated) ? sum.updated : Date.now();
+  const q0 = Math.floor(anchor / 9e5) * 9e5;              // بداية ربع الساعة
+  const now = q0 + 60e3;
   let syms = 0, diff = 0, dirs = 0, acts = 0;
   const ex = [];
   for (const row of sum.rows) {
@@ -279,13 +315,14 @@ function sweep(legacy) {
     const rec = rdj(path.join(DATA, "sym", row.s + ".json"));
     if (!rec || !rec.tf) continue;
     syms++;
-    const a = evalSym(nextCycle(rec, 1), row, row.p, now, legacy);
+    const a = evalSym(nextCycle(rec, 1, now), row, row.p, now, legacy);
     /* ثلاث دوراتٍ لاحقة داخل **نفس** ربع الساعة: السعر يتحرّك،
-       والشمعة الجارية تتحرّك، والساعة تتقدّم دقيقتين ثم ستّاً. */
-    const steps = [[1.006, 120e3], [0.994, 360e3], [1.02, 540e3]];
+       والشمعة الجارية تتحرّك، والساعة تتقدّم دقيقتين ثم خمساً ثم ثلاث
+       عشرة — وكلُّها دون ‎900‎ ثانية من مطلع الربع فلا تعبر حدَّه. */
+    const steps = [[1.006, 180e3], [0.994, 420e3], [1.02, 840e3]];
     for (const [f, dt] of steps) {
-      const b = evalSym(nextCycle(rec, f), Object.assign({}, row, { p: row.p * f }),
-                        row.p * f, now + dt, legacy);
+      const b = evalSym(nextCycle(rec, f, q0 + dt), Object.assign({}, row, { p: row.p * f }),
+                        row.p * f, q0 + dt, legacy);
       for (const id in a) {
         if (JSON.stringify(a[id]) === JSON.stringify(b[id])) continue;
         diff++;

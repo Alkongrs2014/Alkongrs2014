@@ -17,7 +17,8 @@ import {
 import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
 import { fetchCandlesTD, hasTwelveData, tdSleep, tdStats } from "./lib/twelvedata.mjs";
 import { fetchCandles as fetchCandlesBN, bnStats } from "./lib/binance.mjs";
-import { analyze, overallScore, aggregate, TFS, TF_WEIGHT, bandStable } from "./lib/indicators.mjs";
+import { analyze, overallScore, aggregate, TFS, TF_WEIGHT, bandStable,
+         closedBars, isLiveBar, barTime } from "./lib/indicators.mjs";
 import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar } from "./lib/session.mjs";
 import * as PROV from "./providers/index.mjs";
 
@@ -456,10 +457,32 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
        يُذكر يسقط من الملفّ عند أوّل كتابة، بلا حاجة إلى تنقيةٍ لاحقة. */
   }
 
-  // المؤشرات لكل فريم
+  /* =====================================================================
+     المؤشرات لكل فريم — **على الشمعات المغلقة وحدها**.
+
+     كانت تُحسب على السلسلة كاملةً بما فيها الشمعة الجارية، فتتغيّر في
+     كلّ دورة سوق (عشر دقائق) **وسط** ربع الساعة بلا أن تُغلق شمعةٌ
+     واحدة. وأثرُ ذلك ليس رقماً يهتزّ في بطاقة: `score` و`tfScore`
+     هما مقياسُ ماسح الفرص وترتيبُه معاً (`allTF` عضويةً و`-r.score`
+     رتبةً)، فكان ترتيب الشاشة يُعاد كلَّ عشر دقائق ويدخلها رمزٌ ويخرج
+     منها آخر بلا حدثٍ في السوق.
+
+     القياس على الكون الحيّ (218 رمزاً): **85.3%** تتغيّر نتيجتُه بحذف
+     الشمعة الجارية وحدها، وسيط الفرق **5.88** نقطة وأقصاه **34.71**،
+     و**28** رمزاً تنقلب عضويتُه في شرطَي «توافق الفريمات»، وأوّل ثمانية
+     في القائمة يختلفون بالكامل. وهو بالضبط ما بلّغ عنه المستخدم:
+     قائمةٌ تتبدّل بين ‎07:46‎ و‎07:51‎ داخل شمعةٍ واحدة.
+
+     ولا يُبطل هذا الأرشيف بل **يوافقه**: `backtest.mjs` يقيس عند كل
+     شمعة بـ`p: c[i]` — إغلاقُ شمعةٍ مكتملة. فالأرشيف كان يقيس المغلق
+     والواجهة تعرض الجاري، وهذا التعديل يجعلهما يقيسان الشيء نفسه.
+
+     والحذف **مشروط** لا مطلق (انظر `closedBars`): شمعةٌ مغلقة تبقى،
+     وإلا قرأت الأسهم الأمريكية مساءً شمعةَ أمس اليومية. */
   rec.an = {};
   for (const tf of AN_TFS) {
-    const a = rec.tf[tf]?.c ? analyze(rec.tf[tf].c) : null;
+    const kk = rec.tf[tf]?.c ? closedBars(rec.tf[tf].c, tf, now) : null;
+    const a = (kk && kk.length) ? analyze(kk) : null;
     if (!a) continue;
     const { series, ...rest } = a;                    // لا نحفظ السلاسل الكاملة (حجم)
     rec.an[tf] = slimAnalysis(rest);
@@ -475,7 +498,8 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   if (rec.tfx) {
     rec.anx = {};
     for (const tf of Object.keys(rec.tfx)) {
-      const a = rec.tfx[tf]?.c ? analyze(rec.tfx[tf].c) : null;
+      const kx = rec.tfx[tf]?.c ? closedBars(rec.tfx[tf].c, tf, now) : null;
+      const a = (kx && kx.length) ? analyze(kx) : null;
       if (!a) continue;
       const { series, ...rest } = a;
       rec.anx[tf] = slimAnalysis(rest);
@@ -674,6 +698,37 @@ async function main() {
     const fnd = fundamentals[rec.s];
     const d1 = rec.tf["1d"]?.c || [];
     const lastC = d1.length ? d1[d1.length - 1].c : null;
+
+    /* =====================================================================
+       السعر والحجم **المؤكَّدان** — مدخلا شروط الماسح، بجانب اللحظيَّين
+       لا بدلاً منهما.
+
+       `p` سعرٌ لحظيّ يتجدّد كل دقيقتين و`vol` حجمُ جلسةٍ يتراكم طوال
+       اليوم، وشروطُ الماسح تقرؤهما: «قرب قاع 52 أسبوعاً» و«قرب قمة» و
+       «ارتداد» تقيس بُعدَ `p` عن مستوى، و«حجم غير معتاد» يقسم `vol` على
+       متوسّطه. فتثبيتُ `an` وحدها يُسكِت شرطَ «توافق الفريمات» ويُبقي
+       الأربعة الباقية تهتزّ — والمستخدم يرى القائمة نفسها تتبدّل.
+
+       والمؤكَّد هو إغلاقُ **أدقّ فريمٍ مغلق**: أقربُ ما يكون إلى «الآن»
+       دون أن يكون جزءاً من شمعةٍ لم تكتمل. والحجم من الشمعة اليومية
+       المغلقة لأن `vol` حجمُ جلسةٍ لا حجمُ ربع ساعة — ومقارنةُ حجمٍ
+       بمقياسٍ من نوعٍ آخر هي بعينها المصيدة الموثّقة في `volRatio`.
+
+       ولا يُستبدل `p` في الصفّ: هو السعر المعروض في كل شاشة، وسعرٌ
+       متأخّرٌ ربعَ ساعة في الترويسة خللٌ ظاهر. الفصل بين «ما يُعرض»
+       و«ما يُقاس عليه» هو نفس فصل LIVE عن CONFIRMED في الاستراتيجيات. */
+    const confBar = (() => {
+      for (const tf of ["15m", "1h", "4h", "1d"]) {
+        const cc = rec.tf[tf]?.c;
+        if (!cc || cc.length < 2) continue;
+        const kk = closedBars(cc, tf, now);
+        if (!kk.length) continue;
+        return { tf, b: kk[kk.length - 1] };
+      }
+      return null;
+    })();
+    const d1c = d1.length >= 2 ? closedBars(d1, "1d", now) : d1;
+    const volC = d1c.length ? d1c[d1c.length - 1].v : null;
     const prevC = d1.length > 1 ? d1[d1.length - 2].c : null;
     const lastV = d1.length ? num(d1[d1.length - 1].v) : null;
 
@@ -694,6 +749,12 @@ async function main() {
     return {
       s: rec.s, ar: rec.ar, en: rec.en, sec: rec.sec, ...(rec.mkt ? { mkt: rec.mkt } : {}),
       p: rp(price), chg: r2(chg), ext, ...(withSpark ? { spark } : {}),
+      /* مدخلات الماسح المؤكَّدة — و`cbar` ختمُ الشمعة التي حُسبت عليها
+         (بالثواني) كي تقول الشاشة على أيّ إغلاقٍ بُنيت القائمة. وعدٌ
+         نصّيٌّ بالثبات لا يُقارَن، وختمٌ معروض يقارنه المستخدم بنفسه. */
+      ...(confBar && Number.isFinite(confBar.b.c) ? { pc: rp(confBar.b.c) } : {}),
+      ...(confBar ? { cbar: Math.round(confBar.b.t / 1000), ctf: confBar.tf } : {}),
+      ...(Number.isFinite(volC) ? { volc: Math.round(volC) } : {}),
       score: rec.score,
       ...(Number.isFinite(rec.band) ? { band: rec.band } : {}),
       atr: rp(rec.an["1d"]?.atr ?? null), rsi: r2(rec.an["1d"]?.rsi ?? null),
@@ -1129,6 +1190,39 @@ function selfCheck() {
     const preBar = { t: Date.parse("2026-09-15T10:00:00Z"), o: 1, h: 1, l: 1, c: 1, v: 100 };
     eq(isRegularBar(regBar.t), true, "الرسمية");
     eq(isRegularBar(preBar.t), false, "الممتدة");
+  });
+
+  /* =====================================================================
+     الشمعة الجارية لا تدخل المؤشّرات — وهي العلّة الجذرية لتبدّل قائمة
+     الفرص داخل الشمعة الواحدة. والحذف **مشروط**: شمعةٌ مغلقة تبقى،
+     وإلّا قرأت الأسهم الأمريكية مساءً شمعةَ أمس اليومية.
+     ===================================================================== */
+  t("closedBars يُسقط الجارية ويُبقي المغلقة — لحظياً ويومياً", () => {
+    const q = 900000, now = 1_700_000_000_000;
+    const bar = (t, c) => ({ t, o: c, h: c, l: c, c, v: 1 });
+    // ١٥د: شمعةٌ بدأت قبل خمس دقائق ⇒ جارية
+    const live15 = [bar(now - q, 1), bar(now - 300000, 2)];
+    eq(closedBars(live15, "15m", now).length, 1, "الجارية تُحذف");
+    // وشمعةٌ انقضى ربعُها ⇒ مغلقة فتبقى
+    const done15 = [bar(now - 3 * q, 1), bar(now - 2 * q, 2)];
+    eq(closedBars(done15, "15m", now).length, 2, "المغلقة تبقى");
+    /* اليوميّ: لا طول ثابت له. شمعةُ أمس مختومةً ‎13:30‎ تُقرأ «جارية»
+       بقاعدة `t + 86400000` حتى ‎13:30‎ اليوم — وهي مغلقة منذ ‎20:00‎
+       أمس. فالمقياس اليومُ نفسه. */
+    const day = 86400000, d0 = Math.floor(now / day) * day;
+    eq(closedBars([bar(d0 - day, 1), bar(d0 + 48600000, 2)], "1d", now).length, 1,
+       "شمعة اليوم جارية");
+    eq(closedBars([bar(d0 - 2 * day, 1), bar(d0 - day + 48600000, 2)], "1d", now).length, 2,
+       "شمعة أمس مغلقة ولو كان ختمُها منتصف الجلسة");
+    // ولا يمرّ الفحص بلا مفعول: الحذف يجب أن يغيّر المؤشّرات فعلاً
+    const k = [];
+    for (let i = 0; i < 60; i++) k.push(bar(now - (60 - i) * q, 100 + Math.sin(i / 3) * 5));
+    k.push(bar(now - 300000, 300));                 // شمعةٌ جارية شاذّة
+    const full = analyze(k), cut = analyze(closedBars(k, "15m", now));
+    if (!full || !cut) throw new Error("تحليلٌ فارغ");
+    if (Math.abs(full.rsi - cut.rsi) < 1)
+      throw new Error("الشمعة الجارية لا تغيّر المؤشّرات — الفحص بلا مفعول");
+    return "الجارية تُحذف · المغلقة تبقى · والفرق مقيس";
   });
 
   t("aggregate ثابتٌ أمام تدحرج النافذة — لا ينزاح بطول المصفوفة", () => {

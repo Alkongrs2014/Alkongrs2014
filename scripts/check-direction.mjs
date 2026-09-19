@@ -16,7 +16,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { SCANS, forcedDir } = require("../stocks/scans.js");
+const { SCANS, forcedDir, scanRow } = require("../stocks/scans.js");
 const { resolveOpp, baseDirOf, conflictOf, allTfDir, tfConflict } = require("../stocks/direction.js");
 const { levelsFrom, planFrom, validatePlan } = require("../stocks/plan.js");
 const { TFS, TF_WEIGHT } = require("../stocks/score.js");
@@ -59,7 +59,10 @@ const ctx = { secMed };
    فحصٌ يبني قراره بطريقةٍ أخرى يشهد لشيءٍ لا يعمل. */
 const resolveFor = (r) => {
   const f = F[r.s] || null;
-  const hs = SCANS.filter(sc => { try { return !!sc.test(r, f, ctx); } catch { return false; } });
+  // الصفّ المؤكَّد كما في الواجهة والسجلّ — فحصٌ يقرأ سعراً غير الذي
+  // يقرؤه التطبيق يشهد لقائمةٍ أخرى
+  const rc = scanRow(r);
+  const hs = SCANS.filter(sc => { try { return !!sc.test(rc, f, ctx); } catch { return false; } });
   if (!hs.length) return null;
   const R = resolveOpp({
     score: r.score, band: r.band, tfScore: r.tfScore,

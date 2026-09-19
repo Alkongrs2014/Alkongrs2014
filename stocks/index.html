@@ -2465,7 +2465,7 @@ function renderCrypto() {
   for (const r of rows) {
     for (const sc of SCANS) {
       let hit = false;
-      try { hit = !!sc.test(r, {}, { secMed: {} }); } catch { hit = false; }
+      try { hit = !!sc.test(scanRow(r), {}, { secMed: {} }); } catch { hit = false; }
       if (hit) ops.push({ r, sc });
     }
   }
@@ -6236,7 +6236,7 @@ function renderPlan(rec) {
   const against = SCANS.filter(sc => {
     const sd = sc.dir === -1 ? -1 : 1;
     if (sd === p.dir) return false;
-    try { return !!sc.test(row || {}, (state.fund && state.fund.f && state.fund.f[rec.s]) || {}, clashCtx); }
+    try { return !!sc.test(scanRow(row || {}), (state.fund && state.fund.f && state.fund.f[rec.s]) || {}, clashCtx); }
     catch { return false; }
   });
   if (against.length) {
@@ -7180,11 +7180,11 @@ function renderScreen() {
 
   let hits = [];
   for (const r of pool) {
-    try { if (scan.test(r, F[r.s], ctx)) hits.push(r); } catch (e) { /* حقل ناقص — تخطَّ الرمز */ }
+    try { if (scan.test(scanRow(r), F[r.s], ctx)) hits.push(r); } catch (e) { /* حقل ناقص — تخطَّ الرمز */ }
   }
   // كل مسح يرتّب بمقياسه: الحجم بمضاعف الحجم، والأرباح بالأقرب موعداً.
   // الترتيب بالنتيجة الفنية دائماً كان يضع 1.50× فوق 2.38× في مسح الحجم.
-  const key = (r) => { try { return scan.rank ? scan.rank(r, F[r.s], ctx) : -(r.score ?? -999); } catch (e) { return Infinity; } };
+  const key = (r) => { try { return scan.rank ? scan.rank(scanRow(r), F[r.s], ctx) : -(r.score ?? -999); } catch (e) { return Infinity; } };
   hits.sort((a, b) => {
     const x = key(a), y = key(b);
     return (isFinite(x) ? x : Infinity) - (isFinite(y) ? y : Infinity);
@@ -7253,7 +7253,7 @@ function renderScreen() {
   el.innerHTML = hits.map((r, i) => {
     const col = !isFinite(r.chg) ? "var(--mut)" : r.chg > 0 ? "var(--up)" : r.chg < 0 ? "var(--dn)" : "var(--mut)";
     let v = "";
-    try { v = scan.val(r, F[r.s], ctx) || ""; } catch (e) {}
+    try { v = scan.val(scanRow(r), F[r.s], ctx) || ""; } catch (e) {}
     const sg = openSig[r.s];
     // الطزاجة بجانب العمر: «قبل يومين» رقمٌ يحتاج ترجمة، و🟠 متأخرة
     // ترجمتُه بمقياس فريم الشرط نفسه
@@ -7309,8 +7309,23 @@ function renderScreen() {
   const confNote = !confReady
     ? " · لقطة الاستراتيجيات تُجلب — الترتيب بالمسح وحده"
     : (nAdj ? ` · التوافق عدّل ${bd(nAdj)} صفّاً (±15 نقطة)` : " · لا توافق يعدّل الترتيب الآن");
+  /* =====================================================================
+     على أيّ شمعةٍ حُسبت هذه القائمة؟ — **إثباتٌ يقرؤه المستخدم لا وعدٌ
+     نصّيٌّ بالثبات.**
+
+     القاعدة المعلنة أن القائمة لا تتبدّل قبل إغلاق شمعةٍ جديدة، وأصدقُ
+     ما يُثبتها أن يُعرض ختمُ الشمعة نفسها: من يرى ترتيبين مختلفين
+     بفارق خمس دقائق يقارن ختمَيهما بنفسه فيعرف أوقع إغلاقٌ بينهما أم
+     لا. وهو نظيرُ `confirmedOn` في بطاقة الاستراتيجيات بالحرف.
+
+     و**أحدثُ** ختمٍ في القائمة لا أقدمُه: رموز الطبقة الواسعة على شمعةٍ
+     يومية وحدها، فأقدمُها يصف أبطأ صفٍّ لا القائمة. و`cbar` بالثواني
+     كما يكتبه `fetch-market`. */
+  const bars = hits.map(r => r.cbar).filter(Number.isFinite);
+  const barNote = bars.length
+    ? ` · على إغلاق شمعة ${esc(stamp(Math.max(...bars) * 1000))}` : "";
   $("#scanCount").textContent =
-    `${bd(hits.length)} من ${scope}${confNote} · حُدّثت ${ago(state.summary.updated)}`;
+    `${bd(hits.length)} من ${scope}${confNote}${barNote} · حُدّثت ${ago(state.summary.updated)}`;
 }
 
 function renderEarnings() {
@@ -7740,7 +7755,7 @@ function checkAlerts() {
       const scan = SCANS.find(s => s.id === a.scan);
       if (!scan) { keep.push(a); return; }        // شرطٌ أُزيل — يبقى ولا يُطلق
       let hit = false;
-      try { hit = !!scan.test(row, F[a.s], context()); } catch (e) { hit = false; }
+      try { hit = !!scan.test(scanRow(row), F[a.s], context()); } catch (e) { hit = false; }
       if (hit) fired.push({ a, px: row.p }); else keep.push(a);
       return;
     }
@@ -7870,7 +7885,8 @@ function oppDirOf(row, F, ctxScan) {
   try {
     const f = F ? F[row.s] : ((state.fund && state.fund.f) || {})[row.s];
     const ctx = ctxScan || { secMed: (fundScores() || {}).secMed || {} };
-    const all = SCANS.filter(sc => { try { return !!sc.test(row, f, ctx); } catch { return false; } });
+    const rc = scanRow(row);
+    const all = SCANS.filter(sc => { try { return !!sc.test(rc, f, ctx); } catch { return false; } });
     if (!all.length) return null;
     /* اتجاهٌ واحد للرمز عبر `direction.js`، ثم تُسقَط الشروط التي لا
        توافقه. فلا يمكن أن يظهر Call وPut للسهم نفسه، ولا أن تُبنى

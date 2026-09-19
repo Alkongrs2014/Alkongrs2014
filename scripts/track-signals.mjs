@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { SCANS, forcedDir } = require("../stocks/scans.js");
+const { SCANS, forcedDir, scanRow } = require("../stocks/scans.js");
 // نفس نواة الخطة وطبقة التقييم التي يقرأها المتصفح — نسخةٌ ثانية هنا
 // تجعل السجلّ يقول إن الهدف كان 106 والمستخدم رأى 112
 const { levelsFrom, planFrom, planPair, planDirOf, validatePlan,
@@ -685,7 +685,11 @@ async function main() {
     /* قرارُ الاتجاه مرّةً للرمز لا مرّةً لكلّ شرط — نفس `oppDirOf` في
        الواجهة وبنفس الملفّ المشترك، وإلا حفظ الخادم إشارةً لا تُعرض أو
        عرضت الواجهة فرصةً لا تُقاس. */
-    const hitScans = SCANS.filter(sc => { try { return !!sc.test(r, f, ctx); } catch { return false; } });
+    /* الشروط تُقاس على الصفّ **المؤكَّد** — نفس ما تعرضه الشاشة بالحرف.
+       السجلّ يحفظ ما رآه المستخدم، فقياسُه على سعرٍ لحظيّ بينما الشاشة
+       تعرض إغلاق الشمعة يجعل المحفوظ غير المرئي — نفس علّة `plan.js`. */
+    const rc = scanRow(r);
+    const hitScans = SCANS.filter(sc => { try { return !!sc.test(rc, f, ctx); } catch { return false; } });
     if (!hitScans.length) continue;
     const R = resolveOpp({ score: r.score, band: r.band, tfScore: r.tfScore,
       hits: hitScans.map(sc => ({ id: sc.id, dir: sc.dir === -1 ? -1 : 1, forced: forcedDir(sc.id) })) });

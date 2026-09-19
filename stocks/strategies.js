@@ -51,6 +51,7 @@ if (typeof DEAD_ATR === "undefined" && typeof require === "function") {
     globalThis.openingRange = _I.openingRange;
     globalThis.volMedian = _I.volMedian;
     globalThis.bbWidth = _I.bbWidth;
+    globalThis.closedBars = _I.closedBars;
     globalThis.rankInWindow = _I.rankInWindow;
     globalThis.analyze = _I.analyze;
     globalThis.unpackK = _P.unpackK;
@@ -192,22 +193,36 @@ function closedPxOf(c, tf) {
   return (b && Number.isFinite(b.c)) ? b.c : null;
 }
 
-/* سلسلةٌ مقصوصة بشمعة — على الصيغة المحزومة كما على المفكوكة. */
-function dropLast(cc) {
-  return (cc && cc.length > 1) ? cc.slice(0, -1) : null;
+/* السلسلة بلا شمعتها الجارية — بتعريف `closedBars` المشترك في
+   `indicators.js`، لا بحذفٍ أعمى للأخيرة.
+
+   كان الحذف مطلقاً، وعلّتُه المعلنة أن «كلّ شمعةٍ لها خليفةٌ مغلقةٌ
+   بالضرورة». والقاعدة صحيحة ونتيجتُها مكلفة: حين يكون السوق مغلقاً
+   تكون الأخيرة **مغلقةً هي نفسها**، فحذفُها يقرأ الأسهم الأمريكية
+   مساءً على شمعةِ أمس اليومية — عمىً كاملٌ عن جلسةٍ انتهت. والحذف
+   المشروط يعطي الثبات نفسه بلا هذا الثمن: المعيار لا يتبدّل إلا عند
+   إغلاق شمعةٍ فعلاً.
+
+   والأهمّ أنّ التعريف صار **واحداً** يشترك فيه هذا الملفّ و`fetch-market`
+   حين يحسب `an`: تعريفان متقاربان لـ«المغلقة» يجعلان النتيجة الفنية
+   تصف شمعةً والاستراتيجيات تصف أخرى، بلا خطأٍ ولا أثر. */
+function dropLast(cc, tf, now) {
+  if (!cc || cc.length < 2) return null;
+  var out = closedBars(cc, tf, now);
+  return (out && out.length) ? out : null;
 }
 
 /* نسخةٌ من سجلّ الرمز بلا الشمعة الجارية، ومؤشّراتُها **معادةُ الحساب**
    من المقصوص. وقراءةُ `rec.an` المحفوظة هنا تعيد إدخال الشمعة الجارية
    من الباب الخلفي — فهي محسوبةٌ على السلسلة كاملة. */
-function closedRec(rec) {
+function closedRec(rec, now) {
   if (!rec || !rec.tf) return null;
   var out = {}, key;
   for (key in rec) out[key] = rec[key];
   var cut = function (box) {
     var o = null, t;
     for (t in (box || {})) {
-      var cc = dropLast(box[t] && box[t].c);
+      var cc = dropLast(box[t] && box[t].c, t, now);
       if (!cc) continue;
       (o = o || {})[t] = { c: cc };
     }
@@ -239,7 +254,7 @@ function confirmBase(c) {
   if (c && c._cbase !== undefined) return c._cbase;
   var base = null, o = c && c.src;
   if (o && o.rec) {
-    var r2 = closedRec(o.rec);
+    var r2 = closedRec(o.rec, o.now);
     if (r2) {
       /* سعرُ الأساس من أدقّ فريمٍ متاح — وهو سعرُ «الآن» المؤكَّد.
          وكلُّ استراتيجيةٍ تعيد اشتقاقه بفريمها أدناه. */
