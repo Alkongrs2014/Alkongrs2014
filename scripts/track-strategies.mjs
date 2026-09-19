@@ -251,7 +251,7 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   initLog(out);
   info("scanner", `بدء المسح · ${all.length} رمزاً · الجلسة ${sessionOf(now)}`);
 
-  let added = 0, symbols = 0, skipped = 0, unconfirmed = 0;
+  let added = 0, symbols = 0, skipped = 0, unconfirmed = 0, confBar = 0;
   const unconfirmedSyms = new Set();
   for (const row of all) {
     const rec = readJSON(path.join(out, "sym", `${row.s}.json`));
@@ -269,6 +269,29 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
     const win = currentWindow(now, mkt);
     const c = S.buildCtx({ rec, row, now, px, sess, win, sessOf: (t) => sessionOf(t, mkt) });
     const opt = onlyPrice ? { only: "price" } : {};
+
+    /* =====================================================================
+       ختمُ الشمعة التي حُسب عليها CONFIRMED — **يُكتب لأنه لا يُشتقّ من
+       مكانٍ آخر.**
+
+       `cbar` في صفّ الملخّص يكتبه `fetch-market` في دورة العشر دقائق،
+       وهذا الملفّ يُكتب في دورة الدقيقتين كذلك ويحسب شمعته **بساعته
+       هو**. فالشمعة تُغلق بمرور الوقت لا بوصول بيانات: عند ‎09:00‎ صارت
+       شمعة ‎08:45‎ مغلقةً وتقدّم المحرّك إليها، بينما `cbar` بقي على
+       ‎08:30‎ حتى تأتي دورة السوق التالية.
+
+       والأثر ليس تجميلياً: المستخدم يرى **الترتيب يتغيّر والختم ثابتاً**
+       — وهو بالضبط شكلُ العلّة التي أُصلحت، فيُقرأ خللاً وهو إغلاق شمعةٍ
+       مشروع. قِيس فارقاً قدرُه ‎15‎ دقيقة كاملة.
+
+       فيُكتب هنا ويُعرض الأحدث من الاثنين، فلا يتقدّم رقمٌ بلا ختمٍ
+       يشرحه. */
+    const cb = S.confirmBase(c);
+    if (cb) {
+      const kk = (cb.ik && cb.ik["15m"]) || cb.k["15m"] || cb.k["1h"] || cb.k["4h"] || cb.k["1d"];
+      const b = (kk && kk.length) ? kk[kk.length - 1] : null;
+      if (b && Number.isFinite(b.t)) confBar = Math.max(confBar, Math.round(b.t / 1000));
+    }
 
     for (const st of S.STRATEGIES) {
       const key = stateKey(row.s, st.id);
@@ -361,17 +384,20 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   const nextSyms = Object.keys(trends).length;
 
   return { rows, trends, stillOpen, history, now,
+           confBar,
            stats: { symbols, skipped, rows: rows.length, added, closed,
                     trendSyms: nextSyms, prevSyms, onlyPrice,
                     unconfirmed, unconfirmedSyms: unconfirmedSyms.size } };
 }
 
 export function writeOut(res, out = OUT) {
-  const { rows, trends, stillOpen, history, now, stats } = res;
+  const { rows, trends, stillOpen, history, now, stats, confBar } = res;
   fs.mkdirSync(path.join(out, "strat"), { recursive: true });
 
   fs.writeFileSync(path.join(out, "strategies.json"), JSON.stringify({
     updated: now, priceAt: now, count: rows.length,
+    // ختمُ الشمعة التي حُسب عليها CONFIRMED (بالثواني) — تعرضه الواجهة
+    ...(confBar ? { confBar } : {}),
     actMin: S.ACT_MIN, bands: S.S_BANDS, labels: S.S_LABEL,
     strategies: S.STRATEGIES.map(s => ({ id: s.id, lbl: s.lbl, fam: s.fam, tf: s.tf, why: s.why, src: s.src })),
     fams: C.REGIMES ? S.FAMS : S.FAMS,

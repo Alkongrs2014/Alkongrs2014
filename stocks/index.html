@@ -7321,7 +7321,15 @@ function renderScreen() {
      و**أحدثُ** ختمٍ في القائمة لا أقدمُه: رموز الطبقة الواسعة على شمعةٍ
      يومية وحدها، فأقدمُها يصف أبطأ صفٍّ لا القائمة. و`cbar` بالثواني
      كما يكتبه `fetch-market`. */
+  /* والختمُ **أحدثُ ما يحكم القائمة** لا ختمُ الملخّص وحده: `cbar`
+     يكتبه `fetch-market` كلَّ عشر دقائق، و`confBar` يكتبه محرّك
+     الاستراتيجيات كلَّ دقيقتين بساعته هو — والشمعة تُغلق بمرور الوقت
+     لا بوصول بيانات. فقد يتقدّم المحرّك شمعةً كاملة قبل أن يتقدّم
+     الملخّص (قِيس فارق ‎15‎ دقيقة)، فيتغيّر ترتيبٌ والختمُ ثابت — وهو
+     بعينه شكلُ العلّة المُصلَحة، يُقرأ خللاً وهو إغلاقٌ مشروع. */
   const bars = hits.map(r => r.cbar).filter(Number.isFinite);
+  const sBar = state.strategies && state.strategies.confBar;
+  if (Number.isFinite(sBar)) bars.push(sBar);
   const barNote = bars.length
     ? ` · على إغلاق شمعة ${esc(stamp(Math.max(...bars) * 1000))}` : "";
   $("#scanCount").textContent =
