@@ -14,6 +14,7 @@
      node scripts/check-ui.mjs
    ===================================================================== */
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
@@ -131,6 +132,33 @@ t("عامل الخدمة يخزّن كل سكربت في الصفحة", () => {
   // ورفعُ النسخة شرطٌ لظهور أيّ تغيير في الزيارة الأولى
   if (!/const V = "webtrade-v\d+"/.test(sw)) throw new Error("نسخة الذاكرة غير مقروءة");
   return `${core.length} مدخلاً · ${srcs.length} سكربتاً`;
+});
+
+/* ---------- ٦ب٢ بصمة الهيكل: تغييرٌ بلا رفع نسخة ---------- */
+/* **حالةٌ مختلطة قِيست على الموقع المنشور فعلاً.** «قديمٌ ثم يُجدَّد»
+   يحدّث كلَّ ملفٍّ على حدة، فبعد نشر تعديلٍ يمسّ ملفّين تمرّ الصفحة
+   بحالةٍ نصفُها جديد: `scans.js` محدَّث و`index.html` قديم — فيُشغَّل
+   المسار القديم ويظهر أن الإصلاح «لم يُطبَّق». احتاج الموقع **ثلاث**
+   عمليات تحميل ليكتمل.
+
+   ورفعُ `V` يجعل الانتقال ذرّياً (عاملٌ جديد يثبّت الهيكل كلَّه دفعةً
+   واحدة). فالبصمة هنا تُلزم به: أيُّ تغيّرٍ في أيّ ملفّ هيكل يُسقط
+   الفحص حتى تُرفع النسخة وتُحدَّث البصمة معها.
+
+   والقاعدة تُنفَّذ ولا تُترك للتذكّر — فقد نُسيت فعلاً في أوّل دفعةٍ
+   لهذا الإصلاح، وكان أثرُها أن المستخدم يرى العلّة وقد أُصلحت. */
+t("بصمة الهيكل تطابق نسخة الذاكرة — لا تغييرَ بلا رفع `V`", () => {
+  const sw = fs.readFileSync(path.join(DIR, "sw.js"), "utf8");
+  const files = [...new Set([...sw.matchAll(/"\.\/([^"]+)"/g)].map(m => m[1]))]
+    .filter(f => f && fs.existsSync(path.join(DIR, f)));
+  const h = crypto.createHash("sha256");
+  for (const f of files.sort()) h.update(fs.readFileSync(path.join(DIR, f)));
+  const now = h.digest("hex").slice(0, 12);
+  const m = sw.match(/const SHELL_SHA = "([0-9a-f]{12})"/);
+  if (!m) throw new Error("`SHELL_SHA` غائبة عن sw.js");
+  if (m[1] !== now)
+    throw new Error(`الهيكل تغيّر ولم تُرفع النسخة — ارفع \`V\` واجعل SHELL_SHA = "${now}"`);
+  return `${files.length} ملفّ هيكل · ${now}`;
 });
 
 /* ---------- ٦ج لا تعارض أسماء بين الصفحة والملفات المشتركة ---------- */
