@@ -7963,7 +7963,21 @@ async function scAnalyze(sym) {
     const ctx = buildCtx({ rec, row, now, px: row.p, sess: sessionOf(now, mkt),
                            win: currentWindow(now, mkt), sessOf: (t) => sessionOf(t, mkt),
                            wide: !scIsCore(sym) });
-    const res = evalAll(ctx);
+    /* =================================================================
+       **CONFIRMED هو المعروض، وLIVE بادجٌ تكميليّ — كما في الخادم.**
+
+       كانت هذه الشاشة تعرض `evalAll` (السعر اللحظي) بينما يكتب الخادم
+       CONFIRMED في `strategies.json`، فينشأ خلافان في آن: الشاشة تهتزّ
+       بين دورتي أسعارٍ بلا إغلاق شمعة، **و**تخالف لحظاتِ البدء (`at`)
+       التي تأتي من الخادم وهي مبنيّةٌ على CONFIRMED — فيُقال «منذ ساعة»
+       عن جهةٍ غير الجهة التي بدأت حينها.
+
+       و`evalAllConfirmed` ليست مساراً موازياً: هي `evalStrategy` نفسها
+       بسياقٍ بلا شمعةٍ جارية (`confirmCtx`). وLIVE يبقى محسوباً ويُعرض
+       في لوحة التشخيص جنباً إلى جنب.
+       ================================================================= */
+    const resLive = evalAll(ctx);
+    const res = evalAllConfirmed(ctx);
     // الطزاجة وجودة الدخول تحتاجان لحظةَ البدء — من الخادم لا من الآن
     for (const r of res) {
       const a = scAnchor(sym, r.id);
@@ -7984,13 +7998,13 @@ async function scAnalyze(sym) {
     }
     const regime = marketRegime(ctx.an);
     const cons = consensusOf(res, { regime, edge: scEdge() });
-    scState.res = res; scState.cons = cons; scState.ctx = ctx;
+    scState.res = res; scState.cons = cons; scState.ctx = ctx; scState.resLive = resLive;
     // كلُّ بطاقة على حِدة: استثناءٌ في واحدة لا يُسقط الباقي ولا يُبقي
     // بيانات السهم السابق معروضة
     scCard("#scCons", () => renderScCons(row, ctx, res, cons, regime, st));
     scCard("#scCards", () => renderScCards(row, ctx, res, cons));
     loadStratTl(sym).then(() => { if (scState.sym === sym) scCard("#scTl", () => renderScTl(sym)); });
-    if (scState.debug) scCard("#scDebug", () => renderScDebug(sym, ctx, res));
+    if (scState.debug) scCard("#scDebug", () => renderScDebug(sym, ctx, resLive));
     else { const dc = $("#scDebug"); if (dc) { dc.style.display = "none"; dc.innerHTML = ""; } }
   } catch (e) {
     diag("scanner", `تعذّر تحليل ${sym}`, e.message);
@@ -8011,6 +8025,24 @@ function scCard(sel, fn) {
 /* =====================================================================
    بطاقة الإجماع
    ===================================================================== */
+/* =====================================================================
+   على أيّ شمعةٍ حُسب المعروض؟ — إثباتٌ يقرؤه المستخدم لا وعدٌ نصّي.
+
+   القاعدة المعلنة أن الحالة لا تتبدّل إلا بإغلاق شمعة ١٥د أو ما فوقها،
+   وأصدقُ ما يُثبتها أن يُعرض **ختمُ الشمعة نفسها**: من يرى رقمين
+   مختلفين بفارق ستّ دقائق يستطيع أن يقارن ختمَيهما بنفسه.
+
+   ويُقرأ من `confirmBase(ctx)` — السياق المؤكَّد ذاته الذي حُسبت منه
+   النتائج — لا من حسابٍ موازٍ قد يتباعد عنه.
+   ===================================================================== */
+function confirmedOn(ctx) {
+  const b = confirmBase(ctx);
+  const k = b && ((b.ik && b.ik["15m"]) || b.k["15m"] || b.k["1h"] || b.k["1d"]);
+  const last = (k && k.length) ? k[k.length - 1] : null;
+  if (!last) return "النتائج على آخر شمعة مغلقة";
+  return `النتائج محسوبة على إغلاق شمعة ${stamp(last.t)} — لا تتبدّل قبل إغلاق التالية`;
+}
+
 function renderScCons(row, ctx, res, cons, regime, mkt) {
   const el = $("#scCons");
   const core = scIsCore(row.s);
@@ -8097,7 +8129,7 @@ function renderScCons(row, ctx, res, cons, regime, mkt) {
       </div>` : ""}
 
     <p class="srcline">الأسعار من ${esc(row.src || "—")} · المؤشّرات محسوبة عند ${esc(ago(state.summary && state.summary.updated))} ·
-      حالة السوق ${esc(mkt.ar || mkt.state)} · النتائج تُحسب الآن بالسعر الحالي، ولحظاتُ البدء من تتبّع الخادم</p>`;
+      حالة السوق ${esc(mkt.ar || mkt.state)} · ${esc(confirmedOn(ctx))} · ولحظاتُ البدء من تتبّع الخادم</p>`;
 }
 
 /* =====================================================================
@@ -8495,7 +8527,7 @@ function scWire() {
     dbgBtn.classList.toggle("on", scState.debug);
     const card = $("#scDebug");
     if (!scState.debug) { if (card) { card.style.display = "none"; card.innerHTML = ""; } return; }
-    if (scState.sym && scState.ctx) scCard("#scDebug", () => renderScDebug(scState.sym, scState.ctx, scState.res));
+    if (scState.sym && scState.ctx) scCard("#scDebug", () => renderScDebug(scState.sym, scState.ctx, scState.resLive || scState.res));
   });
   auto.addEventListener("click", (e) => {
     const r = e.target.closest("[data-sym]");

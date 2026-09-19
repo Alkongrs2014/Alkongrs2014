@@ -197,6 +197,13 @@ function ctxAt(SS, cur, meta) {
               والثابتة تصف الحقيقة. */
            sessOf: () => "REGULAR",
            sess: "REGULAR", row: { s: meta.s, p: px, w52h: meta.w52h, w52l: meta.w52l },
+           /* `src` — وسائطُ البناء التي تعيد `confirmBase` منها سياقَ
+              التأكيد. والأرشيف يقيس عند **إغلاق** كل شمعة أصلاً، فلا
+              شمعةَ جارية فيه ولا معنى لتأكيدٍ ثانٍ: تُترك `null` فتردّ
+              `confirmCtx` «متعذّر» بصوتٍ عالٍ لو نُوديت هنا يوماً، بدل
+              أن تتراجع صامتةً إلى سعرٍ غير مؤكَّد. والأرشيف ينادي
+              `evalAll` لا `evalAllConfirmed`. */
+           src: null,
            tfScore, f: null, _SS: SS, _cur: cur };
 }
 

@@ -52,6 +52,7 @@ if (typeof DEAD_ATR === "undefined" && typeof require === "function") {
     globalThis.volMedian = _I.volMedian;
     globalThis.bbWidth = _I.bbWidth;
     globalThis.rankInWindow = _I.rankInWindow;
+    globalThis.analyze = _I.analyze;
     globalThis.unpackK = _P.unpackK;
     globalThis.levelsFrom = _P.levelsFrom;
     globalThis.planFrom = _P.planFrom;
@@ -140,23 +141,162 @@ var lastOf = function (a) { return (a && a.length) ? a[a.length - 1] : null; };
    والنتيجة المعروضان في الفرص/التوافق/الترتيب لا يتغيّران إلا حين
    تتغيّر تلك الشمعة المغلقة فعلاً — بصرف النظر عن تذبذب السعر اللحظي.
 
-   والعنصر الأخير في `k[tf]`/`ik[tf]` قد يكون جارياً لا مغلقاً — نفس
-   اصطلاح `k[length-2]` المستعمل أصلاً في `volRatio`/`donch`/`follow`. */
-function lastClosedPx(c, tf) {
+   ---------------------------------------------------------------------
+   **واستبدالُ السعر وحده لا يكفي — وهذا ما كلّف تشخيصاً ثانياً.**
+
+   كانت `confirmCtx` تنسخ السياق وتضع فيه سعر الإغلاق وتمضي. والسياق
+   يحمل طبقةً كاملة **مشتقّةً من السعر اللحظي ومن الشمعة الجارية**،
+   وكلُّها كانت تمرّ إلى «المؤكَّد» كما هي:
+
+     `lv.L`     `levelsFrom` تقسّم المستويات إلى ما فوق السعر وما تحته
+                بـ`P0` — وهو السعر **اللحظي**. فحين يعبر السعر مستوىً
+                يتبدّل `supAll[0]`/`resAll[0]` **دفعةً واحدة**، فتقفز
+                بوابة `atLevel` في `rsiDiv`. قِيس على بياناتٍ حيّة:
+                `EUR-USD` من ‎50‎ إلى ‎67‎ بحركة ‎0.4%‎ — عابرةً عتبة
+                التفعيل `ACT_MIN` فتدخل الإجماع أو تخرج منه، وهو بعينه
+                «توافق ٢ استراتيجيات» تصير «متعارضة».
+
+     `an`/`ian` المؤشّرات محسوبةٌ خادمياً على السلسلة **بما فيها الشمعة
+                الجارية**، فتتغيّر في كل دورة سوق (عشر دقائق) وسط الشمعة
+                بلا أيّ إغلاق. فـ`rsiZone` و`divFresh` و`trendAgree`
+                تنقلب في منتصف ربع الساعة.
+
+     `lv.vwap`  `sessionVwap` تضمّ الشمعة الجارية، وهي أساس `vwapRec`.
+     `bw`       سلاسل عرض بولنجر — آخرُها عرضُ الشمعة الجارية، وعليها
+                يقوم `sqzExp`.
+
+   فالحلّ أن يكون سياق التأكيد **سياقاً كاملاً بلا شمعةٍ جارية أصلاً**:
+   تُحذف آخر شمعة من كل سلسلة، وتُعاد المؤشّرات والمستويات وVWAP وعرض
+   بولنجر من المقصوص عبر `buildCtx` **نفسها** — مسارٌ واحد لا نسختان.
+   وبذلك يصير المؤكَّد دالّةً في الشمعات المغلقة وحدها: لا السعر اللحظي
+   ولا تحديثُ الشمعة الجارية يغيّره بحرف، ولا يتبدّل إلا حين تُغلَق
+   شمعةٌ جديدة فعلاً.
+
+   **ولماذا تُحذف الشمعة الأخيرة بلا سؤال الساعة**: كلُّ شمعةٍ لها
+   خليفةٌ في السلسلة مغلقةٌ بالضرورة — فالقاعدة سليمة بلا تقويم ولا
+   منطقة زمنية ولا حالة جلسة، وهي نفس اصطلاح `k[length - 2]` المستعمل
+   أصلاً في `volRatio`/`donch`/`follow`. والثمن المعلَن أن المؤكَّد
+   يتأخّر شمعةً عن أقصى طزاجةٍ ممكنة حين يكون السوق مغلقاً — وهو ثمنٌ
+   مقصود: بديلُه اشتقاقُ «هل أُغلقت؟» من ساعة الحائط، وذلك يكسر الفريم
+   اليومي قبل الافتتاح (شمعةُ أمس تُقرأ جارية) ويعيد إدخال التقويم في
+   ملفٍّ هو رياضياتٌ خالصة.
+
+   وبعد الحذف يصير آخرُ عنصرٍ هو الشمعة المغلقة الأخيرة، فتقرأه البوابات
+   بنفس دلالاتها بلا تعديل حرفٍ واحد فيها — ولذلك لا توجد إزاحةٌ بمقدار
+   شمعة في أيّ موضع، وهو سبب اختيار الحذف على «سلسلتين متوازيتين». */
+
+/* سعر الإغلاق المؤكَّد لفريم — **من سياقٍ مقصوص**، فآخر عنصرٍ فيه مغلق. */
+function closedPxOf(c, tf) {
   var a = (c.ik && c.ik[tf]) || (c.k && c.k[tf]);
-  if (!a || a.length < 2) return null;
-  var b = a[a.length - 2];
+  var b = (a && a.length) ? a[a.length - 1] : null;
   return (b && Number.isFinite(b.c)) ? b.c : null;
 }
+
+/* سلسلةٌ مقصوصة بشمعة — على الصيغة المحزومة كما على المفكوكة. */
+function dropLast(cc) {
+  return (cc && cc.length > 1) ? cc.slice(0, -1) : null;
+}
+
+/* نسخةٌ من سجلّ الرمز بلا الشمعة الجارية، ومؤشّراتُها **معادةُ الحساب**
+   من المقصوص. وقراءةُ `rec.an` المحفوظة هنا تعيد إدخال الشمعة الجارية
+   من الباب الخلفي — فهي محسوبةٌ على السلسلة كاملة. */
+function closedRec(rec) {
+  if (!rec || !rec.tf) return null;
+  var out = {}, key;
+  for (key in rec) out[key] = rec[key];
+  var cut = function (box) {
+    var o = null, t;
+    for (t in (box || {})) {
+      var cc = dropLast(box[t] && box[t].c);
+      if (!cc) continue;
+      (o = o || {})[t] = { c: cc };
+    }
+    return o;
+  };
+  var ans = function (box) {
+    var o = {}, t;
+    for (t in (box || {})) {
+      var a = null;
+      try { a = analyze(unpackK(box[t].c)); } catch (e) { a = null; }
+      if (!a) continue;
+      delete a.series;                       // السلاسل الكاملة لا تُحمل
+      o[t] = a;
+    }
+    return o;
+  };
+  out.tf = cut(rec.tf);
+  if (!out.tf) return null;                  // لا سلسلةٌ تكفي بعد القصّ
+  out.tfx = cut(rec.tfx);
+  out.an = ans(out.tf);
+  out.anx = ans(out.tfx);
+  return out;
+}
+
+/* سياقُ التأكيد الأساس — يُبنى مرّةً لكل رمز ويُحفظ على السياق الحيّ:
+   `confirmCtx` تُنادى عشر مرّات (مرّةً لكل استراتيجية)، وإعادةُ بنائه
+   في كلٍّ منها تعني عشر عمليات `analyze` لكل فريم. */
+function confirmBase(c) {
+  if (c && c._cbase !== undefined) return c._cbase;
+  var base = null, o = c && c.src;
+  if (o && o.rec) {
+    var r2 = closedRec(o.rec);
+    if (r2) {
+      /* سعرُ الأساس من أدقّ فريمٍ متاح — وهو سعرُ «الآن» المؤكَّد.
+         وكلُّ استراتيجيةٍ تعيد اشتقاقه بفريمها أدناه. */
+      var ext = (o.sess === "PRE" || o.sess === "AFTER");
+      var pick = (ext && r2.tfx && r2.tfx["15m"]) ? r2.tfx : r2.tf;
+      var px = null, order = ["15m", "1h", "4h", "1d"];
+      for (var i = 0; i < order.length && px === null; i++) {
+        var cc = (pick[order[i]] && pick[order[i]].c)
+              || (r2.tf[order[i]] && r2.tf[order[i]].c);
+        if (!cc || !cc.length) continue;
+        var b = cc[cc.length - 1];
+        var v = Array.isArray(b) ? b[4] : (b && b.c);
+        if (Number.isFinite(v)) px = v;
+      }
+      if (Number.isFinite(px)) {
+        var o2 = {}, kk;
+        for (kk in o) o2[kk] = o[kk];
+        o2.rec = r2; o2.px = px;
+        base = buildCtx(o2);
+        base._cbase = base;             // سياقٌ مؤكَّد لا يُؤكَّد مرّتين
+      }
+    }
+  }
+  try { Object.defineProperty(c, "_cbase", { value: base, configurable: true }); }
+  catch (e) { c._cbase = base; }
+  return base;
+}
+
 /* بلا سعر إغلاقٍ موثوق يُعلَن التعذّر — لا رجوعٌ صامتٌ للسعر اللحظي.
    `_unconfirmed` تُقرأ في `evalStrategy` فتُخرج الاستراتيجية بحالة `off`
    بدل أن تُقيَّم بواباتها على سياقٍ لا يزال يحمل `c.px` اللحظي. */
 var UNCONFIRMED = "لا سعر إغلاقٍ موثوقٍ لهذا الفريم — التأكيد متعذّر";
 function confirmCtx(st, c) {
-  var tf = st.tfOf ? st.tfOf(c) : st.tf;
-  var px = tf ? lastClosedPx(c, tf) : null;
-  if (Number.isFinite(px)) return Object.assign({}, c, { px: px });
-  return Object.assign({}, c, { _unconfirmed: UNCONFIRMED });
+  var base = confirmBase(c);
+  if (!base) return Object.assign({}, c, { _unconfirmed: UNCONFIRMED });
+  var tf = st.tfOf ? st.tfOf(base) : st.tf;
+  /* **فريمٌ غائبٌ ليس تأكيداً متعذّراً.** رمزُ الطبقة الواسعة بلا
+     سلسلةٍ ساعيّة، و«متعذّر التأكيد» عنه عذرٌ مخترَع عن حالةٍ معروفة
+     تقولها `ready` بدقّة («الوضع المُصغَّر»). فيُترك السياق الأساس
+     كما هو — وسعرُه إغلاقٌ مؤكَّد على كل حال. أمّا سلسلةٌ **موجودة**
+     لا تعطي إغلاقاً فهي تعذّرٌ حقيقيّ يُعلَن. */
+  var ser = tf ? ((base.ik && base.ik[tf]) || base.k[tf]) : null;
+  if (!ser || !ser.length) return base;
+  var px = closedPxOf(base, tf);
+  if (!Number.isFinite(px)) return Object.assign({}, base, { _unconfirmed: UNCONFIRMED });
+  if (px === base.px) return base;
+  /* فريمُ الاستراتيجية قد يعطي إغلاقاً غير إغلاق فريم الأساس (اليوميّ
+     إغلاقُ أمس)، وتقسيمُ المستويات فوق/تحت يتبع السعر — فتُعاد
+     `levelsFrom` بسعر الفريم نفسه. وما عداها لا يتعلّق بالسعر. */
+  var L = (base.lv && base.lv.L)
+    ? levelsFrom({ k4h: base.k["4h"], k1d: base.k["1d"], px: px,
+                   a: base.an["4h"] || base.an["1d"] || null,
+                   w52h: base.row && base.row.w52h, w52l: base.row && base.row.w52l,
+                   now: base.now })
+    : null;
+  return Object.assign({}, base, { px: px,
+    lv: Object.assign({}, base.lv, { L: L || base.lv.L }) });
 }
 
 /* =====================================================================
@@ -381,7 +521,11 @@ function buildCtx(o) {
            /* تثبيتُ الفريم — خيارٌ في السياق لا فرعٌ في الشيفرة، فيبقى
               المسارُ الحسابي واحداً مهما تعدّدت الأسئلة عليه. */
            tfPin: o.tfPin || null,
-           tfScore: row.tfScore || null, wide: !!o.wide };
+           tfScore: row.tfScore || null, wide: !!o.wide,
+           /* وسائطُ البناء نفسها — تُحفظ كي تُعاد من سجلٍّ مقصوص في
+              `confirmBase`. ولا تُقرأ في أيّ بوابة: سياقُ التأكيد
+              يُبنى من نفس هذه الدالّة، فلا مسارَ حسابيٌّ ثانٍ. */
+           src: o };
 }
 
 /* حجم الشمعة **المكتملة** الأخيرة لا الجارية: الجارية تتراكم، فمقارنة
@@ -1217,7 +1361,8 @@ if (typeof module !== "undefined" && module.exports) {
     donch: donch, pctOf: pctOf, iTf15: iTf15, sqTf: sqTf,
     divTf: divTf, upTf: upTf, TF_UP: TF_UP, TF_DN: TF_DN,
     withLevels: withLevels, planFor: planFor,
-    lastClosedPx: lastClosedPx, confirmCtx: confirmCtx, UNCONFIRMED: UNCONFIRMED,
+    closedPxOf: closedPxOf, closedRec: closedRec, confirmBase: confirmBase,
+    confirmCtx: confirmCtx, UNCONFIRMED: UNCONFIRMED,
     ALLOWED_TFS: ALLOWED_TFS, forbiddenTfUsage: forbiddenTfUsage
   };
 }

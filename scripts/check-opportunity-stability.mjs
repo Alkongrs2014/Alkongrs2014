@@ -18,6 +18,7 @@
    `check-strategies.mjs` و`market-direction.mjs --check`. هنا إثباتٌ
    إضافي مبنيٌّ على البيانات الفعلية لا على قائمةٍ مكتوبة (`forbiddenTfUsage`).
    ===================================================================== */
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
@@ -25,6 +26,10 @@ import { createRequire } from "module";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const S = require(path.join(ROOT, "stocks/strategies.js"));
+const P = require(path.join(ROOT, "stocks/plan.js"));
+const IND = require(path.join(ROOT, "stocks/indicators.js"));
+const { sessionOf, currentWindow } = await import(
+  new URL("./lib/session.mjs", import.meta.url).href);
 
 let pass = 0, fail = 0;
 const t = (name, fn) => {
@@ -96,7 +101,7 @@ t("CONFIRMED يتحرّك حين تتغيّر الشمعة المغلقة فعل
   ok(r1.dir !== 1, "قبل: لا اختراق — الشمعة المغلقة داخل النطاق");
 
   /* آخر عنصرٍ في المصفوفة قد يكون جارياً لا مغلقاً (اصطلاح `k[length-2]`
-     المستعمل في `lastClosedPx` نفسها وفي `donch`/`volRatio`)، فشمعة
+     المستعمل في `donch`/`volRatio`/`follow`)، فشمعة
      الاختراق يجب أن تصير **ما قبل الأخيرة** لا الأخيرة — تُضاف شمعتان:
      الاختراقُ ثم أخرى بعده كي يستقرّ الاختراق «مغلقاً». */
   const t0 = kFlat[kFlat.length - 1].t;
@@ -114,17 +119,34 @@ t("CONFIRMED يتحرّك حين تتغيّر الشمعة المغلقة فعل
    للسعر اللحظي (الخلل المُصلَح: كان يُعيد السياق كما هو فتُقيَّم
    البوابات على `c.px` اللحظي بعنوان CONFIRMED).
    ===================================================================== */
-t("confirmCtx: فريمٌ بلا بياناتٍ كافية يُعلَن `off` لا يتراجع صامتاً لسعرٍ لحظي", () => {
-  // momo تعتمد فريم الساعة (moSlow ⇒ "1h" بلا tfPin)، وctxFor الافتراضية
-  // تملأ ١٥د فقط — فبيانات الساعة غائبةٌ عن `c.k` تماماً، وهو الشرط الذي
-  // يُسقط lastClosedPx إلى null دون أي تلاعبٍ اصطناعي إضافي.
-  const momo = S.STRAT_BY_ID.momo;
-  const c = ctxFor(flatCandles(), 150);
-  const cc = S.confirmCtx(momo, c);
+t("confirmCtx: سلسلةٌ موجودةٌ بلا إغلاقٍ موثوق تُعلَن `off` لا تتراجع صامتاً", () => {
+  /* الخلل المُصلَح: كان يُعاد السياق كما هو فتُقيَّم البوابات على
+     `c.px` اللحظي بعنوان CONFIRMED. وسلسلةٌ بإغلاقٍ غير رقميّ هي
+     الحالة التي تُسقط الإغلاق المؤكَّد إلى `null`. */
+  const brk = S.STRAT_BY_ID.brk;
+  const k = flatCandles();
+  k[k.length - 2].c = null;                 // آخر شمعةٍ مغلقة بلا إغلاق
+  const cc = S.confirmCtx(brk, ctxFor(k, 150));
   ok(cc._unconfirmed, "confirmCtx تُعلن تعذّر التأكيد بدل التراجع الصامت");
-  const r = S.evalStrategy(momo, cc, {});
+  const r = S.evalStrategy(brk, cc, {});
   eq(r.dir, 0, "لا اتجاهٌ من تقييمٍ غير موثوق");
   eq(r.off, S.UNCONFIRMED, "سبب الإيقاف هو تعذّر التأكيد بالذات، لا سببٌ آخر");
+});
+
+/* =====================================================================
+   ٢ج) **فريمٌ غائبٌ ليس تأكيداً متعذّراً.**
+
+   رمزُ الطبقة الواسعة بلا سلسلةٍ ساعيّة، فـ«متعذّر التأكيد» عنه عذرٌ
+   مخترَع عن حالةٍ معروفة — و`ready` تقولها بدقّة. وهذا فرقُ «لم نستطع
+   التأكيد» عن «لا فريم أصلاً»، وخلطُهما يجعل الرمز السليم يبدو معطلاً.
+   ===================================================================== */
+t("فريمٌ غائبٌ يقول سببه الحقيقي لا «تعذّر التأكيد»", () => {
+  const momo = S.STRAT_BY_ID.momo;           // فريمُها الساعة، وctxFor تملأ ١٥د
+  const cc = S.confirmCtx(momo, ctxFor(flatCandles(), 150));
+  ok(!cc._unconfirmed, "غيابُ الفريم ليس تعذّرَ تأكيد");
+  const r = S.evalStrategy(momo, cc, {});
+  eq(r.dir, 0, "ولا اتجاه منها على كل حال");
+  ok(r.off !== S.UNCONFIRMED, `السبب المعلَن هو الحقيقي: ${r.off || "(بلا)"}`);
 });
 
 /* =====================================================================
@@ -165,6 +187,136 @@ t("evalAllConfirmed يعيد العشرة دائماً — لا استثناءٌ
   const res = S.evalAllConfirmed(c);
   eq(res.length, S.STRATEGIES.length, "عشر استراتيجيات في المخرَج");
   ok(res.every(r => r && typeof r === "object"), "كلٌّ كائنٌ صالح ولو `off`");
+});
+
+/* =====================================================================
+   ٦) **قاعدة الربع ساعة — اختبار القبول.**
+
+   بلّغ مستخدم عن `VLO` و`TMO`: «متعارضة» ثم «توافق ٣» بعد ستّ دقائق،
+   ولم يقع في الفارق إغلاقُ شمعة ١٥د ولا ما فوقها. وهذا يعني — إن صحّ —
+   أن الحساب يجري على شيءٍ أسرع من الفريمات المعلنة.
+
+   والقياس أعطى السبب: CONFIRMED كانت تستبدل **السعر وحده**، والسياق
+   يحمل طبقةً مشتقّةً كاملة تتحرّك أسرع من الشمعة — `lv.L` تُقسَّم
+   بالسعر اللحظي، و`an` تُحسب خادمياً على السلسلة **بما فيها الشمعة
+   الجارية** فتتغيّر كل دورة سوق وسط ربع الساعة.
+
+   فهذا الاختبار يصوغ القاعدة المطلوبة صياغةً قابلةً للتنفيذ:
+
+     **تقييمُ CONFIRMED دالّةٌ في الشمعات المغلقة وحدها.** تشويهُ الشمعة
+     الجارية (فتحاً وأعلى وأدنى وإغلاقاً وحجماً) وتحريكُ السعر اللحظي
+     وتحريكُ الساعة داخل نفس ربع الساعة — لا شيء منها يغيّر المخرَج
+     بحرف. ولا يتغيّر إلا حين تُغلَق شمعةٌ جديدة فعلاً (مفحوصٌ في ٢).
+
+   ويُحاكى مسار الخادم كاملاً: `fetch-market` يعيد حساب `an` من السلسلة
+   في كل دورة، فتشويهُ الشمعات بلا إعادة حساب المؤشّرات يقيس نصف
+   المشكلة — وهو ما كان يُخفي التسرّب الأكبر (٤٧٤ انقلاب اتجاه).
+   ===================================================================== */
+const DATA = path.join(ROOT, "data");
+const rdj = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return d; } };
+
+/* مؤشّراتٌ معادةٌ من السلسلة — نفس ما يفعله `fetch-market` كل دورة. */
+function reAnalyze(box) {
+  const o = {};
+  for (const tf in (box || {})) {
+    const a = IND.analyze(P.unpackK(box[tf].c));
+    if (!a) continue;
+    delete a.series;
+    o[tf] = a;
+  }
+  return o;
+}
+
+/* دورةُ خادمٍ أخرى بعد دقائق: الشمعة الجارية تحرّكت، والمؤشّرات أُعيدت. */
+function nextCycle(rec, f) {
+  const r = JSON.parse(JSON.stringify(rec));
+  for (const box of [r.tf, r.tfx]) {
+    for (const tf in (box || {})) {
+      const c = box[tf] && box[tf].c;
+      if (!c || c.length < 2) continue;
+      const b = c[c.length - 1];
+      if (!Array.isArray(b)) continue;
+      const base = b[4];
+      b[1] = base * f; b[2] = base * f * 1.03; b[3] = base * f * 0.97; b[4] = base * f;
+      b[5] = Math.round((b[5] || 1000) * (1 + Math.abs(f - 1) * 40));
+    }
+  }
+  r.an = reAnalyze(r.tf);
+  if (r.tfx) r.anx = reAnalyze(r.tfx);
+  return r;
+}
+
+/* تقييمُ رمزٍ كاملاً — و`legacy` يعيد سلوك ما قبل الإصلاح (استبدالُ
+   السعر وحده) كي يُثبَت أن الاختبار ليس دائم النجاح. */
+function evalSym(rec, row, px, now, legacy) {
+  const mkt = rec.mkt || row.mkt || null;
+  const c = S.buildCtx({ rec, row, now, px, sess: sessionOf(now, mkt),
+                         win: currentWindow(now, mkt), sessOf: (t) => sessionOf(t, mkt) });
+  const list = legacy
+    ? S.STRATEGIES.map((st) => {
+        const tf = st.tfOf ? st.tfOf(c) : st.tf;
+        const arr = (c.ik && c.ik[tf]) || c.k[tf];
+        const b = (arr && arr.length > 1) ? arr[arr.length - 2] : null;
+        const cc = (b && Number.isFinite(b.c)) ? Object.assign({}, c, { px: b.c })
+                                               : Object.assign({}, c, { _unconfirmed: S.UNCONFIRMED });
+        return S.evalStrategy(st, cc, {});
+      })
+    : S.evalAllConfirmed(c);
+  const out = {};
+  for (const r of list) out[r.id] = [r.dir || 0, r.sc ?? null, r.off || null, !!r.active];
+  return out;
+}
+
+/* مسحُ الكون الحيّ ذهاباً وإياباً — يعيد عدد الاختلافات. */
+function sweep(legacy) {
+  const sum = rdj(path.join(DATA, "summary.json"));
+  if (!sum || !Array.isArray(sum.rows)) return null;      // لا بيانات محليّة
+  const now = Date.now();
+  let syms = 0, diff = 0, dirs = 0, acts = 0;
+  const ex = [];
+  for (const row of sum.rows) {
+    if (!(row.p > 0)) continue;
+    const rec = rdj(path.join(DATA, "sym", row.s + ".json"));
+    if (!rec || !rec.tf) continue;
+    syms++;
+    const a = evalSym(nextCycle(rec, 1), row, row.p, now, legacy);
+    /* ثلاث دوراتٍ لاحقة داخل **نفس** ربع الساعة: السعر يتحرّك،
+       والشمعة الجارية تتحرّك، والساعة تتقدّم دقيقتين ثم ستّاً. */
+    const steps = [[1.006, 120e3], [0.994, 360e3], [1.02, 540e3]];
+    for (const [f, dt] of steps) {
+      const b = evalSym(nextCycle(rec, f), Object.assign({}, row, { p: row.p * f }),
+                        row.p * f, now + dt, legacy);
+      for (const id in a) {
+        if (JSON.stringify(a[id]) === JSON.stringify(b[id])) continue;
+        diff++;
+        if (a[id][0] !== b[id][0]) dirs++;
+        else if (a[id][3] !== b[id][3]) acts++;
+        if (ex.length < 4) ex.push(`${row.s} ${id}: ${JSON.stringify(a[id])} ← ${JSON.stringify(b[id])}`);
+      }
+    }
+  }
+  return { syms, diff, dirs, acts, ex };
+}
+
+t("قاعدة الربع ساعة: CONFIRMED لا يتغيّر بحرفٍ داخل الشمعة — على الكون الحيّ", () => {
+  const r = sweep(false);
+  if (!r) { console.log("      (لا `data/summary.json` محلياً — تُخطّى)"); return; }
+  ok(r.syms >= 50, `عيّنةٌ ذات معنى: ${r.syms} رمزاً`);
+  ok(r.diff === 0,
+     `${r.diff} اختلافاً داخل نفس ربع الساعة (اتجاه ${r.dirs} · تفعيل ${r.acts})` +
+     (r.ex.length ? ` — مثال: ${r.ex[0]}` : ""));
+  console.log(`      (${r.syms} رمزاً × ٣ دوراتٍ داخل الشمعة · صفر اختلاف)`);
+});
+
+t("والاختبار ليس دائم النجاح: سلوكُ ما قبل الإصلاح يُسقطه", () => {
+  /* **فحصٌ يمرّ مهما كانت المدخلات ليس فحصاً.** فيُعاد هنا سلوكُ
+     `confirmCtx` القديم حرفياً (استبدالُ `c.px` وحده) ويُشترط أن
+     يُرصد الخلل — وإلا كان النجاح أعلاه بلا دلالة. */
+  const r = sweep(true);
+  if (!r) { console.log("      (لا بيانات محليّة — تُخطّى)"); return; }
+  ok(r.diff > 0, "السلوك القديم يجب أن يُرصد مختلفاً");
+  ok(r.dirs > 0, "ومنه انقلابُ اتجاهٍ فعليّ لا فرقُ نتيجةٍ فقط");
+  console.log(`      (القديم: ${r.diff} اختلافاً · ${r.dirs} انقلاب اتجاه · ${r.acts} تبدّل تفعيل)`);
 });
 
 console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل\n`);
