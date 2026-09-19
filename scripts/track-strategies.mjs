@@ -251,7 +251,8 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   initLog(out);
   info("scanner", `بدء المسح · ${all.length} رمزاً · الجلسة ${sessionOf(now)}`);
 
-  let added = 0, symbols = 0, skipped = 0;
+  let added = 0, symbols = 0, skipped = 0, unconfirmed = 0;
+  const unconfirmedSyms = new Set();
   for (const row of all) {
     const rec = readJSON(path.join(out, "sym", `${row.s}.json`));
     if (!rec) { skipped++; continue; }
@@ -279,6 +280,7 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
          فهي ثابتةٌ تلقائياً بلا حاجة لتجميدٍ يدويّ. هذا ما يقرأه
          التوافق والترتيب والثقة — لا يتحرّك بتذبذب السعر اللحظي. */
       const rC = S.evalStrategy(st, S.confirmCtx(st, c), {});
+      if (rC.off === S.UNCONFIRMED) { unconfirmed++; unconfirmedSyms.add(row.s); }
       if (!rC.dir || !Number.isFinite(rC.sc)) continue;     // لم يتفعّل أو متعذّر
 
       /* LIVE — كما كانت الدالة دائماً: بادجٌ تكميلي يتحدّث كل دورة، ولا
@@ -360,7 +362,8 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
 
   return { rows, trends, stillOpen, history, now,
            stats: { symbols, skipped, rows: rows.length, added, closed,
-                    trendSyms: nextSyms, prevSyms, onlyPrice } };
+                    trendSyms: nextSyms, prevSyms, onlyPrice,
+                    unconfirmed, unconfirmedSyms: unconfirmedSyms.size } };
 }
 
 export function writeOut(res, out = OUT) {
@@ -520,5 +523,6 @@ else {
   console.log(`▶ الاستراتيجيات${ONLY_PRICE ? " (سعرية فقط)" : ""}: ` +
     `${stats.rows} صفّاً على ${stats.symbols} رمزاً · ` +
     `${stats.added} إشارة جديدة · ${stats.closed} أُغلقت · ` +
-    `${stats.trendSyms} تسلسلاً` + (stats.skipped ? ` · ${stats.skipped} تُخطّي` : ""));
+    `${stats.trendSyms} تسلسلاً` + (stats.skipped ? ` · ${stats.skipped} تُخطّي` : "") +
+    (stats.unconfirmed ? ` · ${stats.unconfirmed} تقييماً متعذّر التأكيد على ${stats.unconfirmedSyms} رمزاً` : ""));
 }

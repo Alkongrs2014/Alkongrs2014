@@ -148,10 +148,15 @@ function lastClosedPx(c, tf) {
   var b = a[a.length - 2];
   return (b && Number.isFinite(b.c)) ? b.c : null;
 }
+/* بلا سعر إغلاقٍ موثوق يُعلَن التعذّر — لا رجوعٌ صامتٌ للسعر اللحظي.
+   `_unconfirmed` تُقرأ في `evalStrategy` فتُخرج الاستراتيجية بحالة `off`
+   بدل أن تُقيَّم بواباتها على سياقٍ لا يزال يحمل `c.px` اللحظي. */
+var UNCONFIRMED = "لا سعر إغلاقٍ موثوقٍ لهذا الفريم — التأكيد متعذّر";
 function confirmCtx(st, c) {
   var tf = st.tfOf ? st.tfOf(c) : st.tf;
   var px = tf ? lastClosedPx(c, tf) : null;
-  return Number.isFinite(px) ? Object.assign({}, c, { px: px }) : c;
+  if (Number.isFinite(px)) return Object.assign({}, c, { px: px });
+  return Object.assign({}, c, { _unconfirmed: UNCONFIRMED });
 }
 
 /* =====================================================================
@@ -207,6 +212,7 @@ function evalGates(gates, c, d, opt) {
 function evalStrategy(st, c, opt) {
   opt = opt || {};
   var base = { id: st.id, lbl: st.lbl, fam: st.fam, tf: st.tf, dir: 0, sc: null, off: null };
+  if (c._unconfirmed) return Object.assign(base, { off: c._unconfirmed });
   var why = st.ready ? st.ready(c) : null;
   if (why) return Object.assign(base, { off: why });
   var d;
@@ -1211,7 +1217,7 @@ if (typeof module !== "undefined" && module.exports) {
     donch: donch, pctOf: pctOf, iTf15: iTf15, sqTf: sqTf,
     divTf: divTf, upTf: upTf, TF_UP: TF_UP, TF_DN: TF_DN,
     withLevels: withLevels, planFor: planFor,
-    lastClosedPx: lastClosedPx, confirmCtx: confirmCtx,
+    lastClosedPx: lastClosedPx, confirmCtx: confirmCtx, UNCONFIRMED: UNCONFIRMED,
     ALLOWED_TFS: ALLOWED_TFS, forbiddenTfUsage: forbiddenTfUsage
   };
 }
