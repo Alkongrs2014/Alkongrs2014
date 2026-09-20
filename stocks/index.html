@@ -4737,6 +4737,12 @@ const LAZY_TTL = {
 const lazyWait = {};
 const lazyAt = {};
 
+/* لحظةُ بدء انتظار شاشة الفرص لملفّات الترتيب، وسقفُه. الصفر = لا
+   انتظار جارٍ. والسقف ثمانِ ثوانٍ: أطول من أبطأ جلبٍ مقيس بكثير،
+   وأقصر من أن يُقرأ تعطّلاً. */
+let scanWaitAt = 0;
+const SCAN_WAIT_MAX = 8000;
+
 function need(file) {
   if (lazyWait[file]) return lazyWait[file];
   lazyWait[file] = getJSON(file).then(j => {
@@ -7159,6 +7165,50 @@ function renderScreen() {
 
   const el = $("#scanList");
   if (!state.summary) { el.innerHTML = `<div class="empty">جارِ التحميل…</div>`; return; }
+  /* الطبقة الواسعة تُطلب هنا لا بعد الحارس: الشرط الموسوم `wide`
+     يمسح الكون كاملاً، وقائمةٌ تُرسم قبل وصوله تعرض ‎8‎ صفوف ثم تصير
+     ‎51‎ — وهو «رموزٌ تدخل وتخرج» كما يراه المستخدم. */
+  const wideReady = !!(state.wide && state.wide.rows && state.wide.rows.length);
+  if (scan.wide && !wideReady) need("wide.json");
+  /* =====================================================================
+     الترتيب المعروض يعتمد ثلاثة ملفّات كسولة، ورسمُه قبل وصولها يعرض
+     **ترتيباً مؤقّتاً يُستبدل بعد أقلّ من ثانية**.
+
+     `go("screen")` يطلب الملفّات ثم يرسم فوراً، وكلُّ ملفٍّ يصل يعيد
+     الرسم. فالقائمة تُعاد ثلاث مرّات في كل فتحة، وهو ما يراه المستخدم
+     «انقلاباً»: قِيس على الموقع المنشور أنّ وصول `strategies.json`
+     وحده يحرّك **437 صفّاً** بإزاحةٍ تبلغ **14 مرتبة** وفارقٍ يبلغ
+     **15 نقطة** في الدرجة المعروضة — وأنّ صدارة مسحَين تتبدّل
+     (`pullback`: CSX ← RTX · `cheap`: HON ← SMCI).
+
+     ولا علاقة لهذا بإغلاق الشمعة، ولهذا لم تمسَّه إصلاحاتُ التأكيد:
+     الشمعة ثابتة والبيانات ثابتة، والمتغيّر **أيُّ الملفّات وصل**.
+
+     فالانتظار أصدق من ترتيبٍ مؤقّت: ثمنُه ~800 مللي في أوّل فتحة،
+     ومقابلُه ألّا يُعرض ترتيبٌ يُنقض. و**الفشل ليس انتظاراً**: `need`
+     تحذف `lazyWait[f]` عند الخطأ، فالملفّ الساقط يخرج من هذا الشرط
+     وتُعرض القائمة بترتيب المسح الخام مع سطرها المعلَن — وهو التدهور
+     الهادئ نفسه بلا تغيير.
+
+     ومهلةٌ عليا تحرس من شبكةٍ تتعلّق: انتظارٌ بلا سقف يترك الشاشة
+     هيكلاً إلى الأبد، وهي أسوأ من ترتيبٍ يُعدَّل. */
+  const RANK_DEPS = [
+    ["fundamentals.json", !!(state.fund && state.fund.f)],
+    ["strategies.json",   !!(state.strategies && Array.isArray(state.strategies.rows))],
+    ["strategy-edge.json", !!state.stratEdge]
+  ].concat(scan.wide ? [["wide.json", wideReady]] : []);
+  const pending = RANK_DEPS.filter(([f, ready]) => !ready && !!lazyWait[f]).map(([f]) => f);
+  if (pending.length) {
+    if (!scanWaitAt) scanWaitAt = Date.now();
+    if (Date.now() - scanWaitAt < SCAN_WAIT_MAX) {
+      el.innerHTML = `<div class="skl" style="height:64px"></div><div class="skl" style="height:64px;margin-top:8px"></div><div class="skl" style="height:64px;margin-top:8px"></div>`;
+      const c = $("#scanCount");
+      if (c) c.textContent = "يُحسب الترتيب النهائي — بانتظار " + bd(pending.length) + " ملفّ";
+      const b = $("#scanExport"); if (b) b.style.display = "none";
+      return;
+    }
+  } else scanWaitAt = 0;
+
   const F = (state.fund && state.fund.f) || {};
   const fs = fundScores();
   const ctx = { secMed: (fs && fs.secMed) || {} };
@@ -7166,8 +7216,6 @@ function renderScreen() {
   /* الشرط الموسوم `wide` يمرّ على الكون كاملاً (510 رمزاً) لا على
      المرصودة وحدها (97). وغيابُ الملف تدهورٌ هادئ: يُطلب كسولاً ويُمسح
      على ما وصل، فتكتمل النتيجة عند وصوله بلا تعطيل. */
-  const wideReady = !!(state.wide && state.wide.rows && state.wide.rows.length);
-  if (scan.wide && !wideReady) need("wide.json");
   let pool = (scan.wide && wideReady) ? allRows() : state.summary.rows;
   /* نوع السوق فلترٌ مستقلٌّ عن شرط الفرصة، ويُطبَّق على المجمَّع الخام
      قبل أي حساب — لا شكلياً بعد العرض. التصنيف من `r.mkt` نفسه الذي
