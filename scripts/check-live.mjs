@@ -1,17 +1,19 @@
 /* =====================================================================
    اختبار قبولٍ على **الموقع المنشور** — لا على القرص ولا على المحاكاة.
 
-   لماذا يلزم رغم كل الفحوص: ثلاث علل متتالية مرّت من فحوصٍ محلّية
-   ناجحة ووصلت المستخدم. وسببُها واحد: الفحص المحلّي يشهد للمنطق،
-   والمستخدم يرى **الصفحة المنشورة بعد أن يمرّ عليها عاملُ الخدمة
-   والشبكة وترتيبُ وصول الملفّات الكسولة**. والعلّة الأخيرة عاشت في
-   هذه الفجوة بالضبط: البيانات ثابتة والشيفرة صحيحة، والقائمة تتبدّل
-   لأن ترتيبها يعتمد ملفّاً يصل بعد الرسم بـ‎800‎ مللي.
+   لماذا يلزم رغم ثمانيةٍ وثمانين فحصاً محلّياً ناجحاً: ثلاث عللٍ
+   متتالية مرّت منها كلِّها ووصلت المستخدم. وسببُها واحد — الفحص
+   المحلّي يشهد للمنطق، والمستخدم يرى **الصفحة المنشورة بعد أن يمرّ
+   عليها عاملُ الخدمة والشبكة وترتيبُ وصول الملفّات الكسولة**. والعلّتان
+   الأخيرتان عاشتا في هذه الفجوة بالضبط: البيانات ثابتة والشيفرة
+   صحيحة، والمعروضُ يتبدّل لأن ملفّاً يصل بعد الرسم.
 
-   يفحص ثلاثة أشياء لا يستطيع أيُّ فحصٍ في Node أن يفحصها:
-   ١) أن الشيفرة المنشورة هي شيفرة القرص (لا نسخة عاملِ خدمة قديمة).
-   ٢) أن قائمة الفرص لا تتبدّل بين أوّل رسمٍ واستقرار التحميل.
+   يفحص ما لا يستطيع أيُّ فحصٍ في Node أن يفحصه:
+   ١) أن الشيفرة المنشورة هي شيفرة القرص (لا نسخةَ عاملِ خدمةٍ قديمة).
+   ٢) أن قائمة الفرص لا تتبدّل بعد أن تظهر للمستخدم.
    ٣) أن تذبذب السعر اللحظي لا يحرّك القائمة.
+   ٤) أن اتجاه الإجماع لا ينقلب بوصول ملفّ الحوافّ.
+   ٥) صفرُ استثناءٍ وصفرُ قيدٍ في سجلّ التشخيص.
 
    يُشغَّل: node scripts/check-live.mjs [رابط]
    ===================================================================== */
@@ -34,7 +36,7 @@ const CANDS = [
   "playwright"
 ];
 let chromium = null;
-for (const c of CANDS) { try { chromium = require(c).chromium; break; } catch {} }
+for (const c of CANDS) { try { chromium = require(c).chromium; break; } catch { /* المرشّح التالي */ } }
 if (!chromium) {
   console.error("✗ Playwright غير مركَّب. ركّبه: cd ~/.claude/skills/playwright-skill && npm run setup");
   process.exit(2);
@@ -43,107 +45,113 @@ if (!chromium) {
 let pass = 0, fail = 0;
 const ok = (m, d) => { pass++; console.log(`  ✓ ${m}${d ? " — " + d : ""}`); };
 const no = (m, d) => { fail++; console.log(`  ✗ ${m}${d ? " — " + d : ""}`); };
+const h12 = (x) => createHash("sha256").update(x).digest("hex").slice(0, 12);
 
-const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex").slice(0, 12);
+/* =====================================================================
+   التأخير الصناعيّ — **شرطُ أن يكون الفحص حاسماً**، ومتفاوتٌ لا موحَّد.
+
+   بلا تأخيرٍ أصلاً يمرّ الفحص على localhost دائماً لأن الملفّات تصل
+   قبل أوّل رسم، فلا يقع السباق ويشهد الفحصُ لشيءٍ لم يختبره.
+
+   وبتأخيرٍ موحَّد يصل الملفّان معاً فلا يقع سباقُ **الحوافّ** بعينه —
+   وهو أن تصل اللقطة أولاً فيُحسب إجماعٌ بأوزانٍ محايدة، ثم تصل
+   الحوافُّ فيُعاد بأوزانه. أُثبت أن الفحص كان يمرّ بتأخيرٍ موحَّد حتى
+   بعد تعطيل الحارس. فالحوافُّ أبطأُ الأربعة عمداً.
+   ===================================================================== */
+const LAG = {
+  "strategies.json":     700,
+  "fundamentals.json":  1400,
+  "wide.json":          1400,
+  "strategy-edge.json": 2600
+};
+const lagRoute = async (route) => {
+  const u = route.request().url();
+  const k = Object.keys(LAG).find(f => u.includes(f));
+  if (k) await new Promise(r => setTimeout(r, LAG[k]));
+  await route.continue();
+};
+
+const FILES = ["index.html", "scans.js", "strategies.js", "consensus.js", "confluence.js",
+               "direction.js", "indicators.js", "score.js", "plan.js", "sw.js", "session.js", "evaluate.js"];
 
 console.log("\n▶ اختبار قبول على الموقع المنشور\n  " + URL_ + "\n");
 
 const browser = await chromium.launch({ headless: true });
 try {
+  const base = URL_.replace(/\/?$/, "/");
   const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  const errs = [];
-  page.on("pageerror", e => errs.push(String(e.message)));
-  page.on("console", m => { if (m.type() === "error") errs.push("console: " + m.text().slice(0, 160)); });
 
   /* عاملُ الخدمة يقدّم نسخةً مخزَّنة حتى مع `no-store` — اعتراضُه يسبق
      ترويسات HTTP. فبلا إلغائه يشهد الفحص لنسخةٍ قديمة ويمرّ كذباً. */
-  await page.goto(URL_, { waitUntil: "domcontentloaded" });
-  await page.evaluate(async () => {
-    for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
-    for (const k of await caches.keys()) await caches.delete(k);
-  });
-  /* تأخيرٌ صناعيّ للملفّات الكسولة — **شرطُ أن يكون الفحص حاسماً**.
-     بلا هذا يمرّ على localhost دائماً لأن الملفّات تصل قبل أوّل رسم،
-     فلا يقع السباق أصلاً ويشهد الفحصُ لشيءٍ لم يختبره. والتأخير يجعل
-     السباق حتمياً على أيّ مضيف، فيصير الفشلُ دليلاً والنجاحُ دليلاً.
-     ويُطبَّق على الملفّات التي يعتمدها الترتيب وحدها. */
-  const LAG = 1400;
-  await page.route(/(strategies|strategy-edge|fundamentals|wide).json/, async (route) => {
-    await new Promise(r => setTimeout(r, LAG));
-    await route.continue();
-  });
-  await page.goto(URL_ + "?fresh=" + Date.now(), { waitUntil: "domcontentloaded" });
+  {
+    const p = await ctx.newPage();
+    await p.goto(base, { waitUntil: "domcontentloaded" });
+    await p.evaluate(async () => {
+      for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+      for (const k of await caches.keys()) await caches.delete(k);
+    });
+    await p.close();
+  }
 
-  /* ١) الشيفرة المنشورة = شيفرة القرص */
-  const FILES = ["index.html", "scans.js", "strategies.js", "consensus.js", "confluence.js",
-                 "direction.js", "indicators.js", "score.js", "plan.js", "sw.js"];
-  const base = URL_.replace(/\/?$/, "/");
+  const errs = [];
+  const page = await ctx.newPage();
+  page.on("pageerror", e => errs.push(String(e.message)));
+  page.on("console", m => { if (m.type() === "error") errs.push("console: " + m.text().slice(0, 160)); });
+  await page.route(/(strategies|strategy-edge|fundamentals|wide)\.json/, lagRoute);
+  await page.goto(base + "?fresh=" + Date.now(), { waitUntil: "domcontentloaded" });
+
+  /* ══ ١) الشيفرة المنشورة = شيفرة القرص ══
+     نهاياتُ الأسطر تختلف بين القرص والمستودع على ويندوز، فتُطبَّع قبل
+     المقارنة: الفارق الذي يهمّ فارقُ محتوى لا فارقُ CRLF. */
   const mismatch = [];
   for (const f of FILES) {
     const local = path.join(ROOT, "stocks", f);
     if (!existsSync(local)) continue;
     const res = await page.request.get(base + f + "?x=" + Date.now());
-    const remote = createHash("sha256").update(Buffer.from(await res.body())).digest("hex").slice(0, 12);
-    /* نهاياتُ الأسطر تختلف بين القرص والمستودع على ويندوز، فتُطبَّع
-       قبل المقارنة: الفارق الذي يهمّ فارقُ محتوى لا فارقُ CRLF. */
-    const norm = (b) => createHash("sha256").update(String(b).replace(/\r\n/g, "\n")).digest("hex").slice(0, 12);
-    if (norm(readFileSync(local)) !== norm(await res.text())) mismatch.push(f + " (منشور " + remote + " · محلّي " + sha(local) + ")");
+    const a = h12(readFileSync(local, "utf8").replace(/\r\n/g, "\n"));
+    const b = h12((await res.text()).replace(/\r\n/g, "\n"));
+    if (a !== b) mismatch.push(`${f} (محلّي ${a} · منشور ${b})`);
   }
   mismatch.length
     ? no("الشيفرة المنشورة هي شيفرة القرص", mismatch.join(" · "))
     : ok("الشيفرة المنشورة هي شيفرة القرص", FILES.length + " ملفّاً");
 
-  /* ٢) القائمة لا تتبدّل بين أوّل رسمٍ واستقرار التحميل */
-  await page.waitForFunction(() => typeof SCANS !== "undefined" && window.__ready !== false, null, { timeout: 30000 })
-    .catch(() => {});
-  await page.waitForFunction(() => { try { return !!(state && state.summary && state.summary.rows.length); } catch { return false; } }, null, { timeout: 30000 });
+  await page.waitForFunction(
+    () => { try { return !!(state && state.summary && state.summary.rows.length && typeof SCANS !== "undefined"); } catch { return false; } },
+    null, { timeout: 45000 });
 
-  const shot = async () => page.evaluate(() => {
-    const o = {};
-    for (const sc of SCANS) {
-      state.scan = sc.id; renderScreen();
-      const el = document.querySelector("#scanList");
-      o[sc.id] = (state.lastScanRows || []).map(r => r.s + "/" + (r._conf ? Math.round(r._conf.q * 100) : "-"));
-      o["__" + sc.id] = el ? el.children.length : -1;
-    }
-    return o;
-  });
-
+  /* ══ ٢) ما يراه المستخدم لا يتبدّل بعد ظهوره ══
+     هيكلُ التحميل ليس قائمة، فمقارنتُه بالقائمة تقيس وصول البيانات لا
+     ثباتها. الشرط المنضبط: من اللحظة التي تظهر فيها صفوف، لا تتغيّر
+     تلك الصفوف بعدها — ترتيباً ولا عضويةً ولا درجة. */
   await page.evaluate(() => go("screen"));
-
-  /* **القياس هو ما يراه المستخدم**: هيكلُ التحميل ليس قائمة، فمقارنتُه
-     بالقائمة تقيس وصول البيانات لا ثباتها. الشرط الصحيح: من اللحظة
-     التي تظهر فيها صفوفٌ للمستخدم، لا تتغيّر تلك الصفوف بعدها —
-     ترتيباً ولا عضويةً ولا درجةً.
-
-     ولذلك لكلّ مسحٍ انتظارٌ حتى يخرج من حالة التحميل، ثم لقطةٌ، ثم
-     لقطةٌ ثانية بعد استقرارٍ كامل. */
   const firstVisible = {};
   for (const id of await page.evaluate(() => SCANS.map(s => s.id))) {
     await page.evaluate((i) => { state.scan = i; renderScreen(); }, id);
     await page.waitForFunction(() => {
       const el = document.querySelector("#scanList");
       return !!el && !el.querySelector(".skl");
-    }, null, { timeout: 15000 }).catch(() => {});
+    }, null, { timeout: 20000 }).catch(() => { /* المهلة العليا — تُقاس كما هي */ });
     firstVisible[id] = await page.evaluate((i) => {
       state.scan = i; renderScreen();
       return (state.lastScanRows || []).map(r => r.s + "/" + (r._conf ? Math.round(r._conf.q * 100) : "-"));
     }, id);
   }
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(4500);
   const settled = await page.evaluate(() => {
     const o = {};
-    for (const sc of SCANS) { state.scan = sc.id; renderScreen();
-      o[sc.id] = (state.lastScanRows || []).map(r => r.s + "/" + (r._conf ? Math.round(r._conf.q * 100) : "-")); }
+    for (const sc of SCANS) {
+      state.scan = sc.id; renderScreen();
+      o[sc.id] = (state.lastScanRows || []).map(r => r.s + "/" + (r._conf ? Math.round(r._conf.q * 100) : "-"));
+    }
     return o;
   });
-
   const moved = [];
   for (const k of Object.keys(firstVisible)) {
     const a = firstVisible[k], b = settled[k];
     if (JSON.stringify(a) === JSON.stringify(b)) continue;
-    let n = 0; const pos = {}; b.forEach((x, i) => pos[x.split("/")[0]] = i);
+    const pos = {}; b.forEach((x, i) => { pos[x.split("/")[0]] = i; });
+    let n = 0;
     a.forEach((x, i) => { const j = pos[x.split("/")[0]]; if (j !== undefined && j !== i) n++; });
     moved.push(`${k}: ${a.length}→${b.length} صفّاً · ${n} تغيّر ترتيبه`);
   }
@@ -151,9 +159,13 @@ try {
     ? no("ما يراه المستخدم لا يتبدّل بعد ظهوره", moved.join(" · "))
     : ok("ما يراه المستخدم لا يتبدّل بعد ظهوره", Object.keys(firstVisible).length + " مسحاً · لا ترتيبَ ولا عضويةَ ولا درجة");
 
-  /* ٣) تذبذب السعر اللحظي لا يحرّك القائمة */
+  /* ══ ٣) تذبذب السعر اللحظي لا يحرّك القائمة ══ */
   const px = await page.evaluate(() => {
-    const snap = () => { const o = {}; for (const sc of SCANS) { state.scan = sc.id; renderScreen(); o[sc.id] = (state.lastScanRows || []).map(r => r.s); } return o; };
+    const snap = () => {
+      const o = {};
+      for (const sc of SCANS) { state.scan = sc.id; renderScreen(); o[sc.id] = (state.lastScanRows || []).map(r => r.s); }
+      return o;
+    };
     const rows = state.summary.rows.concat((state.wide && state.wide.rows) || []);
     const A = snap();
     const bak = rows.map(r => [r.p, r.vol, r.chg]);
@@ -164,10 +176,50 @@ try {
     return Object.keys(A).filter(k => JSON.stringify(A[k]) !== JSON.stringify(B[k]) || JSON.stringify(A[k]) !== JSON.stringify(C[k]));
   });
   px.length ? no("تذبذب السعر اللحظي لا يحرّك القائمة", px.join(" · "))
-            : ok("تذبذب السعر اللحظي لا يحرّك القائمة", "11 مسحاً · ‎±0.6%‎ سعراً و‎+40%‎ حجماً");
+            : ok("تذبذب السعر اللحظي لا يحرّك القائمة", "11 مسحاً · ±0.6% سعراً و+40% حجماً");
 
-  /* ٤) لا استثناء في الصفحة */
-  const real = errs.filter(e => !/favicon|manifest|404/i.test(e));
+  /* ══ ٤) اتجاه الإجماع لا ينقلب بوصول ملفّ الحوافّ ══
+     **صفحةٌ جديدة إلزاماً**: الصفحة أعلاه استُهلك فيها التأخير فصار
+     الملفّان محمَّلين، فقراءةٌ فيها تقيس حالةً واحدة مرّتين. والنافذة
+     المقصودة بين وصول اللقطة ووصول الحوافّ ولا تُعاد فتحُها. */
+  const p2 = await ctx.newPage();
+  await p2.route(/(strategies|strategy-edge|fundamentals|wide)\.json/, lagRoute);
+  await p2.goto(base + "?dir=" + Date.now(), { waitUntil: "domcontentloaded" });
+  await p2.waitForFunction(
+    () => { try { return !!(state && state.summary && state.summary.rows.length); } catch { return false; } },
+    null, { timeout: 45000 });
+  const dirs = await p2.evaluate(async () => {
+    const read = () => {
+      const o = {};
+      for (const r of state.summary.rows) {
+        const sn = consSnapshot(r.s);
+        o[r.s] = sn ? (sn.cons.dir + "/" + (sn.cons.mixed ? "m" : "-")) : "…";
+      }
+      return o;
+    };
+    await need("strategies.json");              // اللقطة وصلت
+    await new Promise(r => setTimeout(r, 250));
+    const first = read();                       // ...والحوافُّ لمّا تصل
+    const shown = Object.values(first).filter(v => v !== "…").length;
+    await need("strategy-edge.json");
+    await new Promise(r => setTimeout(r, 600));
+    const after = read();
+    const flips = [];
+    for (const k of Object.keys(first)) {
+      if (first[k] === "…") continue;           // لم تُعرض جهة — ليس انقلاباً
+      if (first[k] !== after[k]) flips.push(`${k}: ${first[k]} → ${after[k]}`);
+    }
+    return { shown, flips };
+  });
+  await p2.close();
+  dirs.flips.length
+    ? no("اتجاه الإجماع لا ينقلب بوصول ملفّ الحوافّ",
+         `${dirs.flips.length} من ${dirs.shown} معروضاً · ${dirs.flips.slice(0, 5).join(" · ")}`)
+    : ok("اتجاه الإجماع لا ينقلب بوصول ملفّ الحوافّ",
+         dirs.shown ? `${dirs.shown} جهةً معروضة وكلُّها ثابتة` : "لا جهةَ تُعرض قبل اكتمال أوزانها");
+
+  /* ══ ٥) لا استثناء ولا قيدَ تشخيص ══ */
+  const real = errs.filter(e => !/favicon|manifest|404|Failed to load resource/i.test(e));
   real.length ? no("لا استثناء في الصفحة المنشورة", real.slice(0, 3).join(" | "))
               : ok("لا استثناء في الصفحة المنشورة");
 

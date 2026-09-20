@@ -2743,6 +2743,9 @@ async function openSymbol(sym) {
      تُطلب معاً لا متسلسلة، وكلٌّ يرسم بطاقته حين يصل — وغيابُ أيٍّ
      منها يُخفي بطاقتَه ولا يعطّل الشاشة. */
   need("fundamentals.json"); need("news.json"); need("analytics.json");
+  /* الاستراتيجيتان تُطلبان معاً ولا تُنتظران هنا: `renderStrategies`
+     تُخفي بطاقتها حتى يجيب `consReady`، فلا تُرسم جهةٌ تُنقض —
+     وبقيةُ الشاشة لا تنتظرهما. */
   need("strategies.json"); need("strategy-edge.json");
   go("detail");
   $("#dHead").innerHTML = `<div class="skl" style="height:90px"></div>`;
@@ -4736,6 +4739,11 @@ const LAZY_TTL = {
 };
 const lazyWait = {};
 const lazyAt = {};
+/* «سقط» غير «في الطريق» وغير «لم يُطلب بعد» — وخلطُ الثلاثة هو ما أبقى
+   حارس الإجماع ميتاً في أوّل صيغةٍ له: كان يفحص `lazyWait` وحده، فملفٌّ
+   **لم يُطلب** يبدو كالملفّ الذي وصل، فيُحسب الإجماع بأوزانٍ محايدة ثم
+   يُعاد بأوزانه. وهي نفس عائلة «حقلٌ غيابُه له معنى لا يُفحص بالصدق». */
+const lazyFail = {};
 
 /* لحظةُ بدء انتظار شاشة الفرص لملفّات الترتيب، وسقفُه. الصفر = لا
    انتظار جارٍ. والسقف ثمانِ ثوانٍ: أطول من أبطأ جلبٍ مقيس بكثير،
@@ -4746,13 +4754,13 @@ const SCAN_WAIT_MAX = 8000;
 function need(file) {
   if (lazyWait[file]) return lazyWait[file];
   lazyWait[file] = getJSON(file).then(j => {
-    lazyAt[file] = Date.now();
+    lazyAt[file] = Date.now(); lazyFail[file] = false;
     (LAZY[file] || (() => {}))(j);
     return j;
   })
     .catch((e) => {
       // الفشل لا يُخزَّن: محاولةٌ تالية عند فتح الشاشة مرةً أخرى
-      delete lazyWait[file];
+      delete lazyWait[file]; lazyFail[file] = true;
       diag("lazy", "تعذّر جلب " + file, e && e.message);
       if (file === "news.json" && $("#newsList"))
         $("#newsList").innerHTML = '<div class="note">تعذّر جلب الأخبار الآن.</div>';
@@ -7197,7 +7205,13 @@ function renderScreen() {
     ["strategies.json",   !!(state.strategies && Array.isArray(state.strategies.rows))],
     ["strategy-edge.json", !!state.stratEdge]
   ].concat(scan.wide ? [["wide.json", wideReady]] : []);
-  const pending = RANK_DEPS.filter(([f, ready]) => !ready && !!lazyWait[f]).map(([f]) => f);
+  /* «لم يُطلب بعد» يُطلب هنا ثم يُنتظر، و«سقط» يمضي بالتدهور الهادئ —
+     وفحصُ `lazyWait` وحده كان يخلط الأولى بالثالثة فيمرّ الحارس. */
+  const pending = RANK_DEPS.filter(([f, ready]) => {
+    if (ready || lazyFail[f]) return false;
+    if (!lazyWait[f]) need(f);
+    return true;
+  }).map(([f]) => f);
   if (pending.length) {
     if (!scanWaitAt) scanWaitAt = Date.now();
     if (Date.now() - scanWaitAt < SCAN_WAIT_MAX) {
@@ -7933,10 +7947,38 @@ function stratIndex() {
   return stratIdx;
 }
 
+/* =====================================================================
+   هل يمكن حساب الإجماع الآن؟ — `strategies.json` **و**`strategy-edge.json`.
+
+   الحوافُّ ليست زينةً في الإجماع بل **أوزانُه**: `weightFor` تزن كل
+   استراتيجية بحافّتها المقيسة (‎0.4..1.8‎)، فالإجماعُ المحسوب قبل
+   وصولها يزن الكلَّ بواحد. وهو إجماعٌ آخر لا إجماعٌ ناقص.
+
+   قِيس على الموقع المنشور (‎60‎ رمزاً): وصولُ الحوافّ **يقلب اتجاه
+   رمزين** — `AVGO` من «متعارض» إلى **هبوط**، و`TXN` من **صعود**
+   إلى «متعارض». وهو بعينه ما بلّغ عنه المستخدم: جهةٌ تظهر ثم تنقلب
+   خلال دقائق بلا إغلاق شمعة.
+
+   و`null` هنا تعني «لم نقرأ بعد» لا «لا إشارة» — وكلُّ مستهلك يعرض
+   عليها هيكلَ تحميل. أمّا الملفّ **الساقط** فتحذف `need` انتظارَه،
+   فيُحسب الإجماع بأوزانٍ محايدة ويُقال ذلك — التدهور الهادئ كما هو. */
+function consReady() {
+  if (!stratIndex()) return false;
+  if (state.stratEdge) return true;                    // وصلت الأوزان
+  if (lazyFail["strategy-edge.json"]) return true;     // سقطت — أوزانٌ محايدة ويُقال ذلك
+  /* **يُطلب هنا ولا يُنتظر أن يطلبه غيره**: مستهلكو الإجماع خمسة،
+     وثلاثةٌ منهم لا يمرّون بـ`go()`. فملفٌّ لم يُطلب بعد كان يُقرأ
+     «وصل»، وهو الفرق بين حارسٍ يعمل وحارسٍ يبدو أنه يعمل. والنداء
+     مكرَّرٌ بلا كلفة: `need` تعيد نفس الوعد. */
+  need("strategy-edge.json");
+  return false;                                        // في الطريق
+}
+
 /* إجماعُ رمزٍ واحد من اللقطة — أو `null` إن لم يصل الملفّ بعد.
    و`null` ليست «لا إشارة»: الأولى «لم نقرأ» والثانية «قرأنا فلم نجد»،
    وخلطُهما يجعل بطءَ الشبكة يُقرأ حياداً في السوق. */
 function consSnapshot(sym, E) {
+  if (!consReady()) return null;
   const ix = stratIndex();
   if (!ix) return null;
   return consFromRows(ix.byS[sym] || [], ix.meta,
@@ -8036,8 +8078,10 @@ async function scAnalyze(sym) {
     $("#scCards").style.display = "none"; $("#scTl").style.display = "none";
     return;
   }
-  // الأساسيات والتسلسل لا يعطّلان الرسم: كلٌّ يُرسم حين يصل
-  need("strategies.json"); need("strategy-edge.json");
+  /* **يُنتظران** ولا يُطلبان فحسب: الإجماعُ المحسوب قبل الحوافّ يزن
+     الكلَّ بواحد، فتظهر جهةٌ ثم تنقلب حين تصل. وانتظارُهما مضمونُ
+     الانتهاء — `need` تنتهي نجاحاً أو فشلاً ولا تبقى معلّقة. */
+  await Promise.all([need("strategies.json"), need("strategy-edge.json")]);
   try {
     /* حتى رموز الطبقة الواسعة لها ملفٌّ فيه 260 شمعة يومية ومؤشّراتها
        — الفرق أن اللحظية وحدها غائبة. وتمريرُ سجلٍّ فارغ لها كان يُسقط
@@ -8657,7 +8701,7 @@ const RK_PAGE = 100;
 let rkMore = false;
 
 function rkRows() {
-  if (!stratIndex()) return null;
+  if (!consReady()) return null;   // هيكلُ تحميل لا ترتيبٌ بأوزانٍ مؤقّتة
 
   const scope = ($("#rkScope") && $("#rkScope").value) || "us";
   const universe = allRows().filter(r => {
