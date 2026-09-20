@@ -242,6 +242,9 @@ export function measureSymbol(series, meta, acc) {
     const cur = {}, ptr = {};
     for (const t of Object.keys(SS)) ptr[t] = 0;
     let last = -COOLDOWN;
+    /* مرساةُ هيستريسس الاتجاه — واحدةٌ لكل (رمز × استراتيجية)، تتقدّم
+       شمعةً شمعةً كما تتقدّم في الخادم دورةً دورة. */
+    let H = {};
 
     for (let i = WARMUP; i < base.k.length - SIM_BARS; i++) {
       const tEnd = base.k[i].t;
@@ -250,8 +253,9 @@ export function measureSymbol(series, meta, acc) {
         cur[t] = (S2.k[ptr[t]] && S2.k[ptr[t]].t <= tEnd) ? ptr[t] : undefined;
       }
       cur[tf] = i;
-      if (i - last < COOLDOWN) continue;
-
+      /* التهدئة تمنع **تسجيل** إشارةٍ مكرّرة ولا تمنع التقييم: منعُه
+         يجمّد عدّاد الهيستريسس ثماني شمعات، فيختلف مسارُ الأرشيف عن
+         مسار الخادم في الموضع الذي بُني ليطابقه. */
       const day = sess.get(dayKey(tEnd));
       const c = ctxAt(SS, cur, { ...meta, tf, period: day ? { regular: day } : null });
       if (!c) continue;
@@ -261,7 +265,12 @@ export function measureSymbol(series, meta, acc) {
         for (const t of ["1h", "15m", "1d"])
           if (c.an[t] && cur[t] !== undefined) c.an[t].div = divAt(SS[t], cur[t]);
 
-      const r = S.evalStrategy(st, c);
+      const r = S.evalStrategy(st, c, { hold: H });
+      /* حالةُ الهيستريسس تُلتقط **قبل** شرط التفعيل — كما في الإنتاج
+         بالحرف. والأرشيف يجب أن يقيس ما يُنشر: تركُه بلا إمساك يجعله
+         يشهد لنظامٍ لم يعد قائماً، وهو أخطر من غياب رقم. */
+      if (r.hold && r.hold.ld) H = r.hold;
+      if (i - last < COOLDOWN) continue;
       if (!r.dir || !r.active) continue;
       const plan = S.planFor(c, r);
       if (!plan || plan.bad) continue;

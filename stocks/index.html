@@ -634,6 +634,8 @@ details[open]{background:var(--card2)}
 .scrow .ssc{font-size:17px;font-weight:800;min-width:2.2em;text-align:left}
 .scrow .sband{font-size:11.5px;font-weight:500}
 .scrow .sst{font-size:11.5px;font-weight:700}
+.scrow .spend{font-size:11.5px;font-weight:600;color:var(--mut);
+  border:1px dashed var(--line);border-radius:6px;padding:1px 6px}
 .scrow .sage{margin-right:auto;font-size:11.5px;font-weight:500;flex:none}
 .scrow .grid3{margin-top:10px}
 
@@ -7838,6 +7840,21 @@ function scAnchor(sym, id) {
     if (rows[i].s === sym && rows[i].st === id) return rows[i];
   return null;
 }
+/* مرساةُ هيستريسس الاتجاه لهذا الرمز — من الخادم حصراً.
+
+   `hold` خريطةٌ مفتاحُها `SYM|strat` وقيمتُها ‎[ld, pd, pn, pb, ts]‎.
+   وحين تغيب (ملفٌّ قديم، أو استراتيجية صامتة منذ مدّة) يُكتفى بجهة
+   الصفّ المنشورة مرساةً — فهي `ld` نفسها كلّما وُجد صفّ. */
+function scHold(sym) {
+  const S0 = state.strategies || {};
+  const map = S0.hold || {}, out = {};
+  for (const st of STRATEGIES) {
+    const a = map[sym + "|" + st.id];
+    if (Array.isArray(a) && a.length >= 4) out[st.id] = { ld: a[0], pd: a[1], pn: a[2], pb: a[3] };
+    else { const r = scAnchor(sym, st.id); if (r && r.dir) out[st.id] = { ld: r.dir }; }
+  }
+  return out;
+}
 const scEdge = () => {
   const out = {};
   for (const r of (state.stratEdge && state.stratEdge.rows) || []) out[r.id] = r;
@@ -8001,7 +8018,7 @@ async function scAnalyze(sym) {
        في لوحة التشخيص جنباً إلى جنب.
        ================================================================= */
     const resLive = evalAll(ctx);
-    const res = evalAllConfirmed(ctx);
+    const res = evalAllConfirmed(ctx, scHold(sym));
     // الطزاجة وجودة الدخول تحتاجان لحظةَ البدء — من الخادم لا من الآن
     for (const r of res) {
       const a = scAnchor(sym, r.id);
@@ -8172,6 +8189,16 @@ function renderScCards(row, ctx, res, cons) {
     ${sorted.map(r => scRow(r, E, ctx)).join("")}`;
 }
 
+/* شارةُ التربّص — انقلابٌ لم يصمد بعد. تُقال ولا تُكتم: الهيستريسس
+   يمنع نشرَ الانقلاب لا إخفاءَ أنّه يتكوّن، وكتمُه يجعل الشاشة تبدو
+   جامدةً أمام سوقٍ يتحرّك. */
+function scPend(r) {
+  if (!r || !r.pend) return "";
+  const d = r.pend.d > 0 ? "▲" : "▼";
+  const c = r.pend.d > 0 ? "var(--up)" : "var(--dn)";
+  return `<span class="spend" title="انقلابٌ قيد التثبّت — لا يُنشر حتى يصمد ${r.pend.of} شمعاتٍ مغلقة">`
+       + `<span style="color:${c}">${d}</span> متربّص <span class="num">${r.pend.n}/${r.pend.of}</span></span>`;
+}
 function scRow(r, E, ctx) {
   const meta = (state.strategies && state.strategies.strategies || []).find(x => x.id === r.id);
   const why = (meta && meta.why) || (STRAT_BY_ID[r.id] && STRAT_BY_ID[r.id].why) || "";
@@ -8192,6 +8219,7 @@ function scRow(r, E, ctx) {
       <span class="sdir mut">⇄</span>
       <b>${esc(r.lbl)}</b>
       <span class="mut">لم تتفعّل</span>
+      ${scPend(r)}
     </summary>
       <p class="mut">شرطُ هذه الاستراتيجية غير متحقّق الآن — وهي حالةُ سوقٍ عادية لا نقصُ بيانات.</p>
       <p class="hint">${esc(why)}</p>
@@ -8208,6 +8236,7 @@ function scRow(r, E, ctx) {
       <b>${esc(r.lbl)}</b>
       <span class="ssc num" style="color:${dc}">${r.sc}</span>
       <span class="sband mut">${esc(S_LABEL[r.band] || "")}</span>
+      ${scPend(r)}
       ${stT ? `<span class="sst" style="color:${SC_ST[stT.k] || "var(--mut)"}">${esc(stT.t)}</span>` : ""}
       ${r.at ? `<span class="mut sage num">${esc(ageShort(Date.now() - r.at))}</span>` : `<span class="mut sage">منذ هذه الدورة</span>`}
     </summary>

@@ -71,6 +71,89 @@ var ACT_MIN = 55;
 var S_BANDS = [55, 70, 85];
 var S_MARGIN = 3;
 var S_LABEL = ["ضعيف", "متوسط", "قوي", "قوي جداً"];
+/* =====================================================================
+   هيستريسس الاتجاه — `DIR_HOLD`.
+
+   `sBandStable` أعلاه تُثبِّت **قوّة** النتيجة، ولم يكن شيءٌ يُثبِّت
+   **جهتها**. و`tolOf` شريطٌ متماثلٌ بلا ذاكرة: يمنع الانقلاب *عند*
+   الخطّ ولا يمنعه *حوله*، فسعرٌ يتذبذب على جانبَي مستوىً يقلب `dir`
+   عند كل إغلاق شمعة. قِيس: ‎497‎ رحلةَ ذهابٍ وإياب في ‎24‎ ساعة،
+   ‎349‎ منها في `vwapRec` وحدها بوسيط حركةِ سعرٍ ‎0.22%‎ للرحلة كاملةً.
+
+   القياس على `data/strat/*.json` (سبعة أيام · ‎4,885‎ انقلاباً):
+
+   | مدّة بقاء الاتجاه بعد الانقلاب | ربيع١ | وسيط | ربيع٣ |
+   |---|---|---|---|
+   | انقلابٌ يعود أدراجه (ضجيج) | ‎7‎د | **‎17‎د** | ‎60‎د |
+   | انقلابٌ يثبت (إشارة) | ‎360‎د | **‎571‎د** | ‎960‎د |
+
+   والتوزيعان **منفصلان**: أقصى ربيعٍ للضجيج ‎60‎ دقيقة وأدنى ربيعٍ
+   للإشارة ستّ ساعات. فاشتراطُ صمودٍ ثلاث شمعات يقتل ‎70%‎ من التذبذب
+   و**لا يُلغي إشارةً واحدة** — يؤخّرها ‎45‎ دقيقة على انقلابٍ يدوم
+   تسع ساعاتٍ وسطيّاً.
+
+   **ولماذا الصمود لا النتيجة**: جُرّب أوّلاً اشتراطُ `sc` أعلى للانقلاب،
+   فخرج توزيعُ `sc` عند الانقلاب المتذبذب شبه مطابقٍ للثابت (وسيط ‎65‎
+   مقابل ‎70‎) وأفضلُ نسبة فائدة ‎1.80×‎ — أي أنه يُسكت من الإشارات
+   الصحيحة قريباً ممّا يُسكت من الضجيج. مقياسٌ ضعيف التمييز لا يصلح
+   بوابة، والصمود يفصل التوزيعين فصلاً تامّاً.
+
+   ---------------------------------------------------------------------
+   **والعدّ بالشمعات المغلقة المتمايزة لا بالدورات**: `evalStrategy`
+   تُنادى كل دقيقتين وتُغلق الشمعة كل خمس عشرة — فالعدّ بالنداءات يجعل
+   «ثلاثاً» تسع دقائق لا خمساً وأربعين، ويتبدّل معناه بتغيير دورة
+   المجدول. نفس قاعدة «أيُّ تجميعٍ على سلسلةٍ متدحرجة مفتاحُه الزمن لا
+   الموضع».
+
+   **والمرساة تنجو من السكون**: حين يعود `side` صفراً (لا إشارة) تُنشر
+   الحالةُ صامتة ولا تُمحى `ld`. بدون ذلك يصير المسار ‎+1 → 0 → −1‎
+   بابَ تحايلٍ يلتفّ على الهيستريسس كلّه، لأن الانقلاب يُقاس حينئذٍ
+   على صفرٍ لا على الجهة السابقة.
+
+   **وتُطبَّق حيث يطلبها المستدعي وحده** (`opt.hold`): CONFIRMED هو ما
+   يقرأه التوافق والترتيب فيأخذها، وLIVE بادجٌ خام يبقى كما كان —
+   وهما من `evalStrategy` نفسها بلا نسخة ثانية.
+   ===================================================================== */
+var DIR_HOLD = 3;
+
+/* ختمُ آخر شمعةٍ مغلقة لفريم — نظيرُ `closedPxOf` بالحرف، ومن نفس
+   السياق المقصوص فآخرُ عنصرٍ فيه مغلقٌ بالضرورة. */
+function closedBarTsOf(c, tf) {
+  var a = (c.ik && c.ik[tf]) || (c.k && c.k[tf]);
+  var b = (a && a.length) ? a[a.length - 1] : null;
+  return (b && Number.isFinite(b.t)) ? b.t : null;
+}
+
+/* القرار كلُّه هنا: يأخذ جهةَ `side` وحالةَ الدورة السابقة وختمَ
+   الشمعة، ويعيد الجهةَ المنشورة والحالةَ التالية. دالّةٌ خالصة —
+   تُختبر بمدخلاتٍ اصطناعية بلا سوقٍ ولا شبكة. */
+function dirHold(d, H, bar, need) {
+  need = Number.isFinite(need) ? need : DIR_HOLD;
+  H = H || {};
+  var ld = Number.isFinite(H.ld) ? H.ld : 0;
+  /* بلا مرساة فلا انقلاب: أوّل جهةٍ تُنشر فوراً. وكذلك الموافقة
+     والسكون — والمرساة تبقى في الحالتين. */
+  if (!ld || !d || d === ld)
+    return { dir: d, hold: { ld: d || ld, pd: 0, pn: 0, pb: 0 }, pend: null };
+
+  var same = H.pd === d;
+  /* **بلا ختمِ شمعةٍ لا إمساك.** العدّ بالشمعات المتمايزة، فختمٌ غير
+     معروف يعني عدّاداً لا يتقدّم أبداً — والاتجاه يبقى مُمسَكاً إلى
+     الأبد، وهو أسوأ من الانقلاب الذي بُنيت الآلية لمنعه. فحين يتعذّر
+     القياس تُنشر جهةُ `side` كما كانت قبل الآلية. */
+  if (!Number.isFinite(bar))
+    return { dir: d, hold: { ld: d, pd: 0, pn: 0, pb: 0 }, pend: null };
+  var newBar = Number.isFinite(bar) && Number.isFinite(H.pb) && bar > H.pb;
+  var pn = same ? (newBar ? (H.pn || 0) + 1 : (H.pn || 1)) : 1;
+  var pb = Number.isFinite(bar) ? Math.max(bar, H.pb || 0) : (H.pb || 0);
+
+  if (pn >= need) return { dir: d, hold: { ld: d, pd: 0, pn: 0, pb: 0 }, pend: null };
+  /* لم يصمد بعد — تُنشر الجهةُ السابقة ويُعلَن التربّص صراحةً.
+     إخفاؤه يجعل الشاشة تكتم انقلاباً جارياً، وهو معلومةٌ لا ضجيج. */
+  return { dir: ld, hold: { ld: ld, pd: d, pn: pn, pb: pb },
+           pend: { d: d, n: pn, of: need } };
+}
+
 
 function sBandOf(sc) {
   if (!Number.isFinite(sc)) return null;
@@ -372,13 +455,26 @@ function evalStrategy(st, c, opt) {
   if (why) return Object.assign(base, { off: why });
   var d;
   try { d = st.side(c); } catch (e) { d = 0; }
-  if (d !== 1 && d !== -1) return Object.assign(base, { off: null, quiet: true });
+
+  /* هيستريسس الاتجاه — في المسار الوحيد الذي تمرّ به العشر جميعاً.
+     يُطبَّق حين يمرّر المستدعي `opt.hold` (CONFIRMED) ولا يُطبَّق على
+     LIVE. وحين يُمسَك الاتجاه تُقيَّم البوابات على **الجهة المنشورة**
+     لا على جهة `side` — فالنتيجة المعروضة تصف ما يُعرض. */
+  var hold = null, pend = null;
+  if (opt.hold) {
+    var tfH = st.tfOf ? st.tfOf(c) : st.tf;
+    var h = dirHold(d, opt.hold, closedBarTsOf(c, tfH), opt.need);
+    d = h.dir; hold = h.hold; pend = h.pend;
+  }
+  if (d !== 1 && d !== -1)
+    return Object.assign(base, { off: null, quiet: true, hold: hold, pend: pend });
   var r = evalGates(st.gates, c, d, opt);
   if (!r) return Object.assign(base, { off: "لا بوابة صالحة — بياناتٌ ناقصة" });
   return Object.assign(base, {
     dir: d, sc: r.sc, g: r.g, w: r.w,
     tfUsed: st.tfOf ? st.tfOf(c) : st.tf,
     band: sBandStable(r.sc, opt.prev && opt.prev.band),
+    hold: hold, pend: pend,
     active: r.sc >= ACT_MIN,
     lv: st.levels ? st.levels(c, d) : null
   });
@@ -1355,9 +1451,16 @@ function evalAll(c, prevBy) {
    تستبدل `evalAll` في مستهلكيها الحاليين (`market-direction.mjs`،
    `check-strategies.mjs`، شاشة البحث الحيّة): هذه دالّةٌ إضافية، لا
    تغييرٌ في سلوك قائم — نفس مبدأ عدم كسر ميزةٍ عاملة لإصلاح أخرى. */
-function evalAllConfirmed(c) {
+/* نظيرُ `evalAll` بسعر CONFIRMED. `holdBy` مرساةُ هيستريسس الاتجاه لكل
+   استراتيجية — تأتي من الخادم ولا تُشتقّ هنا، لأنها تحتاج ذاكرةً
+   بالدورة السابقة والمتصفّح لا يملكها. نفس سبب مجيء `at` و`px0`
+   و`band` من الخادم: تركُها هنا يجعل البطاقة تعرض جهةً غير التي
+   نشرها الخادم، وهو خلافُ محرّكين لا إصلاحُ واحد. وبلا مرساة يعمل
+   كما كان بالضبط — فالمسار القديم لم يتغيّر. */
+function evalAllConfirmed(c, holdBy) {
   return STRATEGIES.map(function (st) {
-    return evalStrategy(st, confirmCtx(st, c), {});
+    var h = holdBy && holdBy[st.id];
+    return evalStrategy(st, confirmCtx(st, c), h ? { hold: h } : {});
   });
 }
 
@@ -1369,6 +1472,7 @@ if (typeof module !== "undefined" && module.exports) {
     STRATEGIES: STRATEGIES, STRAT_BY_ID: STRAT_BY_ID, FAMS: FAMS,
     ACT_MIN: ACT_MIN, S_BANDS: S_BANDS, S_MARGIN: S_MARGIN, S_LABEL: S_LABEL,
     sBandOf: sBandOf, sBandStable: sBandStable,
+    DIR_HOLD: DIR_HOLD, dirHold: dirHold, closedBarTsOf: closedBarTsOf,
     tolOf: tolOf, cmp: cmp, cmpD: cmpD, agree: agree, inRange: inRange,
     evalGates: evalGates, evalStrategy: evalStrategy, evalAll: evalAll,
     evalAllConfirmed: evalAllConfirmed,

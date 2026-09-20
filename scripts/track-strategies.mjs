@@ -98,6 +98,27 @@ const num = (v) => (Number.isFinite(v) ? v : null);
    ===================================================================== */
 export function stateKey(sym, id) { return sym + "|" + id; }
 
+/* =====================================================================
+   حالةُ هيستريسس الاتجاه — خريطةٌ مستقلّة عن `rows`، وسببُ استقلالها.
+
+   `rows` لا تحمل إلا ما تفعّل (`if (!rC.dir) continue`)، فالاستراتيجيةُ
+   الصامتة لا صفَّ لها — ولو حُفظت المرساة في الصفّ وحده لضاعت عند أوّل
+   سكون، فصار المسار ‎+1 → صمت → −1‎ يلتفّ على الهيستريسس كلّه. وهي
+   الحالة التي بُني لها أصلاً.
+
+   **وبمهلةٍ لا بالأبد**: استراتيجيةٌ صمتت ساعاتٍ ثم نطقت ليست منقلبة
+   بل مبتدئة، وإبقاءُ مرساتها يؤخّر إشارةً جديدةً بلا سبب. والمهلة
+   تُبقي الخريطة صغيرة أيضاً — بلا ذلك تحمل ‎10‎ استراتيجيات × ‎1155‎
+   رمزاً وأغلبُها صامتٌ أبداً.
+
+   وتُخزَّن مصفوفةً لا كائناً: أربعةُ أرقامٍ وختم، بمفتاحٍ واحد — نفس
+   سبب حزم الشمعات. */
+const HOLD_TTL = 60 * 60e3;
+const packHold = (h, ts) => [h.ld, h.pd || 0, h.pn || 0, h.pb || 0, Math.round(ts / 1000)];
+const unpackHold = (a) => (Array.isArray(a) && a.length >= 4)
+  ? { ld: a[0], pd: a[1], pn: a[2], pb: a[3] } : null;
+
+
 export function carryState(prev, r, now, px) {
   const sameDir = prev && prev.dir === r.dir;
   return {
@@ -186,6 +207,13 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   const prevFile = readJSON(path.join(out, "strategies.json"), { rows: [] });
   const prevBy = {};
   for (const r of prevFile.rows || []) prevBy[stateKey(r.s, r.st)] = r;
+  /* مرساةُ الهيستريسس من الخريطة المستقلّة، وبمهلة. والصفُّ القائم
+     مرساةٌ بنفسه (`ld === row.dir` دائماً) فيُغني عن تخزينه. */
+  const holdPrev = {}, holdNext = {};
+  for (const [k, v] of Object.entries(prevFile.hold || {})) {
+    const h = unpackHold(v);
+    if (h && (Date.now() - v[4] * 1000) < HOLD_TTL) holdPrev[k] = h;
+  }
 
   const edgeFile = readJSON(path.join(out, "strategy-edge.json"));
   const edge = {};
@@ -302,7 +330,14 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
          الوحيد لا يتغيّر بين دورتي أسعار ما لم تُغلَق شمعةٌ جديدة،
          فهي ثابتةٌ تلقائياً بلا حاجة لتجميدٍ يدويّ. هذا ما يقرأه
          التوافق والترتيب والثقة — لا يتحرّك بتذبذب السعر اللحظي. */
-      const rC = S.evalStrategy(st, S.confirmCtx(st, c), {});
+      /* الهيستريسس على CONFIRMED وحده — وهو ما يقرأه التوافق والترتيب.
+         وLIVE أدناه بادجٌ خام يبقى بلا إمساك كما كان. */
+      const hPrev = holdPrev[key] || (prev && prev.dir ? { ld: prev.dir } : null);
+      const rC = S.evalStrategy(st, S.confirmCtx(st, c), { hold: hPrev || {} });
+      /* تُلتقط الحالة **قبل** شرط التفعيل أدناه: الصامتةُ لا صفَّ لها
+         ومرساتُها هي بالضبط ما يجب ألّا يضيع. */
+      if (rC.hold && rC.hold.ld) holdNext[key] = packHold(rC.hold, now);
+      else if (hPrev && hPrev.ld) holdNext[key] = packHold(hPrev, now);
       if (rC.off === S.UNCONFIRMED) { unconfirmed++; unconfirmedSyms.add(row.s); }
       if (!rC.dir || !Number.isFinite(rC.sc)) continue;     // لم يتفعّل أو متعذّر
 
@@ -325,7 +360,9 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
         at: carried.at, px0: carried.px0, act: !!rC.active,
         // LIVE — تكميليٌّ لا يُستهلَك في التوافق ولا الترتيب
         ldir: rL.dir || 0, lsc: Number.isFinite(rL.sc) ? rL.sc : null, lband,
-        g: rC.g, lv, pAt: Math.round(now / 1000)
+        g: rC.g, lv, pAt: Math.round(now / 1000),
+        // انقلابٌ قيد التثبّت — يُقال ولا يُكتم، ولا يُكتب حين لا وجود له
+        ...(rC.pend ? { pend: [rC.pend.d, rC.pend.n, rC.pend.of] } : {})
       });
 
       // ----- التسلسل — CONFIRMED وحده -----
@@ -383,21 +420,32 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
     ? fs.readdirSync(path.join(out, "strat")).filter(f => f.endsWith(".json")).length : 0;
   const nextSyms = Object.keys(trends).length;
 
+  /* لا يُخزَّن من الحالة إلا ما لا يُشتقّ من الصفّ: الصفُّ القائم
+     مرساةٌ بنفسه (`ld === row.dir`)، فتخزينُه تكرارٌ يُثقل ملفّاً
+     يُقرأ عند فتح التبويب. يبقى المتربّص — وهو نادرٌ بطبيعته — والصامتُ
+     الذي لا صفَّ له، وهو وحده سببُ وجود الخريطة أصلاً. */
+  const rowKeys = new Set(rows.map(r => stateKey(r.s, r.st)));
+  const holdKeep = {};
+  for (const [k, v] of Object.entries(holdNext))
+    if (v[1] !== 0 || !rowKeys.has(k)) holdKeep[k] = v;
+
   return { rows, trends, stillOpen, history, now,
-           confBar,
+           confBar, holdNext: holdKeep,
            stats: { symbols, skipped, rows: rows.length, added, closed,
                     trendSyms: nextSyms, prevSyms, onlyPrice,
                     unconfirmed, unconfirmedSyms: unconfirmedSyms.size } };
 }
 
 export function writeOut(res, out = OUT) {
-  const { rows, trends, stillOpen, history, now, stats, confBar } = res;
+  const { rows, trends, stillOpen, history, now, stats, confBar, holdNext } = res;
   fs.mkdirSync(path.join(out, "strat"), { recursive: true });
 
   fs.writeFileSync(path.join(out, "strategies.json"), JSON.stringify({
     updated: now, priceAt: now, count: rows.length,
     // ختمُ الشمعة التي حُسب عليها CONFIRMED (بالثواني) — تعرضه الواجهة
     ...(confBar ? { confBar } : {}),
+    ...(holdNext && Object.keys(holdNext).length ? { hold: holdNext } : {}),
+    dirHold: S.DIR_HOLD,
     actMin: S.ACT_MIN, bands: S.S_BANDS, labels: S.S_LABEL,
     strategies: S.STRATEGIES.map(s => ({ id: s.id, lbl: s.lbl, fam: s.fam, tf: s.tf, why: s.why, src: s.src })),
     fams: C.REGIMES ? S.FAMS : S.FAMS,
