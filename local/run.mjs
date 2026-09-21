@@ -124,7 +124,7 @@ function noteSkip(job, blocker, waited, outcome) {
    الدورة يجعل تشغيلين ينتظران نفس القفل فيتراكمان بلا نهاية.
    ===================================================================== */
 const WAIT_CAP = {          // ثوانٍ — أقلّ من دورة كل مهمة
-  quotes: 110, strategies: 110, signals: 110, mdir: 110,
+  quotes: 110, strategies: 110, signals: 110, mdir: 110, confirm: 240,
   market: 540, filings: 240, news: 240,
   options: 1500,
   daily: 3000, backtest: 3000, stratbt: 3000
@@ -395,12 +395,18 @@ else {
      يقدّم `confBar` كل دقيقتين بينما `cbar` ينتظر دورة السوق، فتفترق
      الشمعتان. والإمساك هو الصواب: الخطأ أن تُمزج شمعتان لا أن تتأخّر
      اللقطة. ووجودُه هناك يلتقط الحالة التي يصادف فيها التوافق. */
+  if (cmd === "confirm") process.env.FAST_CONFIRM = "1";
   const jobs = cmd === "quotes" ? ["fetch-quotes.mjs", "track-strategies.mjs --only-price", "build-opportunities.mjs"]
              // التتبّع بعد الشمعات مباشرة: يقرأ summary.json الذي كتبته
              // للتوّ، بلا أي طلب شبكة — فتُثبَّت الإشارة لحظة ظهورها
              : cmd === "market" ? ["fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "build-opportunities.mjs", "market-direction.mjs", "fetch-news.mjs"]
              : cmd === "signals" ? ["track-signals.mjs"]
              : cmd === "opps" ? ["build-opportunities.mjs"]
+             /* التأكيد السريع: ‎15د‎ للطبقة الحيّة ثم المحرّك ثم اللقطة.
+                يُجدول عند حدّ الشمعة بالضبط، فتصل الشمعةُ الجديدة
+                المستخدمَ في ثوانٍ بدل دقائق. ولا يمسّ السعر اللحظي أيَّ
+                حساب: هو نفسه `fetch-market` بفريمٍ واحد. */
+             : cmd === "confirm" ? ["fetch-market.mjs", "track-strategies.mjs", "build-opportunities.mjs"]
              : cmd === "strategies" ? ["track-strategies.mjs", "build-opportunities.mjs", "market-direction.mjs"]
              /* توجّه السوق: بلا شبكة — يقرأ ملفات الرموز المكتوبة للتوّ.
                 يلي `track-strategies` لا يسبقه: كلاهما يقرأ نفس الملفات،

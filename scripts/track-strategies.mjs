@@ -281,6 +281,29 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
 
   let added = 0, symbols = 0, skipped = 0, unconfirmed = 0, confBar = 0;
   const unconfirmedSyms = new Set();
+
+  /* =====================================================================
+     **ساعةُ التأكيد تُشتقّ من `cbar` لا من ساعة الحائط.**
+
+     `cbar` يكتبه `fetch-market` مرّةً كل دورة سوق، وهذا الملفّ يُكتب
+     كل دورة أسعار. فبساعة الحائط يتقدّم التأكيد هنا بمجرّد أن تُغلق
+     شمعةٌ، ويبقى `cbar` على شمعتها حتى دورة السوق التالية — فيصف
+     الملفّان شمعتين، وبوّابةُ لقطة الفرص تشترط تساويهما فتُجاع.
+
+     وقع فعلاً: تجمّدت لقطة الفرص **ساعةً و‎46‎ دقيقة** (‎07:30Z‎ حتى
+     ‎09:16Z‎) وكلُّ محاولةٍ تُسجَّل «المصدران على شمعتين».
+
+     فالساعة هنا = لحظةٌ بعد إغلاق شمعة `cbar` بقليل. فيختار
+     `closedBars` تلك الشمعة بالضبط، ويتساوى `confBar` و`max(cbar)`
+     **بالبناء**. و`now` نفسها لا تُمسّ: الجلسة والنوافذ والطزاجة كلُّها
+     تُقاس بساعة الحائط كما كانت — المتغيّر هو اختيارُ الشمعة وحده.
+
+     وبلا `cbar` في الملخّص (أوّل تشغيل) تبقى ساعة الحائط — سلوكٌ سابقٌ
+     لا ينكسر. */
+  let cbarMax = 0;
+  for (const r of all) if (Number.isFinite(r.cbar)) cbarMax = Math.max(cbarMax, r.cbar);
+  const cnow = cbarMax ? (cbarMax + 900) * 1000 + 1 : null;
+  if (cnow) info("scanner", `ساعة التأكيد مثبَّتة على شمعة ${new Date(cbarMax * 1000).toISOString().slice(11, 16)}Z (من cbar)`);
   for (const row of all) {
     const rec = readJSON(path.join(out, "sym", `${row.s}.json`));
     if (!rec) { skipped++; continue; }
@@ -295,7 +318,8 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
     const mkt = rec.mkt || row.mkt || null;
     const sess = sessionOf(now, mkt);
     const win = currentWindow(now, mkt);
-    const c = S.buildCtx({ rec, row, now, px, sess, win, sessOf: (t) => sessionOf(t, mkt) });
+    const c = S.buildCtx({ rec, row, now, px, sess, win, cnow,
+                           sessOf: (t) => sessionOf(t, mkt) });
     const opt = onlyPrice ? { only: "price" } : {};
 
     /* =====================================================================
