@@ -287,13 +287,39 @@ function validateData() {
   const sum = read("summary.json"), mkt = read("market.json");
   if (!Array.isArray(sum.rows) || sum.rows.length < 40)
     throw new Error(`summary.json فيه ${(sum.rows || []).length} صفاً فقط — مرفوض`);
+  /* =====================================================================
+     البوّابة **نسبيّة لا كلٌّ أو لا شيء** — وهذا تصحيحٌ لا إضعاف.
+
+     غرضُها المعلَن: ألّا تُنشر بياناتٌ ناقصة فوق بياناتٍ سليمة عند
+     **انهيار الشبكة**. أمّا صيغتُها الأولى فكانت ترفض النشر إن خلا
+     **صفٌّ واحد** من سعرٍ حيّ — وهو ما وقع فعلاً: رمزان من Binance
+     (`牛来-USD` و`PUMP-USD`) توقّفا عن التسعير، فمُنع النشر **كلُّه**
+     خمساً وعشرين دقيقة، وتوقّفت لقطة الفرص عن الوصول، وأخفق اختبار
+     الإثبات المباشر بـ«لم يظهر مفتاحٌ جديد».
+
+     وهي نفس مصيدة `بوابةٌ بالتساوي التامّ تنكسر عند أول توسّع`: شرطٌ
+     مطلق على كونٍ متغيّر يُسقط النظام على أوّل رمزٍ يموت.
+
+     فالنسبة ‎2%‎ مع سقفٍ مطلق: انهيارُ الشبكة يُسقط المئات فيُرفض،
+     ورمزٌ أو رمزان ميتان يُذكران بالاسم ويمرّان. **والصفُّ بلا سعرٍ
+     حيّ ليس صفّاً بلا بيانات**: `pc` فيه إغلاقُ شمعة التأكيد، وهو ما
+     يُقاس عليه أصلاً — والسعر المعروض يسقط إليه.
+
+     ولا تُسكت البوّابة: الأسماء تُعاد في `info` ليُنقّى الكون منها. */
   const bad = sum.rows.filter(r => !r.s || !Number.isFinite(r.p) || r.p <= 0);
-  if (bad.length) throw new Error(`صفوف بأسعار غير صالحة: ${bad.map(b => b.s).join(", ")}`);
+  const BAD_MAX = Math.max(5, Math.ceil(sum.rows.length * 0.02));
+  if (bad.length > BAD_MAX)
+    throw new Error(`${bad.length} صفّاً بأسعار غير صالحة من ${sum.rows.length} (السقف ${BAD_MAX}) — مرفوض: ${bad.slice(0, 8).map(b => b.s).join(", ")}`);
+  /* والصفُّ بلا `pc` كذلك بلا شيء يُقاس عليه — ذاك رفضٌ مطلق ولو كان
+     واحداً: لا سعرَ حيّاً ولا إغلاقاً مؤكَّداً يعني صفّاً فارغاً. */
+  const empty = sum.rows.filter(r => (!Number.isFinite(r.p) || r.p <= 0) && (!Number.isFinite(r.pc) || r.pc <= 0));
+  if (empty.length) throw new Error(`صفوف بلا سعرٍ حيّ ولا إغلاقٍ مؤكَّد: ${empty.map(b => b.s).join(", ")}`);
   if (!mkt.status) throw new Error("market.json بلا حالة سوق");
   const files = fs.readdirSync(path.join(DATA, "sym")).length;
   if (files < 40) throw new Error(`${files} ملف سهم فقط في data/sym — مرفوض`);
   const stale = sum.rows.filter(r => r.stale).length;
-  return { rows: sum.rows.length, files, stale, updated: sum.updated };
+  return { rows: sum.rows.length, files, stale, updated: sum.updated,
+           noLive: bad.map(b => b.s) };
 }
 
 function publish() {
