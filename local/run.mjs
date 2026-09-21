@@ -330,7 +330,11 @@ function publish() {
    */
   // `.run.skips.json` تشخيصٌ محلّي لجدولةِ هذا الجهاز — لا معنى له على
   // الويب، والموقع المنشور لا جدولة له أصلاً
-  const NO_PUBLISH = new Set([".run.lock", ".run.skips.json", "i18n.json", "cik.json"]);
+  /* و`opportunities-log.json` سجلُّ تدقيقٍ لبوّابة اللقطة — يُقرأ عند
+   التشخيص ولا تطلبه الواجهة. و`.opportunities.tmp.json` ملفُّ الكتابة
+   الذرّية، ووجودُه عابر. */
+  const NO_PUBLISH = new Set([".run.lock", ".run.skips.json", "i18n.json", "cik.json",
+                              "opportunities-log.json", ".opportunities.tmp.json"]);
   let skipped = 0;
   for (const n of NO_PUBLISH) {
     if (n.startsWith(".run.")) continue;      // حالةُ خادمٍ لا حجمَ يُعلَن
@@ -382,12 +386,22 @@ else {
   // الأخبار مع كل تحديث سوق: دورتها دقائق لا يوم، وهي أرخص جزء في
   // التشغيل (بضع خلاصات RSS) فلا تكلّف شيئاً أن تُرافق الأسعار
   const rest = process.argv.slice(3).filter(a => a !== "--publish");
-  const jobs = cmd === "quotes" ? ["fetch-quotes.mjs", "track-strategies.mjs --only-price"]
+  /* `build-opportunities` **يلي `track-strategies` مباشرةً في دورة
+     السوق**، وهذا ليس ترتيباً اعتباطياً: بوّابتُه تشترط أن يصف
+     `summary.json` و`strategies.json` الشمعةَ نفسها، وهما يتحقّقان
+     بالضرورة حين يُكتبان في التشغيل الواحد من نفس الملفّات.
+
+     وفي دورة الأسعار يُشغَّل أيضاً — ويُمسك في الغالب: `--only-price`
+     يقدّم `confBar` كل دقيقتين بينما `cbar` ينتظر دورة السوق، فتفترق
+     الشمعتان. والإمساك هو الصواب: الخطأ أن تُمزج شمعتان لا أن تتأخّر
+     اللقطة. ووجودُه هناك يلتقط الحالة التي يصادف فيها التوافق. */
+  const jobs = cmd === "quotes" ? ["fetch-quotes.mjs", "track-strategies.mjs --only-price", "build-opportunities.mjs"]
              // التتبّع بعد الشمعات مباشرة: يقرأ summary.json الذي كتبته
              // للتوّ، بلا أي طلب شبكة — فتُثبَّت الإشارة لحظة ظهورها
-             : cmd === "market" ? ["fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "market-direction.mjs", "fetch-news.mjs"]
+             : cmd === "market" ? ["fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "build-opportunities.mjs", "market-direction.mjs", "fetch-news.mjs"]
              : cmd === "signals" ? ["track-signals.mjs"]
-             : cmd === "strategies" ? ["track-strategies.mjs", "market-direction.mjs"]
+             : cmd === "opps" ? ["build-opportunities.mjs"]
+             : cmd === "strategies" ? ["track-strategies.mjs", "build-opportunities.mjs", "market-direction.mjs"]
              /* توجّه السوق: بلا شبكة — يقرأ ملفات الرموز المكتوبة للتوّ.
                 يلي `track-strategies` لا يسبقه: كلاهما يقرأ نفس الملفات،
                 والترتيب يجعل السجلَّ يُثبَّت قبل أن يُقرأ للعرض. */

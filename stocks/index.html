@@ -1942,6 +1942,7 @@ details[open]{background:var(--card2)}
      المخزَّنة. يقرؤها ترتيبُ الكون وبطاقةُ السهم وقسمُ «توجه السوق» —
      ثلاثةُ مستهلكين، فنسخةٌ واحدة -->
 <script src="confluence.js"></script>
+<script src="opportunities.js"></script>
 <script>
 "use strict";
 
@@ -1963,7 +1964,7 @@ const AR = "ar-EG-u-nu-latn";
 const state = {
   summary: null, wide: null, market: null, fund: null, news: null,
   symCache: {}, view: "now", sym: null, activeTF: "1h",
-  strategies: null, stratEdge: null,
+  strategies: null, stratEdge: null, opps: null,
   lastOk: 0, busy: false, liveAt: 0, liveOn: false,
   favs: [], favOnly: false, hover: null, from: "list", scan: null,
   optCache: {}, opts: null, arch: null, live: null, events: null, signals: null,
@@ -4662,6 +4663,13 @@ const LAZY = {
   "news.json": (n) => { state.news = n; renderNews(); if (state.sym) renderSymNews(); },
   /* لحظاتُ بدء الإشارات — المتصفح يحسب النتيجة بنفسه ولا يستطيع أن
      يعرف متى بدأت، فهذه المعلومة التاريخية لا بديل عنها. */
+  /* لقطةُ الفرص — مصدرُ القائمة الوحيد. تُبنى على الخادم مرّةً لكل
+     شمعة، فإعادةُ رسمها عند وصولها ترسم القائمة **مرّةً واحدة**. */
+  "opportunities.json": (j) => {
+    if (!j || !j.scans) return;
+    state.opps = j;
+    if (state.view === "screen") renderScreen();
+  },
   "strategies.json": (j) => {
     if (!j || !Array.isArray(j.rows)) return;
     state.strategies = j;
@@ -4733,6 +4741,10 @@ const LAZY_TTL = {
   "filings.json": 5 * 60e3,         // دورةٌ مستقلّة كل عشر دقائق
   /* دورةُ الأسعار تكتبه كل دقيقتين، وهو مصدر «متى بدأت الإشارة» —
      فصلاحيةٌ أطول تجعل العمر المعروض متأخّراً عن الحقيقة. */
+  /* تُكتب عند تقدّم مفتاح الشمعة فقط، لكن الكتابة قد تتأخّر عن
+     الإغلاق بدورة سوق. فالصلاحية قصيرة والملفّ لا يتغيّر إلا حين
+     يتغيّر فعلاً — فإعادةُ الجلب رخيصة ونادرةُ الأثر. */
+  "opportunities.json": 60e3,
   "strategies.json": 90e3,
   "strategy-edge.json": 6 * 3600e3, // يُبنى مع الدورة اليومية
   "market-dir.json": 5 * 60e3       // يُكتب مع دورة السوق (عشر دقائق)
@@ -7175,129 +7187,59 @@ function renderScreen() {
 
   const el = $("#scanList");
   if (!state.summary) { el.innerHTML = `<div class="empty">جارِ التحميل…</div>`; return; }
-  /* الطبقة الواسعة تُطلب هنا لا بعد الحارس: الشرط الموسوم `wide`
-     يمسح الكون كاملاً، وقائمةٌ تُرسم قبل وصوله تعرض ‎8‎ صفوف ثم تصير
-     ‎51‎ — وهو «رموزٌ تدخل وتخرج» كما يراه المستخدم. */
-  const wideReady = !!(state.wide && state.wide.rows && state.wide.rows.length);
-  if (scan.wide && !wideReady) need("wide.json");
+
   /* =====================================================================
-     الترتيب المعروض يعتمد ثلاثة ملفّات كسولة، ورسمُه قبل وصولها يعرض
-     **ترتيباً مؤقّتاً يُستبدل بعد أقلّ من ثانية**.
+     **المصدر الوحيد لهذه القائمة لقطةٌ ذرّية من الخادم — لا حسابٌ هنا.**
 
-     `go("screen")` يطلب الملفّات ثم يرسم فوراً، وكلُّ ملفٍّ يصل يعيد
-     الرسم. فالقائمة تُعاد ثلاث مرّات في كل فتحة، وهو ما يراه المستخدم
-     «انقلاباً»: قِيس على الموقع المنشور أنّ وصول `strategies.json`
-     وحده يحرّك **437 صفّاً** بإزاحةٍ تبلغ **14 مرتبة** وفارقٍ يبلغ
-     **15 نقطة** في الدرجة المعروضة — وأنّ صدارة مسحَين تتبدّل
-     (`pullback`: CSX ← RTX · `cheap`: HON ← SMCI).
+     كان الترتيب يُحسب في المتصفّح عند كل رسم من `summary.json` و
+     `strategies.json` و`fundamentals.json` و`wide.json`. وهي أربعة
+     ملفّات يكتبها جدولان بإيقاعين (‎10‎ دقائق و‎دقيقتان‎) والشمعة
+     ثالثةٌ (‎15‎ دقيقة)، فلا يقسم أحدها الآخر:
 
-     ولا علاقة لهذا بإغلاق الشمعة، ولهذا لم تمسَّه إصلاحاتُ التأكيد:
-     الشمعة ثابتة والبيانات ثابتة، والمتغيّر **أيُّ الملفّات وصل**.
+       ٢٣:٤٥ أُغلقت الشمعة → ٢٣:٤٦ `confBar` يتقدّم → ٢٣:٥١ `cbar` يتقدّم
 
-     فالانتظار أصدق من ترتيبٍ مؤقّت: ثمنُه ~800 مللي في أوّل فتحة،
-     ومقابلُه ألّا يُعرض ترتيبٌ يُنقض. و**الفشل ليس انتظاراً**: `need`
-     تحذف `lazyWait[f]` عند الخطأ، فالملفّ الساقط يخرج من هذا الشرط
-     وتُعرض القائمة بترتيب المسح الخام مع سطرها المعلَن — وهو التدهور
-     الهادئ نفسه بلا تغيير.
+     فخمسُ دقائق في كل ربع ساعة يصف فيها الملفّان شمعتين مختلفتين،
+     والقائمة مزجُهما. قِيس على الإنتاج ‎2026-09-20‎ بين ‎23:51‎ و
+     ‎23:57‎ — والشمعة لم تُغلق: `NEAR-USD` ‎82 → 85‎، و`ARB-USD` خرج،
+     و`BTC-USD` و`PENDLE-USD` دخلا.
 
-     ومهلةٌ عليا تحرس من شبكةٍ تتعلّق: انتظارٌ بلا سقف يترك الشاشة
-     هيكلاً إلى الأبد، وهي أسوأ من ترتيبٍ يُعدَّل. */
-  const RANK_DEPS = [
-    ["fundamentals.json", !!(state.fund && state.fund.f)],
-    ["strategies.json",   !!(state.strategies && Array.isArray(state.strategies.rows))],
-    ["strategy-edge.json", !!state.stratEdge]
-  ].concat(scan.wide ? [["wide.json", wideReady]] : []);
-  /* «لم يُطلب بعد» يُطلب هنا ثم يُنتظر، و«سقط» يمضي بالتدهور الهادئ —
-     وفحصُ `lazyWait` وحده كان يخلط الأولى بالثالثة فيمرّ الحارس. */
-  const pending = RANK_DEPS.filter(([f, ready]) => {
-    if (ready || lazyFail[f]) return false;
-    if (!lazyWait[f]) need(f);
-    return true;
-  }).map(([f]) => f);
-  /* المؤقّت **لنوبة الانتظار لا للجلسة**: مفتاحُه مجموعةُ الملفّات
-     المنتظَرة. فجلبٌ يتعلّق ولا ينتهي (لا نجاحاً ولا فشلاً) كان يترك
-     `scanWaitAt` على قيمته إلى الأبد، فتبدأ كلُّ نوبةٍ تالية وقد
-     استُنفدت ميزانيتُها — فيعود بالضبط ما بُني الحارس لمنعه. */
-  const waitKey = pending.join(",");
-  if (pending.length) {
-    if (scanWait.key !== waitKey) { scanWait.key = waitKey; scanWait.at = Date.now(); }
-    if (Date.now() - scanWait.at < SCAN_WAIT_MAX) {
-      el.innerHTML = `<div class="skl" style="height:64px"></div><div class="skl" style="height:64px;margin-top:8px"></div><div class="skl" style="height:64px;margin-top:8px"></div>`;
-      const c = $("#scanCount");
-      if (c) c.textContent = "يُحسب الترتيب النهائي — بانتظار " + bd(pending.length) + " ملفّ";
-      const b = $("#scanExport"); if (b) b.style.display = "none";
-      /* ولا يبقى صفُّ مسحٍ سابق في `lastScanRows`: `state.scan` تبدّل
-         سلفاً، فالتصدير كان يسمّي الملفّ بالمسح الجديد ويكتب صفوف
-         القديم. */
-      state.lastScanRows = [];
-      return;
-    }
-  } else scanWait.key = null;
+     وحارسُ التأجيل السابق لم يكن ليكفي: هو يؤخّر العرض ولا يثبّت
+     المحتوى. فما دام الحساب هنا على ملفّات متحرّكة، تتحرّك القائمة.
 
-  const F = (state.fund && state.fund.f) || {};
-  const fs = fundScores();
-  const ctx = { secMed: (fs && fs.secMed) || {} };
+     الآن: `data/opportunities.json` تُبنى على الخادم مرّةً لكل شمعة
+     (`scripts/build-opportunities.mjs`) ببوّابةٍ ترفض الكتابة إن لم
+     يتقدّم `candleKey`، والمتصفّح **يقرأ ويعرض**. والسعر اللحظي يُعرض
+     سعراً فقط ولا يدخل عضويةً ولا ترتيباً ولا درجة. */
+  const OPP = state.opps;
+  if (!OPP || !OPP.scans) {
+    need("opportunities.json");
+    el.innerHTML = `<div class="skl" style="height:64px"></div><div class="skl" style="height:64px;margin-top:8px"></div><div class="skl" style="height:64px;margin-top:8px"></div>`;
+    const c0 = $("#scanCount"); if (c0) c0.textContent = "لقطة الفرص تُجلب…";
+    const b0 = $("#scanExport"); if (b0) b0.style.display = "none";
+    state.lastScanRows = [];
+    return;
+  }
 
-  /* الشرط الموسوم `wide` يمرّ على الكون كاملاً (510 رمزاً) لا على
-     المرصودة وحدها (97). وغيابُ الملف تدهورٌ هادئ: يُطلب كسولاً ويُمسح
-     على ما وصل، فتكتمل النتيجة عند وصوله بلا تعطيل. */
-  let pool = (scan.wide && wideReady) ? allRows() : state.summary.rows;
+  /* السعر والتغيّر **للعرض وحدهما**، ويُؤخذان من الطبقتين إن توفّرا —
+     وإلا فسعرُ الإغلاق المثبَّت في اللقطة. لا يمسّان أيّ حساب. */
+  const liveBy = {};
+  for (const r of state.summary.rows) liveBy[r.s] = r;
+  for (const r of (state.wide && state.wide.rows) || []) if (!liveBy[r.s]) liveBy[r.s] = r;
   /* نوع السوق فلترٌ مستقلٌّ عن شرط الفرصة، ويُطبَّق على المجمَّع الخام
      قبل أي حساب — لا شكلياً بعد العرض. التصنيف من `r.mkt` نفسه الذي
      يميّز الكريبتو في كل مكانٍ آخر بالتطبيق (الاتساع، القوائم، ترتيب
      الكون)، لا تصنيفٌ جديد يتباعد عنها بأول تعديل. */
+  /* نوعُ السوق مرشّحُ **عرض** لا مدخلُ حساب: يُطبَّق على صفوف اللقطة
+     ولا يعيد ترتيبها. كان الترتيب يُعاد داخل كل نوع، فدرجةُ الرمز
+     تتغيّر بإخفاء رموزٍ أخرى — ودرجةٌ تتبدّل بتغيير مرشّحِ عرضٍ ليست
+     درجةَ الرمز. والتصنيف من `mkt` المحفوظ في اللقطة نفسها. */
   const mktSel = ($("#scrMkt") && $("#scrMkt").value) || "all";
-  if (mktSel === "us") pool = pool.filter(r => r.mkt !== "crypto");
-  else if (mktSel === "crypto") pool = pool.filter(r => r.mkt === "crypto");
-  // الصفّ الواسع يُعرَف بانتمائه لا بغياب حقلٍ فيه: `!r.ar` تكسر بأول
-  // رمزٍ أساسيّ بلا اسم عربي
-  const core = new Set(state.summary.rows.map(r => r.s));
+  let hits = (OPP.scans[scan.id] || []).slice();
+  if (mktSel === "us") hits = hits.filter(r => r.mkt !== "crypto");
+  else if (mktSel === "crypto") hits = hits.filter(r => r.mkt === "crypto");
 
-  let hits = [];
-  for (const r of pool) {
-    try { if (scan.test(scanRow(r), F[r.s], ctx)) hits.push(r); } catch (e) { /* حقل ناقص — تخطَّ الرمز */ }
-  }
-  // كل مسح يرتّب بمقياسه: الحجم بمضاعف الحجم، والأرباح بالأقرب موعداً.
-  // الترتيب بالنتيجة الفنية دائماً كان يضع 1.50× فوق 2.38× في مسح الحجم.
-  const key = (r) => { try { return scan.rank ? scan.rank(scanRow(r), F[r.s], ctx) : -(r.score ?? -999); } catch (e) { return Infinity; } };
-  hits.sort((a, b) => {
-    const x = key(a), y = key(b);
-    return (isFinite(x) ? x : Infinity) - (isFinite(y) ? y : Infinity);
-  });
-
-  /* =====================================================================
-     درجةُ الفرصة = رتبتُها في المسح ‎±‎ توافقُ الاستراتيجيات العشر.
-
-     **لماذا الرتبة المئوية لا قيمة `scan.rank` نفسها**: المقياس يختلف
-     بين مسحٍ وآخر — سعرٌ هنا وRSI هناك ومضاعفُ حجمٍ في ثالث، وكلُّها
-     تصاعدية. فضربُها أو جمعُها بمعاملِ توافقٍ خلطُ وحدات يعطي رقماً
-     بلا معنى. أما الرتبة فبلا وحدة وتصلح لكل المسوح بصيغةٍ واحدة.
-
-     والأساس يبقى المسح: التوافق يزيح **±15 نقطة من مئة** فيفرّق بين
-     المتقاربين ولا يقلب القائمة، وهو بالضبط معنى «تعزيزٌ أو إضعاف لا
-     تغييرٌ لطبيعة النظام».
-
-     وبلا `strategies.json` لا تعديل — `scs = null` تمرّ من
-     `oppQualityOf` بلا مساس، ويُقال ذلك في سطر العدد بدل أن يُخفى. */
-  const confReady = !!stratIndex();
-  const E = confReady ? scEdge() : null;
   let nAdj = 0;
-  if (hits.length) {
-    const denom = Math.max(1, hits.length - 1);
-    hits.forEach((r, i) => {
-      const base = 1 - (i / denom);              // 0..1 — الأفضل 1
-      const sn = confReady ? consSnapshot(r.s, E) : null;
-      const sc = sn ? scsFrom(sn.cons) : { scs: null, pct: null, dir: 0, mixed: false };
-      const od = oppDirOf(r, F, ctx);
-      const q = oppQualityOf(base, sc.scs, od ? od.dir : null);
-      r._conf = { scs: sc.scs, pct: sc.pct, dir: sc.dir, mixed: sc.mixed,
-                  sd: od ? od.dir : null, adj: q.adj, q: q.q,
-                  n: sn ? sn.res.filter(x => x.dir && x.active).length : 0 };
-      if (q.adj) nAdj++;
-    });
-    // الترتيب النهائي بالدرجة تنازلياً، والرتبة الخام تفصل عند التساوي
-    hits.sort((a, b) => (b._conf.q - a._conf.q) || (key(a) - key(b)));
-  }
+  for (const r of hits) if (r.adj) nAdj++;
 
   // نتائج المسح الأخير تُحفظ للتصدير: إعادةُ بنائها في زرّ التصدير
   // تعني نسخةً ثانية من الشرط والترتيب تتباعد بأول تعديل
@@ -7326,9 +7268,13 @@ function renderScreen() {
   }
 
   el.innerHTML = hits.map((r, i) => {
-    const col = !isFinite(r.chg) ? "var(--mut)" : r.chg > 0 ? "var(--up)" : r.chg < 0 ? "var(--dn)" : "var(--mut)";
-    let v = "";
-    try { v = scan.val(scanRow(r), F[r.s], ctx) || ""; } catch (e) {}
+    /* السعر والتغيّر من الطبقة الحيّة إن وُجدا — **عرضاً فقط**. وإلا
+       فإغلاقُ شمعة التأكيد المحفوظ في اللقطة: رقمٌ حقيقي لا ملفّق. */
+    const lr = liveBy[r.s];
+    const px = lr && Number.isFinite(lr.p) ? lr.p : r.pc;
+    const chg = lr && Number.isFinite(lr.chg) ? lr.chg : null;
+    const col = !isFinite(chg) ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
+    const v = r.v || "";           // قيمةُ المسح محسوبةٌ على الخادم عند إغلاق الشمعة
     const sg = openSig[r.s];
     // الطزاجة بجانب العمر: «قبل يومين» رقمٌ يحتاج ترجمة، و🟠 متأخرة
     // ترجمتُه بمقياس فريم الشرط نفسه
@@ -7340,7 +7286,7 @@ function renderScreen() {
     /* سطرُ التوافق: الأثر **بالنقاط** لا بوصف. ويُقال في ثلاث حالات
        مختلفة لا واحدة — مؤيّد، مخالف، متعارض — والرابعة (لا إشارة)
        تُترك بلا سطر: صفٌّ يقول «لا شيء» عن كل رمزٍ يملأ القائمة ضجيجاً. */
-    const cf = r._conf || {};
+    const cf = r;                 // حقولُ التوافق في صفّ اللقطة نفسه
     let conf = "";
     if (cf.mixed) {
       conf = `<div class="n" style="color:var(--mut)">الاستراتيجيات متعارضة — لا تعديل</div>`;
@@ -7359,62 +7305,43 @@ function renderScreen() {
       <div class="id">
         <div class="t">${esc(nm(r))}</div>
         <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}${
-          core.has(r.s) ? "" : ` · <span style="color:var(--mut)">يوميّ فقط</span>`}</div>
+          r.wide ? ` · <span style="color:var(--mut)">يوميّ فقط</span>` : ""}</div>
         ${since}${conf}
       </div>
       <div class="hitv">${esc(v)}${Number.isFinite(cf.q)
         ? `<div class="n" style="color:var(--dim)">درجة <span class="num">${
             Math.round(cf.q * 100)}</span></div>` : ""}</div>
       <div class="px">
-        <div class="p num">${money(r.p)}</div>
-        <div class="c num" style="color:${col}">${pct(r.chg)}</div>
+        <div class="p num">${money(px)}</div>
+        <div class="c num" style="color:${col}">${chg === null ? "—" : pct(chg)}</div>
       </div>
     </div>`;
   }).join("");
   /* المقام هو ما مُسح فعلاً لا ما نملكه: «5 من 97» بينما مُسح 510
-     يصف نسبةً لم تُحسب. وحالةُ الطبقة تُقال وهي تُجلب. */
+     يصف نسبةً لم تُحسب. والعددُ من اللقطة نفسها لا من حالة المتصفّح. */
   const unitWordN = mktSel === "crypto" ? "عملة" : mktSel === "us" ? "سهماً" : "رمزاً";
   const mktNote = mktSel === "us" ? " (الأسهم فقط)" : mktSel === "crypto" ? " (العملات فقط)" : "";
-  const scope = scan.wide
-    ? (wideReady ? `${bd(pool.length)} ${unitWordN}${mktNote} (الكون كاملاً)` : `${bd(pool.length)} ${unitWordN}${mktNote} · الطبقة الواسعة تُجلب…`)
-    : `${bd(pool.length)} ${unitWordN}${mktNote}`;
-  /* حالةُ التوافق تُقال صراحةً: ترتيبٌ عُدِّل بـ‎n‎ صفّاً، أو ترتيبُ
-     المسح الخام لأن اللقطة لم تصل. إخفاؤها يجعل ترتيبين مختلفين
-     يبدوان واحداً. */
-  /* وحين تسقط الحوافُّ **يُقال إن الأوزان محايدة**: بلا هذا يقرأ
-     المستخدم ترتيباً مبنيّاً على وزنٍ ‎1.0‎ لكل استراتيجية وهو يظنّه
-     مبنيّاً على حافّتها المقيسة (‎0.4..1.8‎) — وهي نفس قاعدة «الوزن
-     مقيسٌ أو محايد ولا شيء بينهما، و`edge: null` بوسمٍ ظاهر». */
-  const edgeOff = confReady && !state.stratEdge;
-  const confNote = !confReady
-    ? " · لقطة الاستراتيجيات تُجلب — الترتيب بالمسح وحده"
-    : (nAdj ? ` · التوافق عدّل ${bd(nAdj)} صفّاً (±15 نقطة)${edgeOff ? " بأوزانٍ محايدة — تعذّر جلب الحوافّ المقيسة" : ""}`
-            : " · لا توافق يعدّل الترتيب الآن");
+  const src = OPP.sources || {};
+  const poolN = scan.wide ? (src.liveRows || 0) + (src.wideRows || 0) : (src.liveRows || 0);
+  const scope = `${bd(poolN)} ${unitWordN}${mktNote}${scan.wide ? " (الكون كاملاً)" : ""}`;
+  const confNote = nAdj ? ` · التوافق عدّل ${bd(nAdj)} صفّاً (±15 نقطة)`
+                        : " · لا توافق يعدّل الترتيب الآن";
   /* =====================================================================
-     على أيّ شمعةٍ حُسبت هذه القائمة؟ — **إثباتٌ يقرؤه المستخدم لا وعدٌ
-     نصّيٌّ بالثبات.**
+     **الإثبات الذي يقرؤه المستخدم بنفسه.**
 
-     القاعدة المعلنة أن القائمة لا تتبدّل قبل إغلاق شمعةٍ جديدة، وأصدقُ
-     ما يُثبتها أن يُعرض ختمُ الشمعة نفسها: من يرى ترتيبين مختلفين
-     بفارق خمس دقائق يقارن ختمَيهما بنفسه فيعرف أوقع إغلاقٌ بينهما أم
-     لا. وهو نظيرُ `confirmedOn` في بطاقة الاستراتيجيات بالحرف.
+     ختمُ الشمعة وبصمةُ الصفوف معاً: من يرى قائمتين مختلفتين بفارق
+     دقائق يقارن الختمَين والبصمتين فيعرف أوقع إغلاقٌ بينهما أم لا.
+     وبصمةٌ ثابتة مع ختمٍ ثابت تعني أن **لا شيء تغيّر** — وهو وعدٌ
+     قابلٌ للتكذيب لا عبارةٌ مطمئنة.
 
-     و**أحدثُ** ختمٍ في القائمة لا أقدمُه: رموز الطبقة الواسعة على شمعةٍ
-     يومية وحدها، فأقدمُها يصف أبطأ صفٍّ لا القائمة. و`cbar` بالثواني
-     كما يكتبه `fetch-market`. */
-  /* والختمُ **أحدثُ ما يحكم القائمة** لا ختمُ الملخّص وحده: `cbar`
-     يكتبه `fetch-market` كلَّ عشر دقائق، و`confBar` يكتبه محرّك
-     الاستراتيجيات كلَّ دقيقتين بساعته هو — والشمعة تُغلق بمرور الوقت
-     لا بوصول بيانات. فقد يتقدّم المحرّك شمعةً كاملة قبل أن يتقدّم
-     الملخّص (قِيس فارق ‎15‎ دقيقة)، فيتغيّر ترتيبٌ والختمُ ثابت — وهو
-     بعينه شكلُ العلّة المُصلَحة، يُقرأ خللاً وهو إغلاقٌ مشروع. */
-  const bars = hits.map(r => r.cbar).filter(Number.isFinite);
-  const sBar = state.strategies && state.strategies.confBar;
-  if (Number.isFinite(sBar)) bars.push(sBar);
-  const barNote = bars.length
-    ? ` · على إغلاق شمعة ${esc(stamp(Math.max(...bars) * 1000))}` : "";
+     والختمُ من `candleKey` في اللقطة وحدها: كان يُشتقّ من `max(cbar)`
+     مع `confBar`، وهما مصدران بإيقاعين — فيتقدّم أحدهما ويبقى الآخر،
+     فيتغيّر ترتيبٌ والختمُ ثابت. الآن مصدرٌ واحد لا يتحرّك إلا مع
+     الصفوف لأنه الذي يحكم كتابتها. */
+  const barNote = Number.isFinite(OPP.candleKey)
+    ? ` · على إغلاق شمعة ${esc(stamp(OPP.candleKey * 1000))} · بصمة ${esc(String(OPP.rowsHash || "").slice(0, 8))}` : "";
   $("#scanCount").textContent =
-    `${bd(hits.length)} من ${scope}${confNote}${barNote} · حُدّثت ${ago(state.summary.updated)}`;
+    `${bd(hits.length)} من ${scope}${confNote}${barNote} · بُنيت ${ago(OPP.generatedAt)}`;
 }
 
 function renderEarnings() {

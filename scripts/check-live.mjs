@@ -59,6 +59,9 @@ const h12 = (x) => createHash("sha256").update(x).digest("hex").slice(0, 12);
    بعد تعطيل الحارس. فالحوافُّ أبطأُ الأربعة عمداً.
    ===================================================================== */
 const LAG = {
+  /* اللقطة أبطأُ ما يُنتظر: هي القائمة نفسها، وتأخيرُها يختبر أن
+     الواجهة تعرض هيكلاً ولا تخترع ترتيباً مؤقّتاً. */
+  "opportunities.json": 1900,
   "strategies.json":     700,
   "fundamentals.json":  1400,
   "wide.json":          1400,
@@ -97,7 +100,7 @@ try {
   const page = await ctx.newPage();
   page.on("pageerror", e => errs.push(String(e.message)));
   page.on("console", m => { if (m.type() === "error") errs.push("console: " + m.text().slice(0, 160)); });
-  await page.route(/(strategies|strategy-edge|fundamentals|wide)\.json/, lagRoute);
+  await page.route(/(opportunities|strategies|strategy-edge|fundamentals|wide)\.json/, lagRoute);
   await page.goto(base + "?fresh=" + Date.now(), { waitUntil: "domcontentloaded" });
 
   /* ══ ١) الشيفرة المنشورة = شيفرة القرص ══
@@ -134,7 +137,7 @@ try {
     }, null, { timeout: 20000 }).catch(() => { /* المهلة العليا — تُقاس كما هي */ });
     firstVisible[id] = await page.evaluate((i) => {
       state.scan = i; renderScreen();
-      return (state.lastScanRows || []).map(r => r.s + "/" + (r._conf ? Math.round(r._conf.q * 100) : "-"));
+      return (state.lastScanRows || []).map(r => r.s + "/" + (Number.isFinite(r.q) ? Math.round(r.q * 100) : "-"));
     }, id);
   }
   await page.waitForTimeout(4500);
@@ -142,7 +145,7 @@ try {
     const o = {};
     for (const sc of SCANS) {
       state.scan = sc.id; renderScreen();
-      o[sc.id] = (state.lastScanRows || []).map(r => r.s + "/" + (r._conf ? Math.round(r._conf.q * 100) : "-"));
+      o[sc.id] = (state.lastScanRows || []).map(r => r.s + "/" + (Number.isFinite(r.q) ? Math.round(r.q * 100) : "-"));
     }
     return o;
   });
@@ -178,12 +181,47 @@ try {
   px.length ? no("تذبذب السعر اللحظي لا يحرّك القائمة", px.join(" · "))
             : ok("تذبذب السعر اللحظي لا يحرّك القائمة", "11 مسحاً · ±0.6% سعراً و+40% حجماً");
 
+  /* ══ ٣ب) اللقطة ذرّية: بصمتُها ومفتاحُها وتطابقُ المعروض معها ══
+     ثلاثةُ أسئلة لا سؤال: هل الصفوف المعروضة **هي** صفوف اللقطة؟ وهل
+     البصمة المحفوظة تطابق الصفوف فعلاً (فلا تشهد لنفسها)؟ وهل مفتاح
+     الشمعة ربعُ ساعةٍ صحيح؟ */
+  const snap = await page.evaluate(() => {
+    const o = state.opps;
+    if (!o) return { missing: true };
+    const shown = {};
+    for (const sc of SCANS) {
+      state.scan = sc.id; renderScreen();
+      shown[sc.id] = (state.lastScanRows || []).map(r => r.s + "/" + Math.round(r.q * 100));
+    }
+    const fromSnap = {};
+    for (const id of Object.keys(o.scans)) fromSnap[id] = o.scans[id].map(r => r.s + "/" + Math.round(r.q * 100));
+    const mism = Object.keys(fromSnap).filter(k => JSON.stringify(fromSnap[k]) !== JSON.stringify(shown[k] || []));
+    return { missing: false, candleKey: o.candleKey, rowsHash: o.rowsHash,
+             strategyVersion: o.strategyVersion, count: o.count,
+             canon: (typeof oppsCanon === "function") ? oppsCanon(o.scans) : null,
+             mism };
+  });
+  if (snap.missing) no("لقطة الفرص موجودة ومقروءة");
+  else {
+    snap.mism.length
+      ? no("المعروض هو صفوف اللقطة بالحرف", snap.mism.join(" · "))
+      : ok("المعروض هو صفوف اللقطة بالحرف", Object.keys(snap.mism).length === 0 ? "11 مسحاً" : "");
+    const q = snap.candleKey % 900;
+    q === 0 ? ok("مفتاح الشمعة على حدّ ربع ساعة", new Date(snap.candleKey * 1000).toISOString().slice(0, 16) + "Z")
+            : no("مفتاح الشمعة على حدّ ربع ساعة", "باقٍ " + q + " ثانية");
+    if (snap.canon) {
+      const h = createHash("sha256").update(snap.canon).digest("hex").slice(0, 12);
+      h === snap.rowsHash ? ok("البصمة المحفوظة تطابق الصفوف فعلاً", h)
+                          : no("البصمة المحفوظة تطابق الصفوف فعلاً", `محفوظة ${snap.rowsHash} · محسوبة ${h}`);
+    }
+  }
+
   /* ══ ٤) اتجاه الإجماع لا ينقلب بوصول ملفّ الحوافّ ══
      **صفحةٌ جديدة إلزاماً**: الصفحة أعلاه استُهلك فيها التأخير فصار
      الملفّان محمَّلين، فقراءةٌ فيها تقيس حالةً واحدة مرّتين. والنافذة
      المقصودة بين وصول اللقطة ووصول الحوافّ ولا تُعاد فتحُها. */
   const p2 = await ctx.newPage();
-  await p2.route(/(strategies|strategy-edge|fundamentals|wide)\.json/, lagRoute);
+  await p2.route(/(opportunities|strategies|strategy-edge|fundamentals|wide)\.json/, lagRoute);
   await p2.goto(base + "?dir=" + Date.now(), { waitUntil: "domcontentloaded" });
   await p2.waitForFunction(
     () => { try { return !!(state && state.summary && state.summary.rows.length); } catch { return false; } },
