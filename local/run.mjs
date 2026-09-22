@@ -315,10 +315,26 @@ function validateData() {
   const empty = sum.rows.filter(r => (!Number.isFinite(r.p) || r.p <= 0) && (!Number.isFinite(r.pc) || r.pc <= 0));
   if (empty.length) throw new Error(`صفوف بلا سعرٍ حيّ ولا إغلاقٍ مؤكَّد: ${empty.map(b => b.s).join(", ")}`);
   if (!mkt.status) throw new Error("market.json بلا حالة سوق");
+  /* =====================================================================
+     عمقُ الفريمات — بوّابةٌ كانت غائبة، فنُشرت بياناتٌ منقوصة ‎19‎ دقيقة
+     من كل ثلاثين بلا أن يعترض شيء.
+
+     `tfScore` بمفتاحين تعني أن `allTF` (تشترط أربعةً بالضبط) لا يمكن أن
+     تتحقّق، وأن `atr`/`rsi`/`e200`/`adx`/`div` — وكلُّها من `an["1d"]` —
+     تُنشر `null`. أي أن الموقع يعرض سعراً وشارتاً ونتيجةً متّسقة كلُّها
+     محسوبةٌ على نصف بياناتها. والبوّابة تفحص العدد والسعر والحالة وعدد
+     الملفّات ولا تفحص هذا، فالمنقوص يمرّ.
+
+     والسقف أرخى من سقف اللقطة (‎90%‎) عن قصد: بوّابةٌ حادّة هنا تُجيع
+     النشرَ كما جاع برمزين ميتين، وأثرُ التأخير في النشر أسوأ من صفوفٍ
+     قليلة ناقصة — أمّا الانحدار الشامل فيُرفض. */
+  const four = sum.rows.filter(r => Object.keys(r.tfScore || {}).length === 4).length;
+  if (four < sum.rows.length * 0.70)
+    throw new Error(`${four} من ${sum.rows.length} صفّاً بأربعة فريمات — بياناتٌ منقوصة العمق، لن تُنشر`);
   const files = fs.readdirSync(path.join(DATA, "sym")).length;
   if (files < 40) throw new Error(`${files} ملف سهم فقط في data/sym — مرفوض`);
   const stale = sum.rows.filter(r => r.stale).length;
-  return { rows: sum.rows.length, files, stale, updated: sum.updated,
+  return { rows: sum.rows.length, files, stale, updated: sum.updated, four,
            noLive: bad.map(b => b.s) };
 }
 
@@ -330,7 +346,7 @@ function publish() {
     console.error("    شغّل  node local/run.mjs both  أولاً، ولا تنشر قبل أن تمرّ.\n");
     return 1;
   }
-  console.log(`  ✓ ${info.rows} صفاً · ${info.files} ملف سهم · ${info.stale} قديماً`);
+  console.log(`  ✓ ${info.rows} صفاً · ${info.four} بأربعة فريمات · ${info.files} ملف سهم · ${info.stale} قديماً`);
   if (info.stale > info.rows / 2)
     console.warn("  ⚠ أكثر من نصف الرموز قديمة محلياً — الأفضل تحديثها قبل النشر");
 

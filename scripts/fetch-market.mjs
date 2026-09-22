@@ -264,6 +264,52 @@ function stale(prev, tf, now, live = false) {
    والطبقة الواسعة اليوميَّ وحده. جلب 500 رمز × 3 فريمات كل عشر دقائق
    يستدعي 429 حتى من شبكة منزلية، واليوميُّ وحده يكفي للبحث ولمستويات
    الدعم والمقاومة و52 أسبوعاً — وهو كل ما يُطلب من رمز خارج المرصودة. */
+/* =====================================================================
+   `frames` تختار ما **يُجلَب**، لا ما يُحفَظ. والخلط بينهما محا نصف
+   بيانات الكون كلَّ ربع ساعة.
+
+   حلقةُ الجلب كانت الموضع الوحيد الذي يُنقل فيه الفريم المحفوظ من
+   `prev`، فالفريم الذي لا يُذكر في `frames` يسقط من الملفّ المكتوب.
+   ووضعُ التأكيد السريع كان يمرّر `["15m"]`، فكلُّ تشغيلٍ منه يكتب
+   `data/sym/*.json` **بلا الفريم الساعي ولا اليومي**:
+
+     · `an` بفريمين ⇒ `tfScore` بمفتاحين، و`allTF` في `scans.js` تشترط
+       أربعة بالضبط ⇒ «توافق الفريمات ▲» و«▼» بصفر صفّ، وهما أكثر
+       الشروط تحقّقاً. قِيس: ‎68‎ و‎24‎ صفّاً صارت ‎0‎ و‎0‎.
+     · `atr`/`rsi`/`e20`/`e50`/`e200`/`adx`/`div`/`squeeze` تُشتقّ كلُّها
+       من `an["1d"]` ⇒ `null` للكون كلّه ⇒ `pullback` و`divBull`/`divBear`
+       و`oversold` تسقط، و`volc` يغيب فيُقاس `vol` على حجمٍ لحظيّ
+       (‎113 → 9‎ صفّاً).
+     · `overallScore` على فريمين لا أربعة: `NVDA` ‎78.82 ↔ 85.29‎ و`JPM`
+       ‎16.47 ↔ 41.18‎ — **بلا حركة سعر**، كلَّ خمس عشرة دقيقة.
+     · وثلاث استراتيجيات من عشر تسقط (`tfAlign` و`momo` و`pbTrend`)
+       فيتبدّل عددُ المتوافقة ومعه اتجاهُ الإجماع.
+
+   ولا شيء يبدو معطّلاً: السعر حيّ والشارت يتحرّك والأرقام في مداها —
+   نفس مصيدة «الأرقام تبدو صحيحة» مطبَّقةً على **عمق البيانات**. ودليلُها
+   المحكوم أن رموز `bench` تأخذ `FULL` دائماً، فحفظت `SPY` أربعة فريمات
+   وفقد `NVDA` فريمين **في التشغيل الواحد**.
+
+   وقائمةُ السماح `TFS` لا نسخُ `prev.tf` كلِّه: التصميم يتعمّد أن
+   «المفتاح الذي لا يُذكر يسقط» كي يُنقّى فريمٌ أُزيل من المشروع (كما
+   ‎5د‎). القائمة تُبقي التنقية وتمنع فقدان المعروف. */
+function carryFrames(prev, rec) {
+  for (const tf of TFS) if (prev?.tf?.[tf]?.c?.length) rec.tf[tf] = prev.tf[tf];
+  return rec;
+}
+
+/* بوّابة سلامة: فريمٌ كان محفوظاً ولا يُعاد كتابته ليس تحديثاً بل فقدان.
+   تُرمى فيُعَدّ الرمز فاشلاً ويبقى ملفُّه السليم كما هو — «لا تُكتب
+   بيانات فوق بيانات سليمة»، وهي بعينها البوّابة التي كانت ستكشف العلّة
+   أعلاه في أوّل تشغيل. ولا تُطلق إلا على انحدارٍ حقيقيّ: مرجعُها `TFS`
+   نفسها، فإن تقاعد فريمٌ منها تقاعدت معه. */
+function guardFrames(prev, rec) {
+  const lost = TFS.filter(tf => prev?.tf?.[tf]?.c?.length && !rec.tf[tf]?.c?.length);
+  if (lost.length)
+    throw new Error("فقدُ فريمات محفوظة (" + lost.join(",") + ") — لن نكتب فوق ملفٍّ أكمل");
+  return rec;
+}
+
 async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15m"], tier = "core", extBatch = null) {
   const sym = meta.s;
   const prev = readJSON(path.join(prevDir, "sym", `${sym}.json`));
@@ -276,6 +322,8 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   for (const o of Object.values(prev?.tfx || {})) if (o?.c) o.c = unpackCandles(o.c);
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
   if (meta.mkt) rec.mkt = meta.mkt;
+  /* المحفوظ أولاً ثم يكتب المجلوبُ فوقه — فلا يسقط فريمٌ لم يُطلب */
+  carryFrames(prev, rec);
   let touched = false, errors = [], usedTD = false;
   // سلسلة الساعة كاملةً قبل القصّ — تُستعمل لاشتقاق 4h ولا تُخزَّن
   let full1h = null;
@@ -519,7 +567,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   rec.band = bandStable(rec.score, prev?.band);
   rec.stale = !touched;
   if (errors.length) rec.errors = errors;
-  return rec;
+  return guardFrames(prev, rec);
 }
 
 /* ---------- التشغيل ---------- */
@@ -576,27 +624,38 @@ async function main() {
      **وضعُ التأكيد السريع** — `FAST_CONFIRM=1`.
 
      لقطةُ الفرص لا تتقدّم حتى يتقدّم `cbar`، و`cbar` يُشتقّ من الفريم
-     الأدقّ (‎15د‎). فكلُّ ما تحتاجه الشمعةُ الجديدة كي تصل المستخدم هو
-     **إعادةُ جلب ‎15د‎ للطبقة الحيّة**: الساعة والأربع ساعات واليوميّ
-     لم تُغلق شمعاتُها بعد (`stale` تتخطّاها أصلاً)، والطبقة الواسعة
-     يوميّةٌ بحكم بنائها.
+     الأدقّ (‎15د‎). فيُشغَّل هذا الوضع عند حدّ الشمعة بالضبط كي تصل
+     الشمعةُ الجديدة المستخدمَ في دقائق لا في نصف ساعة.
 
-     فالوضع السريع يُسقط الواسعة ويقصر الفريمات على ‎15د‎، فيهبط زمنُ
-     الدورة من دقائق إلى ثوانٍ — ويُشغَّل عند حدّ الشمعة بالضبط، بينما
-     تبقى الدورة الكاملة كلَّ ربع ساعة لبقية الفريمات والأخبار.
+     **والفريماتُ هي `FULL` كما في الدورة الكاملة، لا ‎15د‎ وحده.** كانت
+     مقصورةً على ‎15د‎ بحجّة أن `stale` تتخطّى البقية أصلاً — وهي حجّةٌ
+     صحيحة عن **الجلب** طُبِّقت خطأً على **الحفظ**: `frames` كانت تحكم
+     الاثنين، فكان كلُّ تشغيلٍ سريع يمحو الساعيَّ واليوميَّ من القرص
+     (انظر `carryFrames`). و`carryFrames` تمنع الفقدان، وردُّ `FULL`
+     يزيد عليه أنّ إغلاق الشمعة الساعية يصل المستخدم في ربع ساعة بدل
+     نصف — وهو ما طلبه صاحب المشروع نصّاً: التأكيد على **إغلاق** شمعات
+     الأربعة لا على شمعةٍ قيد التكوّن.
 
+     والكلفةُ لا تتضاعف: `stale` هي من يقرّر ما يُجلَب فعلاً (‎15د‎
+     دائماً · الساعيّ كلَّ ‎55‎ دقيقة · اليوميّ كلَّ ‎30‎ دقيقة أثناء
+     الجلسة). بل **تنقص**: الشرط `if (!rec.tf["1d"])` كان يُطلق طلب
+     Stooq فاشلاً لكلّ رمزٍ في كل تشغيلٍ سريع (‎223‎ طلباً كلَّ ربع
+     ساعة)، وقد سقط بسقوط سببه.
+
+     فالمتغيّر الباقي في هذا الوضع شيئان: إسقاطُ الطبقة الواسعة —
+     يوميّةٌ بحكم بنائها وتُدوَّر في الدورة الكاملة — ورفعُ التوازي.
      ولا نسخةَ ثانية من المنطق: نفس `buildSymbol` ونفس `stale` ونفس
-     بوّابات الكتابة — المتغيّر قائمةُ الوظائف وحدها. */
+     بوّابات الكتابة. */
   const FULL = ["1d", "1h", "15m"];
   const jobs = FAST ? [
-    ...chosen.map(m => ({ m, frames: ["15m"], tier: "core" })),
-    ...cryptoAll.map(m => ({ m, frames: ["15m"], tier: "core" }))
+    ...chosen.map(m => ({ m, frames: FULL, tier: "core" })),
+    ...cryptoAll.map(m => ({ m, frames: FULL, tier: "core" }))
   ] : [
     ...chosen.map(m => ({ m, frames: FULL, tier: "core" })),
     ...cryptoAll.map(m => ({ m, frames: FULL, tier: "core" })),
     ...wideDue.map(m => ({ m, frames: ["1d"], tier: "wide" }))
   ];
-  if (FAST) console.log(`  وضع التأكيد السريع: ‎15د‎ للطبقة الحيّة وحدها (${jobs.length} رمزاً · بلا الواسعة)`);
+  if (FAST) console.log(`  وضع التأكيد السريع: الفريمات الأربعة للطبقة الحيّة (${jobs.length} رمزاً · بلا الواسعة)`);
 
   // 1) دفعة الأسعار.
   // ترتيب المصدر يتبع مكان التشغيل كما في الشموع: Finnhub المجاني طلبٌ لكل
@@ -965,6 +1024,18 @@ function selfCheck() {
   const t = (name, fn) => { try { fn(); console.log(`  ✓ ${name}`); pass++; } catch (e) { console.log(`  ✗ ${name} — ${e.message}`); fail++; } };
   const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`); };
 
+  /* =====================================================================
+     مجلّد البيانات **الذي يقرؤه التطبيق فعلاً**، لا `OUT` الافتراضي.
+
+     `OUT` بلا `--out` هو `ROOT/out` — مجلّدٌ تجريبيّ يتركه أيُّ قياسٍ
+     سابق. وُجد فيه فعلاً ملخّصٌ عمره سبع عشرة ساعة و‎227‎ ملفَّ رمز،
+     فكانت فحوصُ البيانات تشهد لبياناتٍ **لا يقرؤها أحد** وتمرّ.
+
+     وكُشف ذلك بأن فحصَ الفريمات الجديد اتّهم `AAPL` بفقد `4h` وملفُّها
+     في `data/` يحمله — «أداةُ القياس تُختبر قبل أن يُستنتج منها». */
+  const DATA_DIR = (args.indexOf("--out") >= 0 || !fs.existsSync(path.join(ROOT, "data", "sym")))
+    ? OUT : path.join(ROOT, "data");
+
   /* الخاصيّة لا الرقم: `!== 90` كان يُسقط الفحص عند إضافة أيّ مرشّح،
      فيدفع إلى تخفيف الفحص بدل قراءته. المطلوب أن يكفي المرشّحون للاختيار
      منهم وأن يكون لكلٍّ حقولُه — لا أن يبقى العدد كما كان يوم كُتب. */
@@ -1190,13 +1261,13 @@ function selfCheck() {
        والفحص على البيانات المكتوبة فعلاً لا على النيّة. */
     const proxies = (cfg.indices || []).map(i => i.proxy).filter(Boolean);
     if (!proxies.length) return;
-    const sfile = path.join(OUT, "summary.json");
+    const sfile = path.join(DATA_DIR, "summary.json");
     if (!fs.existsSync(sfile)) { console.log("      (لا بيانات محلية — تُخطّى)"); return; }
     const sum = JSON.parse(fs.readFileSync(sfile, "utf8"));
     for (const p of proxies)
       if ((sum.rows || []).some(r => r.s === p))
         throw new Error(`${p} تسرّب إلى summary.rows — سيُحسب داخل اتساع السوق`);
-    const mfile = path.join(OUT, "market.json");
+    const mfile = path.join(DATA_DIR, "market.json");
     if (fs.existsSync(mfile)) {
       const m = JSON.parse(fs.readFileSync(mfile, "utf8"));
       for (const p of proxies)
@@ -1206,6 +1277,94 @@ function selfCheck() {
     // ولا تُعدّ الطبقة الثالثة في المقام: `allJobs` تجمعها، و`jobs` وحدها
     // هي مقام «نجح كذا من كذا»
     eq(typeof benchMeta === "undefined", true, "benchMeta محلّية في main لا عالمية");
+  });
+
+  t("`frames` تختار ما يُجلَب لا ما يُحفَظ — الفريم غير المطلوب يبقى", () => {
+    /* العلّة التي عاش عليها الموقع تسعَ عشرة دقيقة من كل ثلاثين:
+       `frames: ["15m"]` كانت تكتب ملفّ الرمز بلا الساعيّ واليوميّ، فتخرج
+       `tfScore` بمفتاحين و«توافق الفريمات» بصفر صفّ.
+
+       والفحص على `carryFrames` نفسها لا على تشغيلٍ كامل: نقلُ المحفوظ
+       قرارٌ واحد، واختبارُه هنا يُسقط الانحدار بلا شبكة. */
+    const bar = (t) => ({ t, o: 1, h: 2, l: 0.5, c: 1.5, v: 10 });
+    const prev = { tf: { "1d": { updated: 1, c: [bar(1)] }, "1h": { updated: 2, c: [bar(2)] },
+                         "4h": { updated: 3, c: [bar(3)] }, "15m": { updated: 4, c: [bar(4)] },
+                         "5m": { updated: 5, c: [bar(5)] } } };
+    const rec = { tf: {} };
+    carryFrames(prev, rec);
+    eq(Object.keys(rec.tf).sort(), [...TFS].sort(), "الفريمات الأربعة تُنقل كلُّها");
+    /* وقائمةُ السماح تُبقي تنقية المتقاعد: ‎5د‎ أُزيل من المشروع، ونسخُ
+       `prev.tf` كلِّه كان سيُعيده إلى الملفّات إلى الأبد. */
+    if ("5m" in rec.tf) throw new Error("فريمٌ متقاعد نُقل — قائمة السماح لا تعمل");
+    /* والنقل بالمرجع لا بالنسخ: ‎260‎ شمعة × ‎1155‎ رمزاً في كل تشغيل */
+    if (rec.tf["1d"] !== prev.tf["1d"]) throw new Error("النقل يجب أن يكون بالمرجع");
+    /* ورمزٌ جديد بلا محفوظ لا يخترع شيئاً */
+    const fresh = { tf: {} };
+    carryFrames(null, fresh);
+    eq(Object.keys(fresh.tf).length, 0, "بلا محفوظٍ لا نقل");
+  });
+
+  t("بوّابة الفقدان ترمي ولا تكتب فوق ملفٍّ أكمل", () => {
+    const bar = { t: 1, o: 1, h: 2, l: 0.5, c: 1.5, v: 10 };
+    const four = () => Object.fromEntries(TFS.map(tf => [tf, { updated: 1, c: [bar] }]));
+    const prev = { tf: four() };
+    guardFrames(prev, { tf: four() });                    // المكتمل يمرّ
+    /* والناقص يُرمى ولو كان فريماً واحداً — ويُفحص كلُّ فريمٍ على حدة
+       كي لا يمرّ الفحص بفريمٍ واحدٍ محظوظ */
+    for (const tf of TFS) {
+      const t2 = four(); delete t2[tf];
+      let threw = false;
+      try { guardFrames(prev, { tf: t2 }); } catch { threw = true; }
+      if (!threw) throw new Error(`فقدُ ${tf} مرّ بلا اعتراض`);
+    }
+    /* ورمزٌ بلا ملفٍّ سابق لا يُحاكم: أوّل جلبٍ له يبدأ بفريمٍ واحد */
+    guardFrames(null, { tf: { "15m": { updated: 1, c: [bar] } } });
+    guardFrames({ tf: {} }, { tf: { "15m": { updated: 1, c: [bar] } } });
+  });
+
+  t("الكون الحيّ المحفوظ يحمل الفريمات الأربعة — مسحٌ كامل لا عيّنة", () => {
+    /* فحصٌ على **البيانات المكتوبة** لا على المنطق: أيُّ مسارٍ يُفقد
+       فريماً يُكشف هنا وإن لم يكن `frames`.
+
+       والمسحُ على الكون الحيّ كاملاً — «فحصٌ يختار عيّنته بالأبجدية ليس
+       فحصاً»: أوائل `data/sym` كلُّها كريبتو، وخللٌ في الأسهم لا يظهر في
+       أربعين ملفّاً أوّل. والطبقةُ الواسعة مستثناة بحقّ (يوميُّها وحده
+       يُجلب)، والملفّات اليتيمة لرموزٍ خرجت من `symbols.json` لا يقرؤها
+       التطبيق ولا تُعاد كتابتها — تُستثنى ويُعلَن عددها.
+
+       والبوّابة **نسبيّة**: رمزٌ جُلب أوّل مرّةٍ يبدأ بفريمٍ واحد
+       (`needRank` مبنيّةٌ على ذلك)، فشرطٌ مطلق يفشل على تنصيبٍ جديد. */
+    const dir = path.join(DATA_DIR, "sym");
+    if (!fs.existsSync(dir)) { console.log("      (لا بيانات محلية — تُخطّى)"); return; }
+    const live = new Set([...(cfg.symbols || []), ...(cfg.crypto || [])].map(x => x.s)
+      .concat((cfg.indices || []).map(i => i.proxy).filter(Boolean)));
+    let ok = 0, orphan = 0, wide = 0;
+    const wideSet = new Set((cfg.wide || []).map(x => x.s));
+    const bad = [];
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith(".json")) continue;
+      const s = f.slice(0, -5);
+      if (wideSet.has(s)) { wide++; continue; }
+      if (!live.has(s)) { orphan++; continue; }
+      let rec; try { rec = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")); } catch { continue; }
+      const miss = TFS.filter(tf => !rec.tf?.[tf]?.c?.length);
+      if (miss.length) bad.push(`${s}(${miss.join(",")})`); else ok++;
+    }
+    const tot = ok + bad.length;
+    if (!tot) { console.log("      (لا رمز حيّ محفوظ — تُخطّى)"); return; }
+    if (bad.length > Math.ceil(tot * 0.10))
+      throw new Error(`${bad.length} من ${tot} بفريماتٍ ناقصة — ${bad.slice(0, 6).join(" ")}`);
+    /* والملخّص هو ما تقرؤه الشروط: `allTF` تشترط أربعةً بالضبط، فنسبةُ
+       الصفوف الرباعية هي بعينها سقفُ ما يمكن أن تراه القائمة. */
+    const sfile = path.join(DATA_DIR, "summary.json");
+    if (fs.existsSync(sfile)) {
+      const rows = (JSON.parse(fs.readFileSync(sfile, "utf8")).rows) || [];
+      const four = rows.filter(r => Object.keys(r.tfScore || {}).length === 4).length;
+      if (rows.length && four < rows.length * 0.90)
+        throw new Error(`${four} من ${rows.length} صفٍّ بأربعة فريمات — «توافق الفريمات» يسقط بلا سبب`);
+      console.log(`      (${ok}/${tot} ملفّاً كاملاً · ${four}/${rows.length} صفّاً رباعياً` +
+                  `${orphan ? ` · ${orphan} يتيماً` : ""} · ${wide} واسعاً مستثنى)`);
+    }
   });
 
   t("السلسلة الممتدة لا تُغيّر النتيجة الفنية ولا تدخل `an`", () => {

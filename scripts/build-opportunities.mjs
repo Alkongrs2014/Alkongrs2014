@@ -47,6 +47,9 @@ const { buildOpps, oppsCanon, candleKeyAt } = require("../stocks/opportunities.j
 const IS_MAIN = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 const OUT = process.env.OPP_OUT || path.join(ROOT, "data");
 const sha12 = (s) => createHash("sha256").update(s).digest("hex").slice(0, 12);
+/* أدنى نسبةٍ من الصفوف الحيّة يجب أن تحمل الفريمات الأربعة. انظر
+   «البوّابة ٠» أدناه. */
+const DEPTH_MIN = 0.90;
 const rd = (f) => { try { return JSON.parse(fs.readFileSync(path.join(OUT, f), "utf8")); } catch { return null; } };
 
 /* نسخةُ المنطق = بصمةُ الملفّات التي تحدّد الصفوف. تغيُّرُ أيٍّ منها
@@ -111,6 +114,36 @@ export function buildSnapshot(now = Date.now()) {
   const edge = {};
   for (const r of (edgeFile && edgeFile.rows) || []) edge[r.id] = r;
 
+  /* ══════════════════════════════════════════════════════════════════
+     البوّابة ٠: **عمق الفريمات** — وتسبق الباقية عن قصد.
+
+     البوّابات الثلاث تسأل «هل البيانات متّسقة؟»، ولا واحدة منها تسأل
+     «هل هي كاملة؟». وهذه هي الفجوة التي عاشت فيها أخطرُ علّةٍ مرّت
+     باللقطة: كان `fetch-market` في وضع التأكيد السريع يمحو الفريم
+     الساعيَّ واليوميَّ من ملفّات الرموز، فتخرج `tfScore` بمفتاحين —
+     و`allTF` في `scans.js` تشترط أربعةً بالضبط.
+
+     فكانت اللقطة تُكتب **متّسقةً تماماً وناقصةً تماماً**: «توافق
+     الفريمات ▲» و«▼» بصفر صفّ (‎68‎ و‎24‎ في الحقيقة)، و`vol` تسعة من
+     ‎113‎، و`pullback` و`divBull`/`divBear` منقوصة — ‎302‎ صفّاً بدل
+     ‎532‎. والواجهة تقول «لا رمز ينطبق عليه هذا الشرط الآن — وهذا
+     نتيجة صحيحة لا عطل»: نصٌّ يكذب بحسن نيّة.
+
+     ولقطةٌ لا تستطيع **بنيوياً** أن تحوي شرطاً لا تُنشر كأنها القائمة:
+     هو «اعرض ‎—‎ لا رقماً ملفّقاً» مطبَّقاً على قائمةٍ كاملة. والانتظار
+     هو الصواب كما في البوّابة ١ — لقطةُ الشمعة السابقة أصدقُ من لقطةٍ
+     منقوصة لهذه الشمعة.
+
+     **والبوّابة نسبيّة لا بالتساوي التامّ**: رمزان في الكون الحيّ لهما
+     فريمٌ واحد بحقّ (أوّل جلبٍ لهما)، وشرطٌ مطلق ينكسر عند أوّل توسّع.
+     ══════════════════════════════════════════════════════════════════ */
+  const four = summary.rows.filter(r => Object.keys(r.tfScore || {}).length === 4).length;
+  const depth = { four, rows: summary.rows.length };
+  if (four < summary.rows.length * DEPTH_MIN)
+    return { ok: false, waiting: true, depth,
+             why: `عمقُ الفريمات ناقص: ${four} من ${summary.rows.length} صفّاً بأربعة فريمات` +
+                  ` (الحدّ ${Math.round(DEPTH_MIN * 100)}%) — «توافق الفريمات» يسقط بلا سبب` };
+
   /* ══ البوّابة ١: المصدران على شمعةٍ واحدة ══ */
   const confBar = Number(strat.confBar) || 0;
   let maxCbar = 0;
@@ -137,7 +170,7 @@ export function buildSnapshot(now = Date.now()) {
   for (const id of Object.keys(scans)) count += scans[id].length;
 
   return { ok: true, candleKey, rowsHash, strategyVersion, scans, count,
-           generatedAt: now, confBar, maxCbar,
+           generatedAt: now, confBar, maxCbar, depth,
            edgeReady: !!edgeFile, fundReady: !!Object.keys(F).length,
            wideRows: wideRows.length, liveRows: summary.rows.length };
 }
@@ -153,6 +186,17 @@ export function decide(next, prev) {
   if (next.rowsHash === prev.rowsHash) return { write: false, reason: "لا تغيّر — نفس البصمة" };
   if (next.strategyVersion !== prev.strategyVersion)
     return { write: true, reason: "تغيّرت نسخة المنطق داخل نفس الشمعة — إعادة بناءٍ مقصودة" };
+  /* ولقطةٌ قائمة بُنيت ببياناتٍ منقوصة تُستبدل داخل شمعتها.
+     غيابُ `depth` يعني لقطةً من قبل البوّابة ٠، وهي بالتعريف غيرُ
+     مُتحقَّقٍ من عمقها — فتُستبدل مرّةً واحدة ثم يحمل خليفتُها الحقل
+     فلا يتكرّر. وبلا هذا الاستثناء لا يصل إصلاحُ العمق المستخدمَ قبل
+     الشمعة التالية، لأن `strategyVersion` تبصم `stocks/*.js` وحدها
+     ولا يغيّرها تعديلٌ في `scripts/`. */
+  const pd = prev.sources && prev.sources.depth;
+  if (!pd || !pd.rows || pd.four < pd.rows * DEPTH_MIN)
+    return { write: true, reason: pd
+      ? `اللقطة القائمة منقوصة العمق (${pd.four}/${pd.rows}) — تُستبدل`
+      : "اللقطة القائمة بلا عمقٍ مُتحقَّق — تُستبدل مرّةً" };
   return { write: false, reason: `البصمة تغيّرت داخل نفس الشمعة (${prev.rowsHash} → ${next.rowsHash}) — مرفوضة` };
 }
 
@@ -198,7 +242,10 @@ async function main() {
     count: next.count,
     sources: { confBar: next.confBar, maxCbar: next.maxCbar,
                liveRows: next.liveRows, wideRows: next.wideRows,
-               edge: next.edgeReady, fund: next.fundReady },
+               edge: next.edgeReady, fund: next.fundReady,
+               /* العمق يُحفظ كي تعرف `decide` أن اللقطة القائمة بُنيت
+                  ببياناتٍ كاملة — لا لتُعرض */
+               depth: next.depth },
     scans: next.scans
   };
   /* كتابةٌ ذرّية: ملفٌّ مؤقّت ثم إعادة تسمية. الكتابة المباشرة تترك
@@ -217,7 +264,11 @@ function selfTest() {
   const no = (m, d) => { fail++; console.log(`  ✗ ${m}${d ? " — " + d : ""}`); };
 
   const K = 1789000000, H = "aaaaaaaaaaaa", V = "vvvvvvvvvvvv";
-  const base = { candleKey: K, rowsHash: H, strategyVersion: V };
+  /* المُثبِّت يحمل عمقاً **سليماً** لأن اللقطة القائمة في الإنتاج
+     تحمله: بلا ذلك تمرّ كلُّ حالةٍ عبر استثناء «منقوصة تُستبدل»
+     فيبدو أن البوّابة ٢ لا تعمل. */
+  const deep = { sources: { depth: { four: 100, rows: 100 } } };
+  const base = { candleKey: K, rowsHash: H, strategyVersion: V, ...deep };
 
   decide({ ...base }, null).write ? ok("أوّل لقطة تُكتب") : no("أوّل لقطة تُكتب");
 
@@ -237,6 +288,35 @@ function selfTest() {
 
   !decide({ ...changed, candleKey: K - 900 }, { ...base }).write
     ? ok("مفتاحٌ إلى الوراء مرفوض — لا تُداس لقطةٌ أحدث") : no("مفتاحٌ إلى الوراء مرفوض");
+
+  /* ══ البوّابة ٠: العمق ══ */
+  {
+    const changed = { ...base, rowsHash: "bbbbbbbbbbbb" };
+    /* لقطةٌ قائمة منقوصة العمق تُستبدل داخل شمعتها — وإلا لم يصل
+       إصلاحُ العمق المستخدمَ قبل الشمعة التالية */
+    const shallow = { ...base, sources: { depth: { four: 10, rows: 100 } } };
+    decide(changed, shallow).write
+      ? ok("لقطةٌ منقوصة العمق تُستبدل داخل شمعتها", decide(changed, shallow).reason)
+      : no("لقطةٌ منقوصة العمق تُستبدل داخل شمعتها");
+
+    /* وغيابُ الحقل لقطةٌ من قبل البوّابة — تُستبدل مرّةً لا دائماً:
+       خليفتُها تحمله فتعود البوّابة ٢ إلى عملها */
+    const old = { candleKey: K, rowsHash: H, strategyVersion: V };
+    decide(changed, old).write && !decide(changed, { ...changed, ...deep }).write
+      ? ok("غيابُ العمق يسمح باستبدالٍ واحد ثم يتوقّف")
+      : no("غيابُ العمق يسمح باستبدالٍ واحد ثم يتوقّف");
+
+    /* والعمق السليم لا يفتح الباب: البصمة المتغيّرة تبقى مرفوضة */
+    !decide(changed, base).write
+      ? ok("وعمقٌ سليم يُبقي البصمة المتغيّرة مرفوضة")
+      : no("وعمقٌ سليم يُبقي البصمة المتغيّرة مرفوضة");
+
+    /* والحدّ نسبيّ: صفٌّ أو صفّان بفريمٍ واحد لا يُسقطان اللقطة */
+    const okDepth = { four: 98, rows: 100 }, badDepth = { four: 60, rows: 100 };
+    okDepth.four >= 100 * DEPTH_MIN && badDepth.four < 100 * DEPTH_MIN
+      ? ok(`الحدّ نسبيّ لا مطلق — ${Math.round(DEPTH_MIN * 100)}%`)
+      : no("الحدّ نسبيّ لا مطلق");
+  }
 
   /* مفتاح الشمعة يتقدّم عند الأرباع وحدها */
   const t0 = Date.UTC(2026, 8, 20, 23, 45, 0);
