@@ -692,7 +692,18 @@ function barTime(x) {
 function isLiveBar(tf, t, now) {
   if (!Number.isFinite(t) || !Number.isFinite(now)) return true;   // لا نعرف ⇒ لا نعتمدها
   var ms = BAR_MS[tf];
-  if (ms) return (t + ms) > now || (t % ms) !== 0;
+  /* كان هنا شرطٌ ثانٍ: `(t % ms) !== 0` — «ختمُ الشمعة على شبكة فريمها».
+     وهو يفترض أن الجلسات تبدأ على رأس الساعة، **وجلسة نيويورك تبدأ
+     13:30Z**: فطورُ كلّ شمعةٍ ساعيّة أمريكية ‎30‎ دقيقة، وطورُ ‎4h‎
+     يتناوب ‎30/90‎. فكانت `closedBars` تحذف السلسلة الأمريكية كلَّها
+     إلى شمعةٍ واحدة، فيردّ `analyze` بـ`null`، فلا `an["1h"]` ولا
+     `an["4h"]`، فيخرج `tfScore` بمفتاحين، فترفض بوّابةُ العمق النشرَ
+     كلَّه — والموقع يتجمّد والجلبُ سليم. قِيس: ‎70/223‎ صفّاً رباعياً،
+     والـ‎70‎ كلُّها كريبتو (يومُه يبدأ ‎00:00Z‎ فطورُه صفر).
+
+     والمطبعة الجزئية التي بُني لها الشرط تُعرَف بلا أيّ افتراضٍ عن
+     الشبكة — انظر `closedBars`. */
+  if (ms) return (t + ms) > now;
   return Math.floor(t / 86400000) === Math.floor(now / 86400000);
 }
 
@@ -714,10 +725,21 @@ function isLiveBar(tf, t, now) {
    الأخيرة مغلقة — فلا إزاحةَ في أيّ موضع، وتقرأ البوابات `k[n-1]`
    و`k[n-2]` بنفس دلالاتها بلا تعديل حرفٍ واحد.
    ===================================================================== */
+/* الطبعة الجزئية التي يُرفقها ياهو تحمل **ختم اللحظة** بدقّة الثواني،
+   والشمعة المشروعة ختمُها دقيقةٌ كاملة دائماً. فالتمييز بمحاذاة الدقيقة
+   لا بشبكة الفريم: لا يفترض متى تبدأ الجلسة، ولا يُسقط شمعة ‎4h‎
+   الأخيرة في الجلسة الأمريكية (‎16:30→20:00‎) وهي مشروعة رغم قِصَرها.
+   قِيس على البيانات الحيّة: ختمُ المطبعة ‎17:20:17‎ — سبع عشرة ثانية. */
+function wholeMinute(t) { return Number.isFinite(t) && (t % 60000) === 0; }
 function closedBars(k, tf, now) {
   if (!Array.isArray(k) || k.length < 2) return k || [];
   var n = k.length;
-  while (n > 1 && isLiveBar(tf, barTime(k[n - 1]), now)) n--;
+  while (n > 1) {
+    var t = barTime(k[n - 1]);
+    if (isLiveBar(tf, t, now)) { n--; continue; }   // ما زالت تتكوّن
+    if (!wholeMinute(t)) { n--; continue; }         // طبعةٌ جزئية
+    break;
+  }
   return n === k.length ? k : k.slice(0, n);
 }
 
@@ -729,6 +751,6 @@ if (typeof module !== "undefined" && module.exports) {
                      sessionVwap: sessionVwap, openingRange: openingRange,
                      volMedian: volMedian,
                      BAR_MS: BAR_MS, barTime: barTime,
-                     isLiveBar: isLiveBar, closedBars: closedBars,
+                     isLiveBar: isLiveBar, closedBars: closedBars, wholeMinute: wholeMinute,
                      analyze: analyze, aggregate: aggregate, srcStep: srcStep };
 }
