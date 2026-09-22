@@ -10,42 +10,46 @@
 <!-- أيقونة مضمَّنة في الترويسة لا يحقنها السكربت: بلا `href` هنا يطلب
      المتصفح `/favicon.ico` ويعود 404 في كل فتحة، ولا تظهر الأيقونة
      إلا بعد تنفيذ الشيفرة. ونفس الرسم يُعاد استعماله في ملف التعريف. -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2222%22%20fill%3D%22%230b0e13%22%2F%3E%3Cpath%20d%3D%22M14%2074%20L38%2046%20L56%2060%20L86%2024%22%20stroke%3D%22%2300d19b%22%20stroke-width%3D%229%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2286%22%20cy%3D%2224%22%20r%3D%228%22%20fill%3D%22%2300d19b%22%2F%3E%3C%2Fsvg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2222%22%20fill%3D%22%230b0e13%22%2F%3E%3Cpath%20d%3D%22M14%2074%20L38%2046%20L56%2060%20L86%2024%22%20stroke%3D%22%232fd17a%22%20stroke-width%3D%229%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2286%22%20cy%3D%2224%22%20r%3D%228%22%20fill%3D%22%232fd17a%22%2F%3E%3C%2Fsvg%3E">
 <link rel="manifest" id="manifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@200;300;400;500;600;700&display=swap">
 <title>مرصد الأسهم الأمريكية</title>
 <style>
 :root{
   /* الأرضية ثلاث طبقات لا واحدة: الصفحة أغمق من البطاقة، والبطاقة أغمق
      من خانتها — العمق يُقرأ بلا حدود ظاهرة */
-  --bg:#080b11; --bg2:#0c1017; --card:#111722; --card2:#18202c; --card3:#1f2836;
-  --line:#212a38; --line2:#2e3a4b;
-  --tx:#e9eef7; --mut:#8f9bad; --dim:#5e6b7e;
+  --bg:#070a0e; --bg2:#0a0e15; --card:#0e141c; --card2:#141d28; --card3:#1b2734;
+  --line:#1b2532; --line2:#26344a;
+  --tx:#e8eef6; --mut:#8b98ab; --dim:#5b6878;
   /* لونُ تمييزٍ واحد لا اثنان. كان `--acc2` بنفسجياً و`--grad` يمزجه
      بالأزرق على 135°، وهو أشهر نمطٍ يجعل الواجهة تبدو مولَّدة آلياً —
      ولا تستعمله منصّةٌ مالية واحدة. صار التمييز أزرقَ أهدأ، والبنفسجي
      محصوراً في دلالته الوحيدة: جلسة ما قبل الافتتاح. */
-  --up:#00d19b; --dn:#ff4d5e; --neu:#f5b912; --acc:#3d7ddb; --acc2:#3d7ddb; --pre:#b06cff;
+  --up:#2fd17a; --dn:#ff4d5e; --neu:#f5b912; --acc:#17a8a0; --acc2:#17a8a0; --pre:#b06cff;
   --upBg:rgba(0,209,155,.13); --dnBg:rgba(255,77,94,.13);
-  --neuBg:rgba(245,185,18,.13); --accBg:rgba(79,140,255,.14);
+  --neuBg:rgba(245,185,18,.13); --accBg:rgba(23,168,160,.14);
   /* «تدرّج» بدرجةٍ واحدة: يبقى الاسم فلا تتغيّر عشرات القواعد، ويصير
      الأثر عمقاً خفيفاً في نفس اللون بدل قوس قزح. الزاوية 180° لا 135°
      لأن القطريّ نفسه علامةُ القالب. */
-  --grad:linear-gradient(180deg,#4886e4,#356fc6);
-  --gradUp:linear-gradient(180deg,var(--up),#00a87d);
+  --grad:linear-gradient(180deg,#1ab5ac,#128d86);
+  --gradUp:linear-gradient(180deg,var(--up),#1ba85f);
   --sh:0 1px 2px rgba(0,0,0,.4),0 4px 16px -6px rgba(0,0,0,.55);
   --shUp:0 2px 6px rgba(0,0,0,.45),0 14px 34px -14px rgba(0,0,0,.7);
   /* ‎15px‎ استدارةُ تطبيقٍ استهلاكي. الأدوات التقنية تستعمل ‎6–8‎:
      الحافّة الأحدّ تجعل الجداول والشبكات تُقرأ كشبكة لا كبطاقات طافية. */
   --r:9px; --r2:7px; --r3:5px;
-  --side:212px;
+  --nav:46px;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{
   background:var(--bg); color:var(--tx); font-size:15px; line-height:1.6;
+  /* شبكةُ نقاطٍ باهتة بلون الهويّة — شاشةُ الراسم. ليست تدرّجاً ولا توهّجاً:
+     نقطةٌ واحدة كل 22 بكسل بشفافيةِ ‎5%‎، تُقرأ سطحاً لا زخرفة. */
+  background-image:radial-gradient(rgba(23,168,160,.05) 1px,transparent 1px);
+  background-size:22px 22px; background-position:11px 11px; background-attachment:fixed;
   font-family:"IBM Plex Sans Arabic",-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Naskh Arabic",Tahoma,sans-serif;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
   letter-spacing:-.1px;
@@ -64,7 +68,7 @@ a{color:var(--acc);text-decoration:none}
      يمرّ تحتها فتتغيّر ألوان الأرقام بحسب ما يصادف مرورَه خلف الشريط —
      والرقمُ الأخضر الذي يزيد خضرةً حين يمرّ خلفه شيء يفقد دلالته.
      والضباب الخفيف يبقى ليُقرأ العمق بلا تشويهٍ لونيّ. */
-  position:sticky; top:0; z-index:50; background:rgba(8,11,17,.94);
+  position:sticky; top:0; z-index:50; background:rgba(7,10,14,.94);
   backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
   border-bottom:1px solid var(--line);
   padding:calc(9px + env(safe-area-inset-top)) 14px 9px;
@@ -79,7 +83,7 @@ a{color:var(--acc);text-decoration:none}
 .chip.up{background:rgba(22,199,132,.14); color:var(--up)}
 .chip.dn{background:rgba(234,57,67,.14); color:var(--dn)}
 .chip.neu{background:rgba(240,185,11,.14); color:var(--neu)}
-.chip.acc{background:rgba(59,130,246,.14); color:var(--acc)}
+.chip.acc{background:rgba(23,168,160,.14); color:var(--acc)}
 .chip.pre{background:rgba(168,85,247,.15); color:var(--pre)}
 .chip.off{background:rgba(139,152,169,.13); color:var(--mut)}
 .chip.live::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
@@ -162,7 +166,7 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 .lvl .tag{font-size:11px;color:var(--mut)}
 .lvl.res{border-right:3px solid var(--dn)}
 .lvl.sup{border-right:3px solid var(--up)}
-.lvl.now{border-right:3px solid var(--acc); background:rgba(59,130,246,.12)}
+.lvl.now{border-right:3px solid var(--acc); background:rgba(23,168,160,.12)}
 
 /* ---------- الصفوف ---------- */
 .row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
@@ -307,7 +311,7 @@ input:focus,select:focus{outline:none;border-color:var(--acc)}
 .news-m{font-size:11px;color:var(--dim);margin-top:5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .news-m .tag-ar,.news-m .tag-tr,.news-m .tag-en{padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700}
 .news-m .tag-ar{background:rgba(22,199,132,.14);color:var(--up)}
-.news-m .tag-tr{background:rgba(59,130,246,.14);color:var(--acc)}
+.news-m .tag-tr{background:rgba(23,168,160,.14);color:var(--acc)}
 .news-m .tag-en{background:rgba(139,152,169,.13);color:var(--mut)}
 .alert-item{display:flex;justify-content:space-between;align-items:center;background:var(--card2);
   padding:10px 12px;border-radius:10px;margin-bottom:7px;font-size:13.5px}
@@ -327,7 +331,7 @@ details b{color:var(--tx)}
 
 /* ---------- شريط التبويبات ---------- */
 .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:60;display:flex;
-  background:rgba(10,13,19,.96);backdrop-filter:blur(8px);
+  background:rgba(7,10,14,.96);backdrop-filter:blur(8px);
   -webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);
   padding-bottom:env(safe-area-inset-bottom)}
 .tabbar button{flex:1;background:none;border:0;color:var(--dim);padding:9px 2px 8px;
@@ -397,7 +401,7 @@ details b{color:var(--tx)}
    كل ما تحتها تحسينُ عرضٍ لا منطق: لا رقم يتغيّر، ولا عنصر يُزال.
    ====================================================================== */
 
-::selection{background:rgba(79,140,255,.32);color:#fff}
+::selection{background:rgba(23,168,160,.32);color:#fff}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
 html{scroll-behavior:smooth}
 
@@ -433,11 +437,11 @@ html{scroll-behavior:smooth}
 .refresh,.back,.btn,.star,.scans button,.tf-picker button,.toolbar .favbtn{transition:all .16s ease}
 
 /* ---------- الأزرار ---------- */
-.btn{background:var(--grad);box-shadow:0 6px 18px -8px rgba(79,140,255,.85);letter-spacing:-.2px}
+.btn{background:var(--grad);box-shadow:0 6px 18px -8px rgba(23,168,160,.85);letter-spacing:-.2px}
 .btn.gray{background:var(--card2);box-shadow:none}
 .scans button,.tf-picker button{font-weight:600}
 .scans button.on,.tf-picker button.on{background:var(--grad);border-color:transparent;
-  box-shadow:0 4px 14px -6px rgba(79,140,255,.9)}
+  box-shadow:0 4px 14px -6px rgba(23,168,160,.9)}
 
 /* ---------- القوائم ---------- */
 .slist{box-shadow:var(--sh)}
@@ -447,7 +451,7 @@ html{scroll-behavior:smooth}
 /* ---------- الجداول ---------- */
 .otbl tbody tr:nth-child(even),.mtable tbody tr:nth-child(even){background:rgba(255,255,255,.016)}
 .otbl th{background:var(--card);backdrop-filter:blur(6px)}
-@media (pointer:fine){ .otbl tbody tr:hover,.mtable tbody tr:hover{background:rgba(79,140,255,.07)} }
+@media (pointer:fine){ .otbl tbody tr:hover,.mtable tbody tr:hover{background:rgba(23,168,160,.07)} }
 
 /* ---------- الكواشف ---------- */
 details{border:1px solid var(--line);background:rgba(24,32,44,.55)}
@@ -461,32 +465,39 @@ details[open]{background:var(--card2)}
    كان العرض محصوراً في 760px فيبدو التطبيق هاتفاً ممدوداً على شاشة 27".
    ====================================================================== */
 @media (min-width:1080px){
-  body{padding-bottom:0; padding-right:var(--side)}
+  body{padding-bottom:0; padding-right:0; padding-top:var(--nav)}
   main{max-width:1320px; padding:20px 26px 48px}
 
-  .topbar{padding:14px 26px}
+  /* تلتصق تحت الشريط لا تحت حافّة النافذة، وإلّا اختفت خلفه */
+  .topbar{padding:14px 26px; top:var(--nav)}
   .tb-title{font-size:19px}
   .logo{width:34px;height:34px}
 
-  /* الشريط الجانبي: نفس عناصر شريط التبويبات بترتيب عمودي */
-  .tabbar{top:0;bottom:0;right:0;left:auto;width:var(--side);flex-direction:column;
-    justify-content:flex-start;gap:3px;padding:16px 12px;border-top:0;
-    border-left:1px solid var(--line);background:rgba(10,13,19,.72)}
-  .tabbar button{flex:none;width:100%;flex-direction:row;justify-content:flex-start;gap:11px;
-    padding:11px 13px;border-radius:var(--r2);font-size:14px;font-weight:600;color:var(--mut)}
-  .tabbar .ti{width:19px;height:19px}
-  .tabbar button.on{color:#fff;background:rgba(61,125,219,.16)}
-  .tabbar button.on::before{top:50%;bottom:auto;right:auto;left:0;width:3px;height:22px;
-    transform:translateY(-50%);border-radius:3px 0 0 3px}
+  /* شريطٌ علويّ أفقيّ لا جانبيّ عموديّ. التبويبات السبعة تتّسع في سطرٍ
+     واحد فوق ‎1080‎ بكسل، ويتحرّر ‎212‎ بكسل من العرض للمحتوى — وهي
+     الفرق بين عمودين وثلاثة على الشاشات المتوسطة. */
+  .tabbar{top:0;bottom:auto;right:0;left:0;width:auto;height:var(--nav);
+    flex-direction:row;align-items:center;justify-content:flex-start;gap:1px;
+    padding:0 16px;border-top:0;border-bottom:1px solid var(--line);
+    background:rgba(7,10,14,.92)}
+  .tabbar button{flex:none;width:auto;height:100%;flex-direction:row;
+    justify-content:center;gap:7px;padding:0 12px;border-radius:0;
+    font-size:13px;font-weight:600;color:var(--mut)}
+  .tabbar .ti{width:17px;height:17px}
+  /* النشط بلون النصّ وشريطٍ سفليّ لا بخلفيةٍ ملوّنة: خلفيةٌ بلون الهويّة
+     خلف كل تبويبٍ نشط تجعل الشريط أثقل ما في الصفحة وهو أقلّها معنى */
+  .tabbar button.on{color:var(--tx);background:none}
+  .tabbar button.on::before{top:auto;bottom:0;right:9px;left:9px;width:auto;height:2px;
+    transform:none;border-radius:2px 2px 0 0}
   .tabbar button.on .ti{transform:none}
-  @media (pointer:fine){ .tabbar button:hover{background:rgba(255,255,255,.04);color:var(--tx)} }
+  @media (pointer:fine){ .tabbar button:hover{background:var(--card);color:var(--tx)} }
 
-  .side-brand{display:flex;align-items:center;gap:10px;padding:6px 13px 18px;margin-bottom:6px;
-    border-bottom:1px solid var(--line)}
-  .side-brand .nm{font-size:15px;font-weight:700;letter-spacing:-.3px;line-height:1.2}
-  .side-brand .nm small{display:block;font-size:10.5px;color:var(--dim);font-weight:500;letter-spacing:0}
-  .side-foot{margin-top:auto;padding:12px 13px 4px;border-top:1px solid var(--line);
-    font-size:10.5px;color:var(--dim);line-height:1.7}
+  /* العلامة تسبق التبويبات في نفس السطر، ويفصلها حدٌّ لا فراغ */
+  .side-brand{display:flex;align-items:center;gap:9px;padding:0 4px 0 14px;
+    margin:0 0 0 8px;border-bottom:0;border-left:1px solid var(--line);align-self:stretch}
+  .side-brand .nm{font-size:14px;font-weight:700;letter-spacing:-.3px;line-height:1.15}
+  .side-brand .nm small{display:block;font-size:9.5px;color:var(--dim);font-weight:500;letter-spacing:.04em}
+  .side-brand .logo{width:22px;height:22px;flex:none}
 
   /* عمودان بتدفّق بنّائي: البطاقات أطوالها مختلفة، والشبكة تتركُ فجوات
      تحت القصيرة بينما الأعمدة تملؤها */
@@ -590,7 +601,7 @@ details[open]{background:var(--card2)}
   font-weight:700;letter-spacing:.3px;font-family:inherit;line-height:1.3}
 .sfind input::placeholder{font-size:14px;font-weight:400;letter-spacing:0;color:var(--mut)}
 .sfind input:focus{outline:none;border-color:var(--acc);
-  box-shadow:0 0 0 3px rgba(61,125,219,.18)}
+  box-shadow:0 0 0 3px rgba(23,168,160,.18)}
 /* `.btn` الأساسية `width:100%`، و`flex:none` تُبقيها على عرض الحاوية
    كاملاً فتفيض 13 بكسل على الهاتف. العرض يُعاد إلى `auto` صراحةً. */
 .sfind .btn{width:auto;flex:0 0 auto;padding:14px 18px;font-size:15px;white-space:nowrap}
@@ -604,7 +615,7 @@ details[open]{background:var(--card2)}
 .sauto-r{display:flex;gap:9px;align-items:center;padding:9px 11px;cursor:pointer;
   border-bottom:1px solid var(--line);font-size:13.5px}
 .sauto-r:last-child{border-bottom:0}
-.sauto-r:hover,.sauto-r.hi{background:rgba(61,125,219,.13)}
+.sauto-r:hover,.sauto-r.hi{background:rgba(23,168,160,.13)}
 .sauto-r span{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sauto-x{padding:10px 11px;font-size:12.5px;color:var(--mut)}
 .tagmini{font-style:normal;font-size:10.5px;color:var(--neu);border:1px solid rgba(240,185,11,.3);
@@ -627,7 +638,7 @@ details[open]{background:var(--card2)}
 .scrow>summary{display:flex;gap:9px;align-items:center;flex-wrap:wrap;
   padding:11px 0;font-size:13.5px;color:var(--tx);font-weight:600;cursor:pointer}
 .scrow>summary::before{content:""}
-.scrow.act{border-color:rgba(61,125,219,.4)}
+.scrow.act{border-color:rgba(23,168,160,.4)}
 .scrow.off,.scrow.quiet{opacity:.62}
 .scrow[open]{padding-bottom:12px}
 .scrow .sdir{font-size:15px;flex:none;width:1em;text-align:center}
@@ -652,7 +663,7 @@ details[open]{background:var(--card2)}
 .tlr{display:flex;gap:11px;align-items:baseline;padding:9px 0;
   border-bottom:1px solid var(--line);font-size:12.5px}
 .tlr:last-child{border-bottom:0}
-.tlr.flip{background:rgba(61,125,219,.06);margin:0 -11px;padding-right:11px;padding-left:11px}
+.tlr.flip{background:rgba(23,168,160,.06);margin:0 -11px;padding-right:11px;padding-left:11px}
 .tlt{flex:none;min-width:5.6em;font-size:11.5px}
 .tld{flex:1;line-height:1.6}
 .tld .sdir{font-size:13px}
@@ -668,7 +679,7 @@ details[open]{background:var(--card2)}
 .rkhead{font-size:11px;color:var(--mut);padding:0 8px 7px;border-bottom:1px solid var(--line)}
 .rkr{padding:9px 8px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
 .rkr:last-child{border-bottom:0}
-.rkr:hover,.rkr:focus{background:rgba(61,125,219,.1);outline:none}
+.rkr:hover,.rkr:focus{background:rgba(23,168,160,.1);outline:none}
 .rkn{font-size:11.5px}
 .rkd{font-size:14px;text-align:center}
 .rks{min-width:0;display:flex;gap:7px;align-items:baseline;overflow:hidden}
@@ -700,13 +711,13 @@ details[open]{background:var(--card2)}
     <div class="brand">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
       <defs><linearGradient id="lgo" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#3d7ddb"/><stop offset="1" stop-color="#00d19b"/></linearGradient></defs>
+        <stop offset="0" stop-color="#17a8a0"/><stop offset="1" stop-color="#2fd17a"/></linearGradient></defs>
       <rect x="1.2" y="1.2" width="29.6" height="29.6" rx="9" fill="url(#lgo)" opacity=".14"/>
       <rect x="1.8" y="1.8" width="28.4" height="28.4" rx="8.4" fill="none" stroke="url(#lgo)"
         stroke-width="1.15" opacity=".55"/>
       <path d="M6.5 22.5 L12.5 15.5 L17.5 19.5 L25.5 8.5" fill="none" stroke="url(#lgo)"
         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="25.5" cy="8.5" r="2.7" fill="#00d19b"/></svg>
+      <circle cx="25.5" cy="8.5" r="2.7" fill="#2fd17a"/></svg>
       <div style="flex:1;min-width:0">
       <div class="tb-title" id="tbTitle">مرصد الأسهم الأمريكية</div>
       <div class="tb-sub">
@@ -1712,7 +1723,7 @@ details[open]{background:var(--card2)}
         stroke-width="1.15" opacity=".55"/>
       <path d="M6.5 22.5 L12.5 15.5 L17.5 19.5 L25.5 8.5" fill="none" stroke="url(#lgo)"
         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="25.5" cy="8.5" r="2.7" fill="#00d19b"/></svg>
+      <circle cx="25.5" cy="8.5" r="2.7" fill="#2fd17a"/></svg>
     <div class="nm">مرصد الأسهم<small>الأمريكية والعقود</small></div>
   </div>
   <button data-go="now" class="on"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-now"/></svg>الآن</button>
@@ -3219,7 +3230,7 @@ function drawGamma(e, spot) {
     while (i < n - 1 && ks[i + 1] < spot) i++;
     const t = (spot - ks[i]) / ((ks[i + 1] - ks[i]) || 1);
     const x = xOf(i) + (xOf(i + 1) - xOf(i)) * t;
-    g.strokeStyle = "#3d7ddb"; g.lineWidth = 1.5; g.setLineDash([4, 3]);
+    g.strokeStyle = "#17a8a0"; g.lineWidth = 1.5; g.setLineDash([4, 3]);
     g.beginPath(); g.moveTo(x, padT); g.lineTo(x, padT + ch); g.stroke();
     g.setLineDash([]);
   }
@@ -3556,7 +3567,7 @@ function optSelfTest() {
   });
 
   console.log("%cفحص رياضيات التركيبات: " + pass + "/" + (pass + fail),
-    "font-weight:700;color:" + (fail ? "#ff4d5e" : "#00d19b"));
+    "font-weight:700;color:" + (fail ? "#ff4d5e" : "#2fd17a"));
   return !fail;
 }
 
@@ -3621,7 +3632,7 @@ function drawPayoff(prof, spot, mul) {
     g.beginPath(); g.moveTo(X(p), padT); g.lineTo(X(p), padT + ch); g.stroke(); g.setLineDash([]);
   };
   prof.be.forEach(b => vline(b, "#f5b912", [3, 3]));
-  vline(spot, "#3d7ddb", [5, 3]);
+  vline(spot, "#17a8a0", [5, 3]);
 
   // محور القيمة على اليسار
   g.font = "10px system-ui"; g.textAlign = "left"; g.fillStyle = "#5e6b7e";
