@@ -290,11 +290,19 @@ function stale(prev, tf, now, live = false) {
    المحكوم أن رموز `bench` تأخذ `FULL` دائماً، فحفظت `SPY` أربعة فريمات
    وفقد `NVDA` فريمين **في التشغيل الواحد**.
 
-   وقائمةُ السماح `TFS` لا نسخُ `prev.tf` كلِّه: التصميم يتعمّد أن
-   «المفتاح الذي لا يُذكر يسقط» كي يُنقّى فريمٌ أُزيل من المشروع (كما
-   ‎5د‎). القائمة تُبقي التنقية وتمنع فقدان المعروف. */
-function carryFrames(prev, rec) {
-  for (const tf of TFS) if (prev?.tf?.[tf]?.c?.length) rec.tf[tf] = prev.tf[tf];
+   وقائمةُ السماح لا نسخُ `prev.tf` كلِّه: التصميم يتعمّد أن «المفتاح
+   الذي لا يُذكر يسقط» كي يُنقّى فريمٌ أُزيل من المشروع (كما ‎5د‎).
+   القائمة تُبقي التنقية وتمنع فقدان المعروف.
+
+   **وهي قائمةُ الطبقة لا قائمةُ التشغيل**: الصياغة الدقيقة أن الطبقة
+   تقرّر ما يُحفظ والتشغيلُ يقرّر ما يُجلَب. فالواسعة يوميُّها وحده
+   بحكم بنائها، ورمزٌ يُنزَّل من المرصودة إليها يجب أن **تسقط** فريماتُه
+   اللحظية لا أن تبقى متقادمة: بقاؤها يُخرج له `tfScore` بأربعة مفاتيح
+   من شمعاتٍ عمرها أيام، فيظهر في «توافق الفريمات» ببياناتٍ ميتة — وهي
+   مصيدة «الأرقام تبدو صحيحة» مرّةً أخرى. */
+const keepFrames = (tier) => (tier === "wide" ? ["1d"] : TFS);
+function carryFrames(prev, rec, tier) {
+  for (const tf of keepFrames(tier)) if (prev?.tf?.[tf]?.c?.length) rec.tf[tf] = prev.tf[tf];
   return rec;
 }
 
@@ -303,8 +311,8 @@ function carryFrames(prev, rec) {
    بيانات فوق بيانات سليمة»، وهي بعينها البوّابة التي كانت ستكشف العلّة
    أعلاه في أوّل تشغيل. ولا تُطلق إلا على انحدارٍ حقيقيّ: مرجعُها `TFS`
    نفسها، فإن تقاعد فريمٌ منها تقاعدت معه. */
-function guardFrames(prev, rec) {
-  const lost = TFS.filter(tf => prev?.tf?.[tf]?.c?.length && !rec.tf[tf]?.c?.length);
+function guardFrames(prev, rec, tier) {
+  const lost = keepFrames(tier).filter(tf => prev?.tf?.[tf]?.c?.length && !rec.tf[tf]?.c?.length);
   if (lost.length)
     throw new Error("فقدُ فريمات محفوظة (" + lost.join(",") + ") — لن نكتب فوق ملفٍّ أكمل");
   return rec;
@@ -323,7 +331,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
   if (meta.mkt) rec.mkt = meta.mkt;
   /* المحفوظ أولاً ثم يكتب المجلوبُ فوقه — فلا يسقط فريمٌ لم يُطلب */
-  carryFrames(prev, rec);
+  carryFrames(prev, rec, tier);
   let touched = false, errors = [], usedTD = false;
   // سلسلة الساعة كاملةً قبل القصّ — تُستعمل لاشتقاق 4h ولا تُخزَّن
   let full1h = null;
@@ -449,7 +457,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
      التشغيلات فتذبذبت معه النتيجة. */
   if (full1h?.length) {
     rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(full1h, 4).slice(-KEEP)), derived: true };
-  } else if (prev?.tf?.["4h"]?.c?.length) {
+  } else if (tier !== "wide" && prev?.tf?.["4h"]?.c?.length) {
     /* 4h ليس في `frames` فلا يمرّ بحلقة الجلب، ولا يُنقل من `prev`
        تلقائياً. وبلا نقله هنا يُعاد اشتقاقه من الساعة **المقصوصة** في كل
        تشغيلٍ لا تُجدَّد فيه الساعة — فيهبط من 260 شمعة إلى 65 ويضيع
@@ -567,7 +575,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   rec.band = bandStable(rec.score, prev?.band);
   rec.stale = !touched;
   if (errors.length) rec.errors = errors;
-  return guardFrames(prev, rec);
+  return guardFrames(prev, rec, tier);
 }
 
 /* ---------- التشغيل ---------- */
@@ -1291,8 +1299,14 @@ function selfCheck() {
                          "4h": { updated: 3, c: [bar(3)] }, "15m": { updated: 4, c: [bar(4)] },
                          "5m": { updated: 5, c: [bar(5)] } } };
     const rec = { tf: {} };
-    carryFrames(prev, rec);
+    carryFrames(prev, rec, "core");
     eq(Object.keys(rec.tf).sort(), [...TFS].sort(), "الفريمات الأربعة تُنقل كلُّها");
+    /* والطبقة الواسعة يوميُّها وحده: رمزٌ نُزِّل إليها تسقط فريماتُه
+       اللحظية بدل أن تبقى متقادمة فتخرج `tfScore` رباعيةً من شمعاتٍ
+       ميتة. الطبقة تقرّر ما يُحفَظ والتشغيلُ ما يُجلَب. */
+    const w = { tf: {} };
+    carryFrames(prev, w, "wide");
+    eq(Object.keys(w.tf), ["1d"], "الواسعة يوميُّها وحده");
     /* وقائمةُ السماح تُبقي تنقية المتقاعد: ‎5د‎ أُزيل من المشروع، ونسخُ
        `prev.tf` كلِّه كان سيُعيده إلى الملفّات إلى الأبد. */
     if ("5m" in rec.tf) throw new Error("فريمٌ متقاعد نُقل — قائمة السماح لا تعمل");
@@ -1300,7 +1314,7 @@ function selfCheck() {
     if (rec.tf["1d"] !== prev.tf["1d"]) throw new Error("النقل يجب أن يكون بالمرجع");
     /* ورمزٌ جديد بلا محفوظ لا يخترع شيئاً */
     const fresh = { tf: {} };
-    carryFrames(null, fresh);
+    carryFrames(null, fresh, "core");
     eq(Object.keys(fresh.tf).length, 0, "بلا محفوظٍ لا نقل");
   });
 
@@ -1308,18 +1322,20 @@ function selfCheck() {
     const bar = { t: 1, o: 1, h: 2, l: 0.5, c: 1.5, v: 10 };
     const four = () => Object.fromEntries(TFS.map(tf => [tf, { updated: 1, c: [bar] }]));
     const prev = { tf: four() };
-    guardFrames(prev, { tf: four() });                    // المكتمل يمرّ
+    guardFrames(prev, { tf: four() }, "core");            // المكتمل يمرّ
+    /* ولا تُحاكم الواسعةُ على فريمٍ لا تحمله بحكم بنائها */
+    guardFrames(prev, { tf: { "1d": { updated: 1, c: [bar] } } }, "wide");
     /* والناقص يُرمى ولو كان فريماً واحداً — ويُفحص كلُّ فريمٍ على حدة
        كي لا يمرّ الفحص بفريمٍ واحدٍ محظوظ */
     for (const tf of TFS) {
       const t2 = four(); delete t2[tf];
       let threw = false;
-      try { guardFrames(prev, { tf: t2 }); } catch { threw = true; }
+      try { guardFrames(prev, { tf: t2 }, "core"); } catch { threw = true; }
       if (!threw) throw new Error(`فقدُ ${tf} مرّ بلا اعتراض`);
     }
     /* ورمزٌ بلا ملفٍّ سابق لا يُحاكم: أوّل جلبٍ له يبدأ بفريمٍ واحد */
-    guardFrames(null, { tf: { "15m": { updated: 1, c: [bar] } } });
-    guardFrames({ tf: {} }, { tf: { "15m": { updated: 1, c: [bar] } } });
+    guardFrames(null, { tf: { "15m": { updated: 1, c: [bar] } } }, "core");
+    guardFrames({ tf: {} }, { tf: { "15m": { updated: 1, c: [bar] } } }, "core");
   });
 
   t("الكون الحيّ المحفوظ يحمل الفريمات الأربعة — مسحٌ كامل لا عيّنة", () => {
