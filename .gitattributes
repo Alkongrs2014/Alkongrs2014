@@ -17,3 +17,7 @@
 *.json   text eol=lf
 *.html   text eol=lf
 *.md     text eol=lf
+# و‎.svg‎ معها: `icon.svg` في `CORE`، و`SHELL_SHA` بصمةُ بايتاته على
+# القرص. بلا تثبيتٍ هنا يحوّله `core.autocrlf` إلى CRLF عند السحب،
+# فتتغيّر البصمة بلا أن يتغيّر حرفٌ واحد ويسقط `check-ui` عند من يسحب.
+*.svg    text eol=lf

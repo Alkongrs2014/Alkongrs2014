@@ -3,697 +3,1141 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<meta name="theme-color" content="#0b0e13">
+<meta name="theme-color" content="#04070C">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="مرصد الأسهم">
 <!-- أيقونة مضمَّنة في الترويسة لا يحقنها السكربت: بلا `href` هنا يطلب
      المتصفح `/favicon.ico` ويعود 404 في كل فتحة، ولا تظهر الأيقونة
      إلا بعد تنفيذ الشيفرة. ونفس الرسم يُعاد استعماله في ملف التعريف. -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2222%22%20fill%3D%22%230b0e13%22%2F%3E%3Cpath%20d%3D%22M14%2074%20L38%2046%20L56%2060%20L86%2024%22%20stroke%3D%22%232fd17a%22%20stroke-width%3D%229%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2286%22%20cy%3D%2224%22%20r%3D%228%22%20fill%3D%22%232fd17a%22%2F%3E%3C%2Fsvg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2222%22%20fill%3D%22%2304070C%22%2F%3E%3Cpath%20d%3D%22M14%2074%20L38%2046%20L56%2060%20L86%2024%22%20stroke%3D%22%232BD98A%22%20stroke-width%3D%229%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2286%22%20cy%3D%2224%22%20r%3D%228%22%20fill%3D%22%232BD98A%22%2F%3E%3C%2Fsvg%3E">
 <link rel="manifest" id="manifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@200;300;400;500;600;700&display=swap">
 <title>مرصد الأسهم الأمريكية</title>
 <style>
+/* ======================================================================
+   لغةُ التصميم — Premium FinTech · Mobile-First · RTL أصليّ
+
+   الجوالُ هو المنتَج: كلُّ مقاسٍ هنا مقيسٌ على ‎375/390/430‎ أولاً، ثم
+   تتوسّع الشاشة إلى لوحةِ عملٍ مقصودة. والعكس (تصميمُ سطحِ مكتبٍ يُصغَّر)
+   هو ما كان يجعل التطبيق يُقرأ صفحةَ ويبٍ مضغوطة لا تطبيقَ تداول.
+
+   ثلاثُ قواعدَ تحكم كلَّ ما تحت:
+   ١) العمقُ بالطبقات لا بالحدود: الصفحة أغمق من البطاقة، والبطاقة أغمق
+      من خانتها. والحدُّ شعريّ يُقرأ حافّةً لا إطاراً.
+   ٢) التوهّجُ دلالةٌ لا زينة: لا يقع إلا على ما هو حيٌّ أو مختار.
+   ٣) اللونُ يقول شيئاً واحداً: التيل هويّة، والأخضر صعود، والأحمر هبوط،
+      والذهبيُّ نادرٌ لما هو استثنائيّ وحده.
+   ====================================================================== */
+
 :root{
-  /* الأرضية ثلاث طبقات لا واحدة: الصفحة أغمق من البطاقة، والبطاقة أغمق
-     من خانتها — العمق يُقرأ بلا حدود ظاهرة */
-  --bg:#070a0e; --bg2:#0a0e15; --card:#0e141c; --card2:#141d28; --card3:#1b2734;
-  --line:#1b2532; --line2:#26344a;
-  --tx:#e8eef6; --mut:#8b98ab; --dim:#5b6878;
-  /* لونُ تمييزٍ واحد لا اثنان. كان `--acc2` بنفسجياً و`--grad` يمزجه
-     بالأزرق على 135°، وهو أشهر نمطٍ يجعل الواجهة تبدو مولَّدة آلياً —
-     ولا تستعمله منصّةٌ مالية واحدة. صار التمييز أزرقَ أهدأ، والبنفسجي
-     محصوراً في دلالته الوحيدة: جلسة ما قبل الافتتاح. */
-  --up:#2fd17a; --dn:#ff4d5e; --neu:#f5b912; --acc:#17a8a0; --acc2:#17a8a0; --pre:#b06cff;
-  --upBg:rgba(0,209,155,.13); --dnBg:rgba(255,77,94,.13);
-  --neuBg:rgba(245,185,18,.13); --accBg:rgba(23,168,160,.14);
-  /* «تدرّج» بدرجةٍ واحدة: يبقى الاسم فلا تتغيّر عشرات القواعد، ويصير
-     الأثر عمقاً خفيفاً في نفس اللون بدل قوس قزح. الزاوية 180° لا 135°
-     لأن القطريّ نفسه علامةُ القالب. */
-  --grad:linear-gradient(180deg,#1ab5ac,#128d86);
-  --gradUp:linear-gradient(180deg,var(--up),#1ba85f);
-  --sh:0 1px 2px rgba(0,0,0,.4),0 4px 16px -6px rgba(0,0,0,.55);
-  --shUp:0 2px 6px rgba(0,0,0,.45),0 14px 34px -14px rgba(0,0,0,.7);
-  /* ‎15px‎ استدارةُ تطبيقٍ استهلاكي. الأدوات التقنية تستعمل ‎6–8‎:
-     الحافّة الأحدّ تجعل الجداول والشبكات تُقرأ كشبكة لا كبطاقات طافية. */
-  --r:9px; --r2:7px; --r3:5px;
-  --nav:46px;
+  /* الأرضية — أعمقُ من قبل كي يُقرأ التيل ضوءاً عليها */
+  --bg:#04070C; --bg2:#070B12;
+  /* ثلاثةُ أسطح: بطاقة · خانة داخلها · مرتفَع */
+  --s1:#0B111A; --s2:#101822; --s3:#17212D;
+  /* الحدُّ شعرةٌ بلون الضوء لا خطٌّ رماديّ: يتبع الخلفية فيختفي عند
+     الحوافّ ويظهر حيث تتراكب الأسطح */
+  --hair:rgba(150,182,214,.09); --hair2:rgba(150,182,214,.17);
+  --tx:#E9F0F8; --tx2:#93A4B8; --tx3:#5C6D81;
+  --acc:#22D3C5; --acc2:#0E8F8A; --accGlow:rgba(34,211,197,.20);
+  --up:#2BD98A; --dn:#FF4D63; --neu:#F0B23C; --gold:#E6B24A; --pre:#A87BFF;
+  --upBg:rgba(43,217,138,.13); --dnBg:rgba(255,77,99,.13);
+  --neuBg:rgba(240,178,60,.13); --accBg:rgba(34,211,197,.12);
+  --goldBg:rgba(230,178,74,.12);
+
+  /* تدرّجٌ بدرجةٍ واحدة على ‎180°‎: عمقٌ في نفس اللون لا قوسُ قزح.
+     القطريُّ ‎135°‎ من الأزرق إلى البنفسجي هو أشهر ما يشي بقالبٍ مولَّد. */
+  --grad:linear-gradient(180deg,#27E0D1,#0E8F8A);
+  --gradUp:linear-gradient(180deg,var(--up),#17A868);
+  --gradDn:linear-gradient(180deg,#FF6274,#D82B42);
+
+  --r-xl:22px; --r-lg:16px; --r-md:12px; --r-sm:9px; --r-pill:999px;
+
+  /* ظلٌّ مركّب: خطٌّ حادٌّ قريب يعطي الحافّة، وانتشارٌ بعيد يعطي الارتفاع */
+  --sh1:0 1px 1px rgba(0,0,0,.45), 0 2px 8px -3px rgba(0,0,0,.5);
+  --sh2:0 2px 4px rgba(0,0,0,.5), 0 18px 40px -20px rgba(0,0,0,.85);
+  --shGlow:0 0 0 1px var(--accGlow), 0 10px 34px -16px rgba(34,211,197,.45);
+
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --d1:140ms; --d2:220ms; --d3:320ms;
+
+  --nav:66px;            /* ارتفاع الشريط السفلي بلا المنطقة الآمنة */
+
+  /* ---- أسماءٌ قديمة تبقى مستعارةً ----
+     مستعملةٌ في عشرات القواعد وفي `style="…var(--mut)"` داخل قوالب JS.
+     حذفُها يُطفئ ألوان نصوصٍ كاملة بلا خطأ ولا أثر. */
+  --card:var(--s1); --card2:var(--s2); --card3:var(--s3);
+  --line:var(--hair); --line2:var(--hair2);
+  --mut:var(--tx2); --dim:var(--tx3);
+  --r:var(--r-lg); --r2:var(--r-md); --r3:var(--r-sm);
+  --sh:var(--sh1); --shUp:var(--sh2);
+  --acc2:var(--acc2);
 }
+
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
+html{scroll-behavior:smooth; background:var(--bg)}
 body{
   background:var(--bg); color:var(--tx); font-size:15px; line-height:1.6;
-  /* شبكةُ نقاطٍ باهتة بلون الهويّة — شاشةُ الراسم. ليست تدرّجاً ولا توهّجاً:
-     نقطةٌ واحدة كل 22 بكسل بشفافيةِ ‎5%‎، تُقرأ سطحاً لا زخرفة. */
-  background-image:radial-gradient(rgba(23,168,160,.05) 1px,transparent 1px);
-  background-size:22px 22px; background-position:11px 11px; background-attachment:fixed;
   font-family:"IBM Plex Sans Arabic",-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Naskh Arabic",Tahoma,sans-serif;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
   letter-spacing:-.1px;
-  padding-bottom:calc(72px + env(safe-area-inset-bottom));
+  padding-bottom:calc(var(--nav) + 14px + env(safe-area-inset-bottom));
   overscroll-behavior-y:contain;
+  position:relative; min-height:100vh;
 }
-a{color:var(--acc);text-decoration:none}
-.num{font-variant-numeric:tabular-nums; font-family:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
-  direction:ltr; display:inline-block; letter-spacing:-.2px}
-.tick{font-family:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace; direction:ltr;
-  display:inline-block; font-weight:700; letter-spacing:.2px}
+/* الأجواء — طبقةٌ ثابتة خلف كل شيء، بلا ملفّ ولا طلبٍ خارجي: ضوءان
+   شعاعيّان واسعان بشفافيةٍ دون ‎11%‎، وشبكةٌ دقيقة تُقرأ سطحاً. و`fixed`
+   لا `background-attachment` كي لا تُعاد الرسمة مع كل تمرير. */
+body::before{
+  content:""; position:fixed; inset:0; z-index:-2; pointer-events:none;
+  background:
+    radial-gradient(900px 520px at 88% -6%, rgba(34,211,197,.10), transparent 62%),
+    radial-gradient(760px 480px at 6% 4%, rgba(120,94,255,.07), transparent 60%),
+    radial-gradient(1100px 700px at 50% 108%, rgba(34,211,197,.05), transparent 65%),
+    var(--bg);
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(150,182,214,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(150,182,214,.028) 1px, transparent 1px);
+  background-size:36px 36px;
+  mask-image:radial-gradient(120% 90% at 50% 0%, #000 0%, transparent 78%);
+  -webkit-mask-image:radial-gradient(120% 90% at 50% 0%, #000 0%, transparent 78%);
+}
 
-/* ---------- الشريط العلوي ---------- */
+a{color:var(--acc);text-decoration:none}
+::selection{background:rgba(34,211,197,.3);color:#fff}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:8px}
+
+/* الأرقام جدوليّة دائماً: عمودُ أسعارٍ تتغيّر عروضُ خاناته يهتزّ بصرياً
+   مع كل تحديث، والقارئ يقرأ الاهتزاز تغيّراً */
+.num{font-variant-numeric:tabular-nums lining-nums;
+  font-family:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  direction:ltr; display:inline-block; letter-spacing:-.2px}
+.tick{font-family:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  direction:ltr; display:inline-block; font-weight:700; letter-spacing:.4px}
+.mut{color:var(--tx2)}
+.up{color:var(--up)} .dn{color:var(--dn)} .neu{color:var(--neu)}
+.acc{color:var(--acc)} .pre{color:var(--pre)} .win{color:var(--up)}
+
+/* ======================================================================
+   الشريط العلوي
+   ====================================================================== */
 .topbar{
-  /* سطحٌ معتم بحدٍّ شعري لا زجاجٌ مشبَع. `saturate(1.4)` كانت تُشبع ما
-     يمرّ تحتها فتتغيّر ألوان الأرقام بحسب ما يصادف مرورَه خلف الشريط —
-     والرقمُ الأخضر الذي يزيد خضرةً حين يمرّ خلفه شيء يفقد دلالته.
-     والضباب الخفيف يبقى ليُقرأ العمق بلا تشويهٍ لونيّ. */
-  position:sticky; top:0; z-index:50; background:rgba(7,10,14,.94);
-  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-  border-bottom:1px solid var(--line);
-  padding:calc(9px + env(safe-area-inset-top)) 14px 9px;
+  position:sticky; top:0; z-index:50;
+  background:linear-gradient(180deg, rgba(4,7,12,.97), rgba(4,7,12,.88));
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--hair);
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
 }
-.logo{width:30px;height:30px;flex:none;display:block}
-.brand{display:flex;align-items:center;gap:9px;min-width:0;flex:1}
-.tb-row{display:flex; align-items:center; justify-content:space-between; gap:10px}
-.tb-title{font-size:17px;font-weight:700}
-.tb-sub{font-size:12px; color:var(--mut); display:flex; gap:7px; align-items:center; flex-wrap:wrap; margin-top:2px}
-.chip{font-size:11.5px; padding:2.5px 9px; border-radius:999px; font-weight:600; white-space:nowrap;
-  border:1px solid transparent; line-height:1.5}
-.chip.up{background:rgba(22,199,132,.14); color:var(--up)}
-.chip.dn{background:rgba(234,57,67,.14); color:var(--dn)}
-.chip.neu{background:rgba(240,185,11,.14); color:var(--neu)}
-.chip.acc{background:rgba(23,168,160,.14); color:var(--acc)}
-.chip.pre{background:rgba(168,85,247,.15); color:var(--pre)}
-.chip.off{background:rgba(139,152,169,.13); color:var(--mut)}
-.chip.live::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
-  background:currentColor;margin-left:5px;vertical-align:1px;animation:pulse 1.8s infinite}
-@keyframes pulse{50%{opacity:.25}}
-.refresh{background:var(--card2); border:1px solid var(--line); color:var(--mut);
-  width:38px;height:38px;border-radius:12px;font-size:17px;cursor:pointer;flex:none}
-.refresh:active{transform:scale(.94)}
+/* خطٌّ ضوئيّ أسفل الشريط: يفصل بلا وزنِ حدٍّ ثانٍ */
+.topbar::after{content:"";position:absolute;bottom:-1px;right:12%;left:12%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accGlow),transparent)}
+.tb-row{display:flex; align-items:center; gap:10px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.logo{width:34px;height:34px;flex:none;display:block;
+  filter:drop-shadow(0 2px 10px rgba(34,211,197,.35))}
+.tb-title{font-size:16px;font-weight:700;letter-spacing:-.4px;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-title b{color:var(--tx);font-weight:700}
+.tb-sub{font-size:11px; color:var(--tx2); display:flex; gap:9px; align-items:center;
+  margin-top:9px; line-height:1.5; white-space:nowrap;
+  overflow-x:auto; scrollbar-width:none; padding-bottom:1px;
+  /* تلاشٍ عند الطرف: النصُّ المقطوع بحدٍّ حادّ يُقرأ عطلاً، والمتلاشي
+     يُقرأ «وراءه المزيد» */
+  mask-image:linear-gradient(270deg,transparent,#000 18px);
+  -webkit-mask-image:linear-gradient(270deg,transparent,#000 18px)}
+.tb-sub::-webkit-scrollbar{display:none}
+/* الخانةُ الفارغة تُطوى: فاصلٌ نقطيّ قبل محتوىً غائب يُقرأ عطلاً */
+.tb-sub>span:empty{display:none}
+
+/* الشارة: حبّةٌ واحدة بلونٍ دلاليّ. الحدُّ من نفس اللون بشفافية فتُقرأ
+   مضيئةً من داخلها لا ملصقةً فوق السطح */
+.chip{font-size:11px; padding:3px 9px; border-radius:var(--r-pill); font-weight:600;
+  white-space:nowrap; border:1px solid transparent; line-height:1.45;
+  display:inline-flex; align-items:center; gap:5px}
+.chip.up{background:var(--upBg);color:var(--up);border-color:rgba(43,217,138,.26)}
+.chip.dn{background:var(--dnBg);color:var(--dn);border-color:rgba(255,77,99,.26)}
+.chip.neu{background:var(--neuBg);color:var(--neu);border-color:rgba(240,178,60,.26)}
+.chip.acc{background:var(--accBg);color:var(--acc);border-color:rgba(34,211,197,.28)}
+.chip.pre{background:rgba(168,123,255,.14);color:var(--pre);border-color:rgba(168,123,255,.28)}
+.chip.off{background:rgba(150,182,214,.08);color:var(--tx2);border-color:var(--hair)}
+/* نبضُ «حيّ»: هالةٌ تتمدّد وتخبو — تقول إن الرقم يتحرّك بلا أن تحرّكه */
+.chip.live::before{content:"";width:7px;height:7px;border-radius:50%;
+  background:currentColor;flex:none;box-shadow:0 0 0 0 currentColor;
+  animation:pulse 2.2s var(--ease) infinite}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(255,255,255,.35);opacity:1}
+  70%{box-shadow:0 0 0 7px rgba(255,255,255,0);opacity:.75}
+  100%{box-shadow:0 0 0 0 rgba(255,255,255,0);opacity:1}
+}
+
+/* أزرارُ الترويسة */
+.refresh,.back{background:rgba(150,182,214,.06); border:1px solid var(--hair);
+  color:var(--tx2); width:38px;height:38px;border-radius:13px;
+  font-size:17px;cursor:pointer;flex:none;display:grid;place-items:center;
+  font-family:inherit;
+  transition:background var(--d1) var(--ease), color var(--d1) var(--ease),
+             border-color var(--d1) var(--ease), transform var(--d1) var(--ease)}
+.back{color:var(--tx);font-size:19px}
+.refresh:active,.back:active{transform:scale(.92)}
 .spin{animation:sp 1s linear infinite; display:inline-block}
 @keyframes sp{to{transform:rotate(-360deg)}}
-.back{background:var(--card2);border:1px solid var(--line);color:var(--tx);
-  width:38px;height:38px;border-radius:12px;font-size:18px;cursor:pointer;flex:none}
 
-/* ---------- التخطيط ---------- */
-main{padding:14px 12px 20px; max-width:760px; margin:0 auto}
+/* شريط الطزاجة داخل الترويسة: تحذيرٌ يحتاج تمريراً ليُرى لا يحذّر أحداً */
+.stalebar{font-size:12px;padding:8px 14px;margin:9px -14px -10px;
+  border-top:1px solid var(--hair);
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;line-height:1.5}
+.stalebar[hidden]{display:none}
+.stalebar.late{background:rgba(240,178,60,.12);color:#F3CE7E}
+.stalebar.dead{background:rgba(255,77,99,.15);color:#FFB3BC}
+.stalebar b{font-variant-numeric:tabular-nums}
+
+/* ======================================================================
+   التخطيط والبطاقات
+   ====================================================================== */
+main{padding:14px 13px 22px; max-width:760px; margin:0 auto}
 section[data-view]{display:none}
-section[data-view].on{display:block; animation:fade .22s ease}
-@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:15px;
-  margin-bottom:13px; box-shadow:var(--sh); position:relative}
-.card h2{font-size:16px; margin:0 0 5px; display:flex; align-items:center; gap:8px; font-weight:700;
-  letter-spacing:-.3px}
-/* شريط متدرّج عند رأس البطاقة: يعطي تسلسلاً بصرياً بلا خط فاصل إضافي */
-.card>h2:first-child::after{content:"";position:absolute;top:0;right:16px;width:36px;height:2px;
-  border-radius:0 0 3px 3px;background:var(--grad);opacity:.85}
-.card .hint{font-size:12.5px; color:var(--mut); margin:0 0 12px}
+section[data-view].on{display:block; animation:viewIn var(--d3) var(--ease)}
+@keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.card{
+  background:linear-gradient(180deg, var(--s1), #090F17);
+  border:1px solid var(--hair); border-radius:var(--r-lg); padding:15px;
+  margin-bottom:13px; box-shadow:var(--sh1); position:relative;
+  transition:border-color var(--d2) var(--ease), box-shadow var(--d2) var(--ease);
+}
+/* لمعةٌ شعرية على الحافّة العليا: تفصل البطاقة عن الأرضية بلا حدٍّ أثقل */
+.card::before{content:"";position:absolute;inset:0 0 auto;height:1px;
+  border-radius:var(--r-lg) var(--r-lg) 0 0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.09) 30%,rgba(255,255,255,.09) 70%,transparent);
+  pointer-events:none}
+.card h2{font-size:16px; margin:0 0 6px; display:flex; align-items:center; gap:9px;
+  font-weight:700; letter-spacing:-.35px}
+/* شارةٌ رأسية واحدة بدل ‎45‎ أيقونةً: تقول «هذا عنوان قسم» ولا تحاول تصويره */
+.card h2::before{content:"";display:block;width:3px;height:15px;flex:none;
+  border-radius:2px;background:var(--grad);box-shadow:0 0 10px var(--accGlow)}
+.card .hint{font-size:12.5px; color:var(--tx2); margin:0 0 13px; line-height:1.7}
+.sub-h{font-size:12.5px;font-weight:700;color:var(--tx2);margin:13px 0 6px;
+  display:flex;align-items:center;gap:7px}
+.sub-h::before{content:"";width:5px;height:5px;border-radius:50%;flex:none;
+  background:var(--tx3)}
+
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
 .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
 .grid4{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
-.stat{background:var(--card2); border:1px solid rgba(255,255,255,.03); border-radius:var(--r2);
-  padding:11px 12px; min-width:0; transition:border-color .18s,background .18s}
-.stat .k{font-size:11.5px; color:var(--mut); margin-bottom:3px; font-weight:500}
-.stat .v{font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.sep{height:1px;background:var(--line);margin:12px 0}
+.sep{height:1px;background:var(--hair);margin:13px 0}
 
-/* ---------- عدّاد الميزان ---------- */
-.meter{margin:6px 0 2px}
-.meter-track{height:12px;border-radius:99px;overflow:hidden;position:relative;
-  /* to left لا 90deg: في RTL الطرف الأيمن هو الهبوط والأيسر هو الصعود */
-  background:linear-gradient(to left,var(--dn) 0%,#7a4b1e 30%,#4a4f5c 50%,#1e6b52 70%,var(--up) 100%)}
-.meter-needle{position:absolute;top:-4px;width:4px;height:20px;background:#fff;border-radius:2px;
-  box-shadow:0 0 8px rgba(0,0,0,.7); transform:translateX(2px); transition:right .5s ease}
-.meter-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:5px}
-.verdict{font-size:22px;font-weight:700;text-align:center;margin:10px 0 2px}
-.verdict-sub{text-align:center;font-size:12.5px;color:var(--mut)}
+/* خانةُ رقم: الرقمُ أوّلاً والوسمُ تحته — الترتيب المعاكس يجعل العين
+   تقرأ الوسوم كلَّها قبل أن تصل إلى رقمٍ واحد */
+.stat{background:var(--s2); border:1px solid var(--hair); border-radius:var(--r-md);
+  padding:11px 12px; min-width:0; position:relative; overflow:hidden;
+  transition:border-color var(--d2) var(--ease), background var(--d2) var(--ease)}
+.stat .k{font-size:11px; color:var(--tx2); margin-bottom:4px; font-weight:500}
+.stat .v{font-size:17px; font-weight:700; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; letter-spacing:-.4px}
+.stat .sub{font-size:11px;color:var(--tx2);margin-top:3px;line-height:1.5;white-space:normal}
 
-/* ---------- جدول الفريمات ---------- */
-.tf{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
-.tf:last-child{border-bottom:0}
-.tf-name{width:56px;font-weight:700;font-size:14px;flex:none}
-.tf-bar{flex:1;height:8px;background:var(--card2);border-radius:99px;position:relative;overflow:hidden}
-.tf-fill{position:absolute;top:0;height:100%;border-radius:99px;transition:all .4s ease}
-.tf-val{width:106px;text-align:left;font-size:12.5px;font-weight:700;flex:none}
-/* رقم قوّة الاتجاه إلى جانب الوسم — خافتٌ لأنه قيدٌ على الوسم لا بديلٌ
-   عنه، ويصير أصفر تحت 20 حيث «صاعد قويّ» تصف ترتيباً لا حركة */
-.tf-adx{display:inline-block;margin-inline-start:6px;font-size:10.5px;font-weight:600;
-  color:var(--dim);font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr;
-  border:1px solid var(--line2);border-radius:4px;padding:0 4px;vertical-align:1px}
-.tf-adx.chop{color:var(--neu);border-color:rgba(245,185,18,.35)}
+/* ======================================================================
+   أوّليّات: أزرار · مبدّلات · شرائط · أشرطة تقدّم · هياكل تحميل
+   ====================================================================== */
+.btn{width:100%;background:var(--grad);border:0;color:#04211F;padding:13px;
+  border-radius:var(--r-md); font-size:15px;font-weight:700;cursor:pointer;
+  font-family:inherit; letter-spacing:-.2px;
+  box-shadow:0 6px 20px -10px rgba(34,211,197,.9), inset 0 1px 0 rgba(255,255,255,.22);
+  transition:transform var(--d1) var(--ease), filter var(--d1) var(--ease)}
+.btn:active{transform:scale(.975)}
+.btn.gray{background:var(--s2);border:1px solid var(--hair);color:var(--tx);box-shadow:none}
 
-/* ---------- الشارت ---------- */
-.chart-wrap{position:relative;background:var(--card2);border-radius:11px;padding:6px 2px}
-/* pan-y لا none: السحب الأفقي يحرّك المؤشّر، والعمودي يبقى تمريراً للصفحة */
-canvas{display:block;width:100%;height:240px;touch-action:pan-y}
-.ohlc{position:absolute;top:8px;right:8px;left:8px;display:none;gap:9px;flex-wrap:wrap;
-  background:rgba(11,14,19,.9);border:1px solid var(--line);border-radius:9px;padding:5px 8px;
-  font-size:10.5px;color:var(--mut);pointer-events:none}
-.ohlc.on{display:flex}
-.ohlc b{font-weight:700}
-.tf-picker{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
-.tf-picker button{flex:none;background:var(--card2); border:1px solid var(--line); color:var(--mut);
-  padding:6px 13px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
-.tf-picker button.on{background:var(--acc);border-color:var(--acc);color:#fff}
-.legend{display:flex;gap:12px;font-size:11.5px;color:var(--mut);margin-top:8px;flex-wrap:wrap;justify-content:center}
-.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-left:4px}
+/* شريطُ شرائحَ أفقيّ — المسوح والمرشّحات والفريمات. يُمرَّر داخل نفسه
+   ولا يمرّر الصفحة، وحافّتاه تتلاشيان فيُقرأ أن وراءه المزيد */
+.chipbar,.scans,.tf-picker{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;padding:2px 1px 5px;margin-bottom:9px;
+  mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
+.chipbar::-webkit-scrollbar,.scans::-webkit-scrollbar,.tf-picker::-webkit-scrollbar{display:none}
+.chipbar button,.scans button,.tf-picker button{
+  flex:none;background:var(--s2);border:1px solid var(--hair);color:var(--tx2);
+  padding:8px 14px;border-radius:var(--r-pill);font-size:12.5px;font-weight:600;
+  cursor:pointer;font-family:inherit;white-space:nowrap;
+  transition:background var(--d1) var(--ease),color var(--d1) var(--ease),
+             border-color var(--d1) var(--ease),box-shadow var(--d1) var(--ease)}
+.chipbar button.on,.scans button.on,.tf-picker button.on{
+  background:var(--grad);border-color:transparent;color:#04211F;font-weight:700;
+  box-shadow:0 5px 16px -8px rgba(34,211,197,.95)}
+.tf-picker{margin-bottom:11px}
+.tf-picker button{border-radius:var(--r-sm);padding:7px 15px;font-size:13px;font-weight:700}
 
-/* ---------- المستويات ---------- */
-.lvl{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-radius:10px;
-  background:var(--card2);margin-bottom:6px;font-size:13.5px}
-.lvl .tag{font-size:11px;color:var(--mut)}
-.lvl.res{border-right:3px solid var(--dn)}
-.lvl.sup{border-right:3px solid var(--up)}
-.lvl.now{border-right:3px solid var(--acc); background:rgba(23,168,160,.12)}
+/* مبدّلٌ مقطعيّ: خيارٌ من قلّة، وسطحُ المختار يرتفع بدل أن يتلوّن */
+.seg{display:flex;gap:3px;background:var(--s2);border:1px solid var(--hair);
+  border-radius:var(--r-md);padding:3px;position:relative}
+.seg button{flex:1;background:none;border:0;color:var(--tx2);font-family:inherit;
+  font-size:12.5px;font-weight:600;padding:8px 6px;border-radius:var(--r-sm);
+  cursor:pointer;white-space:nowrap;transition:all var(--d1) var(--ease)}
+.seg button.on{background:var(--s3);color:var(--tx);
+  box-shadow:0 1px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05)}
 
-/* ---------- الصفوف ---------- */
-.row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
-.row:last-child{border-bottom:0}
-.row .l{font-size:13.5px; min-width:0}
-.row .l small{display:block;color:var(--mut);font-size:11.5px;line-height:1.5;margin-top:2px}
-.row .r{font-weight:700;font-size:14px;text-align:left;flex:none}
+/* شريط تقدّم مشترك */
+.bar{height:7px;border-radius:var(--r-pill);background:rgba(150,182,214,.09);
+  overflow:hidden;position:relative}
+.bar>i{display:block;height:100%;border-radius:var(--r-pill);
+  background:var(--grad);transition:width var(--d3) var(--ease)}
+.bar>i.up{background:var(--gradUp)} .bar>i.dn{background:var(--gradDn)}
 
-/* ---------- قائمة الأسهم ---------- */
-.toolbar{display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap}
-.toolbar select,.toolbar input{flex:1;min-width:110px;background:var(--card2);border:1px solid var(--line);
-  color:var(--tx);border-radius:10px;padding:9px 11px;font-size:13.5px;font-family:inherit}
-.toolbar input{direction:rtl;text-align:right}
-/* flex:1 لا none: على الهاتف ينزل سطراً ويملؤه فيصير شريط تبديل واضح،
-   وعلى الشاشة العريضة يشارك بقية الأدوات نفس السطر */
-.toolbar .favbtn{flex:1;min-width:110px;background:var(--card2);border:1px solid var(--line);
-  color:var(--mut);border-radius:10px;padding:9px 12px;font-size:13.5px;font-family:inherit;cursor:pointer}
-.toolbar .favbtn.on{background:rgba(240,185,11,.14);border-color:rgba(240,185,11,.4);color:var(--neu)}
-.slist{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.srow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);
-  cursor:pointer;transition:background .15s}
-.srow:last-child{border-bottom:0}
-.srow:active{background:var(--card2)}
-.srow .rank{width:22px;font-size:11px;color:var(--dim);flex:none;text-align:center}
-.srow .id{flex:1;min-width:0}
-.srow .id .t{font-size:14px;display:flex;align-items:center;gap:6px}
-.srow .id .n{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.star{background:none;border:0;padding:0 2px;margin:0;font-size:15px;line-height:1;cursor:pointer;
-  color:var(--dim);flex:none;font-family:inherit}
-.star.on{color:var(--neu)}
-.star:active{transform:scale(.88)}
-.srow .spark{width:56px;height:24px;flex:none;opacity:.9}
-.srow .px{text-align:left;flex:none;min-width:88px}
-.srow .px .p{font-size:14px;font-weight:700}
-.srow .px .c{font-size:12px;font-weight:700}
+/* مربّعُ الشركة — بديلُ الشعار. لا شعارات CDN: قاعدةُ «بلا اعتماد خارجي»
+   يفحصها `check-ui`، وشعارٌ لا يُحمَّل أسوأ من حرفين واضحين */
+.mono{width:38px;height:38px;flex:none;border-radius:var(--r-md);display:grid;
+  place-items:center;font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-weight:700;font-size:13px;direction:ltr;letter-spacing:.3px;
+  border:1px solid rgba(255,255,255,.07);position:relative;overflow:hidden}
+.mono::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(145deg,rgba(255,255,255,.13),transparent 55%)}
+.mono span{position:relative;z-index:1}
+.mono.sm{width:30px;height:30px;font-size:11px;border-radius:var(--r-sm)}
+.mono.lg{width:54px;height:54px;font-size:18px;border-radius:var(--r-lg)}
 
-/* ---- توجّه السوق ----
-   صفٌّ ثلاثيّ: هويّة · ثلاثة آفاق · إجمالي. ويلتفّ على الهاتف بدل أن
-   يُقصّ: القيمة كلُّها في مقارنة الآفاق الثلاثة، وقصُّ أحدها يُفرغ
-   الصفّ من معناه — والقاعدة الموثّقة أن `nowrap` مع قصٍّ يخفي النصّ
-   بصمت. */
-.md-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:11px 12px;
-  border-bottom:1px solid var(--line);transition:background .15s}
-.md-row:last-child{border-bottom:0}
-.md-row[data-open]{cursor:pointer}
-.md-row[data-open]:active{background:var(--card2)}
-.md-row.bench{background:var(--card2);border-bottom:1px solid var(--line)}
-.md-id{flex:1 1 150px;min-width:0}
-.md-id .t{font-size:14px;font-weight:700}
-.md-id .n{font-size:11.5px;color:var(--mut)}
-.md-tfs{display:flex;gap:12px;flex:2 1 220px;flex-wrap:wrap}
-.md-tf{display:flex;flex-direction:column;gap:2px;min-width:64px}
-.md-tf .lbl{font-size:10.5px;color:var(--dim)}
-.md-tf .cnt{font-size:10px;color:var(--dim)}
-.md-pill{font-size:12px;font-weight:700;white-space:nowrap}
-.md-all{flex:none;min-width:82px;text-align:left}
-.md-all .t{font-size:12.5px;font-weight:700}
-.md-all .v{font-size:19px;font-weight:800;line-height:1.1}
-.md-all .sub{font-size:10px;color:var(--dim)}
-.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
-.empty{text-align:center;color:var(--dim);font-size:13px;padding:26px 10px}
+/* خطٌّ مصغَّر: مسارٌ واحد لا كانفس — مئاتُ الصفوف تحتمل ذلك */
+.spark{display:block;overflow:visible}
+.spark .ln{fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+  vector-effect:non-scaling-stroke}
+.spark .ar{stroke:none;opacity:.15}
 
-/* ---------- الماسح ---------- */
-.scans{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px;scrollbar-width:none}
-.scans::-webkit-scrollbar{display:none}
-.scans button{flex:none;background:var(--card2);border:1px solid var(--line);color:var(--mut);
-  padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
-.scans button.on{background:var(--acc);border-color:var(--acc);color:#fff}
-.scan-why{font-size:12px;color:var(--mut);line-height:1.65;margin:0 0 10px;padding:0 2px}
-.hitv{font-size:11.5px;color:var(--neu);font-weight:700;white-space:nowrap}
+/* هيكلُ التحميل: وميضٌ لا دوّارة — يقول أين سيقع المحتوى فلا تقفز الصفحة */
+.skl{background:linear-gradient(90deg,var(--s2) 8%,#1B2735 22%,var(--s2) 36%);
+  background-size:220% 100%;animation:sh 1.5s linear infinite;
+  border-radius:var(--r-sm);height:14px}
+@keyframes sh{to{background-position:-220% 0}}
 
-/* ---------- التحليل الأساسي ---------- */
-.bars{display:flex;gap:2.5px;flex:none;width:64px}
-.bars i{flex:1;height:26px;background:var(--card2);border-radius:3px;position:relative;overflow:hidden}
-.bars i b{position:absolute;bottom:0;left:0;right:0;border-radius:3px;display:block}
-.fscore{width:34px;text-align:center;flex:none;font-weight:700;font-size:13.5px}
-.mtable{width:100%;border-collapse:collapse;font-size:12.5px}
-.mtable th,.mtable td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:center}
-.mtable th{color:var(--mut);font-weight:700;font-size:11.5px}
-.mtable td:first-child,.mtable th:first-child{text-align:right}
-.mtable tr:last-child td{border-bottom:0}
-.mwrap{overflow-x:auto}
-.cmp{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
-.cmp:last-child{border-bottom:0}
-/* جدول العقود: أعمدة كثيرة على شاشة جوال، فيمرّر أفقياً داخل حاويته
-   وحدها — الصفحة نفسها لا تمرّر أفقياً أبداً */
-.otwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
-.otbl{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
-.otbl th{font-size:11px;color:var(--mut);font-weight:600;padding:6px 7px;
-  border-bottom:1px solid var(--line);text-align:center;position:sticky;top:0;background:var(--card)}
-.otbl td{padding:7px;border-bottom:1px solid var(--line);text-align:center}
-.otbl tr:last-child td{border-bottom:0}
-.otbl small{font-size:10px}
-.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mut);margin:8px 0}
-.chk input{width:16px;height:16px;accent-color:var(--up);flex:none}
-.cmp .mid{color:var(--mut);font-size:11.5px;text-align:center;flex:1}
-.cmp .side{flex:none;min-width:78px;font-weight:700}
-.cmp .side.a{text-align:right}
-.cmp .side.b{text-align:left}
-.win{color:var(--up)}
+.empty{text-align:center;color:var(--tx3);font-size:13.5px;padding:34px 14px;line-height:1.8}
+.srcline{font-size:11px;color:var(--tx3);text-align:center;padding:9px 4px 0;line-height:1.7}
+.disclaimer{font-size:11.5px;color:var(--tx3);text-align:center;line-height:1.85;
+  padding:4px 6px 0;opacity:.85}
+.hint{line-height:1.7}
 
-/* ---------- نطاق 52 أسبوعاً ---------- */
-.rng{margin-top:4px}
-/* الطرف الأيمن = قاع 52 أسبوعاً (أحمر)، الأيسر = القمة (أخضر) */
-.rng-track{height:6px;border-radius:99px;background:linear-gradient(to left,var(--dn),#4a4f5c,var(--up));position:relative}
-.rng-mark{position:absolute;top:-4px;width:3px;height:14px;background:#fff;border-radius:2px;box-shadow:0 0 6px rgba(0,0,0,.8)}
-.rng-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:5px}
-
-/* ---------- النماذج ---------- */
-label{display:block;font-size:12.5px;color:var(--mut);margin:0 0 5px}
-input,select{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--tx);
-  border-radius:10px;padding:11px 12px;font-size:16px;font-family:inherit}
-.fld input{direction:ltr;text-align:right}
-input:focus,select:focus{outline:none;border-color:var(--acc)}
-.fld{margin-bottom:11px}
-.btn{width:100%;background:var(--acc);border:0;color:#fff;padding:13px;border-radius:11px;
-  font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
-.btn:active{transform:scale(.98)}
-.btn.gray{background:var(--card2);border:1px solid var(--line);color:var(--tx)}
-
-/* ---------- التنبيهات والأخبار ---------- */
-.warn{background:rgba(234,57,67,.1);border:1px solid rgba(234,57,67,.35);color:#ffb3b8;
-  border-radius:11px;padding:11px 12px;font-size:13px;margin-top:10px}
-.ok{background:rgba(22,199,132,.09);border:1px solid rgba(22,199,132,.3);color:#8ce0c0;
-  border-radius:11px;padding:11px 12px;font-size:13px;margin-top:10px}
-/* شريط الطزاجة داخل الترويسة، فيبقى مرئياً مهما كانت الشاشة أو موضع
-   التمرير — تحذيرٌ يحتاج تمريراً ليُرى لا يحذّر أحداً. */
-.stalebar{font-size:12.5px;padding:7px 12px;border-top:1px solid var(--line);
-  display:flex;gap:8px;align-items:center;flex-wrap:wrap;line-height:1.5}
-.stalebar[hidden]{display:none}
-.stalebar.late{background:rgba(245,185,18,.12);color:#f0c95a}
-.stalebar.dead{background:rgba(234,57,67,.16);color:#ffb3b8}
-.stalebar b{font-variant-numeric:tabular-nums}
-.note{background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.28);color:#e8cf8a;
-  border-radius:11px;padding:11px 12px;font-size:12.5px}
-.news-item{display:block;padding:11px 0;border-bottom:1px solid var(--line)}
-.news-item:last-child{border-bottom:0}
-.news-t{color:var(--tx);font-size:13.5px;line-height:1.55;direction:ltr;text-align:left}
-.news-t.rtl{direction:rtl;text-align:right}
-/* الأصل الإنجليزي تحت الترجمة: يسمح بالتحقق دون أن ينافس العنوان العربي */
-.news-o{color:var(--dim);font-size:11px;line-height:1.5;direction:ltr;text-align:left;margin-top:3px}
-.news-m{font-size:11px;color:var(--dim);margin-top:5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.news-m .tag-ar,.news-m .tag-tr,.news-m .tag-en{padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700}
-.news-m .tag-ar{background:rgba(22,199,132,.14);color:var(--up)}
-.news-m .tag-tr{background:rgba(23,168,160,.14);color:var(--acc)}
-.news-m .tag-en{background:rgba(139,152,169,.13);color:var(--mut)}
-.alert-item{display:flex;justify-content:space-between;align-items:center;background:var(--card2);
-  padding:10px 12px;border-radius:10px;margin-bottom:7px;font-size:13.5px}
-.del{background:none;border:0;color:var(--dn);font-size:18px;cursor:pointer;padding:0 4px}
-
-details{background:var(--card2);border-radius:10px;padding:10px 12px;margin-top:9px}
-details summary{cursor:pointer;font-size:13px;color:var(--acc);font-weight:700;list-style:none}
-details summary::-webkit-details-marker{display:none}
-details summary::before{content:"؟ ";}
-/* الكاشف الافتراضي سؤال («من أين جاء هذا الرقم؟») فبادئته «؟». والتسلسل
-   ليس سؤالاً بل قائمةً تُفتح، فتأخذ سهماً بدل علامة الاستفهام. */
-details.plain summary::before{content:"⌄ ";}
-details[open] summary{margin-bottom:8px}
-details p{margin:0 0 8px;font-size:13px;color:var(--mut);line-height:1.75}
-details p:last-child{margin-bottom:0}
-details b{color:var(--tx)}
-
-/* ---------- شريط التبويبات ---------- */
-.tabbar{position:fixed;bottom:0;left:0;right:0;z-index:60;display:flex;
-  background:rgba(7,10,14,.96);backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);
-  padding-bottom:env(safe-area-inset-bottom)}
-.tabbar button{flex:1;background:none;border:0;color:var(--dim);padding:9px 2px 8px;
-  font-size:10.5px;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;
-  align-items:center;gap:3px;position:relative;transition:color .18s}
-/* أيقونة داخل زرّ أو سطر — تتبع حجم النصّ ولونه، فلا تحتاج ضبطاً في كل
-   موضع ولا تصير شيئاً منفصلاً مُلصقاً بجانب الكلمة */
-/* نقطةُ حالة: بلغ الهدف أم لا. دائرةٌ مفرَّغة تصير مملوءة — الفرق
-   يُقرأ بالشكل لا باللون وحده، فيبقى مقروءاً لمن لا يميّز الأحمر */
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;
-  border:1.5px solid var(--dim);margin-left:6px;vertical-align:.02em}
-.dot.on{background:var(--up);border-color:var(--up)}
-/* علامةٌ طباعية: ترث اللون والحجم، ولا يتغيّر شكلها بين المنصّات */
+/* علاماتٌ صغيرة */
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none;
+  border:1.5px solid var(--tx3);margin-left:6px;vertical-align:.02em}
+.dot.on{background:var(--up);border-color:var(--up);box-shadow:0 0 8px rgba(43,217,138,.55)}
 .mk{font-size:.9em;color:var(--acc);margin-left:4px}
 .mk.hot{color:var(--neu)}
 .ic{width:1.05em;height:1.05em;flex:none;vertical-align:-.16em;margin-left:.42em}
 .ic-s{width:.92em;height:.92em;vertical-align:-.11em;margin-left:.3em}
-.tabbar .ti{width:21px;height:21px;flex:none;transition:transform .18s,opacity .18s;opacity:.78}
-.tabbar button.on .ti{opacity:1}
-.tabbar button.on{color:var(--acc)}
-.tabbar button.on .ti{transform:translateY(-1px)}
-/* المؤشّر شريط علوي لا لون نصّ وحده: يُقرأ بطرف العين */
-.tabbar button.on::before{content:"";position:absolute;top:0;right:22%;left:22%;height:2px;
-  border-radius:0 0 3px 3px;background:var(--grad)}
+.star{background:none;border:0;padding:0 2px;margin:0;font-size:15px;line-height:1;
+  cursor:pointer;color:var(--tx3);flex:none;font-family:inherit;
+  transition:transform var(--d1) var(--ease),color var(--d1) var(--ease)}
+.star.on{color:var(--neu)}
+.star:active{transform:scale(.86)}
+.tag{font-size:11px;color:var(--tx2)}
+.tagmini{font-style:normal;font-size:10.5px;color:var(--neu);
+  border:1px solid rgba(240,178,60,.3);border-radius:6px;padding:1px 6px;
+  margin-right:auto;flex:none}
+
+/* صناديقُ رسائل */
+.warn{background:rgba(255,77,99,.09);border:1px solid rgba(255,77,99,.3);color:#FFB3BC;
+  border-radius:var(--r-md);padding:12px 13px;font-size:13px;margin-top:10px;line-height:1.7}
+.ok{background:rgba(43,217,138,.08);border:1px solid rgba(43,217,138,.28);color:#9BE8C5;
+  border-radius:var(--r-md);padding:12px 13px;font-size:13px;margin-top:10px;line-height:1.7}
+.note{background:rgba(240,178,60,.07);border:1px solid rgba(240,178,60,.24);color:#EDD29A;
+  border-radius:var(--r-md);padding:12px 13px;font-size:12.5px;line-height:1.7}
+
+/* ======================================================================
+   النماذج
+   ====================================================================== */
+label{display:block;font-size:12.5px;color:var(--tx2);margin:0 0 6px}
+input,select{width:100%;background:var(--s2);border:1px solid var(--hair);color:var(--tx);
+  border-radius:var(--r-md);padding:11px 13px;font-size:16px;font-family:inherit;
+  transition:border-color var(--d1) var(--ease),box-shadow var(--d1) var(--ease)}
+input:focus,select:focus{outline:none;border-color:var(--acc);
+  box-shadow:0 0 0 3px rgba(34,211,197,.14)}
+.fld{margin-bottom:11px}
+.fld input{direction:ltr;text-align:right}
+.chk{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--tx2);margin:9px 0}
+.chk input{width:17px;height:17px;accent-color:var(--acc);flex:none}
+.toolbar{display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap}
+.toolbar select,.toolbar input{flex:1;min-width:112px;border-radius:var(--r-md);
+  padding:10px 12px;font-size:13.5px}
+.toolbar input{direction:rtl;text-align:right}
+/* flex:1 لا none: على الهاتف ينزل سطراً ويملؤه فيصير شريط تبديل واضح،
+   وعلى الشاشة العريضة يشارك بقية الأدوات نفس السطر */
+.toolbar .favbtn{flex:1;min-width:112px;background:var(--s2);border:1px solid var(--hair);
+  color:var(--tx2);border-radius:var(--r-md);padding:10px 12px;font-size:13.5px;
+  font-family:inherit;cursor:pointer;transition:all var(--d1) var(--ease)}
+.toolbar .favbtn.on{background:var(--neuBg);border-color:rgba(240,178,60,.4);color:var(--neu)}
+
+/* بحثٌ كبير: صندوقٌ بمقاس النصّ العادي يجعل ما يُكتب فيه غير مقروء —
+   بلّغ عنه مستخدم. و`dir="auto"` على الحقل لا LTR مفروضاً: يُبحث
+   بـ`AAPL` وبـ«أبل» معاً، وفرضُ اللاتيني يقلب العربي على نفسه. */
+.sfind{display:flex;gap:9px;align-items:center}
+.sfind input{flex:1;min-width:0;padding:14px 15px;font-size:19px;font-weight:700;
+  letter-spacing:.3px;line-height:1.3;border-radius:var(--r-md)}
+.sfind input::placeholder{font-size:14px;font-weight:400;letter-spacing:0;color:var(--tx2)}
+/* `.btn` الأساسية `width:100%`، و`flex:none` تُبقيها على عرض الحاوية
+   كاملاً فتفيض ‎13‎ بكسل على الهاتف. العرض يُعاد إلى `auto` صراحةً. */
+.sfind .btn{width:auto;flex:0 0 auto;padding:14px 18px;font-size:15px;white-space:nowrap}
+.sauto{display:none;margin-top:7px;border:1px solid var(--hair);border-radius:var(--r-md);
+  overflow:hidden;background:var(--s2);box-shadow:var(--sh2)}
+.sauto.on{display:block}
+.sauto-r{display:flex;gap:10px;align-items:center;padding:11px 12px;cursor:pointer;
+  border-bottom:1px solid var(--hair);font-size:15px}
+.sauto-r:last-child{border-bottom:0}
+.sauto-r:hover,.sauto-r.hi{background:var(--accBg)}
+.sauto-r b{font-size:16px}
+.sauto-r span{color:var(--tx2);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;font-size:12.5px}
+.sauto-x{padding:11px 12px;font-size:12.5px;color:var(--tx2)}
+
+
+/* ======================================================================
+   الشريط السفلي وورقة «المزيد»
+
+   سبعةُ تبويبات في شريطٍ واحد تعطي ‎41.7‎ بكسل لكلٍّ منها على ‎375px‎ —
+   أصغرُ من هدفِ لمسٍ مريح، ووسومٌ تلتفّ. فخمسةٌ في الشريط والباقي في
+   ورقةٍ سفلية، وكلُّها تحتفظ بـ`data-go` فيبقى تكافؤ التبويبات والشاشات
+   الذي يفحصه `check-ui`.
+   ====================================================================== */
+.tabbar{position:fixed;bottom:0;left:0;right:0;z-index:60;display:flex;
+  align-items:stretch;
+  background:linear-gradient(180deg, rgba(6,9,15,.86), rgba(4,7,12,.98));
+  backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+  border-top:1px solid var(--hair);
+  padding:0 4px env(safe-area-inset-bottom)}
+/* خطُّ ضوءٍ علويّ: يفصل الشريط عن المحتوى بلا حدٍّ ثقيل */
+.tabbar::before{content:"";position:absolute;top:-1px;right:8%;left:8%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(34,211,197,.35),transparent)}
+.tabbar button{flex:1;background:none;border:0;color:var(--tx3);
+  padding:9px 2px 8px;height:var(--nav);
+  font-size:10.5px;font-family:inherit;cursor:pointer;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  position:relative;transition:color var(--d1) var(--ease)}
+.tabbar .ti{width:23px;height:23px;flex:none;
+  transition:transform var(--d2) var(--ease),opacity var(--d2) var(--ease);opacity:.7}
+.tabbar button.on{color:var(--acc);font-weight:700}
+.tabbar button.on .ti{opacity:1;transform:translateY(-1px) scale(1.04);
+  filter:drop-shadow(0 0 9px var(--accGlow))}
+/* المؤشّر حبّةُ ضوءٍ تحت الأيقونة لا شريطٌ علويّ: الشريطُ العلويّ يُقرأ
+   حافّةَ الشاشة، والحبّةُ تُقرأ «أنت هنا» */
+.tabbar button.on::after{content:"";position:absolute;bottom:6px;width:16px;height:2.5px;
+  border-radius:2px;background:var(--grad);box-shadow:0 0 10px var(--accGlow)}
+.tabbar button:active .ti{transform:scale(.9)}
+/* الثلاثةُ المنقولة إلى الورقة تبقى في الشجرة وتُخفى بصرياً وحدها:
+   حذفُها من الشجرة يُسقط تكافؤ التبويبات والشاشات في `check-ui`. */
+.tabbar button[data-more]{display:none}
 .side-brand{display:none}
-/* ---------- علامة العنوان ---------- */
-/* شارةٌ رأسية رقيقة بلون التمييز بدل الإيموجي. خمسةٌ وأربعون أيقونةً
-   مختلفة تعيد نفس مشكلة الإيموجي — زحامٌ يجعل العناوين تتنافس على
-   الانتباه — أمّا علامةٌ واحدة فتقول «هذا عنوان قسم» ولا تحاول تصويره.
-   وهي `::before` على `h2` فتنطبق على كل بطاقة بلا تعديل هيكل. */
-.card h2::before{content:"";display:inline-block;width:3px;height:13px;
-  border-radius:2px;background:var(--acc);margin-inline-end:8px;
-  vertical-align:-1px;opacity:.9}
-/* ---------- إيداعات SEC ---------- */
-/* الوزن شريطٌ جانبي لا رقم: القارئ لا يعرف ما تعنيه «3»، ويقرأ اللون
-   بطرف العين. والحدّ على البداية لأن الاتجاه RTL. */
-.fil{background:var(--card2);border:1px solid var(--line);border-radius:var(--r3);
-  padding:9px 11px;margin-bottom:7px;border-inline-start:3px solid var(--line2)}
+
+/* الطبقة المعتمة تحت الورقة */
+.scrim{position:fixed;inset:0;z-index:70;background:rgba(2,4,8,.66);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  opacity:0;pointer-events:none;transition:opacity var(--d2) var(--ease)}
+.scrim.on{opacity:1;pointer-events:auto}
+
+/* الورقة السفلية — مكوّنٌ واحد تستعمله «المزيد» والمرشّحات معاً */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:75;
+  background:linear-gradient(180deg,#121B26,#0A1018);
+  border-top:1px solid var(--hair2);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  box-shadow:0 -18px 50px -20px rgba(0,0,0,.95);
+  padding:10px 14px calc(18px + env(safe-area-inset-bottom));
+  max-height:82vh;overflow-y:auto;overscroll-behavior:contain;
+  transform:translateY(102%);transition:transform var(--d3) var(--ease)}
+.sheet.on{transform:none}
+/* مقبضٌ يقول «تُسحب لتُغلق» بلا نصّ */
+.sheet-grip{width:42px;height:4px;border-radius:2px;background:var(--hair2);
+  margin:2px auto 12px}
+.sheet h3{margin:0 0 12px;font-size:15px;font-weight:700;display:flex;
+  align-items:center;gap:9px}
+.sheet h3::before{content:"";width:3px;height:14px;border-radius:2px;
+  background:var(--grad);flex:none}
+.sheet-x{position:absolute;top:12px;left:14px;width:32px;height:32px;
+  border-radius:10px;background:var(--s2);border:1px solid var(--hair);
+  color:var(--tx2);font-size:16px;cursor:pointer;font-family:inherit;
+  display:grid;place-items:center}
+/* صفُّ الورقة: هدفُ لمسٍ بارتفاع ‎52px‎ لا سطرُ نصّ */
+.sheet-r{display:flex;align-items:center;gap:12px;width:100%;
+  background:var(--s2);border:1px solid var(--hair);border-radius:var(--r-md);
+  color:var(--tx);font-family:inherit;font-size:14.5px;font-weight:600;
+  padding:13px 14px;margin-bottom:8px;cursor:pointer;text-align:start;
+  transition:background var(--d1) var(--ease),border-color var(--d1) var(--ease)}
+.sheet-r .ti{width:21px;height:21px;flex:none;color:var(--acc);opacity:.9}
+.sheet-r small{display:block;font-size:11px;color:var(--tx2);font-weight:500;
+  margin-top:2px;line-height:1.5}
+.sheet-r .g{flex:1;min-width:0}
+.sheet-r .go{color:var(--tx3);font-size:17px;flex:none}
+.sheet-r.on{border-color:rgba(34,211,197,.35);background:var(--accBg)}
+.sheet-r:active{transform:scale(.99)}
+/* قفلُ تمرير الخلفية حين تكون الورقة مفتوحة */
+body.sheet-open{overflow:hidden}
+
+/* ======================================================================
+   مقاييس ومؤشّرات بصرية مشتركة
+   ====================================================================== */
+/* خانةُ مقياس: أكبرُ من `.stat` وأقلُّ عدداً — للأرقام التي تُقرأ أولاً */
+.metric{background:linear-gradient(180deg,var(--s2),#0C131C);
+  border:1px solid var(--hair);border-radius:var(--r-md);padding:12px;
+  position:relative;overflow:hidden;min-width:0}
+.metric .k{font-size:10.5px;color:var(--tx2);font-weight:600;
+  letter-spacing:.02em;margin-bottom:5px}
+.metric .v{font-size:19px;font-weight:800;letter-spacing:-.5px;line-height:1.15;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metric .s{font-size:10.5px;color:var(--tx3);margin-top:3px;line-height:1.5}
+/* شريطٌ دلاليّ على الحافّة الابتدائية — RTL فيمينُ الخانة */
+.metric::after{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;
+  width:3px;background:var(--hair2)}
+.metric.up::after{background:var(--up)} .metric.dn::after{background:var(--dn)}
+.metric.neu::after{background:var(--neu)} .metric.acc::after{background:var(--acc)}
+
+/* العدّاد — قوسٌ SVG. الرقمُ من الخادم كما هو ولا يُعاد حسابه هنا */
+.gauge{position:relative;display:block;margin:2px auto 0;max-width:262px}
+.gauge svg{display:block;width:100%;height:auto;overflow:visible}
+.gauge .gtrk{fill:none;stroke:rgba(150,182,214,.10);stroke-linecap:round}
+.gauge .gval{fill:none;stroke-linecap:round;
+  transition:stroke-dasharray var(--d3) var(--ease)}
+.gauge .gtick{stroke:rgba(150,182,214,.22);stroke-width:1}
+
+.verdict{font-size:27px;font-weight:800;text-align:center;margin:12px 0 2px;
+  letter-spacing:-.9px}
+.verdict-sub{text-align:center;font-size:12.5px;color:var(--tx2)}
+
+/* نطاق 52 أسبوعاً — الطرف الأيمن قاعٌ والأيسر قمّة */
+.rng{margin-top:6px}
+.rng-track{height:7px;border-radius:var(--r-pill);position:relative;
+  background:linear-gradient(to left,var(--dn),#3A4250,var(--up))}
+.rng-mark{position:absolute;top:-4px;width:3px;height:15px;background:#fff;
+  border-radius:2px;box-shadow:0 0 7px rgba(0,0,0,.85)}
+.rng-lbl{display:flex;justify-content:space-between;font-size:11px;
+  color:var(--tx3);margin-top:6px}
+
+/* شريط القوة النسبية */
+.rsbar{position:relative;height:8px;border-radius:var(--r-pill);
+  background:rgba(150,182,214,.09);overflow:hidden}
+.rsbar b{position:absolute;top:0;bottom:0;border-radius:var(--r-pill);display:block}
+
+/* أعمدةُ الأساسيات الصغيرة */
+.bars{display:flex;gap:3px;flex:none;width:66px}
+.bars i{flex:1;height:28px;background:rgba(150,182,214,.08);border-radius:3px;
+  position:relative;overflow:hidden}
+.bars i b{position:absolute;bottom:0;left:0;right:0;border-radius:3px;display:block}
+.fscore{width:36px;text-align:center;flex:none;font-weight:800;font-size:14px}
+
+
+/* ======================================================================
+   القوائم — الصفّ المدمج `.srow` وبطاقة الفرصة `.srow.opp`
+
+   `.srow` صفٌّ عامّ تستعمله ثماني قوائم (الأسهم · القوة النسبية ·
+   الارتباط · الفجوات · ترتيب الأساسيات · أرجل التركيب …)، فيبقى مدمجاً.
+   وبطاقةُ الفرصة تخصيصٌ فوقه بـ`.opp` — نفس الحاوية ونفس الخطّافات
+   (`data-open` · `.rank` · `.id .n` · `.hitv`) التي يقرؤها `prove-live`.
+   ====================================================================== */
+.slist{background:linear-gradient(180deg,var(--s1),#090F17);
+  border:1px solid var(--hair);border-radius:var(--r-lg);
+  overflow:hidden;box-shadow:var(--sh1)}
+.srow{display:flex;align-items:center;gap:11px;padding:11px 13px;
+  border-bottom:1px solid var(--hair);cursor:pointer;
+  transition:background var(--d1) var(--ease)}
+.srow:last-child{border-bottom:0}
+.srow:active{background:var(--s2)}
+.srow .rank{width:22px;font-size:11px;color:var(--tx3);flex:none;text-align:center;
+  font-variant-numeric:tabular-nums}
+.srow .id{flex:1;min-width:0}
+.srow .id .t{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;
+  white-space:nowrap;overflow:hidden}
+/* الاسمُ وحده يقصّ، والشاراتُ بجانبه لا تحته ولا تُبتلَع */
+.srow .id .t .nmx{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.srow .id .t .chip{flex:none}
+.srow .id .n{font-size:11.5px;color:var(--tx2);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;line-height:1.55}
+.srow .spark{width:58px;height:26px;flex:none;opacity:.95}
+.srow .px{text-align:left;flex:none;min-width:88px}
+.srow .px .p{font-size:14px;font-weight:700;letter-spacing:-.3px}
+.srow .px .c{font-size:12px;font-weight:700}
+
+/* ---------- بطاقة الفرصة ---------- */
+/* ثلاثةُ صفوف: هويّة · رقم · سياق. والترتيبُ يتبع سؤال القارئ:
+   «أيُّ سهم؟» ثم «بكم وإلى أين؟» ثم «منذ متى وبأيّ تأييد؟». */
+#scanList{background:none;border:0;border-radius:0;box-shadow:none;overflow:visible}
+.srow.opp{
+  display:block;padding:0;border:1px solid var(--hair);border-radius:var(--r-lg);
+  margin-bottom:11px;overflow:hidden;position:relative;
+  background:linear-gradient(180deg,var(--s1),#090F17);
+  box-shadow:var(--sh1);
+  /* القوائم تبلغ مئات الصفوف: ما هو خارج الشاشة لا يُخطَّط ولا يُرسم */
+  content-visibility:auto; contain-intrinsic-size:auto 168px;
+  transition:border-color var(--d2) var(--ease),box-shadow var(--d2) var(--ease),
+             transform var(--d1) var(--ease)}
+.srow.opp:last-child{border-bottom:1px solid var(--hair)}
+.srow.opp:active{transform:scale(.993)}
+/* شريطٌ دلاليّ على الحافّة الابتدائية بلون اتجاه النظام */
+.srow.opp::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;
+  width:3px;background:var(--hair2);z-index:1}
+.srow.opp.d-up::before{background:linear-gradient(180deg,var(--up),rgba(43,217,138,.25))}
+.srow.opp.d-dn::before{background:linear-gradient(180deg,var(--dn),rgba(255,77,99,.25))}
+/* الثلاثةُ الأولى تأخذ وزناً بصرياً أعلى — **تمييزٌ يتبع الترتيب الذي
+   أعطاه النظام ولا يغيّره**: الموضع مصدرُه اللقطة وحدها */
+.srow.opp.top{border-color:rgba(34,211,197,.26);
+  box-shadow:var(--sh1),0 0 26px -14px rgba(34,211,197,.55)}
+.srow.opp.top::after{content:"";position:absolute;inset:0;pointer-events:none;
+  border-radius:var(--r-lg);
+  background:radial-gradient(420px 130px at 92% -18%, rgba(34,211,197,.10), transparent 70%)}
+
+.opp-hd{display:flex;align-items:flex-start;gap:11px;padding:13px 14px 10px;
+  position:relative;z-index:2}
+.srow.opp .rank{width:26px;height:26px;flex:none;border-radius:8px;display:grid;
+  place-items:center;font-size:12px;font-weight:800;background:var(--s3);
+  color:var(--tx2);border:1px solid var(--hair);margin-top:5px;
+  font-variant-numeric:tabular-nums;text-align:center}
+.srow.opp.r1 .rank{background:var(--goldBg);color:var(--gold);
+  border-color:rgba(230,178,74,.4);box-shadow:0 0 14px -4px rgba(230,178,74,.55)}
+.srow.opp.r2 .rank,.srow.opp.r3 .rank{background:var(--accBg);color:var(--acc);
+  border-color:rgba(34,211,197,.3)}
+.srow.opp .id{flex:1;min-width:0}
+.srow.opp .id .t{font-size:15px;font-weight:700;gap:8px;letter-spacing:-.3px}
+.srow.opp .id .t .tick{font-size:11px;color:var(--tx2);font-weight:600;
+  background:rgba(150,182,214,.08);border-radius:5px;padding:1px 6px}
+.srow.opp .id .n{font-size:11.5px;margin-top:3px}
+/* سطرُ التوافق: الأثر بالنقاط لا بوصف، وثلاثُ حالاتٍ لا واحدة */
+.srow.opp .id .n.conf{font-weight:700;white-space:normal}
+.srow.opp .id .n.since{color:var(--tx3);white-space:normal}
+.opp-dir{flex:none;margin-top:4px;font-size:11px;font-weight:700;padding:4px 9px;
+  border-radius:var(--r-pill);border:1px solid transparent;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:4px}
+.opp-dir.up{background:var(--upBg);color:var(--up);border-color:rgba(43,217,138,.26)}
+.opp-dir.dn{background:var(--dnBg);color:var(--dn);border-color:rgba(255,77,99,.26)}
+.opp-dir.neu{background:rgba(150,182,214,.08);color:var(--tx2);border-color:var(--hair)}
+
+/* الصفّ الرقميّ: سعرٌ · خطٌّ مصغَّر · درجة */
+.opp-bd{display:flex;align-items:center;gap:11px;padding:2px 14px 12px;
+  position:relative;z-index:2}
+.opp-px{flex:none;min-width:0}
+.opp-px .p{font-size:20px;font-weight:800;letter-spacing:-.6px;line-height:1.15}
+.opp-px .c{font-size:12.5px;font-weight:700;margin-top:1px}
+.srow.opp .spark{flex:1;min-width:34px;width:auto;height:34px;opacity:1}
+/* شارةُ الدرجة — وهي `.hitv` التي يقرؤها `prove-live`:
+   **قيمةُ المسح أوّلاً ثم «درجة N»**، لأن الأداة تشتقّ القيمة بقصّ ما
+   بعد كلمة «درجة». أيُّ قلبٍ للترتيب يُفرغ عمودَ القيمة في الإثبات. */
+.hitv{flex:none;font-size:11px;color:var(--neu);font-weight:700;white-space:nowrap;
+  text-align:left;line-height:1.5}
+.srow.opp .hitv{display:flex;flex-direction:column;align-items:flex-end;gap:3px;
+  background:var(--s2);border:1px solid var(--hair);border-radius:var(--r-sm);
+  padding:6px 9px;min-width:74px}
+.srow.opp .hitv .hg{color:var(--acc);font-size:13px;font-weight:800;
+  letter-spacing:-.2px;font-variant-numeric:tabular-nums}
+
+/* الذيل: شرائطُ سياقٍ صغيرة تفصلها شعرة */
+.opp-ft{display:flex;flex-wrap:wrap;gap:6px;padding:9px 14px;
+  border-top:1px solid var(--hair);background:rgba(150,182,214,.025);
+  position:relative;z-index:2}
+.opp-ft span{font-size:10.5px;font-weight:600;color:var(--tx2);
+  background:rgba(150,182,214,.07);border:1px solid var(--hair);
+  border-radius:var(--r-pill);padding:3px 9px;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:4px}
+.opp-ft span.hot{background:var(--neuBg);color:var(--neu);border-color:rgba(240,178,60,.26)}
+.opp-ft span.good{background:var(--upBg);color:var(--up);border-color:rgba(43,217,138,.24)}
+.opp-ft span.bad{background:var(--dnBg);color:var(--dn);border-color:rgba(255,77,99,.26)}
+.opp-ft span.cold{background:rgba(150,182,214,.05);color:var(--tx3)}
+
+/* الترويسة اللاصقة لشاشة الفرص: المرشّحات تبقى في متناول الإبهام */
+.sticky-hd{position:sticky;top:0;z-index:20;margin:-15px -15px 12px;
+  padding:12px 15px 6px;
+  background:linear-gradient(180deg,rgba(11,17,26,.98) 72%,rgba(11,17,26,0));
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.sticky-hd .scans{margin-bottom:8px}
+
+/* ---- توجّه السوق ----
+   صفٌّ ثلاثيّ: هويّة · ثلاثة آفاق · إجمالي. ويلتفّ على الهاتف بدل أن
+   يُقصّ: القيمة كلُّها في مقارنة الآفاق الثلاثة، وقصُّ أحدها يُفرغ الصفّ
+   من معناه — والقاعدة الموثّقة أن `nowrap` مع قصٍّ يخفي النصّ بصمت. */
+.md-row{display:flex;flex-wrap:wrap;align-items:center;gap:11px;padding:12px 13px;
+  border-bottom:1px solid var(--hair);transition:background var(--d1) var(--ease)}
+.md-row:last-child{border-bottom:0}
+.md-row[data-open]{cursor:pointer}
+.md-row[data-open]:active{background:var(--s2)}
+.md-row.bench{background:linear-gradient(180deg,rgba(34,211,197,.07),transparent);
+  border-bottom:1px solid var(--hair2)}
+.md-id{flex:1 1 150px;min-width:0}
+.md-id .t{font-size:14.5px;font-weight:700}
+.md-id .n{font-size:11.5px;color:var(--tx2)}
+.md-tfs{display:flex;gap:13px;flex:2 1 220px;flex-wrap:wrap}
+.md-tf{display:flex;flex-direction:column;gap:2px;min-width:64px}
+.md-tf .lbl{font-size:10.5px;color:var(--tx3)}
+.md-tf .cnt{font-size:10px;color:var(--tx3)}
+.md-pill{font-size:12px;font-weight:700;white-space:nowrap}
+.md-all{flex:none;min-width:84px;text-align:left}
+.md-all .t{font-size:12.5px;font-weight:700}
+.md-all .v{font-size:21px;font-weight:800;line-height:1.1;letter-spacing:-.6px}
+.md-all .sub{font-size:10px;color:var(--tx3)}
+
+/* ---------- الصفوف العامّة ---------- */
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+  padding:10px 0;border-bottom:1px solid var(--hair)}
+.row:last-child{border-bottom:0}
+.row .l{font-size:13.5px; min-width:0}
+.row .l small{display:block;color:var(--tx2);font-size:11.5px;line-height:1.55;margin-top:3px}
+.row .r{font-weight:700;font-size:14px;text-align:left;flex:none}
+
+.alert-item{display:flex;justify-content:space-between;align-items:center;
+  background:var(--s2);border:1px solid var(--hair);
+  padding:11px 13px;border-radius:var(--r-md);margin-bottom:8px;font-size:13.5px}
+.del{background:none;border:0;color:var(--dn);font-size:18px;cursor:pointer;
+  padding:0 4px;font-family:inherit}
+
+/* ---------- المستويات ---------- */
+.lvl{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;
+  border-radius:var(--r-md);background:var(--s2);border:1px solid var(--hair);
+  margin-bottom:7px;font-size:13.5px}
+.lvl .tag{font-size:11px;color:var(--tx2)}
+.lvl.res{border-inline-start:3px solid var(--dn)}
+.lvl.sup{border-inline-start:3px solid var(--up)}
+.lvl.now{border-inline-start:3px solid var(--acc);background:var(--accBg);
+  border-color:rgba(34,211,197,.24)}
+
+
+/* ======================================================================
+   الشارت والفريمات
+   ====================================================================== */
+.chart-wrap{position:relative;background:linear-gradient(180deg,#0C131C,#080D14);
+  border:1px solid var(--hair);border-radius:var(--r-md);padding:7px 3px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+/* pan-y لا none: السحب الأفقي يحرّك المؤشّر، والعمودي يبقى تمريراً للصفحة */
+canvas{display:block;width:100%;height:240px;touch-action:pan-y}
+.ohlc{position:absolute;top:9px;right:9px;left:9px;display:none;gap:10px;flex-wrap:wrap;
+  background:rgba(8,13,20,.93);border:1px solid var(--hair2);border-radius:var(--r-sm);
+  padding:6px 9px;font-size:10.5px;color:var(--tx2);pointer-events:none;
+  backdrop-filter:blur(6px)}
+.ohlc.on{display:flex}
+.ohlc b{font-weight:700;color:var(--tx)}
+.legend{display:flex;gap:13px;font-size:11.5px;color:var(--tx2);margin-top:9px;
+  flex-wrap:wrap;justify-content:center}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;
+  vertical-align:middle;margin-left:5px}
+
+/* جدول الفريمات — أربعةٌ لا خمسة، ولا فريم أصغر من ‎15د‎ */
+.tf{display:flex;align-items:center;gap:11px;padding:11px 0;
+  border-bottom:1px solid var(--hair)}
+.tf:last-child{border-bottom:0}
+.tf-name{width:58px;font-weight:700;font-size:14px;flex:none}
+.tf-bar{flex:1;height:9px;background:rgba(150,182,214,.09);border-radius:var(--r-pill);
+  position:relative;overflow:hidden}
+.tf-fill{position:absolute;top:0;height:100%;border-radius:var(--r-pill);
+  transition:all var(--d3) var(--ease)}
+.tf-val{width:108px;text-align:left;font-size:12.5px;font-weight:700;flex:none}
+/* رقم قوّة الاتجاه إلى جانب الوسم — خافتٌ لأنه قيدٌ على الوسم لا بديلٌ
+   عنه، ويصير أصفر تحت ‎20‎ حيث «صاعد قويّ» تصف ترتيباً لا حركة */
+.tf-adx{display:inline-block;margin-inline-start:6px;font-size:10.5px;font-weight:600;
+  color:var(--tx3);font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr;
+  border:1px solid var(--hair2);border-radius:5px;padding:0 5px;vertical-align:1px}
+.tf-adx.chop{color:var(--neu);border-color:rgba(240,178,60,.35)}
+
+/* ======================================================================
+   الجداول
+   ====================================================================== */
+.mtable,.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.mtable th,.mtable td,.tbl th,.tbl td{padding:8px 7px;
+  border-bottom:1px solid var(--hair);text-align:center}
+.mtable th,.tbl th{color:var(--tx2);font-weight:700;font-size:11.5px}
+.mtable td:first-child,.mtable th:first-child,
+.tbl td:first-child,.tbl th:first-child{text-align:right}
+.mtable tr:last-child td,.tbl tr:last-child td{border-bottom:0}
+.mtable tbody tr:nth-child(even),.tbl tbody tr:nth-child(even){background:rgba(150,182,214,.022)}
+.mwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* جدول العقود: أعمدة كثيرة على شاشة جوال، فيمرّر أفقياً داخل حاويته
+   وحدها — الصفحة نفسها لا تمرّر أفقياً أبداً */
+.otwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
+.otbl{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.otbl th{font-size:11px;color:var(--tx2);font-weight:600;padding:7px 8px;
+  border-bottom:1px solid var(--hair);text-align:center;position:sticky;top:0;
+  background:#0C131C;backdrop-filter:blur(6px)}
+.otbl td{padding:8px;border-bottom:1px solid var(--hair);text-align:center}
+.otbl tr:last-child td{border-bottom:0}
+.otbl tbody tr:nth-child(even){background:rgba(150,182,214,.022)}
+.otbl small{font-size:10px}
+
+.cmp{display:flex;justify-content:space-between;align-items:center;gap:9px;
+  padding:10px 0;border-bottom:1px solid var(--hair);font-size:13px}
+.cmp:last-child{border-bottom:0}
+.cmp .mid{color:var(--tx2);font-size:11.5px;text-align:center;flex:1}
+.cmp .side{flex:none;min-width:78px;font-weight:700}
+.cmp .side.a{text-align:right}
+.cmp .side.b{text-align:left}
+
+/* ======================================================================
+   الكواشف — الكشف التدريجي هو ما يُبقي شاشة الجوال مقروءة
+   ====================================================================== */
+details{background:rgba(16,24,34,.6);border:1px solid var(--hair);
+  border-radius:var(--r-md);padding:11px 13px;margin-top:10px;
+  transition:border-color var(--d2) var(--ease)}
+details[open]{background:var(--s2);border-color:var(--hair2)}
+details summary{cursor:pointer;font-size:13px;color:var(--acc);font-weight:700;
+  list-style:none;display:flex;align-items:center;gap:6px}
+details summary::-webkit-details-marker{display:none}
+/* الكاشف الافتراضي سؤال («من أين جاء هذا الرقم؟») فبادئته «؟». والتسلسل
+   ليس سؤالاً بل قائمةً تُفتح، فيأخذ سهماً بدل علامة الاستفهام. */
+details summary::before{content:"؟";flex:none;width:17px;height:17px;border-radius:50%;
+  background:var(--accBg);border:1px solid rgba(34,211,197,.3);
+  display:grid;place-items:center;font-size:10.5px;font-weight:700}
+details.plain summary::before{content:"⌄";background:rgba(150,182,214,.08);
+  border-color:var(--hair);color:var(--tx2)}
+details[open] summary{margin-bottom:9px}
+details p{margin:0 0 9px;font-size:13px;color:var(--tx2);line-height:1.8}
+details p:last-child{margin-bottom:0}
+details b{color:var(--tx)}
+
+/* ======================================================================
+   الأخبار — **بلا صور**: `news.json` لا يحمل أيّ حقل صورة، وصورةٌ لا
+   تخصّ الخبر أسوأ من غيابها. فالتصميم طباعيّ: المصدر شارةٌ، والوقت
+   خافت، والعنوان هو الوزن كلُّه.
+   ====================================================================== */
+.news-item{display:block;padding:13px;border:1px solid var(--hair);
+  border-radius:var(--r-md);background:var(--s2);margin-bottom:9px;
+  position:relative;overflow:hidden;
+  transition:border-color var(--d2) var(--ease),background var(--d2) var(--ease)}
+.news-item::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;
+  width:2px;background:var(--hair2)}
+.news-item:last-child{margin-bottom:0}
+.news-t{color:var(--tx);font-size:14px;line-height:1.6;direction:ltr;text-align:left;
+  font-weight:600}
+.news-t.rtl{direction:rtl;text-align:right}
+/* الأصل الإنجليزي تحت الترجمة: يسمح بالتحقّق دون أن ينافس العنوان العربي */
+.news-o{color:var(--tx3);font-size:11px;line-height:1.55;direction:ltr;
+  text-align:left;margin-top:4px}
+.news-m{font-size:11px;color:var(--tx3);margin-top:8px;display:flex;gap:8px;
+  align-items:center;flex-wrap:wrap}
+.news-m .tag-ar,.news-m .tag-tr,.news-m .tag-en{padding:2px 7px;
+  border-radius:var(--r-pill);font-size:10px;font-weight:700}
+.news-m .tag-ar{background:var(--upBg);color:var(--up)}
+.news-m .tag-tr{background:var(--accBg);color:var(--acc)}
+.news-m .tag-en{background:rgba(150,182,214,.08);color:var(--tx2)}
+
+/* ======================================================================
+   إيداعات SEC — الوزن شريطٌ جانبي لا رقم: القارئ لا يعرف ما تعنيه «3»،
+   ويقرأ اللون بطرف العين. والحدّ على البداية لأن الاتجاه RTL.
+   ====================================================================== */
+.fil{background:var(--s2);border:1px solid var(--hair);border-radius:var(--r-md);
+  padding:11px 12px;margin-bottom:8px;border-inline-start:3px solid var(--hair2)}
 .fil.w3{border-inline-start-color:var(--dn)}
 .fil.w2{border-inline-start-color:var(--neu)}
-.fil.w1{border-inline-start-color:var(--line2)}
-.fil-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.fil.w1{border-inline-start-color:var(--hair2)}
+.fil-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
 .fil-sym{background:none;border:0;padding:0;color:var(--tx);font-family:inherit;
   font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:baseline;gap:6px}
-.fil-sym i{font-style:normal;font-size:10.5px;color:var(--dim);font-weight:600;
+.fil-sym i{font-style:normal;font-size:10.5px;color:var(--tx3);font-weight:600;
   font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr}
-.fil-sym:hover{color:var(--acc)}
-.fil-form{font-size:10.5px;font-weight:700;color:var(--mut);border:1px solid var(--line2);
-  border-radius:3px;padding:0 5px;font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr}
-.fil-at{font-size:11px;color:var(--dim);margin-inline-start:auto}
-.fil-bd{font-size:12.5px;line-height:1.75;color:var(--tx)}
+.fil-form{font-size:10.5px;font-weight:700;color:var(--tx2);border:1px solid var(--hair2);
+  border-radius:5px;padding:1px 6px;font-family:"IBM Plex Mono",ui-monospace,monospace;
+  direction:ltr}
+.fil-at{font-size:11px;color:var(--tx3);margin-inline-start:auto}
+.fil-bd{font-size:12.5px;line-height:1.8;color:var(--tx)}
 /* البنود تلتفّ ولا تُقصّ: اسمُ البند هو المعلومة كلّها، وقصُّه بثلاث
    نقاط يجعل «عدم جواز الاعتماد على قوائم…» و«عدم جواز…» سواء */
-.fil-item{display:inline-block;background:var(--card3);border-radius:3px;
-  padding:1px 7px;margin:2px 0 2px 5px;font-size:11.5px;color:var(--tx)}
-.fil-sub{display:block;font-size:11.5px;color:var(--mut);margin-top:1px}
-.fil-lnk{display:inline-block;font-size:11px;color:var(--dim);margin-top:5px}
-.fil-lnk:hover{color:var(--acc)}
-.skl{background:linear-gradient(90deg,var(--card2),#28313f,var(--card2));background-size:200% 100%;
-  animation:sh 1.4s infinite;border-radius:7px;height:14px}
-@keyframes sh{to{background-position:-200% 0}}
-.disclaimer{font-size:11.5px;color:var(--dim);text-align:center;line-height:1.8;padding:4px 6px 0}
-.srcline{font-size:11px;color:var(--dim);text-align:center;padding:8px 4px 0}
+.fil-item{display:inline-block;background:var(--s3);border-radius:5px;
+  padding:2px 8px;margin:2px 0 2px 5px;font-size:11.5px;color:var(--tx)}
+.fil-sub{display:block;font-size:11.5px;color:var(--tx2);margin-top:2px}
+.fil-lnk{display:inline-block;font-size:11px;color:var(--tx3);margin-top:6px}
 
 /* ======================================================================
-   طبقة الهيئة — المرحلة ١
-   كل ما تحتها تحسينُ عرضٍ لا منطق: لا رقم يتغيّر، ولا عنصر يُزال.
+   ماسح الاستراتيجيات
    ====================================================================== */
+.schead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+  flex-wrap:wrap;margin-bottom:12px}
+.schead h2{border:0;padding:0}
+.hotbar{background:linear-gradient(180deg,rgba(43,217,138,.16),rgba(43,217,138,.06));
+  border:1px solid rgba(43,217,138,.35);border-radius:var(--r-md);padding:11px 13px;
+  font-size:12.5px;margin-bottom:11px;color:#9BE8C5;line-height:1.7}
+.cmpeng{border-radius:var(--r-md);padding:11px 13px;font-size:12.5px;margin-top:11px;
+  border:1px solid var(--hair);background:var(--s2);line-height:1.7}
+.cmpeng.agree{border-color:rgba(43,217,138,.3)}
+.cmpeng.clash{border-color:rgba(255,77,99,.38);background:rgba(255,77,99,.06)}
+.scan-why{font-size:12px;color:var(--tx2);line-height:1.7;margin:0 0 11px;padding:0 2px}
 
-::selection{background:rgba(23,168,160,.32);color:#fff}
-:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
-html{scroll-behavior:smooth}
+/* صفّ الاستراتيجية — كاشفٌ لا سؤال، فبلا علامة الاستفهام */
+.scrow{border:1px solid var(--hair);border-radius:var(--r-md);margin-top:8px;
+  background:var(--s2);padding:0 12px}
+.scrow>summary{display:flex;gap:9px;align-items:center;flex-wrap:wrap;
+  padding:12px 0;font-size:13.5px;color:var(--tx);font-weight:600;cursor:pointer}
+.scrow>summary::before{content:"";display:none}
+.scrow.act{border-color:rgba(34,211,197,.35);background:linear-gradient(180deg,rgba(34,211,197,.05),var(--s2))}
+.scrow.off,.scrow.quiet{opacity:.6}
+.scrow[open]{padding-bottom:13px}
+.scrow .sdir{font-size:15px;flex:none;width:1em;text-align:center}
+.scrow .ssc{font-size:18px;font-weight:800;min-width:2.2em;text-align:left;letter-spacing:-.5px}
+.scrow .sband{font-size:11.5px;font-weight:500}
+.scrow .sst{font-size:11.5px;font-weight:700}
+.scrow .spend{font-size:11.5px;font-weight:600;color:var(--tx2);
+  border:1px dashed var(--hair2);border-radius:6px;padding:1px 7px}
+.scrow .sage{margin-right:auto;font-size:11.5px;font-weight:500;flex:none}
+.scrow .grid3{margin-top:11px}
 
-/* شريط التمرير — على سطح المكتب وحده يُرى، فلا داعي لإخفائه على الهاتف */
-@media (pointer:fine){
-  *::-webkit-scrollbar{width:10px;height:10px}
-  *::-webkit-scrollbar-track{background:transparent}
-  *::-webkit-scrollbar-thumb{background:var(--line2);border-radius:99px;border:3px solid var(--bg)}
-  *::-webkit-scrollbar-thumb:hover{background:#3c4a5e}
-}
+/* جدولٌ بسيط للبوابات والأهداف — يتمرّر وحده على الهاتف */
+.gt{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:9px;display:block;
+  overflow-x:auto;white-space:nowrap}
+.gt th{color:var(--tx2);font-weight:500;font-size:11.5px;text-align:right;
+  padding:6px 8px;border-bottom:1px solid var(--hair)}
+.gt td{padding:6px 8px;border-bottom:1px solid rgba(150,182,214,.05)}
+.gt tr:last-child td{border-bottom:0}
 
-/* ---------- علامة المنتج ---------- */
-.tb-title{letter-spacing:-.4px;line-height:1.25}
-/* نصٌّ ملوَّن بتدرّجٍ هو أوضح علامةٍ على قالبٍ مولَّد — لونٌ صريح أوقر */
-.tb-title b{color:var(--tx);font-weight:700}
-.tb-sub{font-size:11.5px}
-
-/* ---------- تفاعل المؤشّر (سطح المكتب) ---------- */
-@media (pointer:fine){
-  .card{transition:border-color .2s,box-shadow .2s,transform .2s}
-  .srow{transition:background .15s,padding .15s}
-  .srow:hover{background:var(--card2)}
-  .stat:hover{border-color:var(--line2);background:var(--card3)}
-  .refresh:hover,.back:hover{background:var(--card3);color:var(--tx);border-color:var(--line2)}
-  .tabbar button:hover{color:var(--mut)}
-  .tabbar button.on:hover{color:var(--acc)}
-  .scans button:hover,.tf-picker button:hover{border-color:var(--line2);color:var(--tx)}
-  .scans button.on:hover,.tf-picker button.on:hover{color:#fff}
-  .btn:hover{filter:brightness(1.08)}
-  details summary:hover{filter:brightness(1.25)}
-  .news-item:hover .news-t{color:var(--acc)}
-}
-.refresh,.back,.btn,.star,.scans button,.tf-picker button,.toolbar .favbtn{transition:all .16s ease}
-
-/* ---------- الأزرار ---------- */
-.btn{background:var(--grad);box-shadow:0 6px 18px -8px rgba(23,168,160,.85);letter-spacing:-.2px}
-.btn.gray{background:var(--card2);box-shadow:none}
-.scans button,.tf-picker button{font-weight:600}
-.scans button.on,.tf-picker button.on{background:var(--grad);border-color:transparent;
-  box-shadow:0 4px 14px -6px rgba(23,168,160,.9)}
-
-/* ---------- القوائم ---------- */
-.slist{box-shadow:var(--sh)}
-.srow .id .t{font-weight:600}
-.srow .px .p{font-weight:700;letter-spacing:-.3px}
-
-/* ---------- الجداول ---------- */
-.otbl tbody tr:nth-child(even),.mtable tbody tr:nth-child(even){background:rgba(255,255,255,.016)}
-.otbl th{background:var(--card);backdrop-filter:blur(6px)}
-@media (pointer:fine){ .otbl tbody tr:hover,.mtable tbody tr:hover{background:rgba(23,168,160,.07)} }
-
-/* ---------- الكواشف ---------- */
-details{border:1px solid var(--line);background:rgba(24,32,44,.55)}
-details[open]{background:var(--card2)}
-
-/* ---------- الشارت ---------- */
-.chart-wrap{border:1px solid var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+/* التسلسل */
+.tl{display:flex;flex-direction:column;gap:0}
+.tlr{display:flex;gap:11px;align-items:baseline;padding:10px 0;
+  border-bottom:1px solid var(--hair);font-size:12.5px}
+.tlr:last-child{border-bottom:0}
+.tlr.flip{background:var(--accBg);margin:0 -12px;padding-right:12px;padding-left:12px}
+.tlt{flex:none;min-width:5.6em;font-size:11.5px}
+.tld{flex:1;line-height:1.65}
+.tld .sdir{font-size:13px}
 
 /* ======================================================================
-   سطح المكتب — شريط جانبي وعمودان
-   كان العرض محصوراً في 760px فيبدو التطبيق هاتفاً ممدوداً على شاشة 27".
+   ترتيب الكون
    ====================================================================== */
-@media (min-width:1080px){
-  body{padding-bottom:0; padding-right:0; padding-top:var(--nav)}
-  main{max-width:1320px; padding:20px 26px 48px}
+.rkhead,.rkr{display:grid;gap:8px;align-items:center;
+  grid-template-columns:2.1em 1.2em minmax(0,1fr) 4.2em 3.4em 2.6em 3.6em 4.2em}
+.rkhead{font-size:11px;color:var(--tx2);padding:0 9px 8px;border-bottom:1px solid var(--hair)}
+.rkr{padding:10px 9px;border-bottom:1px solid var(--hair);cursor:pointer;font-size:13px;
+  transition:background var(--d1) var(--ease)}
+.rkr:last-child{border-bottom:0}
+.rkr:hover,.rkr:focus{background:var(--accBg);outline:none}
+.rkn{font-size:11.5px}
+.rkd{font-size:14px;text-align:center}
+.rks{min-width:0;display:flex;gap:7px;align-items:baseline;overflow:hidden}
+.rks span{font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rksc{font-weight:800;font-size:15px;text-align:left;letter-spacing:-.4px}
+.rkc small{font-size:10px}
+.rkf,.rkk{font-size:11px}
+/* شريط الانقسام: الرقم وحده لا يُظهر أن ثلاثاً تعارض أربعاً */
+.rkbar{display:flex;height:7px;border-radius:4px;overflow:hidden;
+  background:rgba(150,182,214,.09)}
+.rkbar i,.rkbar u{display:block;height:100%}
+.rkbar i{background:var(--up)}
+.rkbar u{background:var(--dn)}
+.rkhead .rkbar{display:block;height:auto;background:none;border-radius:0}
 
-  /* تلتصق تحت الشريط لا تحت حافّة النافذة، وإلّا اختفت خلفه */
-  .topbar{padding:14px 26px; top:var(--nav)}
-  .tb-title{font-size:19px}
-  .logo{width:34px;height:34px}
-
-  /* شريطٌ علويّ أفقيّ لا جانبيّ عموديّ. التبويبات السبعة تتّسع في سطرٍ
-     واحد فوق ‎1080‎ بكسل، ويتحرّر ‎212‎ بكسل من العرض للمحتوى — وهي
-     الفرق بين عمودين وثلاثة على الشاشات المتوسطة. */
-  .tabbar{top:0;bottom:auto;right:0;left:0;width:auto;height:var(--nav);
-    flex-direction:row;align-items:center;justify-content:flex-start;gap:1px;
-    padding:0 16px;border-top:0;border-bottom:1px solid var(--line);
-    background:rgba(7,10,14,.92)}
-  .tabbar button{flex:none;width:auto;height:100%;flex-direction:row;
-    justify-content:center;gap:7px;padding:0 12px;border-radius:0;
-    font-size:13px;font-weight:600;color:var(--mut)}
-  .tabbar .ti{width:17px;height:17px}
-  /* النشط بلون النصّ وشريطٍ سفليّ لا بخلفيةٍ ملوّنة: خلفيةٌ بلون الهويّة
-     خلف كل تبويبٍ نشط تجعل الشريط أثقل ما في الصفحة وهو أقلّها معنى */
-  .tabbar button.on{color:var(--tx);background:none}
-  .tabbar button.on::before{top:auto;bottom:0;right:9px;left:9px;width:auto;height:2px;
-    transform:none;border-radius:2px 2px 0 0}
-  .tabbar button.on .ti{transform:none}
-  @media (pointer:fine){ .tabbar button:hover{background:var(--card);color:var(--tx)} }
-
-  /* العلامة تسبق التبويبات في نفس السطر، ويفصلها حدٌّ لا فراغ */
-  .side-brand{display:flex;align-items:center;gap:9px;padding:0 4px 0 14px;
-    margin:0 0 0 8px;border-bottom:0;border-left:1px solid var(--line);align-self:stretch}
-  .side-brand .nm{font-size:14px;font-weight:700;letter-spacing:-.3px;line-height:1.15}
-  .side-brand .nm small{display:block;font-size:9.5px;color:var(--dim);font-weight:500;letter-spacing:.04em}
-  .side-brand .logo{width:22px;height:22px;flex:none}
-
-  /* عمودان بتدفّق بنّائي: البطاقات أطوالها مختلفة، والشبكة تتركُ فجوات
-     تحت القصيرة بينما الأعمدة تملؤها */
-  section[data-view].on{column-count:2;column-gap:16px}
-  .card{break-inside:avoid;-webkit-column-break-inside:avoid;margin-bottom:16px}
-  /* ما يجب أن يأخذ العرض كاملاً: الشارت وجداول العقود والمقارنات */
-  /* ما يجب أن يأخذ العرض كاملاً يُعرَف بمحتواه لا باسمه: شارت أو جدول
-     يمرَّر أفقياً لا يُقرأ في نصف عمود */
-  .card.full,#cardOpts,.card:has(canvas),.card:has(.otwrap),.card:has(.mwrap){column-span:all}
-  .grid2{gap:11px}
-}
-@media (min-width:1560px){
-  main{max-width:1560px}
-  section[data-view].on{column-count:3}
-  /* ما يجب أن يأخذ العرض كاملاً يُعرَف بمحتواه لا باسمه: شارت أو جدول
-     يمرَّر أفقياً لا يُقرأ في نصف عمود */
-  .card.full,#cardOpts,.card:has(canvas),.card:has(.otwrap),.card:has(.mwrap){column-span:all}
-}
-/* شاشة السهم صفحةٌ واحدة متسلسلة لا أعمدة: ترتيب القراءة فيها مقصود */
-@media (min-width:1080px){
-  section[data-view="detail"].on{column-count:1;max-width:1000px;margin:0 auto}
-
-  /* شاشتان محتواهما قائمةٌ واحدة طويلة لا بطاقات: تقسيمُها إلى عمودين
-     يقطعها في منتصفها. العمود واحد، والقائمة نفسها هي التي تتعمّد. */
-  section[data-view="list"].on,section[data-view="news"].on{column-count:1}
-
-  #stockList{display:grid;grid-template-columns:1fr 1fr}
-  #stockList .srow:nth-child(odd){border-left:1px solid var(--line)}
-  #stockList .skl{grid-column:1/-1}
-
-  #newsList{columns:2;column-gap:26px}
-  #newsList .news-item{break-inside:avoid;-webkit-column-break-inside:avoid}
-
-  /* بطاقةٌ أطول من الشاشة تحتكر عموداً وتترك الآخر فارغاً — يوسّعها
-     layoutWide() بقياسٍ فعلي لأن الارتفاع لا يُعرف من CSS */
-  .card.full{column-span:all}
-}
-
-/* ---------- الخريطة الحرارية ---------- */
-/* المربّعات تتقاسم السطر بـflex-grow لا بحسابٍ هندسي: المساحة تتناسب مع
-   جذر القيمة السوقية (الجذر لا القيمة — أبل تساوي مئة شركة، ومربّعها
-   بالقيمة الخام يبتلع الشاشة). */
-.heat-sec{margin-bottom:12px}
-.heat-sec h3{font-size:12.5px;color:var(--mut);margin:0 0 5px;font-weight:600;
+/* ======================================================================
+   الخريطة الحرارية — المربّعات تتقاسم السطر بـflex-grow لا بحسابٍ هندسي:
+   المساحة تتناسب مع جذر القيمة السوقية (الجذر لا القيمة — أبل تساوي مئة
+   شركة، ومربّعها بالقيمة الخام يبتلع الشاشة).
+   ====================================================================== */
+.heat-sec{margin-bottom:13px}
+.heat-sec h3{font-size:12.5px;color:var(--tx2);margin:0 0 6px;font-weight:600;
   display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .heat-row{display:flex;flex-wrap:wrap;gap:3px}
-.heat-t{flex:1 1 auto;min-width:52px;border-radius:7px;padding:7px 4px;text-align:center;
-  cursor:pointer;overflow:hidden;transition:transform .13s,outline-color .13s;
+.heat-t{flex:1 1 auto;min-width:54px;border-radius:var(--r-sm);padding:8px 4px;
+  text-align:center;cursor:pointer;overflow:hidden;
+  transition:transform var(--d1) var(--ease),outline-color var(--d1) var(--ease);
   outline:1px solid transparent}
 .heat-t b{display:block;font-size:11.5px;font-weight:700;letter-spacing:.2px;
   font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr}
 .heat-t i{display:block;font-style:normal;font-size:10.5px;opacity:.92;
   font-family:"IBM Plex Mono",ui-monospace,monospace;direction:ltr}
-@media (pointer:fine){ .heat-t:hover{transform:scale(1.06);outline-color:#fff;z-index:2;position:relative} }
 
-/* ---------- شريط القوة النسبية ---------- */
-.rsbar{position:relative;height:7px;border-radius:99px;background:var(--card2);overflow:hidden}
-.rsbar b{position:absolute;top:0;bottom:0;border-radius:99px;display:block}
+/* ======================================================================
+   شاشة السهم — مجموعاتٌ تُبدَّل بدل صفحةٍ واحدة بعشرين بطاقة
 
-/* ---------- لمسات صغيرة تفرق كثيراً ---------- */
-.hint{line-height:1.65}
-.verdict{letter-spacing:-.8px;font-size:26px}
-.meter-track{height:13px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
-.meter-needle{height:21px;box-shadow:0 0 10px rgba(0,0,0,.85),0 0 4px rgba(255,255,255,.5)}
-.empty{padding:34px 12px;font-size:13.5px}
-.disclaimer{opacity:.85}
+   الكشف التدريجي هنا **عرضٌ محض**: كلُّ بطاقةٍ تحتفظ بمعرّفها ومحتواها
+   ودالّة رسمها، والمبدّل يُظهر مجموعةً ويُخفي غيرها بـCSS وحدها. فلا
+   تتغيّر دالّةُ رسمٍ واحدة ولا يسقط فحصُ المعرّفات.
+   ====================================================================== */
+.dgrp{position:sticky;top:0;z-index:19;margin:0 0 13px;padding:9px 0 3px;
+  background:linear-gradient(180deg,rgba(4,7,12,.97) 70%,rgba(4,7,12,0))}
+section[data-view="detail"][data-grp] .card[data-grp]{display:none}
+section[data-view="detail"][data-grp="plan"] .card[data-grp~="plan"],
+section[data-view="detail"][data-grp="chart"] .card[data-grp~="chart"],
+section[data-view="detail"][data-grp="tech"] .card[data-grp~="tech"],
+section[data-view="detail"][data-grp="fund"] .card[data-grp~="fund"],
+section[data-view="detail"][data-grp="opts"] .card[data-grp~="opts"],
+section[data-view="detail"][data-grp="news"] .card[data-grp~="news"],
+section[data-view="detail"][data-grp="tools"] .card[data-grp~="tools"]{display:block}
+/* بطاقةٌ يُخفيها منطقُ العرض (`style="display:none"`) تبقى مخفيّة مهما
+   كانت المجموعة: المجموعة تُظهر ما هو صالحٌ للعرض لا ما أُخفي عمداً */
+section[data-view="detail"][data-grp] .card[data-grp][hidden]{display:none !important}
 
-/* ---------- الطباعة ----------
-   الشاشة داكنة، والورق أبيض. الطباعة بلا أنماط تُخرج صفحاتٍ سوداء تستهلك
-   الحبر وتُخفي النص الفاتح. وما لا معنى له على الورق يُحذف: شريط التبويبات
-   وأزرار التحديث والكواشف المطوية — نقرةٌ لا تقع على ورق.
-   والكواشف تُفتح كلها: `<details>` مطويّ على الورق نصٌّ مفقود لا نصٌّ مخفيّ. */
-@media print{
-  :root{--bg:#fff;--card:#fff;--card2:#fff;--card3:#fff;--tx:#111;--mut:#555;
-        --line:#ccc;--line2:#bbb;--up:#067647;--dn:#b3261e;--neu:#8a6d00}
-  body{background:#fff;color:#111}
-  .tabbar,.refresh,.back,.toolbar,#ovToggle,.tf-picker,.scans,.srcline{display:none !important}
-  main{display:block;padding:0}
-  .card{break-inside:avoid;border:1px solid #ccc;box-shadow:none;background:#fff;
-        column-span:all;margin:0 0 10px}
-  details{display:block}
-  details>*{display:revert}
-  summary{font-weight:700;list-style:none}
-  summary::before{content:"" !important}
-  canvas{max-width:100%}
-  a[href]::after{content:""}          /* الروابط داخلية، وطبعُ عنوانها ضجيج */
+/* ======================================================================
+   الرئيسية — إجراءاتٌ سريعة وأبرزُ الفرص
+   ====================================================================== */
+/* «محفظتي» تنزل تحت بترتيبٍ لا بنقلٍ في الشجرة: نقلُ كتلةٍ بعشرات
+   الأسطر يخاطر بمعرّفاتها، و`order` يفعل نفس الشيء بلا لمسِ سطرٍ واحد. */
+section[data-view="now"].on{display:flex;flex-direction:column}
+#cardPort{order:80} #cardAbout{order:90}
+
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:14px}
+.qa button{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:7px;padding:12px 4px;border-radius:var(--r-md);background:var(--s2);
+  border:1px solid var(--hair);color:var(--tx2);font-family:inherit;font-size:10.5px;
+  font-weight:600;cursor:pointer;line-height:1.35;text-align:center;
+  transition:background var(--d1) var(--ease),border-color var(--d1) var(--ease),
+             color var(--d1) var(--ease),transform var(--d1) var(--ease)}
+.qa button .ti{width:21px;height:21px;color:var(--acc);opacity:.92}
+.qa button:active{transform:scale(.96)}
+
+/* صفُّ الفرصة المختصر في الرئيسية — نسخةٌ مضغوطة من بطاقة الفرص */
+.oppm{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:var(--r-md);
+  background:var(--s2);border:1px solid var(--hair);margin-bottom:9px;cursor:pointer;
+  position:relative;overflow:hidden;
+  transition:border-color var(--d2) var(--ease),background var(--d2) var(--ease)}
+.oppm:last-of-type{margin-bottom:0}
+.oppm::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:3px;
+  background:var(--hair2)}
+.oppm.d-up::before{background:var(--up)} .oppm.d-dn::before{background:var(--dn)}
+.oppm .g{flex:1;min-width:0}
+.oppm .t{font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oppm .t .tick{font-size:10.5px;color:var(--tx2);font-weight:600;
+  background:rgba(150,182,214,.08);border-radius:5px;padding:1px 5px}
+.oppm .s{font-size:11px;color:var(--tx2);margin-top:2px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.oppm .q{flex:none;text-align:left}
+.oppm .q b{display:block;font-size:16px;font-weight:800;letter-spacing:-.4px;color:var(--acc)}
+.oppm .q i{display:block;font-style:normal;font-size:10px;color:var(--tx3)}
+
+/* ترويسة السهم */
+.dhero{display:flex;align-items:flex-start;gap:13px}
+.dhero .g{flex:1;min-width:0}
+.dhero .t{font-size:21px;font-weight:800;letter-spacing:-.6px;line-height:1.2;
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.dhero .n{font-size:12px;color:var(--tx2);margin-top:4px;
+  display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.dhero .pxb{margin-top:11px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.dhero .pxb .p{font-size:30px;font-weight:800;letter-spacing:-1.2px;line-height:1}
+.dhero .pxb .c{font-size:14.5px;font-weight:700}
+
+
+/* ======================================================================
+   تفاعل المؤشّر — سطح المكتب وحده. على اللمس لا «تحويم»، وقواعدُ
+   `:hover` هناك تعلق بعد النقر فتبدو البطاقة مختارةً وهي ليست كذلك.
+   ====================================================================== */
+@media (pointer:fine){
+  *::-webkit-scrollbar{width:10px;height:10px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:var(--hair2);border-radius:var(--r-pill);
+    border:3px solid var(--bg)}
+  *::-webkit-scrollbar-thumb:hover{background:#42566E}
+
+  .card:hover{border-color:var(--hair2)}
+  .srow:hover{background:var(--s2)}
+  .srow.opp:hover{border-color:rgba(34,211,197,.3);
+    box-shadow:var(--sh1),0 0 30px -16px rgba(34,211,197,.6);transform:translateY(-1px)}
+  .stat:hover{border-color:var(--hair2);background:var(--s3)}
+  .metric:hover{border-color:var(--hair2)}
+  .refresh:hover,.back:hover{background:var(--s3);color:var(--tx);border-color:var(--hair2)}
+  .tabbar button:hover{color:var(--tx2)}
+  .tabbar button.on:hover{color:var(--acc)}
+  .chipbar button:hover,.scans button:hover,.tf-picker button:hover{
+    border-color:var(--hair2);color:var(--tx)}
+  .chipbar button.on:hover,.scans button.on:hover,.tf-picker button.on:hover{color:#04211F}
+  .seg button:hover{color:var(--tx)}
+  .btn:hover{filter:brightness(1.07)}
+  .sheet-r:hover{background:var(--s3);border-color:var(--hair2)}
+  .fil-sym:hover{color:var(--acc)}
+  .fil-lnk:hover{color:var(--acc)}
+  .news-item:hover{border-color:rgba(34,211,197,.3);background:var(--s3)}
+  .news-item:hover .news-t{color:var(--acc)}
+  .otbl tbody tr:hover,.mtable tbody tr:hover,.tbl tbody tr:hover{background:var(--accBg)}
+  .heat-t:hover{transform:scale(1.06);outline-color:#fff;z-index:2;position:relative}
+  details summary:hover{filter:brightness(1.22)}
 }
 
-/* ===== ماسح الاستراتيجيات ===== */
-.mut{color:var(--mut)}
-/* `.sub` مستعملةٌ في الصفحة منذ قبل بلا قاعدة — تُعرَّف هنا مرّة */
-.stat .sub{font-size:11px;color:var(--mut);margin-top:3px;line-height:1.5;
-  white-space:normal}
-.sfind{display:flex;gap:8px;align-items:center}
-/* الحجم هنا ليس ذوقاً: صندوقٌ بمقاس النصّ العادي يجعل ما يُكتب فيه
-   غير مقروء — بلّغ عنه مستخدم. و`dir="auto"` على الحقل لا LTR مفروضاً:
-   يُبحث بـ`AAPL` وبـ`أبل` معاً، وفرضُ اللاتيني يقلب العربي على نفسه. */
-.sfind{gap:9px}
-.sfind input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);
-  color:var(--tx);border-radius:var(--r2);padding:14px 15px;font-size:19px;
-  font-weight:700;letter-spacing:.3px;font-family:inherit;line-height:1.3}
-.sfind input::placeholder{font-size:14px;font-weight:400;letter-spacing:0;color:var(--mut)}
-.sfind input:focus{outline:none;border-color:var(--acc);
-  box-shadow:0 0 0 3px rgba(23,168,160,.18)}
-/* `.btn` الأساسية `width:100%`، و`flex:none` تُبقيها على عرض الحاوية
-   كاملاً فتفيض 13 بكسل على الهاتف. العرض يُعاد إلى `auto` صراحةً. */
-.sfind .btn{width:auto;flex:0 0 auto;padding:14px 18px;font-size:15px;white-space:nowrap}
-/* نتائج الإكمال أكبر كذلك — قائمةٌ لا تُقرأ لا تُستعمل */
-.sauto-r{padding:11px 12px;font-size:15px}
-.sauto-r b{font-size:16px}
-.sauto-r span{font-size:12.5px}
-.sauto{display:none;margin-top:6px;border:1px solid var(--line);border-radius:var(--r2);
-  overflow:hidden;background:var(--card2)}
-.sauto.on{display:block}
-.sauto-r{display:flex;gap:9px;align-items:center;padding:9px 11px;cursor:pointer;
-  border-bottom:1px solid var(--line);font-size:13.5px}
-.sauto-r:last-child{border-bottom:0}
-.sauto-r:hover,.sauto-r.hi{background:rgba(23,168,160,.13)}
-.sauto-r span{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sauto-x{padding:10px 11px;font-size:12.5px;color:var(--mut)}
-.tagmini{font-style:normal;font-size:10.5px;color:var(--neu);border:1px solid rgba(240,185,11,.3);
-  border-radius:5px;padding:1px 5px;margin-right:auto;flex:none}
+/* ======================================================================
+   التابلت — عمودان مقصودان
 
-.schead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
-  flex-wrap:wrap;margin-bottom:12px}
-.schead h2{border:0;padding:0}
-.hotbar{background:linear-gradient(180deg,rgba(0,209,155,.16),rgba(0,209,155,.08));
-  border:1px solid rgba(0,209,155,.4);border-radius:var(--r2);padding:10px 12px;
-  font-size:12.5px;margin-bottom:10px;color:#8ce0c0}
-.cmpeng{border-radius:var(--r2);padding:10px 12px;font-size:12.5px;margin-top:10px;
-  border:1px solid var(--line);background:var(--card2)}
-.cmpeng.agree{border-color:rgba(0,209,155,.35)}
-.cmpeng.clash{border-color:rgba(255,77,94,.4);background:rgba(255,77,94,.07)}
+   لا تدفّقَ أعمدة (`column-count`): التدفّق يقرّر مكان كل بطاقة بنفسه
+   فيتبدّل الترتيبُ مع أيّ تغيّرٍ في ارتفاعٍ واحد. والشبكةُ تضع كلَّ
+   بطاقةٍ حيث قُصد لها، و`data-size` يعلن أيُّها يأخذ العرض كاملاً.
+   ====================================================================== */
+@media (min-width:860px){
+  main{max-width:1180px;padding:18px 22px 30px}
+  section[data-view].on{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:15px;align-items:start}
+  .card{margin-bottom:0}
+  /* ما يأخذ العرض كاملاً يُعرَف بمحتواه لا باسمه: شارتٌ أو جدولٌ يمرَّر
+     أفقياً لا يُقرأ في نصف عمود */
+  .card.full,.card[data-size="hero"],#cardOpts,
+  .card:has(canvas),.card:has(.otwrap),.card:has(.mwrap){grid-column:1/-1}
+  /* شاشاتٌ محتواها قائمةٌ واحدة متسلسلة: تقسيمُها عمودين يقطعها في
+     منتصفها، فالقائمة نفسها هي التي تتعمّد */
+  section[data-view="detail"].on,section[data-view="list"].on,
+  section[data-view="news"].on{display:block;max-width:1000px;margin:0 auto}
+  section[data-view="detail"].on .card,section[data-view="list"].on .card,
+  section[data-view="news"].on .card{margin-bottom:15px}
+  /* قائمة الفرص عمودان على الشاشة العريضة — البطاقة مصمَّمة لعرضٍ ضيّق */
+  #scanList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:11px;align-items:start}
+  #scanList .srow.opp{margin-bottom:0}
+  #scanList .skl{grid-column:1/-1}
+  #stockList{display:grid;grid-template-columns:1fr 1fr}
+  #stockList .srow:nth-child(odd){border-inline-end:1px solid var(--hair)}
+  #stockList .skl{grid-column:1/-1}
+  .grid3,.grid4{gap:10px}
+}
 
-/* صفّ الاستراتيجية — كاشفٌ لا سؤال، فبلا علامة الاستفهام */
-.scrow{border:1px solid var(--line);border-radius:var(--r2);margin-top:8px;
-  background:var(--card2);padding:0 11px}
-.scrow>summary{display:flex;gap:9px;align-items:center;flex-wrap:wrap;
-  padding:11px 0;font-size:13.5px;color:var(--tx);font-weight:600;cursor:pointer}
-.scrow>summary::before{content:""}
-.scrow.act{border-color:rgba(23,168,160,.4)}
-.scrow.off,.scrow.quiet{opacity:.62}
-.scrow[open]{padding-bottom:12px}
-.scrow .sdir{font-size:15px;flex:none;width:1em;text-align:center}
-.scrow .ssc{font-size:17px;font-weight:800;min-width:2.2em;text-align:left}
-.scrow .sband{font-size:11.5px;font-weight:500}
-.scrow .sst{font-size:11.5px;font-weight:700}
-.scrow .spend{font-size:11.5px;font-weight:600;color:var(--mut);
-  border:1px dashed var(--line);border-radius:6px;padding:1px 6px}
-.scrow .sage{margin-right:auto;font-size:11.5px;font-weight:500;flex:none}
-.scrow .grid3{margin-top:10px}
+/* ======================================================================
+   سطح المكتب — الشريط يعلو والمحتوى يتّسع
 
-/* جدولٌ بسيط للبوابات والأهداف — يتمرّر وحده على الهاتف */
-.gt{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px;display:block;
-  overflow-x:auto;white-space:nowrap}
-.gt th{color:var(--mut);font-weight:500;font-size:11.5px;text-align:right;
-  padding:5px 7px;border-bottom:1px solid var(--line)}
-.gt td{padding:5px 7px;border-bottom:1px solid rgba(255,255,255,.04)}
-.gt tr:last-child td{border-bottom:0}
+   كان العرض محصوراً في ‎760px‎ فيبدو التطبيق هاتفاً ممدوداً على شاشة ‎27"‎.
+   ====================================================================== */
+@media (min-width:1080px){
+  body{padding-bottom:26px; padding-top:var(--nav)}
+  main{max-width:1320px; padding:20px 26px 48px}
+  /* تلتصق تحت الشريط لا تحت حافّة النافذة، وإلّا اختفت خلفه */
+  .topbar{padding:14px 26px; top:var(--nav)}
+  .tb-title{font-size:19px}
+  /* العلامة في الشريط العلويّ بالفعل: تكرارُها في الترويسة تحتها يجعل
+     اسم التطبيق يُقرأ مرّتين في ثلاثة سنتيمترات. والعنوانُ يبقى لأنه
+     يتبدّل إلى اسم السهم في شاشة التفاصيل. */
+  .topbar .logo{display:none}
+  .stalebar{margin:11px -26px -14px;padding:9px 26px}
 
-/* التسلسل */
-.tl{display:flex;flex-direction:column;gap:0}
-.tlr{display:flex;gap:11px;align-items:baseline;padding:9px 0;
-  border-bottom:1px solid var(--line);font-size:12.5px}
-.tlr:last-child{border-bottom:0}
-.tlr.flip{background:rgba(23,168,160,.06);margin:0 -11px;padding-right:11px;padding-left:11px}
-.tlt{flex:none;min-width:5.6em;font-size:11.5px}
-.tld{flex:1;line-height:1.6}
-.tld .sdir{font-size:13px}
-@media(max-width:520px){
+  /* شريطٌ علويّ أفقيّ لا جانبيّ عموديّ: التبويبات تتّسع في سطرٍ واحد
+     فوق ‎1080‎ بكسل، ويتحرّر عرضٌ كامل للمحتوى */
+  .tabbar{top:0;bottom:auto;right:0;left:0;width:auto;height:var(--nav);
+    flex-direction:row;align-items:center;justify-content:flex-start;gap:2px;
+    padding:0 18px;border-top:0;border-bottom:1px solid var(--hair);
+    background:linear-gradient(180deg,rgba(6,9,15,.97),rgba(4,7,12,.92))}
+  .tabbar::before{top:auto;bottom:-1px}
+  .tabbar button{flex:none;width:auto;height:100%;flex-direction:row;
+    justify-content:center;gap:8px;padding:0 15px;border-radius:0;
+    font-size:13.5px;font-weight:600;color:var(--tx2)}
+  .tabbar .ti{width:18px;height:18px}
+  /* النشط بلون النصّ وشريطٍ سفليّ لا بخلفيةٍ ملوّنة: خلفيةٌ بلون الهويّة
+     خلف كل تبويبٍ نشط تجعل الشريط أثقل ما في الصفحة وهو أقلّها معنى */
+  .tabbar button.on{color:var(--tx)}
+  .tabbar button.on::after{bottom:0;right:11px;left:11px;width:auto;height:2.5px;
+    border-radius:2px 2px 0 0}
+  .tabbar button.on .ti{transform:none}
+  /* «المزيد» لا معنى له حين تتّسع كلُّ الأقسام في الشريط، والثلاثةُ
+     المنقولة تعود إليه */
+  .tabbar button[data-sheet]{display:none}
+  .tabbar button[data-more]{display:flex}
+
+  /* العلامة تسبق التبويبات في نفس السطر، ويفصلها حدٌّ لا فراغ */
+  .side-brand{display:flex;align-items:center;gap:10px;padding:0 4px 0 16px;
+    margin:0 0 0 10px;border-left:1px solid var(--hair);align-self:stretch}
+  .side-brand .nm{font-size:14px;font-weight:700;letter-spacing:-.3px;line-height:1.15}
+  .side-brand .nm small{display:block;font-size:9.5px;color:var(--tx3);
+    font-weight:500;letter-spacing:.04em}
+  .side-brand .logo{width:24px;height:24px;flex:none}
+
+  .sticky-hd{top:calc(var(--nav) + 58px)}
+  .dgrp{top:calc(var(--nav) + 58px)}
+}
+@media (min-width:1600px){
+  main{max-width:1640px}
+  section[data-view].on{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #scanList{grid-template-columns:repeat(3,minmax(0,1fr))}
+  section[data-view="detail"].on{max-width:1120px}
+}
+
+/* ======================================================================
+   الشاشات الضيّقة
+   ====================================================================== */
+@media (max-width:520px){
   .tlr{flex-direction:column;gap:2px}
   .tlt{min-width:0}
   .scrow .sage{margin-right:0}
+  .opp-px .p{font-size:18px}
+  .srow.opp .hitv{min-width:66px;padding:5px 8px}
 }
-
-/* ===== ترتيب الكون ===== */
-.rkhead,.rkr{display:grid;gap:8px;align-items:center;
-  grid-template-columns:2.1em 1.2em minmax(0,1fr) 4.2em 3.4em 2.6em 3.6em 4.2em}
-.rkhead{font-size:11px;color:var(--mut);padding:0 8px 7px;border-bottom:1px solid var(--line)}
-.rkr{padding:9px 8px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
-.rkr:last-child{border-bottom:0}
-.rkr:hover,.rkr:focus{background:rgba(23,168,160,.1);outline:none}
-.rkn{font-size:11.5px}
-.rkd{font-size:14px;text-align:center}
-.rks{min-width:0;display:flex;gap:7px;align-items:baseline;overflow:hidden}
-.rks span{font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rksc{font-weight:800;font-size:14.5px;text-align:left}
-.rkc small{font-size:10px}
-.rkf,.rkk{font-size:11px}
-/* شريط الانقسام: الرقم وحده لا يُظهر أن ثلاثاً تعارض أربعاً */
-.rkbar{display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--card2)}
-.rkbar i,.rkbar u{display:block;height:100%}
-.rkbar i{background:var(--up)}
-.rkbar u{background:var(--dn)}
-.rkhead .rkbar{display:block;height:auto;background:none;border-radius:0}
-@media(max-width:640px){
+@media (max-width:640px){
   .rkhead{display:none}
   .rkr{grid-template-columns:1.9em 1.2em minmax(0,1fr) 3em 2.4em 3.4em;
        grid-template-areas:"n d s c sc f"}
@@ -701,6 +1145,57 @@ details[open]{background:var(--card2)}
   .rkn{grid-area:n}.rkd{grid-area:d}.rks{grid-area:s}
   .rkc{grid-area:c}.rksc{grid-area:sc}.rkf{grid-area:f}
 }
+/* ‎375px‎ هو الحدّ الأضيق المقيس: كلُّ ما تحت يحافظ على قراءة الرقم */
+@media (max-width:380px){
+  main{padding:12px 10px 20px}
+  .card{padding:13px}
+  .opp-hd{padding:12px 12px 9px}
+  .opp-bd{padding:2px 12px 11px}
+  .opp-ft{padding:8px 12px}
+  .tb-title{font-size:15px}
+  .grid3{gap:6px}
+  .stat{padding:10px}
+}
+
+/* ======================================================================
+   احترامُ تقليل الحركة — شرطٌ لا تحسين
+   ====================================================================== */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;scroll-behavior:auto !important}
+  .sheet{transition:none}
+}
+
+/* ======================================================================
+   الطباعة — الشاشة داكنة والورق أبيض. الطباعة بلا أنماط تُخرج صفحاتٍ
+   سوداء تستهلك الحبر وتُخفي النصّ الفاتح. وما لا معنى له على الورق
+   يُحذف: الشريط وأزرار التحديث. والكواشف تُفتح كلها: `<details>` مطويّ
+   على الورق نصٌّ مفقود لا نصٌّ مخفيّ.
+   ====================================================================== */
+@media print{
+  :root{--bg:#fff;--s1:#fff;--s2:#fff;--s3:#fff;--tx:#111;--tx2:#555;--tx3:#666;
+        --hair:#ccc;--hair2:#bbb;--up:#067647;--dn:#b3261e;--neu:#8a6d00;
+        --card:#fff;--card2:#fff;--card3:#fff;--line:#ccc;--line2:#bbb;
+        --mut:#555;--dim:#666}
+  body{background:#fff;color:#111;padding:0}
+  body::before,body::after{display:none}
+  .tabbar,.refresh,.back,.toolbar,#ovToggle,.tf-picker,.scans,.chipbar,
+  .srcline,.scrim,.sheet,.dgrp{display:none !important}
+  main{display:block;padding:0;max-width:none}
+  section[data-view].on{display:block !important}
+  section[data-view="detail"][data-grp] .card[data-grp]{display:block !important}
+  .card{break-inside:avoid;border:1px solid #ccc;box-shadow:none;background:#fff;
+        margin:0 0 10px}
+  .card::before{display:none}
+  details{display:block}
+  details>*{display:revert}
+  summary{font-weight:700;list-style:none}
+  summary::before{content:"" !important;display:none !important}
+  canvas{max-width:100%}
+  a[href]::after{content:""}          /* الروابط داخلية، وطبعُ عنوانها ضجيج */
+}
+
 </style>
 </head>
 <body>
@@ -709,29 +1204,40 @@ details[open]{background:var(--card2)}
   <div class="tb-row">
     <button class="back" id="btnBack" style="display:none" aria-label="رجوع">›</button>
     <div class="brand">
+      <!-- العلامة: شمعةٌ صاعدة داخل إطارٍ مضيء. تدرّجٌ بدرجةٍ واحدة من
+           التيل إلى الأخضر — لا أزرق‑بنفسجي على ‎135°‎، وهو أشهر ما يشي
+           بقالبٍ مولَّد. ونفس المعرّف `#lgo` يستعمله شعارُ الشريط. -->
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
       <defs><linearGradient id="lgo" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#17a8a0"/><stop offset="1" stop-color="#2fd17a"/></linearGradient></defs>
-      <rect x="1.2" y="1.2" width="29.6" height="29.6" rx="9" fill="url(#lgo)" opacity=".14"/>
-      <rect x="1.8" y="1.8" width="28.4" height="28.4" rx="8.4" fill="none" stroke="url(#lgo)"
-        stroke-width="1.15" opacity=".55"/>
-      <path d="M6.5 22.5 L12.5 15.5 L17.5 19.5 L25.5 8.5" fill="none" stroke="url(#lgo)"
-        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="25.5" cy="8.5" r="2.7" fill="#2fd17a"/></svg>
+        <stop offset="0" stop-color="#22D3C5"/><stop offset="1" stop-color="#2BD98A"/></linearGradient></defs>
+      <rect x="1.2" y="1.2" width="29.6" height="29.6" rx="9.5" fill="url(#lgo)" opacity=".13"/>
+      <rect x="1.9" y="1.9" width="28.2" height="28.2" rx="9" fill="none" stroke="url(#lgo)"
+        stroke-width="1.1" opacity=".6"/>
+      <path d="M6.5 22.8 L12.6 15.4 L17.6 19.4 L25.4 8.6" fill="none" stroke="url(#lgo)"
+        stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="25.4" cy="8.6" r="2.8" fill="#2BD98A"/></svg>
       <div style="flex:1;min-width:0">
       <div class="tb-title" id="tbTitle">مرصد الأسهم الأمريكية</div>
-      <div class="tb-sub">
-        <span class="chip off" id="mkState">…</span>
-        <span id="mkCountdown"></span>
-        <!-- متى يبدأ الماسح — بتوقيت الرياض، ومحسوبٌ من ‎04:00‎ نيويورك
-             فيتبع التوقيت الصيفي تلقائياً (‎11:00‎ صيفاً · ‎12:00‎ شتاءً) -->
-        <span id="scanStart" class="mut"></span>
-        <span id="stamp">جارِ التحميل…</span>
-      </div>
       </div>
     </div>
+    <!-- بحثٌ في متناول الإبهام من أيّ شاشة: كان البحث مدفوناً داخل شاشة
+         «الأسهم» وحدها، فمن يريد رمزاً بعينه يتنقّل قبل أن يكتب. -->
+    <button class="refresh" id="btnSearch" aria-label="بحث" title="بحث عن سهم">
+      <svg class="ti" style="width:19px;height:19px" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></button>
     <button class="refresh" id="btnInstall" hidden aria-label="تثبيت التطبيق" title="تثبيت التطبيق">⤓</button>
     <button class="refresh" id="btnRefresh" aria-label="تحديث">⟳</button>
+  </div>
+  <!-- سطرُ الحالة يأخذ **عرض الشريط كاملاً** لا العمودَ الباقي بجانب
+       العلامة: أربعُ معلوماتٍ في عمودٍ عرضُه ‎200px‎ تنزل أربعةَ أسطر،
+       فيصير الشريطُ أطولَ من أوّل بطاقةٍ تحته. وهو يمرَّر أفقياً داخل
+       نفسه إن ضاق — والصفحةُ نفسها لا تمرّر أفقياً أبداً. -->
+  <div class="tb-sub">
+    <span class="chip off" id="mkState">…</span>
+    <span id="mkCountdown"></span>
+    <!-- متى يبدأ الماسح — بتوقيت الرياض، ومحسوبٌ من ‎04:00‎ نيويورك
+         فيتبع التوقيت الصيفي تلقائياً (‎11:00‎ صيفاً · ‎12:00‎ شتاءً) -->
+    <span id="scanStart" class="mut"></span>
+    <span id="stamp">جارِ التحميل…</span>
   </div>
   <!-- حارس الطزاجة: `stale` على الصفّ تصف **رمزاً**، وهذا يصف **النظام**.
        بلا هذا الشريط يتجمّد الموقع كلّه على آخر لقطة والزائر يرى سعراً
@@ -782,16 +1288,27 @@ details[open]{background:var(--card2)}
     </details>
   </div>
 
-  <div class="card">
-    <h2>ميزان السوق الآن</h2>
+  <!-- **صورةُ السوق تتصدّر الصفحة.**
+
+       كانت «محفظتي» أوّل ما يُرى، وهي فارغةٌ عند أغلب الزوّار — فيفتح
+       المستخدم التطبيق على بطاقةٍ تقول «لا مراكز بعد». والسؤال الأوّل
+       الذي يفتح لأجله أحدٌ مرصداً هو «كيف السوق الآن؟»، فهو الهيرو،
+       والمحفظةُ تنزل تحت (وتبقى في متناول اليد من ورقة «المزيد»). -->
+  <div class="card" data-size="hero" id="cardPulse">
+    <h2>صورة السوق الآن</h2>
     <!-- العدد من البيانات لا من النصّ: كان مكتوباً «70» والكون ‎1155‎.
          أربعةُ نصوصٍ كذبت دفعةً واحدة بتغييرٍ في ملفّ إعدادات. -->
     <p class="hint">متوسط القراءة الفنية لـ<span id="mktUniv">…</span> على 4 فريمات زمنية</p>
+    <!-- العدّادُ قوسٌ يُرسم في الشيفرة: الرقمُ والوسمُ من `renderNow`
+         كما كانا، والمتغيّر شكلُ عرضهما لا مصدرهما. -->
+    <div class="gauge" id="vGauge"></div>
     <div class="verdict" id="vVerdict">—</div>
     <div class="verdict-sub" id="vSub">—</div>
-    <div class="meter">
-      <div class="meter-track"><div class="meter-needle" id="vNeedle" style="right:50%"></div></div>
-      <div class="meter-lbl"><span>هبوط قوي</span><span>عرضي</span><span>صعود قوي</span></div>
+    <div class="qa" id="quickActions">
+      <button data-qa="screen"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg>الفرص</button>
+      <button data-qa="mdir"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mdir"/></svg>توجّه السوق</button>
+      <button data-qa="search"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>ابحث عن سهم</button>
+      <button data-qa="port"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wallet"/></svg>محفظتي</button>
     </div>
     <details>
       <summary>كيف تُحسب هذه النتيجة؟</summary>
@@ -802,6 +1319,26 @@ details[open]{background:var(--card2)}
       <p><b>مهم:</b> هذا وصف لحالة السوق الحالية وليس تنبؤاً. المؤشرات تتأخر خلف السعر دائماً.
       لا تعتبرها توصية بيع أو شراء.</p>
     </details>
+  </div>
+
+  <!-- **أبرزُ ما في اللقطة، لا اختيارٌ جديد.**
+
+       الصفوفُ والترتيبُ والدرجةُ كلُّها من `opportunities.json` كما
+       كتبها الخادم؛ وما يفعله هذا القسم أنه يعرض **أعلى ثلاثةٍ** من
+       المسوح مجتمعةً بمقياس الدرجة `q` نفسه الذي رتّب به الخادم كلَّ
+       مسح. لا حسابَ ولا إعادةَ ترتيب.
+
+       واللقطةُ ملفٌّ كسول (‎110‎ ك.ب): يُطلب بعد أوّل رسمٍ لا معه، فيبقى
+       بدءُ التطبيق خفيفاً وتظهر البطاقة حين يصل. وأغلبُ من يفتح التطبيق
+       يفتح «الفرص» بعدها، فالطلبُ تحضيرٌ لا إهدار. -->
+  <div class="card" id="cardTopOpp">
+    <div class="schead" style="margin-bottom:10px">
+      <h2 style="margin:0">أبرز الفرص الآن</h2>
+      <button class="chip acc" id="topOppMore" style="cursor:pointer;font-family:inherit;border:1px solid rgba(34,211,197,.28)">كلُّ المسوح ‹</button>
+    </div>
+    <div id="topOpp"><div class="skl" style="height:74px"></div>
+      <div class="skl" style="height:74px;margin-top:9px"></div></div>
+    <p class="srcline" id="topOppSrc"></p>
   </div>
 
   <!-- الكريبتو حين يُغلق السوق الأمريكي.
@@ -878,7 +1415,7 @@ details[open]{background:var(--card2)}
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="cardAbout">
     <h2>عن البيانات</h2>
     <div id="about"><div class="skl" style="height:80px"></div></div>
   </div>
@@ -951,7 +1488,29 @@ details[open]{background:var(--card2)}
 <section data-view="detail">
   <div class="card" id="dHead"><div class="skl" style="height:90px"></div></div>
 
-  <div class="card" id="cardPlan">
+  <!-- **كشفٌ تدريجيّ بلا لمسِ دالّةِ رسمٍ واحدة.**
+
+       شاشةُ السهم ثماني عشرة بطاقة. عرضُها كلَّها دفعةً واحدة على هاتف
+       يجعل أهمَّ ما فيها (الخطة والشارت) يُقرأ بعد تمريرٍ طويل، ويحمّل
+       أوّل رسمٍ ما لا يُقرأ في أغلب الزيارات.
+
+       والمجموعة سمةٌ على البطاقة و`data-grp` على القسم، والإظهارُ
+       بـCSS وحدها: كلُّ `id` باقٍ، وكلُّ `render*` تُنادى كما كانت
+       وتكتب في مكانها سواءٌ أكانت مجموعتُها ظاهرةً أم لا. فلا يسقط فحصُ
+       المعرّفات ولا يتغيّر ما يُحفظ في السجلّ. -->
+  <div class="dgrp">
+    <div class="chipbar" id="detailGrp" role="tablist" aria-label="أقسام السهم">
+      <button data-grp="plan" class="on">الخطة</button>
+      <button data-grp="chart">الشارت</button>
+      <button data-grp="tech">الفنّي</button>
+      <button data-grp="fund">الأساسيات</button>
+      <button data-grp="opts">العقود</button>
+      <button data-grp="news">الأخبار</button>
+      <button data-grp="tools">أدوات</button>
+    </div>
+  </div>
+
+  <div class="card" data-grp="plan" id="cardPlan">
     <h2>خطة صفقة مقترحة</h2>
     <p class="hint">مبنية على الدعم والمقاومة و ATR — نقطة بداية تُعدّلها، لا توصية</p>
     <div id="planOut"></div>
@@ -977,7 +1536,7 @@ details[open]{background:var(--card2)}
     </details>
   </div>
 
-  <div class="card">
+  <div class="card" data-grp="plan">
     <h2>مستويات يراقبها السوق</h2>
     <p class="hint">مقاومات فوق السعر ودعوم تحته — من القمم والقيعان ونقاط البيفوت</p>
     <div id="levels"><div class="skl" style="height:120px"></div></div>
@@ -990,7 +1549,7 @@ details[open]{background:var(--card2)}
     </details>
   </div>
 
-  <div class="card">
+  <div class="card" data-grp="chart">
     <h2>الشارت والمتوسطات</h2>
     <div class="tf-picker" id="tfPicker">
       <button data-tf="15m">15 دقيقة</button>
@@ -1022,7 +1581,7 @@ details[open]{background:var(--card2)}
     </details>
   </div>
 
-  <div class="card">
+  <div class="card" data-grp="tech">
     <h2>الاتجاه على كل فريم</h2>
     <p class="hint">قراءة مستقلة لكل إطار زمني — التوافق بينها أهم من أي إشارة منفردة</p>
     <div id="tfTable"><div class="skl" style="height:100px"></div></div>
@@ -1041,7 +1600,7 @@ details[open]{background:var(--card2)}
   <!-- `cardStrat` مأخوذ لـ«باني الاستراتيجيات» في شاشة العقود، و`stratOut`
        كذلك بجواره. والمعرّف المكرّر يعيد أوّلَ عنصرٍ في المستند لكل
        `$("#…")` — فتُرسم بطاقةٌ في شاشةٍ أخرى بلا أيّ خطأ ظاهر. -->
-  <div class="card" id="cardScans" style="display:none">
+  <div class="card" data-grp="tech" id="cardScans" style="display:none">
     <h2>الاستراتيجيات</h2>
     <p class="hint" id="scansHint"></p>
     <div id="scansOut"></div>
@@ -1055,7 +1614,7 @@ details[open]{background:var(--card2)}
 
        والأرقام كانت تصل في نفس استجابة ياهو التي تجلب المكرر وتُرمى —
        فكلفة هذا القسم **صفر طلبات**. -->
-  <div class="card" id="cardHealth" style="display:none">
+  <div class="card" data-grp="fund" id="cardHealth" style="display:none">
     <h2>الصحّة المالية</h2>
     <p class="hint" id="healthHint"></p>
     <div id="healthOut"></div>
@@ -1077,7 +1636,7 @@ details[open]{background:var(--card2)}
     </details>
   </div>
 
-  <div class="card">
+  <div class="card" data-grp="fund">
     <h2>بطاقة الشركة</h2>
     <p class="hint">الأرقام الأساسية التي تصف الشركة نفسها لا حركة سهمها</p>
     <div id="fund"><div class="skl" style="height:150px"></div></div>
@@ -1094,13 +1653,13 @@ details[open]{background:var(--card2)}
     </details>
   </div>
 
-  <div class="card" id="cardWhy">
+  <div class="card" data-grp="tech" id="cardWhy">
     <h2>قراءة السهم في ثلاثة أسطر</h2>
     <p class="hint">نفس الأرقام التي في الأسفل، مقروءةً بالكلام</p>
     <div id="whyList"></div>
   </div>
 
-  <div class="card" id="cardTrend" style="display:none">
+  <div class="card" data-grp="tech" id="cardTrend" style="display:none">
     <h2>متى صارت هذه التوصية</h2>
     <p class="hint">الشاشة تقول الحالة الآن — وهذا يقول منذ متى، وماذا كانت قبلها</p>
     <div id="trendOut"></div>
@@ -1115,12 +1674,12 @@ details[open]{background:var(--card2)}
 
        والعنوان سؤال لأن الجواب **ليس يقيناً**: نعرض ما تزامن مع الحركة
        ولا ندّعي أنه سبّبها. ولهذا تقول «ما تزامن معها» لا «السبب». -->
-  <div class="card" id="cardWhyMove" style="display:none">
+  <div class="card" data-grp="tech" id="cardWhyMove" style="display:none">
     <h2>لماذا تحرّك؟</h2>
     <div id="whyMove"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-grp="tech">
     <h2>قراءات المؤشرات</h2>
     <p class="hint">على الفريم المختار في الأعلى</p>
     <div id="indicators"><div class="skl" style="height:140px"></div></div>
@@ -1136,7 +1695,7 @@ details[open]{background:var(--card2)}
     </details>
   </div>
 
-  <div class="card" id="cardOpts" style="display:none">
+  <div class="card" data-grp="opts" id="cardOpts" style="display:none">
     <h2>عقود الخيارات</h2>
     <p class="hint" id="optHint"></p>
     <div id="optVol"></div>
@@ -1183,7 +1742,7 @@ details[open]{background:var(--card2)}
     </p>
   </div>
 
-  <div class="card" id="cardRSSym" style="display:none">
+  <div class="card" data-grp="tech" id="cardRSSym" style="display:none">
     <h2>الأداء النسبي</h2>
     <p class="hint">أداء السهم مطروحاً منه أداء السوق، وحساسيته له، وفجواته الليلية</p>
     <div class="grid3" id="rsSymStats"></div>
@@ -1191,7 +1750,7 @@ details[open]{background:var(--card2)}
     <p class="srcline" id="rsSymNote"></p>
   </div>
 
-  <div class="card" id="cardStrat" style="display:none">
+  <div class="card" data-grp="opts" id="cardStrat" style="display:none">
     <h2>باني الاستراتيجيات</h2>
     <p class="hint">اختر تركيبةً من عقود هذا الاستحقاق، فتُحسب من أسعارها الفعلية:
     التكلفة وأقصى ربح وأقصى خسارة ونقاط التعادل واحتمال الربح — ويُرسم منحنى العائد</p>
@@ -1245,20 +1804,20 @@ details[open]{background:var(--card2)}
     وليست توصية ولا عرض تنفيذ. تحقّق من الأسعار والهوامش لدى وسيطك قبل أي أمر.</p>
   </div>
 
-  <div class="card">
+  <div class="card" data-grp="news">
     <h2>إيداعاته الرسمية <small>SEC</small></h2>
     <p class="hint">إفصاحاتُ الشركة وتداولاتُ مطّلعيها كما وردت إلى الهيئة — قبل أن يكتب عنها أحد</p>
     <div id="symFil"><div class="skl" style="height:70px"></div></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-grp="news">
     <h2>أخبار السهم</h2>
     <div id="symNews"><div class="skl" style="height:80px"></div></div>
   </div>
 
   <!-- أدوات التنفيذ: كانت تبويباً مستقلاً يفرض إعادة اختيار السهم في
        قائمتين بعد اختياره هنا. مكانها الطبيعي مع السهم الذي تخصّه. -->
-  <div class="card" id="cardSize">
+  <div class="card" data-grp="tools" id="cardSize">
     <h2>حجم الصفقة</h2>
     <p class="hint">كم سهماً تشتري ليكون خطرك بالضبط النسبة التي تحددها — أهم رقم قبل الدخول</p>
     <div class="grid2">
@@ -1278,7 +1837,7 @@ details[open]{background:var(--card2)}
     </details>
   </div>
 
-  <div class="card">
+  <div class="card" data-grp="tools">
     <h2>تنبيه</h2>
     <p class="hint">ينبّهك عند بلوغ سعرٍ تحدده أو تحقّق شرطٍ من شروط الماسح — يعمل ما دام التطبيق مفتوحاً</p>
     <div class="fld"><label>نوع التنبيه</label>
@@ -1303,32 +1862,50 @@ details[open]{background:var(--card2)}
 
 <!-- ================= الفرص ================= -->
 <section data-view="screen">
-  <div class="card">
-    <h2>ماسح الفرص</h2>
-    <!-- العدد يأتي من `scanCount` بعد المسح: رقمٌ مكتوب في الصفحة يتقادم
-         مع أوّل توسيعٍ للكون، وكان يقول «السبعين» والكون ألفٌ ومئة. -->
-    <p class="hint">مسح آلي بشروط جاهزة على الكون كلّه — نقطة بداية للبحث لا توصية بالشراء</p>
-    <!-- إبرازُ ما كان مدفوناً في كاشفٍ مطويّ: أهمّ ما يميّز هذه الشاشة
-         أن حافّة كل شرط **مقيسة ومعروضة**، بما فيها السالبة. ومن لا يفتح
-         الكاشف يظنّها قائمة توصيات كأيّ قائمة. -->
-    <p class="srcline" style="border-right:2px solid var(--acc);padding-right:8px;margin-bottom:8px">
-      كلُّ شرطٍ هنا مقيسٌ على أرشيف عشر سنوات، و<b>حافّتُه معروضة كما خرجت</b> —
-      موجبةً كانت أو سالبة. أكثرُ الشروط تحقّقاً هو أسوأُها حافّةً، وهذا مكتوبٌ
-      بجانبه لا مخفيّ.
-    </p>
-    <div class="toolbar">
-      <select id="scrMkt" aria-label="نوع السوق">
+  <div class="card" data-size="hero">
+    <!-- **المرشّحاتُ أولاً والقائمةُ بعدها مباشرة.**
+
+         كانت ثلاثُ فقراتٍ شارحة تتصدّر الشاشة، فيفتح المستخدم «الفرص»
+         فلا يرى فرصةً واحدة قبل أن يمرّر. والشرحُ باقٍ كلُّه — منقولاً
+         تحت القائمة في كاشف — لأن حذفه يُخفي أن الحافّة مقيسةٌ ومعروضة،
+         وتصدُّرَه يجعل الشاشة مقالةً لا أداة. -->
+    <div class="sticky-hd">
+      <div class="schead" style="margin-bottom:9px">
+        <h2 style="margin:0">الفرص الآن</h2>
+        <!-- نوعُ السوق مرشّحُ عرضٍ لا مدخلُ حساب: يصفّي صفوف اللقطة ولا
+             يعيد ترتيبها. والقيمةُ تبقى في `<select>` مخفيّ كي يقرأها
+             `renderScreen` كما كان بلا تفريعٍ ثانٍ لمصدر الحالة. -->
+        <div class="seg" id="scrMktSeg" role="group" aria-label="نوع السوق">
+          <button data-mkt="all" class="on">الكل</button>
+          <button data-mkt="us">أسهم</button>
+          <button data-mkt="crypto">عملات</button>
+        </div>
+      </div>
+      <select id="scrMkt" aria-label="نوع السوق" hidden>
         <option value="all">كل الأصول (أسهم وعملات)</option>
         <option value="us">الأسهم فقط</option>
         <option value="crypto">العملات فقط</option>
       </select>
+      <div class="scans" id="scanPicker"></div>
     </div>
-    <div class="scans" id="scanPicker"></div>
-    <p class="scan-why" id="scanWhy"></p>
-    <div id="scanHist"></div>
-    <div class="slist" id="scanList"><div class="skl" style="height:200px;border-radius:0"></div></div>
+    <div id="scanList"><div class="skl" style="height:150px"></div>
+      <div class="skl" style="height:150px;margin-top:11px"></div></div>
     <p class="srcline" id="scanCount"></p>
+    <!-- التصدير خارج الكاشف: زرٌّ داخل قسمٍ مطويّ زرٌّ لا يجده أحد -->
     <button class="btn gray" id="scanExport" style="display:none"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg>تصدير نتائج الماسح CSV</button>
+    <details class="plain" id="scanAbout">
+      <summary>عن هذا الشرط وحافّته المقيسة</summary>
+      <p class="scan-why" id="scanWhy" style="margin:0 0 9px;padding:0"></p>
+      <div id="scanHist"></div>
+      <!-- أهمّ ما يميّز هذه الشاشة أن حافّة كل شرط **مقيسة ومعروضة**،
+           بما فيها السالبة. ومن لا يقرأ ذلك يظنّها قائمة توصيات كأيّ قائمة. -->
+      <p class="srcline" style="border-inline-start:2px solid var(--acc);padding-inline-start:9px;
+        text-align:start;margin-top:10px">
+        كلُّ شرطٍ هنا مقيسٌ على أرشيف عشر سنوات، و<b>حافّتُه معروضة كما خرجت</b> —
+        موجبةً كانت أو سالبة. أكثرُ الشروط تحقّقاً هو أسوأُها حافّةً، وهذا مكتوبٌ
+        بجانبه لا مخفيّ.
+      </p>
+    </details>
   </div>
 
   <div class="card">
@@ -1429,7 +2006,7 @@ details[open]{background:var(--card2)}
     <div class="scans" id="filFilter">
       <button data-fil="" class="on">الكل</button>
       <button data-fil="heavy">الثقيلة فقط</button>
-      <button data-fil="8-K">8-K</button>
+      <button data-fil="8-K"><bdi>8-K</bdi></button>
       <button data-fil="4">تداول مطّلعين</button>
       <button data-fil="buy">شراء مطّلعين</button>
     </div>
@@ -1714,6 +2291,25 @@ details[open]{background:var(--card2)}
        وأيقونةٌ صاعدة تُوحي بأنه يبحث عن الصعود وحده -->
   <g id="i-mdir" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="8.5"/><path d="m15.2 8.8-2 5.4-5.4 2 2-5.4 5.4-2Z"/></g>
+  <!-- أيقونات الهيكل الجديد: «المزيد» والبحث والهدف والحقيبة. نفس
+       القواعد — عرض ‎1.6‎ وشبكة ‎24‎ — كي تُقرأ مجموعةً واحدة لا مجموعةَ
+       قراراتٍ متفرّقة. -->
+  <g id="i-more" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></g>
+  <g id="i-search" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+    <circle cx="11" cy="11" r="6.6"/><path d="m16 16 4.2 4.2"/></g>
+  <g id="i-target" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/><path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6"/></g>
+  <g id="i-wallet" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 16.5Z"/>
+    <path d="M4 8.5h14.5M16 12.8h1.6"/></g>
+  <g id="i-bell" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.6 10a5.4 5.4 0 1 1 10.8 0c0 4 1.6 5.4 1.6 5.4H5s1.6-1.4 1.6-5.4Z"/>
+    <path d="M10.3 18.6a2 2 0 0 0 3.4 0"/></g>
+  <g id="i-info" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.4"/><path d="M12 11.2v5M12 7.9h.01"/></g>
 </defs></svg>
 <nav class="tabbar" id="tabbar" role="tablist" aria-label="أقسام التطبيق">
   <div class="side-brand">
@@ -1726,18 +2322,56 @@ details[open]{background:var(--card2)}
       <circle cx="25.5" cy="8.5" r="2.7" fill="#2fd17a"/></svg>
     <div class="nm">مرصد الأسهم<small>الأمريكية والعقود</small></div>
   </div>
-  <button data-go="now" class="on"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-now"/></svg>الآن</button>
-  <!-- وسمُ التبويب «السوق» لا «توجه السوق»: الثمانية الأخرى كلمةٌ واحدة
-       بسطرٍ واحد، والعاشرُ بسطرين يكسر إيقاع الشريط على الهاتف (قِيس:
-       ‎41.7‎ بكسل لكل تبويب، و«توجه السوق» تلتفّ). واسمُ القسم كاملٌ
-       داخله: «توجّه السوق العام». -->
-  <button data-go="mdir"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mdir"/></svg>السوق</button>
-  <button data-go="list"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>الأسهم</button>
+  <!-- خمسةٌ في الشريط والباقي في ورقة «المزيد».
+
+       سبعةُ تبويبات على ‎375px‎ تعطي ‎41.7‎ بكسل لكلٍّ منها — أصغرُ من
+       هدفِ لمسٍ مريح، وأوسمةٌ تلتفّ سطرين فتكسر إيقاع الشريط. والثلاثةُ
+       المنقولة تبقى **هنا** بـ`data-go` وتُخفى بـCSS تحت ‎1080px‎ وحدها:
+       فيبقى تكافؤ التبويبات والشاشات الذي يفحصه `check-ui`، وتعود
+       السبعةُ كلُّها إلى الشريط الأفقي على سطح المكتب حيث تتّسع.
+
+       وسمُ «السوق» لا «توجه السوق»: الوسمُ بكلمتين يلتفّ سطرين، واسمُ
+       القسم كاملٌ داخله. -->
+  <button data-go="now" class="on"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-now"/></svg>الرئيسية</button>
   <button data-go="screen"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-screen"/></svg>الفرص</button>
-  <button data-go="analysis"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-analysis"/></svg>تحليل</button>
-  <button data-go="log"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>السجل</button>
-  <button data-go="news"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-news"/></svg>الأخبار</button>
+  <button data-go="mdir"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mdir"/></svg>السوق</button>
+  <button data-go="list" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>الأسهم</button>
+  <button data-go="analysis"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-analysis"/></svg>التحليل</button>
+  <button data-go="log" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>السجل</button>
+  <button data-go="news" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-news"/></svg>الأخبار</button>
+  <button data-sheet="more" id="btnMore" aria-label="أقسام أخرى" aria-haspopup="dialog" aria-expanded="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-more"/></svg>المزيد</button>
 </nav>
+
+<!-- ورقة «المزيد» — بقيّةُ الأقسام وأدواتُ التطبيق.
+     الأزرار هنا لا تحمل `data-go` كي لا يزدوج مصدرُ الحقيقة في تكافؤ
+     التبويبات؛ تحمل `data-nav` ويترجمها مستمعٌ واحد إلى `go()`. -->
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheetMore" role="dialog" aria-modal="true" aria-label="أقسام أخرى" hidden>
+  <div class="sheet-grip"></div>
+  <button class="sheet-x" id="sheetX" aria-label="إغلاق">✕</button>
+  <h3>أقسام أخرى</h3>
+  <button class="sheet-r" data-nav="list">
+    <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>
+    <span class="g">الأسهم<small>الكون كاملاً — بحثٌ وترشيحٌ وقوائم</small></span>
+    <span class="go">‹</span></button>
+  <button class="sheet-r" data-nav="log">
+    <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>
+    <span class="g">السجل<small>أداءُ التوصيات المقيس — لا تقديرات</small></span>
+    <span class="go">‹</span></button>
+  <button class="sheet-r" data-nav="news">
+    <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-news"/></svg>
+    <span class="g">الأخبار<small>خلاصاتٌ عربية ومترجمة وإيداعات SEC</small></span>
+    <span class="go">‹</span></button>
+  <div class="sep"></div>
+  <button class="sheet-r" data-nav="now" data-jump="cardPort">
+    <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wallet"/></svg>
+    <span class="g">محفظتي<small>مراكزك وربحها الحيّ — في متصفّحك وحده</small></span>
+    <span class="go">‹</span></button>
+  <button class="sheet-r" id="sheetInstall" hidden>
+    <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg>
+    <span class="g">تثبيت التطبيق<small>يعمل بلا شبكة على آخر بياناتٍ وصلت</small></span>
+    <span class="go">‹</span></button>
+</div>
 
 <script src="config.js"></script>
 <script src="score.js"></script>
@@ -2152,8 +2786,111 @@ const flipMark = () => `<span class="mk" title="انقلاب الاتجاه">⇄
 const hotMark = () => `<span class="mk hot" title="حدث قويّ">▲</span>`;
 
 /* ---------- تبويب: الآن ---------- */
+/* عدّادُ القوس — عرضٌ محض لرقمٍ يأتي محسوباً.
+
+   المدى ‎−100..+100‎ على قوسٍ من ‎216°‎ إلى ‎−36°‎ (‎252‎ درجة)، والمسارُ
+   ملوَّنٌ بتدرّجٍ من الأحمر إلى الأخضر فيُقرأ المدى بلا وسوم، والعلامةُ
+   البيضاء تقول أين نحن منه. ولا رقم يُحسب هنا: `sc` كما جاء من الخادم.
+
+   ولماذا قوسٌ لا شريط: الشريط يقول «أين» والقوسُ يقول «أين من المدى» —
+   والسؤال هنا الثاني. */
+function gaugeArc(sc, col) {
+  /* الهندسة: مركزٌ عند ‎(100,104)‎ ونصفُ قطرٍ ‎84‎، والقوسُ من ‎195°‎ إلى
+     ‎−15°‎ — أي ‎210‎ درجة. فالطرفان عند ‎y ≈ 125.7‎ والقمّةُ عند ‎y = 20‎،
+     وكلُّه داخل `viewBox` بارتفاع ‎134‎ بلا فيض.
+     و`large-arc-flag = 1` لأن السَّعة تتجاوز ‎180°‎، و`sweep-flag = 1`
+     لأن المسار يدور باتجاه عقارب الساعة على الشاشة (يسار → أعلى → يمين).
+     خطأٌ في أيٍّ من العلمين يرسم الدائرةَ المكمّلة لا القوس. */
+  const R = 84, CX = 100, CY = 104, A0 = 195, A1 = -15;
+  const v = Math.max(-100, Math.min(100, Number.isFinite(sc) ? sc : 0));
+  const pol = (a, rr) => {
+    const r = a * Math.PI / 180, R2 = rr === undefined ? R : rr;
+    return [CX + R2 * Math.cos(r), CY - R2 * Math.sin(r)];
+  };
+  /* الاتجاه RTL: الصعودُ على اليسار والهبوطُ على اليمين — نفس اصطلاح
+     الميزان الذي كان قبله وكلِّ شريطٍ في التطبيق. قلبُه هنا وحده يجعل
+     نفس الرقم يُقرأ في جهتين مختلفتين بين بطاقتين. */
+  const at = a => A1 + (A0 - A1) * ((a + 100) / 200);
+  const [x0, y0] = pol(A0), [x1, y1] = pol(A1);
+  const [mx, my] = pol(at(v));
+  const arc = `M${x0.toFixed(1)},${y0.toFixed(1)} A${R},${R} 0 1 1 ${x1.toFixed(1)},${y1.toFixed(1)}`;
+  // علاماتُ الحدود ‎∓45‎ و‎∓15‎ هي حدود `labelOf` نفسها لا أرقامٌ جديدة
+  const ticks = [-45, -15, 15, 45].map(t => {
+    const [ix, iy] = pol(at(t), R - 10), [ox, oy] = pol(at(t), R + 5);
+    return `<line class="gtick" x1="${ix.toFixed(1)}" y1="${iy.toFixed(1)}" x2="${ox.toFixed(1)}" y2="${oy.toFixed(1)}"/>`;
+  }).join("");
+  return `<svg viewBox="0 0 200 142" role="img" aria-label="ميزان السوق">
+    <defs><linearGradient id="ggrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="var(--up)"/><stop offset=".5" stop-color="#3A4250"/>
+      <stop offset="1" stop-color="var(--dn)"/></linearGradient></defs>
+    <path class="gtrk" stroke-width="14" d="${arc}"/>
+    <path class="gval" stroke="url(#ggrad)" stroke-width="14" opacity=".9" d="${arc}"/>
+    ${ticks}
+    <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="9" fill="#fff" opacity=".16"/>
+    <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="5" fill="#fff"/>
+    <text x="100" y="98" text-anchor="middle" font-size="40" font-weight="800"
+      fill="${col || "var(--tx)"}" style="font-family:'IBM Plex Mono',ui-monospace,monospace;letter-spacing:-2px"
+      >${Number.isFinite(sc) ? Math.round(sc) : "—"}</text>
+    <text x="26" y="138" text-anchor="middle" font-size="10" fill="var(--tx3)">صعود</text>
+    <text x="174" y="138" text-anchor="middle" font-size="10" fill="var(--tx3)">هبوط</text>
+  </svg>`;
+}
+
+/* أبرزُ الفرص في الرئيسية — قراءةٌ من اللقطة لا اختيارٌ جديد.
+
+   الدرجةُ `q` هي نفسها التي رتّب بها الخادمُ كلَّ مسحٍ على حدة، فأخذُ
+   أعلاها عبر المسوح يستعمل نفس المقياس ولا يخترع ترتيباً ثانياً.
+   والرمزُ الواحد قد يتحقّق فيه شرطان، فيُعرض مرّةً بأقواها. */
+function renderTopOpp() {
+  const el = $("#topOpp"); if (!el) return;
+  const O = state.opps;
+  const src = $("#topOppSrc");
+  if (!O || !O.scans) {
+    el.innerHTML = `<div class="skl" style="height:74px"></div>
+      <div class="skl" style="height:74px;margin-top:9px"></div>`;
+    if (src) src.textContent = "لقطة الفرص تُجلب…";
+    return;
+  }
+  const best = {};
+  for (const id of Object.keys(O.scans)) {
+    const sc = SCANS.find(x => x.id === id);
+    for (const r of O.scans[id] || []) {
+      if (!Number.isFinite(r.q)) continue;
+      if (!best[r.s] || r.q > best[r.s].q) best[r.s] = { r, lbl: sc ? sc.lbl : id };
+    }
+  }
+  const top = Object.values(best).sort((a, b) => b.r.q - a.r.q).slice(0, 3);
+  if (!top.length) {
+    el.innerHTML = `<div class="empty" style="padding:18px">لا فرصةٌ مطابقةٌ لأيّ شرط الآن — وهذا نتيجة صحيحة لا عطل</div>`;
+    if (src) src.textContent = ""; return;
+  }
+  const liveBy = {};
+  for (const r of (state.summary ? state.summary.rows : [])) liveBy[r.s] = r;
+  el.innerHTML = top.map(({ r, lbl }) => {
+    const lr = liveBy[r.s];
+    const px = lr && Number.isFinite(lr.p) ? lr.p : r.pc;
+    const chg = lr && Number.isFinite(lr.chg) ? lr.chg : null;
+    const dc = r.sd === 1 ? "up" : r.sd === -1 ? "dn" : "neu";
+    const ccol = chg === null ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
+    return `<div class="oppm d-${dc}" data-open="${esc(r.s)}">
+      ${monoTile(r.s, r.sec, "sm")}
+      <div class="g">
+        <div class="t">${esc(nm(r))}<span class="tick">${esc(r.s)}</span></div>
+        <div class="s">${esc(lbl)} · <span class="num" style="color:${ccol}">${
+          chg === null ? "—" : pct(chg)}</span> · <span class="num">${money(px)}</span></div>
+      </div>
+      <div class="q"><b class="num">${Math.round(r.q * 100)}</b><i>درجة</i></div>
+    </div>`;
+  }).join("");
+  $$("#topOpp [data-open]").forEach(x => x.onclick = () => openSymbol(x.dataset.open));
+  if (src) src.textContent = Number.isFinite(O.candleKey)
+    ? `أعلى ثلاث درجاتٍ في لقطة ${stamp(O.candleKey * 1000)} — بترتيب الخادم نفسه، بلا إعادة حساب`
+    : "";
+}
+
 function renderNow() {
   renderPort();
+  renderTopOpp();
   const m = state.market, s = state.summary;
   if (!m || !s) return;
 
@@ -2163,7 +2900,7 @@ function renderNow() {
   const lab = labelOf(total, m.band);
   $("#vVerdict").textContent = lab.t;
   $("#vVerdict").style.color = lab.c;
-  $("#vNeedle").style.right = (50 + (total || 0) / 2) + "%";
+  $("#vGauge").innerHTML = gaugeArc(total, lab.c);
 
   const b = m.breadth || {};
   const scored = s.rows.filter(r => isFinite(r.score));
@@ -2308,14 +3045,53 @@ function renderCrypto() {
 }
 
 /* ---------- تبويب: الأسهم ---------- */
-function sparkSVG(vals, up) {
-  if (!vals || vals.length < 2) return `<div class="spark"></div>`;
-  const w = 56, h = 24, mn = Math.min(...vals), mx = Math.max(...vals), rng = (mx - mn) || 1;
-  const pts = vals.map((v, i) =>
-    `${(i / (vals.length - 1) * w).toFixed(1)},${(h - 2 - ((v - mn) / rng) * (h - 4)).toFixed(1)}`).join(" ");
-  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
-    <polyline points="${pts}" fill="none" stroke="${up ? "#16c784" : "#ea3943"}" stroke-width="1.5"
-      stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+/* الخطُّ المصغَّر — مسارٌ واحد ومساحةٌ تحته، بلا كانفس ولا مكتبة.
+
+   `spark` في صفّ الملخّص ثلاثون سعراً **خاماً**، فيُطبَّع بأدنى القيم
+   وأقصاها لا بعتبةٍ ثابتة: سلسلةٌ بين ‎0.0000051‎ و‎0.0000053‎ سطحُها
+   مستوٍ بأيّ مقياسٍ مطلق، والمطلوب شكلُ الحركة لا مقدارُها.
+
+   واللونُ من `up` الممرَّرة (تغيّرُ اليوم) لا من موضع القيم: الخطّ يصف
+   السلسلة ونسبةُ التغيّر تصف اليوم، وخلطُهما يجعل اللون يناقض الرقم
+   المكتوب بجانبه.
+
+   والمعرّفات فريدةٌ بعدّادٍ عامّ: `id` مكرّر في مستندٍ واحد يجعل كلَّ
+   المساحات تأخذ تدرّجَ أوّلها. */
+let sparkN = 0;
+function sparkSVG(vals, up, opt) {
+  const o = opt || {};
+  const w = o.w || 56, h = o.h || 24;
+  if (!vals || vals.length < 2) return `<div class="spark" style="width:${w}px;height:${h}px"></div>`;
+  const mn = Math.min(...vals), mx = Math.max(...vals), rng = (mx - mn) || 1;
+  const x = i => (i / (vals.length - 1) * w);
+  const y = v => (h - 2.5 - ((v - mn) / rng) * (h - 5));
+  const pts = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+  const col = up ? "var(--up)" : "var(--dn)";
+  const gid = "sg" + (++sparkN);
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"
+      style="width:${o.fill ? "100%" : w + "px"};height:${h}px">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${col}" stop-opacity=".55"/>
+      <stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    <path class="ar" fill="url(#${gid})" d="M0,${h} L${pts.join(" L")} L${w},${h} Z"/>
+    <polyline class="ln" points="${pts.join(" ")}" stroke="${col}"/></svg>`;
+}
+
+/* مربّعُ الشركة — حرفان من الرمز بلونٍ مشتقٍّ من القطاع.
+
+   لا شعارات من شبكةٍ خارجية: قاعدةُ «بلا اعتماد خارجي» يفحصها
+   `check-ui`، وعامل الخدمة يعمل بلا شبكة — فشعارٌ لا يُحمَّل يترك
+   فجوةً في كل صفّ. واللونُ من تجزئة القطاع لا عشوائيّ: نفس القطاع
+   يأخذ نفس اللون في كل شاشة، فيصير القطاع مقروءاً بطرف العين. */
+function monoTile(sym, sec, cls) {
+  const s = String(sym || "?").replace(/[-.].*$/, "").slice(0, 3).toUpperCase();
+  let hsh = 0;
+  const key = String(sec || sym || "");
+  for (let i = 0; i < key.length; i++) hsh = (hsh * 31 + key.charCodeAt(i)) >>> 0;
+  const hue = hsh % 360;
+  return `<div class="mono${cls ? " " + cls : ""}" aria-hidden="true" style="
+    background:linear-gradient(145deg,hsl(${hue} 46% 26%),hsl(${hue} 42% 15%));
+    color:hsl(${hue} 72% 76%)"><span>${esc(s)}</span></div>`;
 }
 
 function filteredRows() {
@@ -2390,23 +3166,31 @@ function renderMarketDir() {
   const lb = dirLabelOf(m.dir, m.pct);
   const c = m.counts || { up: 0, flat: 0, dn: 0 };
 
+  /* العدّادُ يعرض **رقم الخادم** كما هو: `m.pct` نسبةٌ ‎0..100‎ بجهةٍ
+     في `m.dir`، فتُطوى الاثنتان إلى ‎−100..+100‎ لموضع المؤشّر وحده —
+     تحويلُ عرضٍ لا حساب. والوسمُ `dirLabelOf` نفسه بلا إعادة اشتقاق. */
+  const gv = (m.pct === null || m.pct === undefined) ? null : (m.dir || 0) * m.pct;
   head.innerHTML = `
     <h2 style="margin-bottom:6px">توجّه السوق العام</h2>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
-      <div style="font-size:26px;font-weight:800;color:${lb.c}">${lb.t}
-        <span class="num">${m.pct === null || m.pct === undefined ? "—" : m.pct + "%"}</span></div>
-      <div style="font-size:12.5px;color:var(--mut)">
-        ${bd(c.up)} صاعد · ${bd(c.flat)} محايد · ${bd(c.dn)} هابط</div>
-    </div>
-    <div class="sep"></div>
-    <div class="grid3">
-      <div class="stat"><div class="v num">${m.agree === null || m.agree === undefined
-        ? "—" : Math.round(m.agree * 100) + "%"}</div><div class="k">توافق الأصول</div>
-        <div class="sub">كتلةُ الموافقة لجهة السوق من كتلة ذوات الجهة</div></div>
-      <div class="stat"><div class="v num">${bd(M.rows.length)}</div><div class="k">أصلاً</div>
-        <div class="sub">المؤشّر وأكبر ${bd(M.top)} شركة بالقيمة السوقية</div></div>
-      <div class="stat"><div class="v">${esc(ago(M.updated))}</div><div class="k">آخر حساب</div>
-        <div class="sub">لقطةُ خادم — تُحدَّث مع دورة السوق</div></div>
+    <div class="gauge" style="max-width:250px">${gaugeArc(gv, lb.c)}</div>
+    <div class="verdict" style="color:${lb.c};margin-top:2px">${lb.t}</div>
+    <div class="verdict-sub">${bd(c.up)} صاعد · ${bd(c.flat)} محايد · ${bd(c.dn)} هابط
+      · قوّة <span class="num">${m.pct === null || m.pct === undefined ? "—" : m.pct + "%"}</span></div>
+    <div class="grid3" style="margin-top:14px">
+      <div class="metric acc"><div class="k">توافق الأصول</div>
+        <div class="v num">${m.agree === null || m.agree === undefined
+        ? "—" : Math.round(m.agree * 100) + "%"}</div>
+        <div class="s">كتلةُ الموافقة لجهة السوق من كتلة ذوات الجهة</div></div>
+      <div class="metric"><div class="k">الأصول المقيسة</div>
+        <div class="v num">${bd(M.rows.length)}</div>
+        <div class="s">المؤشّر وأكبر ${bd(M.top)} شركة بالقيمة السوقية</div></div>
+      <!-- العمرُ نصٌّ لا رقم، وخانةُ القيمة تقصّه بثلاث نقاط على الهاتف
+           («قبل 12 د…») — فيُكتب مختصَراً. ولا علامةَ اقتباسٍ خلفية في
+           تعليقٍ داخل قالبٍ نصّي: أوّلُ واحدةٍ تنهي القالب، فيصير ما
+           بعدها شيفرةً — وهي علّةٌ لا يكشفها محلّلٌ نحويّ. -->
+      <div class="metric"><div class="k">آخر حساب</div>
+        <div class="v" style="font-size:14px">${esc(ageShort(Date.now() - M.updated))}</div>
+        <div class="s">لقطةُ خادم — تُحدَّث مع دورة السوق</div></div>
     </div>
     ${m.pct !== null && m.pct < DIR_ON ? `<div class="note" style="margin-top:10px">
       النسبة دون عتبة الوسم (${DIR_ON}%) — فالسوق يُقرأ <b>محايداً</b>: الآفاق
@@ -2517,15 +3301,19 @@ function renderList() {
   el.innerHTML = rows.map((r, i) => {
     const col = !isFinite(r.chg) ? "var(--mut)" : r.chg > 0 ? "var(--up)" : r.chg < 0 ? "var(--dn)" : "var(--mut)";
     const ext = r.ext ? `<span class="chip pre" style="font-size:10px;padding:1px 6px">${r.ext.k === "PRE" ? "قبل" : "بعد"} ${bd(pct(r.ext.c, 1))}</span>` : "";
+    /* الاسمُ يُقصّ والشارةُ تبقى: كان الاسمُ الطويل يفيض فوق شارة الجلسة
+       الممتدّة فيبتلعها («…Alphabet Inc. (Class C» فوق «بعد ‎0.1%‎»).
+       فالاسمُ وحده في عنصرٍ يقصّ، والشاراتُ `flex:none` بجانبه. */
     return `<div class="srow" data-open="${esc(r.s)}">
       <div class="rank num">${i + 1}</div>
+      ${monoTile(r.s, r.sec, "sm")}
       <div class="id">
         <div class="t"><button class="star${isFav(r.s) ? " on" : ""}" data-fav="${esc(r.s)}"
-          aria-label="${isFav(r.s) ? "إزالة من المتابَعة" : "إضافة للمتابَعة"}">${isFav(r.s) ? starIcon(true) : starIcon(false)}</button>${esc(nm(r))}${ext}${r.stale ? `<span class="chip off" style="font-size:10px;padding:1px 6px">قديم</span>` : ""}</div>
+          aria-label="${isFav(r.s) ? "إزالة من المتابَعة" : "إضافة للمتابَعة"}">${isFav(r.s) ? starIcon(true) : starIcon(false)}</button><span class="nmx">${esc(nm(r))}</span>${ext}${r.stale ? `<span class="chip off" style="font-size:10px;padding:1px 6px">قديم</span>` : ""}</div>
         <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}${
           core.has(r.s) ? "" : ` · <span style="color:var(--mut)">يوميّ فقط</span>`}</div>
       </div>
-      ${sparkSVG(r.spark, isFinite(r.chg) ? r.chg >= 0 : true)}
+      ${sparkSVG(r.spark, Number.isFinite(r.chg) ? r.chg >= 0 : true)}
       <div class="px">
         <div class="p num">${money(r.p)}</div>
         <div class="c num" style="color:${col}">${pct(r.chg)}</div>
@@ -2564,6 +3352,9 @@ async function openSymbol(sym) {
      وبقيةُ الشاشة لا تنتظرهما. */
   need("strategies.json"); need("strategy-edge.json");
   go("detail");
+  // سهمٌ جديد يبدأ من «الخطة»: بقاءُ المجموعة السابقة يفتح شاشةَ سهمٍ
+  // على «العقود» لرمزٍ بلا عقود، فتبدو الشاشة فارغة
+  detailGroup("plan");
   $("#dHead").innerHTML = `<div class="skl" style="height:90px"></div>`;
   $("#tfTable").innerHTML = `<div class="skl" style="height:100px"></div>`;
   $("#levels").innerHTML = `<div class="skl" style="height:120px"></div>`;
@@ -4223,6 +5014,8 @@ const LAZY = {
     if (!j || !j.scans) return;
     state.opps = j;
     if (state.view === "screen") renderScreen();
+    // الرئيسية تعرض أبرزَ ثلاثٍ من نفس اللقطة، فتُحدَّث حين تصل
+    if (state.view === "now") renderTopOpp();
   },
   "strategies.json": (j) => {
     if (!j || !Array.isArray(j.rows)) return;
@@ -4362,36 +5155,60 @@ function renderDetail() {
   const lab = labelOf(rec.score, rec.band);
   const ext = row && row.ext;
 
+  /* ترويسةُ السهم: هويّةٌ ثم سعرٌ ثم ثلاثةُ مقاييس.
+
+     الأرقام كلُّها معروضةٌ كما جاءت — `rec.score` و`rec.band` من الخادم
+     و`labelOf` هي نفسها المشتركة، ونطاقُ ‎52‎ أسبوعاً من صفّ الملخّص.
+     ولا يُحسب هنا شيء. */
+  const w52 = row && Number.isFinite(row.w52h) && Number.isFinite(row.w52l) && row.w52h > row.w52l
+    ? Math.max(0, Math.min(100, (price - row.w52l) / (row.w52h - row.w52l) * 100)) : null;
+  const sp = row && row.spark;
+  /* `Number.isFinite` لا العالمية: `isFinite(null)` تعيد `true` فتُقرأ
+     النتيجةُ الغائبة «عرضي» — وسمٌ ملفّق مكان «لا نعرف». */
+  const hasSc = Number.isFinite(rec.score);
+  const dirTxt = !hasSc ? "—" : rec.score > 15 ? "▲ صاعد" : rec.score < -15 ? "▼ هابط" : "⇄ عرضي";
+  const dirCls = !hasSc ? "" : rec.score > 15 ? "up" : rec.score < -15 ? "dn" : "neu";
   $("#dHead").innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-      <div style="min-width:0">
-        <div style="font-size:15px;font-weight:800">${esc(nm(rec))}</div>
-        <div style="font-size:12px;color:var(--mut)">${rec.ar ? esc(rec.en) + " · " : ""}${esc(rec.sec)}${
+    <div class="dhero">
+      ${monoTile(sym, rec.sec, "lg")}
+      <div class="g">
+        <div class="t">${esc(nm(rec))}<span class="tick" style="font-size:12px;color:var(--tx2)">${esc(sym)}</span></div>
+        <div class="n">${rec.ar ? esc(rec.en) + " · " : ""}${esc(rec.sec)}${
           rec.mkt === "crypto" ? ` · <span style="color:var(--up)">يتداول ٢٤/٧</span>` : ""}</div>
+        <div class="pxb">
+          <div class="p num">${money(price)}</div>
+          <div class="c num" style="color:${col}">${pct(chg)} اليوم</div>
+        </div>
       </div>
-      <div style="text-align:left;flex:none">
-        <div class="num" style="font-size:26px;font-weight:800">${money(price)}</div>
-        <div class="num" style="color:${col};font-weight:700;font-size:13px">${pct(chg)} · اليوم</div>
-      </div>
+      ${sp ? `<div style="flex:none;align-self:center">${sparkSVG(sp, Number.isFinite(chg) ? chg >= 0 : true, { w: 74, h: 40 })}</div>` : ""}
     </div>
-    ${ext ? `<div class="note" style="margin-top:10px">
+    ${ext ? `<div class="note" style="margin-top:12px">
         <b>${ext.k === "PRE" ? "ما قبل الافتتاح" : "بعد الإغلاق"}:</b>
         <span class="num">${money(ext.p)}</span>
         <span class="num" style="color:${ext.c >= 0 ? "var(--up)" : "var(--dn)"}">${pct(ext.c)}</span>
         — جلسة سيولتها ضعيفة، اقرأها كإشارة اتجاه لا كسعر نهائي.</div>` : ""}
-    <div class="sep"></div>
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12.5px;color:var(--mut)">القراءة الفنية الكلية</span>
-      <span style="font-weight:800;color:${lab.c}">${lab.t}${isFinite(rec.score) ? ` (${Math.round(rec.score)})` : ""}</span>
+    <div class="grid3" style="margin-top:13px">
+      <div class="metric ${dirCls}"><div class="k">الاتجاه</div>
+        <div class="v" style="color:${lab.c};font-size:15px">${dirTxt}</div>
+        <div class="s">${esc(lab.t)}</div></div>
+      <div class="metric acc"><div class="k">القراءة الفنية</div>
+        <div class="v num">${hasSc ? Math.round(rec.score) : "—"}</div>
+        <div class="s">من ‎−100‎ إلى ‎+100‎</div></div>
+      <div class="metric ${w52 === null ? "" : w52 > 75 ? "up" : w52 < 25 ? "dn" : "neu"}">
+        <div class="k">موقعه من ‎52‎ أسبوعاً</div>
+        <div class="v num">${w52 === null ? "—" : Math.round(w52) + "%"}</div>
+        <div class="s">${w52 === null ? "لا نطاق" : w52 > 75 ? "قرب القمّة" : w52 < 25 ? "قرب القاع" : "في الوسط"}</div></div>
     </div>
-    ${rec.stale ? `<div class="warn" style="margin-top:8px">بيانات هذا السهم لم تُحدَّث في آخر تشغيل — قد تكون قديمة.</div>` : ""}
-    <button class="btn gray" id="btnToRisk" style="margin-top:12px;font-size:13.5px;padding:10px">
+    ${rec.stale ? `<div class="warn" style="margin-top:10px">بيانات هذا السهم لم تُحدَّث في آخر تشغيل — قد تكون قديمة.</div>` : ""}
+    <button class="btn gray" id="btnToRisk" style="margin-top:12px;font-size:13.5px;padding:11px">
       <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-shield"/></svg>احسب حجم الصفقة لهذا السهم</button>`;
 
   // الحاسبة أسفل نفس الصفحة الآن — الزر ينزل إليها بدل تبديل تبويب
   $("#btnToRisk").onclick = () => {
     prefillTrade();
-    $("#cardSize").scrollIntoView({ behavior: "smooth", block: "start" });
+    // الحاسبة في مجموعة «أدوات»: التمريرُ إلى بطاقةٍ مخفيّة لا يحرّك شيئاً
+    detailGroup("tools");
+    setTimeout(() => $("#cardSize").scrollIntoView({ behavior: "smooth", block: "start" }), 40);
   };
 
   /* كل بطاقة تُرسم على حِدة ويُسجَّل خطؤها.
@@ -5323,26 +6140,56 @@ function renderLogStats(trades) {
     return;
   }
 
+  /* لوحةُ أداءٍ تعرض **نفس الأرقام** التي كانت نصّاً. لا رقمَ جديد ولا
+     مقامَ جديد: النسبةُ مقامُها ما أُغلق، وبلوغُ الأهداف مقامُه ما دخل
+     فعلاً، والشريطُ تمثيلٌ للنسبة المحسوبة لا حسابٌ لها. */
+  const wr = s.win + s.loss ? s.win / (s.win + s.loss) * 100 : null;
+  const barOf = (v, cls) => `<div class="bar" style="margin-top:7px"><i class="${cls || ""}"
+    style="width:${v === null ? 0 : Math.max(0, Math.min(100, v))}%"></i></div>`;
   let html = `<div class="grid3">
-    ${cell("إجمالي التوصيات", bd(s.total), `${bd(s.open)} جارية · ${bd(s.waiting)} تنتظر`)}
-    ${cell("مغلقة", bd(s.closed), s.closed ? `${bd(s.win)} رابحة · ${bd(s.loss)} خاسرة` : "لم تُغلق واحدة بعد")}
-    ${cell("نسبة النجاح", s.win + s.loss ? rate(s.win / (s.win + s.loss) * 100) : "—",
-        "من المغلقة وحدها", s.win >= s.loss ? "var(--up)" : "var(--dn)")}
+    <div class="metric acc"><div class="k">إجمالي التوصيات</div>
+      <div class="v num">${bd(s.total)}</div>
+      <div class="s">${bd(s.open)} جارية · ${bd(s.waiting)} تنتظر</div></div>
+    <div class="metric"><div class="k">مغلقة</div>
+      <div class="v num">${bd(s.closed)}</div>
+      <div class="s">${s.closed ? `${bd(s.win)} رابحة · ${bd(s.loss)} خاسرة` : "لم تُغلق واحدة بعد"}</div></div>
+    <div class="metric ${wr === null ? "" : wr >= 50 ? "up" : "dn"}"><div class="k">نسبة النجاح</div>
+      <div class="v num" style="color:${wr === null ? "var(--tx)" : wr >= 50 ? "var(--up)" : "var(--dn)"}">${
+        wr === null ? "—" : rate(wr)}</div>
+      <div class="s">من المغلقة وحدها</div></div>
   </div>
+  ${s.closed ? `<div class="bar" style="margin-top:11px;height:9px">
+      <i class="up" style="width:${s.win / Math.max(1, s.win + s.loss) * 100}%"></i></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx3);margin-top:6px">
+      <span style="color:var(--up)">▲ ${bd(s.win)} رابحة</span>
+      <span style="color:var(--dn)">${bd(s.loss)} خاسرة ▼</span></div>` : ""}
   <div class="sep"></div>
-  <div style="font-size:12.5px;color:var(--mut);margin-bottom:6px">بلوغ الأهداف — من الصفقات التي دخلت فعلاً</div>
+  <div class="sub-h">بلوغ الأهداف — من الصفقات التي دخلت فعلاً</div>
   ${[["الهدف الأول", s.t1, s.ttT1], ["الهدف الثاني", s.t2, s.ttT2], ["الهدف الثالث", s.t3, s.ttT3]]
-    .map(([lbl, r, t]) => `<div class="row"><div class="l">${lbl}
-      <small>${t ? `وسيط زمن التحقّق ${esc(age(t.med))} · ${bd(t.n)} ملاحظة` : "لم يتحقق بعد"}</small></div>
-      <div class="r num" style="color:${r === null ? "var(--mut)" : r >= 50 ? "var(--up)" : "var(--mut)"}">${rate(r)}</div></div>`).join("")}
-  <div class="row"><div class="l">ضُرب الوقف<small>من المغلقة</small></div>
-    <div class="r num" style="color:var(--dn)">${rate(s.stopRate)}</div></div>
+    .map(([lbl, r, t]) => `<div style="margin-bottom:11px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <span style="font-size:13.5px;font-weight:600">${lbl}</span>
+        <span class="num" style="font-weight:800;font-size:15px;color:${
+          r === null ? "var(--mut)" : r >= 50 ? "var(--up)" : "var(--tx)"}">${rate(r)}</span></div>
+      ${barOf(r, r !== null && r >= 50 ? "up" : "")}
+      <div style="font-size:11px;color:var(--tx3);margin-top:5px">${
+        t ? `وسيط زمن التحقّق ${esc(age(t.med))} · ${bd(t.n)} ملاحظة` : "لم يتحقق بعد"}</div></div>`).join("")}
+  <div style="margin-bottom:4px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+      <span style="font-size:13.5px;font-weight:600">ضُرب الوقف</span>
+      <span class="num" style="font-weight:800;font-size:15px;color:var(--dn)">${rate(s.stopRate)}</span></div>
+    ${barOf(s.stopRate, "dn")}
+    <div style="font-size:11px;color:var(--tx3);margin-top:5px">من المغلقة</div></div>
   <div class="sep"></div>
-  <div style="font-size:12.5px;color:var(--mut);margin-bottom:6px">الصعود مقابل الهبوط</div>
-  ${[["صعود ▲", s.up, "var(--up)"], ["هبوط ▼", s.dn, "var(--dn)"]].map(([lbl, g, c]) =>
-    `<div class="row"><div class="l"><span style="color:${c}">${lbl}</span>
-      <small>${bd(g.n)} مغلقة · ${bd(g.win)} رابحة · ${bd(g.loss)} خاسرة</small></div>
-      <div class="r num">${rate(g.rate)}</div></div>`).join("")}`;
+  <div class="sub-h">الصعود مقابل الهبوط</div>
+  ${[["صعود ▲", s.up, "var(--up)", "up"], ["هبوط ▼", s.dn, "var(--dn)", "dn"]].map(([lbl, g, c, k]) =>
+    `<div style="margin-bottom:11px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <span style="font-size:13.5px;font-weight:700;color:${c}">${lbl}</span>
+        <span class="num" style="font-weight:800;font-size:15px">${rate(g.rate)}</span></div>
+      ${barOf(g.rate, k)}
+      <div style="font-size:11px;color:var(--tx3);margin-top:5px">${bd(g.n)} مغلقة · ${
+        bd(g.win)} رابحة · ${bd(g.loss)} خاسرة</div></div>`).join("")}`;
 
   /* ---------- المساران: دخولُ الارتداد مقابل دخول السوق ----------
      أهمّ رقمٍ في الشاشة كان غائباً عنها: نسبةُ الخطط التي لم تُفعَّل قط.
@@ -6567,8 +7414,9 @@ function renderAnalysis() {
     const col = !isFinite(v) ? "var(--mut)" : v >= 66 ? "var(--up)" : v >= 33 ? "var(--neu)" : "var(--dn)";
     return `<div class="srow" data-open="${esc(r.s)}">
       <div class="rank num">${i + 1}</div>
+      ${monoTile(r.s, r.sec, "sm")}
       <div class="id">
-        <div class="t">${esc(nm(r))}</div>
+        <div class="t"><span class="nmx">${esc(nm(r))}</span></div>
         <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}${
           isFinite(f.roe) ? ` · ROE ${bd(fmt(asPct(f.roe), 0) + "%")}` : ""}</div>
       </div>
@@ -6828,17 +7676,15 @@ function renderScreen() {
     // الطزاجة بجانب العمر: «قبل يومين» رقمٌ يحتاج ترجمة، و🟠 متأخرة
     // ترجمتُه بمقياس فريم الشرط نفسه
     const fr = sg ? freshness(now - sg.at, scanTF(scan.id)) : null;
-    const since = sg
-      ? `<div class="n" style="color:var(--dim)">${fr && fr.i ? fr.i + " " : ""}${esc(age(now - sg.at))} · عند
-         <span class="num">${money(sg.entry)}</span>${fr ? ` · ${esc(fr.t)}` : ""}</div>`
-      : "";
+    /* العمرُ وسعرُ الظهور والطزاجة نزلت إلى شرائط الذيل: سطرٌ رابع تحت
+       الاسم كان يجعل كتلة الهويّة أطول من الرقم الذي جاء القارئ لأجله. */
     /* سطرُ التوافق: الأثر **بالنقاط** لا بوصف. ويُقال في ثلاث حالات
        مختلفة لا واحدة — مؤيّد، مخالف، متعارض — والرابعة (لا إشارة)
        تُترك بلا سطر: صفٌّ يقول «لا شيء» عن كل رمزٍ يملأ القائمة ضجيجاً. */
     const cf = r;                 // حقولُ التوافق في صفّ اللقطة نفسه
     let conf = "";
     if (cf.mixed) {
-      conf = `<div class="n" style="color:var(--mut)">الاستراتيجيات متعارضة — لا تعديل</div>`;
+      conf = `<div class="n conf" style="color:var(--mut)">الاستراتيجيات متعارضة — لا تعديل</div>`;
     } else if (Number.isFinite(cf.adj) && cf.adj !== 0) {
       const p = Math.round(cf.adj * 100);
       /* **«منفردة» لا «توافق 1»**: استراتيجيةٌ واحدة تتّفق مع نفسها،
@@ -6846,24 +7692,64 @@ function renderScreen() {
          لا تُسمّى إجماعاً». والوسم يتبع العدد لا الإشارة. */
       const w = cf.n === 1 ? "إشارة منفردة"
               : `${p > 0 ? "توافق" : "تعارض"} ${bd(cf.n)} استراتيجيات`;
-      conf = `<div class="n" style="color:${p > 0 ? "var(--up)" : "var(--dn)"}">${w} ·
+      conf = `<div class="n conf" style="color:${p > 0 ? "var(--up)" : "var(--dn)"}">${w} ·
         ${p > 0 ? "+" : ""}${p} نقطة</div>`;
     }
-    return `<div class="srow" data-open="${esc(r.s)}">
-      <div class="rank num">${i + 1}</div>
-      <div class="id">
-        <div class="t">${esc(nm(r))}</div>
-        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span> · ${esc(r.sec)}${
-          r.wide ? ` · <span style="color:var(--mut)">يوميّ فقط</span>` : ""}</div>
-        ${since}${conf}
+    /* =================================================================
+       بطاقةُ الفرصة — ثلاثةُ صفوف بترتيب سؤال القارئ:
+       «أيُّ سهم؟» ثم «بكم وإلى أين؟» ثم «منذ متى وبأيّ تأييد؟».
+
+       وكلُّ خطّافٍ تقرؤه أدواتُ الإثبات باقٍ في موضعه بالمعنى نفسه:
+       الحاوية `.srow` بـ`data-open`، و`.rank` رقمُ الرتبة، و`.id .n`
+       يحمل سطر التوافق، و`.hitv` **قيمةُ المسح ثم «درجة N»** بهذا
+       الترتيب — لأن `prove-live` يشتقّ القيمة بقصّ ما بعد «درجة».
+
+       ولا شيء هنا يُحسب: الرتبةُ موضعُ الصفّ في اللقطة، والدرجةُ `q`
+       كما كتبها الخادم، والاتجاه `sd`. التمييزُ البصريّ للثلاثة الأولى
+       يتبع الترتيب ولا يصنعه. */
+    const dirC = r.sd === 1 ? "up" : r.sd === -1 ? "dn" : "neu";
+    const dirT = r.sd === 1 ? "▲ صعود" : r.sd === -1 ? "▼ هبوط" : "⇄ بلا جهة";
+    const sp = lr && lr.spark;
+    const chips = [];
+    /* الطزاجة أربعُ حالاتٍ لا اثنتان، وتُقرأ من `k` لا من الإيموجي:
+       مقارنةُ محرفٍ رسوميّ تكسر بأوّل تبديلٍ له، وهي نفس قاعدة «حقلٌ
+       مجموعةُ قيمه مفتوحة لا يُفحص بواحدةٍ منها». وطيُّ «قديمة» مع
+       «قائمة» في لونٍ رماديّ واحد يُخفي أن المرجع خرج من النافذة. */
+    const FR = { fresh: "good", live: "", late: "hot", stale: "bad" };
+    if (sg) chips.push(`<span class="${fr ? (FR[fr.k] || "") : "cold"}">${
+      esc(age(now - sg.at))}${fr ? " · " + esc(fr.t) : ""}</span>`);
+    if (Number.isFinite(cf.n) && cf.n > 0)
+      chips.push(`<span>${cf.n === 1 ? "إشارة منفردة" : bd(cf.n) + " استراتيجيات"}</span>`);
+    /* سعرُ الظهور يُعرض حين يكون موجباً: لقطاتٌ قديمة قُرّبت بخاناتٍ
+       عشرية ثابتة خرجت بدخولٍ صفر على الأصول الرخيصة (موثَّقٌ في
+       `conv:"snap"`)، و«ظهرت عند ‎$0.00‎» رقمٌ ملفّق لا معلومةٌ ناقصة. */
+    if (sg && Number.isFinite(sg.entry) && sg.entry > 0)
+      chips.push(`<span class="cold">ظهرت عند <span class="num">${money(sg.entry)}</span></span>`);
+    if (r.wide) chips.push(`<span class="cold">يوميّ فقط</span>`);
+    if (r.ctf) chips.push(`<span class="cold">على ${esc(r.ctf)}</span>`);
+
+    return `<div class="srow opp d-${dirC}${i < 3 ? " top r" + (i + 1) : ""}" data-open="${esc(r.s)}">
+      <div class="opp-hd">
+        <div class="rank num">${i + 1}</div>
+        ${monoTile(r.s, r.sec)}
+        <div class="id">
+          <div class="t">${esc(nm(r))}<span class="tick">${esc(r.s)}</span></div>
+          <div class="n">${esc(r.sec || "—")}</div>
+          ${conf}
+        </div>
+        <div class="opp-dir ${dirC}">${dirT}</div>
       </div>
-      <div class="hitv">${esc(v)}${Number.isFinite(cf.q)
-        ? `<div class="n" style="color:var(--dim)">درجة <span class="num">${
-            Math.round(cf.q * 100)}</span></div>` : ""}</div>
-      <div class="px">
-        <div class="p num">${money(px)}</div>
-        <div class="c num" style="color:${col}">${chg === null ? "—" : pct(chg)}</div>
+      <div class="opp-bd">
+        <div class="opp-px">
+          <div class="p num">${money(px)}</div>
+          <div class="c num" style="color:${col}">${chg === null ? "—" : pct(chg)}</div>
+        </div>
+        ${sp ? sparkSVG(sp, Number.isFinite(chg) ? chg >= 0 : r.sd !== -1, { w: 120, h: 34, fill: 1 })
+             : `<div class="spark" style="flex:1"></div>`}
+        <div class="hitv">${esc(v)}${Number.isFinite(cf.q)
+          ? `<span class="hg">درجة <span class="num">${Math.round(cf.q * 100)}</span></span>` : ""}</div>
       </div>
+      ${chips.length ? `<div class="opp-ft">${chips.join("")}</div>` : ""}
     </div>`;
   }).join("");
   /* المقام هو ما مُسح فعلاً لا ما نملكه: «5 من 97» بينما مُسح 510
@@ -7041,6 +7927,9 @@ function filingHTML(r) {
 }
 
 let filFil = "";
+// كم إيداعاً يُرسم الآن — يعود إلى الحدّ الأدنى مع كل تغيير مرشّح،
+// وإلّا بقي عمقُ قائمةٍ سابقة مفروضاً على مرشّحٍ جديد بلا سبب
+let filShown = 25;
 function renderFilings() {
   const el = $("#filList"); if (!el) return;
   const f = state.fil;
@@ -7058,10 +7947,22 @@ function renderFilings() {
     rows.length ? `${bd(rows.length)} إيداعاً` : "لا إيداعات مطابقة"} ·
     آخر 30 يوماً · حُدّثت ${ago(f.updated)}</p>`;
 
+  /* كشفٌ تدريجيّ: ‎120‎ إيداعاً في بطاقةٍ واحدة تعطي عموداً بطول
+     ‎15,879‎ بكسل على الهاتف (مقيس) — أي أربعين شاشةً داخل بطاقةٍ
+     واحدة، وما تحتها من الصفحة لا يُبلَغ عملياً. تُعرض خمسٌ وعشرون
+     وتُطلب البقية بنقرة. والسقفُ الأعلى (‎120‎) كما هو: المتغيّر متى
+     تُرسَم لا كم تُحفظ. */
+  const MAX = 120, STEP = 25;
+  const cap = Math.min(rows.length, MAX);
+  const show = Math.min(cap, filShown);
   el.innerHTML = head + (rows.length
-    ? rows.slice(0, 120).map(filingHTML).join("")
+    ? rows.slice(0, show).map(filingHTML).join("") +
+      (show < cap ? `<button class="btn gray" id="filMore" style="margin-top:6px">عرض ${
+        bd(Math.min(STEP, cap - show))} إيداعاً آخر · ${bd(cap - show)} متبقّياً</button>` : "")
     : `<div class="empty">لا إيداعات بهذا المرشّح</div>`);
   el.querySelectorAll(".fil-sym").forEach(b => b.onclick = () => openSymbol(b.dataset.sym));
+  const more = el.querySelector("#filMore");
+  if (more) more.onclick = () => { filShown += STEP; renderFilings(); };
 }
 
 /* على شاشة السهم: إيداعاته وحدها، وأحدثُ خمسة. الإيداع القديم يُقرأ في
@@ -7348,8 +8249,13 @@ function checkAlerts() {
    الشريط بلا `role` حتى أول نقرة — أي أن قارئ الشاشة يرى سبعة أزرارٍ
    متفرّقة في الحالة التي يفتح عليها المستخدمُ التطبيقَ فعلاً. */
 function syncTabs(active) {
+  /* الشاشاتُ الثلاث المنقولة إلى ورقة «المزيد» مخفيّةٌ على الهاتف، فلو
+     اكتفينا بوسم زرّها لبدا الشريط بلا أيّ تبويبٍ نشط حين يكون المستخدم
+     فيها — أي أن الشريط يقول «لستَ في أيّ قسم» وهو في قسم. فيُوسَم
+     «المزيد» بدلاً عنها. */
+  const inSheet = SHEET_VIEWS.indexOf(active) >= 0;
   $$("#tabbar button").forEach(b => {
-    const on = b.dataset.go === active;
+    const on = b.dataset.sheet ? inSheet : (b.dataset.go === active);
     b.classList.toggle("on", on);
     b.setAttribute("role", "tab");
     b.setAttribute("aria-selected", String(on));
@@ -7357,6 +8263,66 @@ function syncTabs(active) {
     // `tablist` المعياري. سبعةُ مواقفَ تجعل الوصول إلى المحتوى يمرّ بها كلها
     b.tabIndex = on ? 0 : -1;
   });
+  $$("#sheetMore .sheet-r[data-nav]").forEach(b =>
+    b.classList.toggle("on", b.dataset.nav === active && !b.dataset.jump));
+}
+
+/* =====================================================================
+   الورقة السفلية — مكوّنٌ واحد لا اثنان
+
+   «المزيد» والمرشّحات يفتحان نفس العنصر بوسائط مختلفة. نسختان من منطق
+   الفتح والإغلاق تتباعدان بأول تعديل: تُغلق إحداهما بـEsc والأخرى لا،
+   وتقفل إحداهما تمرير الخلفية والأخرى تتركه.
+
+   و`hidden` تُرفع **قبل** إضافة `on` بإطارٍ واحد: عنصرٌ ينتقل من
+   `display:none` إلى `transform` في نفس الإطار لا يُحرَّك أصلاً، فتظهر
+   الورقة قفزاً بلا انزلاق.
+   ===================================================================== */
+/* مجموعاتُ شاشة السهم — تبديلُ عرضٍ محض.
+
+   والشارت يُعاد رسمه عند إظهار مجموعته: الكانفس المخفيّ عرضُه صفر،
+   فالرسمُ عليه وهو مخفيّ يعطي صورةً بعرضٍ خاطئ تبقى حتى أوّل تغيّر آخر. */
+function detailGroup(g) {
+  const sec = document.querySelector('section[data-view="detail"]');
+  if (!sec) return;
+  sec.dataset.grp = g;
+  $$("#detailGrp button").forEach(b => {
+    const on = b.dataset.grp === g;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", String(on));
+  });
+  if (g === "chart") setTimeout(drawChart, 30);
+  setTimeout(layoutWide, 0);
+}
+
+const SHEET_VIEWS = ["list", "log", "news"];
+let sheetLast = null;          // العنصر الذي كان مركَّزاً قبل الفتح
+
+function sheetOpen(id) {
+  const el = $("#" + id), sc = $("#scrim");
+  if (!el || !sc) return;
+  sheetLast = document.activeElement;
+  sc.hidden = false; el.hidden = false;
+  requestAnimationFrame(() => { sc.classList.add("on"); el.classList.add("on"); });
+  document.body.classList.add("sheet-open");
+  const mb = $("#btnMore"); if (mb) mb.setAttribute("aria-expanded", "true");
+  const first = el.querySelector(".sheet-r:not([hidden])");
+  if (first) setTimeout(() => first.focus(), 60);
+}
+
+function sheetClose() {
+  const sc = $("#scrim");
+  $$(".sheet").forEach(el => {
+    if (el.hidden) return;
+    el.classList.remove("on");
+    // الإخفاء بعد الانتقال لا معه: إخفاؤه فوراً يبتر الانزلاق
+    setTimeout(() => { el.hidden = true; }, 320);
+  });
+  if (sc) { sc.classList.remove("on"); setTimeout(() => { sc.hidden = true; }, 320); }
+  document.body.classList.remove("sheet-open");
+  const mb = $("#btnMore"); if (mb) mb.setAttribute("aria-expanded", "false");
+  if (sheetLast && document.contains(sheetLast)) sheetLast.focus();
+  sheetLast = null;
 }
 
 /* =====================================================================
@@ -7478,6 +8444,11 @@ function go(view) {
   window.scrollTo({ top: 0, behavior: "instant" });
   if (isDetail) setTimeout(drawChart, 60);
   // كل شاشة تطلب ما تحتاجه أول مرة تُفتح فيها
+  /* الرئيسية تعرض أبرزَ ثلاث فرصٍ من اللقطة نفسها. الملفّ كسولٌ (‎110‎
+     ك.ب) فيُطلب **بعد** أوّل رسمٍ لا معه: البطاقة تبدأ هيكلاً ثم تمتلئ،
+     فلا يتأخّر أوّل رسمٍ لأجلها. وأغلبُ من يفتح التطبيق يفتح «الفرص»
+     بعدها، فالطلب تحضيرٌ لا إهدار. */
+  if (view === "now") { need("opportunities.json"); renderTopOpp(); }
   if (view === "mdir") { need("market-dir.json"); renderMarketDir(); }
   if (view === "list") renderList();
   /* الفرص: الأساسيات لشروطها، ولقطةُ الاستراتيجيات وحوافُّها لدرجة
@@ -7696,25 +8667,26 @@ function boot() {
      ولا `Notification` ولا `push` هنا بقرارٍ صريح: التنبيهات خارج نطاق
      هذه المرحلة. */
   let installEvt = null;
+  // موضعان للزرّ الواحد: أيقونةٌ في الترويسة على الشاشة العريضة، وبندٌ
+  // مفهوم داخل ورقة «المزيد» على الهاتف. وكلاهما يظهر بالحدث ويختفي به.
+  const installBtns = () => [$("#btnInstall"), $("#sheetInstall")].filter(Boolean);
   addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     installEvt = e;
-    const b = $("#btnInstall");
-    if (b) b.hidden = false;
+    installBtns().forEach(b => { b.hidden = false; });
   });
   addEventListener("appinstalled", () => {
     installEvt = null;
-    const b = $("#btnInstall");
-    if (b) b.hidden = true;
+    installBtns().forEach(b => { b.hidden = true; });
   });
-  const bi = $("#btnInstall");
-  if (bi) bi.onclick = async () => {
+  installBtns().forEach(b => b.onclick = async () => {
     if (!installEvt) return;
-    bi.hidden = true;                    // الحدث يُستهلك مرّة واحدة
+    installBtns().forEach(x => { x.hidden = true; });   // الحدث يُستهلك مرّة واحدة
+    sheetClose();
     installEvt.prompt();
     try { await installEvt.userChoice; } catch (e) {}
     installEvt = null;
-  };
+  });
 
   state.favs = (load("favs", []) || []).filter(x => typeof x === "string");
   state.chartOv = load("chartOv", true) !== false;
@@ -7727,7 +8699,47 @@ function boot() {
     try { renderAll(); } catch (e) {}
   }
 
-  $$("#tabbar button").forEach(b => b.onclick = () => go(b.dataset.go));
+  /* زرُّ «المزيد» بلا `data-go` عمداً: لو حمله لظهر في تكافؤ التبويبات
+     شاشةً لا وجود لها. فالتفريعُ هنا لا هناك. */
+  $$("#tabbar button").forEach(b => b.onclick = () => {
+    if (b.dataset.sheet) { sheetOpen("sheetMore"); return; }
+    go(b.dataset.go);
+  });
+  $("#scrim").onclick = sheetClose;
+  $("#sheetX").onclick = sheetClose;
+  $$("#sheetMore .sheet-r[data-nav]").forEach(b => b.onclick = () => {
+    const v = b.dataset.nav, j = b.dataset.jump;
+    sheetClose(); go(v);
+    // بندٌ يشير إلى بطاقةٍ داخل شاشة لا إلى شاشة: ننتقل ثم نمرّر إليها
+    if (j) setTimeout(() => {
+      const el = document.getElementById(j);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 90);
+  });
+  // البحث السريع من الترويسة: ينقل إلى شاشة الأسهم ويضع المؤشّر في الحقل
+  const openSearch = () => {
+    go("list");
+    setTimeout(() => { const q = $("#qSearch"); if (q) { q.focus(); q.select(); } }, 80);
+  };
+  $("#btnSearch").onclick = openSearch;
+  /* الإجراءات السريعة اختصاراتُ تنقّلٍ لا وظائفَ جديدة: كلُّ زرٍّ يذهب
+     إلى ما كان يحتاج نقرتين أو ثلاثاً للوصول إليه. */
+  $$("#quickActions button").forEach(b => b.onclick = () => {
+    const k = b.dataset.qa;
+    if (k === "search") return openSearch();
+    if (k === "port") {
+      const el = $("#cardPort");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    go(k);
+  });
+  { const b = $("#topOppMore"); if (b) b.onclick = () => go("screen"); }
+  $$("#detailGrp button").forEach(b => {
+    b.setAttribute("role", "tab");
+    b.onclick = () => detailGroup(b.dataset.grp);
+  });
+  detailGroup("plan");     // الحالة الأولى قبل أن تقع أيّ نقرة
   syncTabs(state.view);        // الحالة الأولى قبل أن تقع أي نقرة
 
   /* تنقّل الأسهم داخل شريط التبويبات. الاتجاه **مقلوب** لأن الواجهة
@@ -7736,14 +8748,18 @@ function boot() {
   if (tabbar) tabbar.addEventListener("keydown", (e) => {
     const keys = { ArrowLeft: 1, ArrowRight: -1, Home: "first", End: "last" };
     if (!(e.key in keys)) return;
-    const btns = $$("#tabbar button");
+    // الأزرار المخفيّة على الهاتف خارج ترتيب التنقّل: سهمٌ يقف على زرٍّ
+    // لا يُرى يجعل التنقّل يبدو معطّلاً
+    const btns = $$("#tabbar button").filter(b => b.offsetParent !== null);
     const i = btns.indexOf(document.activeElement);
     if (i < 0) return;
     e.preventDefault();
     const k = keys[e.key];
     const j = k === "first" ? 0 : k === "last" ? btns.length - 1
             : (i + k + btns.length) % btns.length;
-    btns[j].focus(); go(btns[j].dataset.go);
+    const b = btns[j];
+    b.focus();
+    if (b.dataset.sheet) sheetOpen("sheetMore"); else go(b.dataset.go);
   });
 
   /* اختصارات لوحة المفاتيح — ثلاثةٌ تُختصر بها أكثر الحركات تكراراً:
@@ -7753,6 +8769,9 @@ function boot() {
     const el = document.activeElement, tag = el && el.tagName;
     const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (el && el.isContentEditable);
     if (e.key === "Escape") {
+      // الورقة أولاً: مفتوحةٌ فوق كل شيء، فإغلاقُ الشاشة تحتها يترك
+      // المستخدم أمام ورقةٍ تشير إلى مكانٍ غادره
+      if (document.body.classList.contains("sheet-open")) { e.preventDefault(); sheetClose(); return; }
       if (typing) { el.blur(); return; }
       if (state.view === "detail") { e.preventDefault(); $("#btnBack").click(); }
       return;
@@ -7772,6 +8791,7 @@ function boot() {
      لأن **خياراتها** تأتي من البيانات، وهذه خياراتها ثابتة.) */
   $$("#filFilter button").forEach(b => b.onclick = () => {
     filFil = b.dataset.fil;
+    filShown = 25;          // مرشّحٌ جديد يبدأ من أوّله لا من عمق سابقه
     $$("#filFilter button").forEach(x => x.classList.toggle("on", x === b));
     renderFilings();
   });
@@ -7914,6 +8934,14 @@ function boot() {
     if (q) q.onchange = renderStrat; }
 
   { const e = $("#scrMkt"); if (e) e.onchange = renderScreen; }
+  /* مبدّلُ نوع السوق يكتب في `<select>` المخفيّ ثم يُعيد الرسم: مصدرُ
+     الحالة واحد، فلا يختلف ما يقرؤه `renderScreen` عمّا يراه المستخدم. */
+  $$("#scrMktSeg button").forEach(b => b.onclick = () => {
+    const sel = $("#scrMkt"); if (!sel) return;
+    sel.value = b.dataset.mkt;
+    $$("#scrMktSeg button").forEach(x => x.classList.toggle("on", x === b));
+    renderScreen();
+  });
   ["#rsSector", "#rsHz", "#rsLayer"].forEach(id => { const e = $(id); if (e) e.onchange = renderRS; });
   { const e = $("#heatBy"); if (e) e.onchange = renderHeat; }
   { const e = $("#corrSym"); if (e) e.onchange = renderCorr; }
@@ -7977,6 +9005,10 @@ function boot() {
   });
 
   refresh(true);
+  /* الشاشةُ الأولى مُعلَّمةٌ في الهيكل فلا تمرّ بـ`go()`، فطلبُ لقطة
+     الفرص لها يقع هنا — وهي نفس المصيدة التي جعلت ضبطَ ARIA داخل `go`
+     وحدها يفوّت الإقلاع. وبعد `refresh` لا قبله: أوّل رسمٍ لا ينتظرها. */
+  if (state.view === "now") setTimeout(() => { need("opportunities.json"); }, 0);
   setInterval(renderTop, 1000);                                     // العدّ التنازلي
   setInterval(refresh, Math.max(30, +CFG.FILE_POLL_SECONDS || 60) * 1000);
   if (String(CFG.LIVE_ENDPOINT || "").trim()) {

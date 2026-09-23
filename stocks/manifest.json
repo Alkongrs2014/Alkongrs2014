@@ -8,8 +8,8 @@
   "orientation": "portrait",
   "dir": "rtl",
   "lang": "ar",
-  "background_color": "#0b0e13",
-  "theme_color": "#0b0e13",
+  "background_color": "#04070C",
+  "theme_color": "#04070C",
   "categories": ["finance"],
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
