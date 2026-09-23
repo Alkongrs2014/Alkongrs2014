@@ -1046,19 +1046,28 @@ section[data-view="now"].on{display:flex;flex-direction:column}
    ====================================================================== */
 @media (min-width:860px){
   main{max-width:1180px;padding:18px 22px 30px}
+  /* `dense` ليست تجميلاً: البطاقةُ التي تأخذ العرض كاملاً تُنزل نفسها
+     صفّاً جديداً وتترك ما تبقّى من صفّها **فارغاً**. قِيس على ‎1600px‎:
+     شاشةُ السجل تبدأ ببطاقةٍ بعرض عمودٍ واحد تليها بطاقةٌ كاملة، فيظهر
+     ثلثا الشاشة خالياً وتُقرأ الصفحة مكسورة. و`dense` تدفع البطاقة
+     التالية الضيّقة إلى الخانة الشاغرة. وهي آمنةٌ هنا لأن البطاقات
+     لوحاتٌ مستقلّة لا فقراتٌ متسلسلة. */
   section[data-view].on{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:15px;align-items:start}
+    gap:15px;align-items:start;grid-auto-flow:row dense}
   .card{margin-bottom:0}
   /* ما يأخذ العرض كاملاً يُعرَف بمحتواه لا باسمه: شارتٌ أو جدولٌ يمرَّر
      أفقياً لا يُقرأ في نصف عمود */
   .card.full,.card[data-size="hero"],#cardOpts,
   .card:has(canvas),.card:has(.otwrap),.card:has(.mwrap){grid-column:1/-1}
   /* شاشاتٌ محتواها قائمةٌ واحدة متسلسلة: تقسيمُها عمودين يقطعها في
-     منتصفها، فالقائمة نفسها هي التي تتعمّد */
+     منتصفها، فالقائمة نفسها هي التي تتعمّد. والسجلُّ منها: سجلُّ
+     الصفقات جدولٌ واحد بطوله ‎10,871‎ بكسل (مقيس) — نصفُ عمودٍ بجانبه
+     لا يحمل شيئاً. */
   section[data-view="detail"].on,section[data-view="list"].on,
-  section[data-view="news"].on{display:block;max-width:1000px;margin:0 auto}
+  section[data-view="news"].on,section[data-view="log"].on{
+    display:block;max-width:1060px;margin:0 auto}
   section[data-view="detail"].on .card,section[data-view="list"].on .card,
-  section[data-view="news"].on .card{margin-bottom:15px}
+  section[data-view="news"].on .card,section[data-view="log"].on .card{margin-bottom:15px}
   /* قائمة الفرص عمودان على الشاشة العريضة — البطاقة مصمَّمة لعرضٍ ضيّق */
   #scanList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
     gap:11px;align-items:start}
@@ -1122,9 +1131,13 @@ section[data-view="now"].on{display:flex;flex-direction:column}
 }
 @media (min-width:1600px){
   main{max-width:1640px}
-  section[data-view].on{grid-template-columns:repeat(3,minmax(0,1fr))}
+  /* ثلاثةُ أعمدة للرئيسية وحدها: هي الشاشةُ التي بطاقاتُها لوحاتٌ
+     صغيرة متكافئة. وبقيّةُ الشاشات فيها بطاقاتٌ تأخذ العرض كاملاً
+     (جداول وشارتات)، فالعمودُ الثالث فيها يُنتج فجواتٍ أكثر ممّا
+     يُنتج محتوى. */
+  section[data-view="now"].on{grid-template-columns:repeat(3,minmax(0,1fr))}
   #scanList{grid-template-columns:repeat(3,minmax(0,1fr))}
-  section[data-view="detail"].on{max-width:1120px}
+  section[data-view="detail"].on,section[data-view="log"].on{max-width:1180px}
 }
 
 /* ======================================================================
