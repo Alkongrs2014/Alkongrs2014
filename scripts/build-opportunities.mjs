@@ -395,6 +395,16 @@ async function main() {
               strategyVersion: next.strategyVersion, count: next.count });
 
   if (!d.write) {
+    /* الرفضُ يحمي المنشور ويُخفي المصدر — فيُحفظ الحسابُ المرفوض محلياً
+       كي يُقارَن بالمنشور حقلاً حقلاً ويُسمّى ما تحرّك داخل الشمعة. */
+    if (prev && next.candleKey === prev.candleKey && next.rowsHash !== prev.rowsHash) {
+      try {
+        const dd = path.join(OUT, ".monitor", "rejected");
+        fs.mkdirSync(dd, { recursive: true });
+        fs.writeFileSync(path.join(dd, `${next.candleKey}-${next.rowsHash}.json`),
+          JSON.stringify({ candleKey: next.candleKey, scans: next.scans, bySym: next.bySym, life: next.life }));
+      } catch { /* تشخيصٌ لا يُسقط التشغيل */ }
+    }
     console.log(`  لقطة الفرص: ${d.reason} · شمعة ${iso(next.candleKey)} · ${next.count} صفّاً`);
     return 0;
   }

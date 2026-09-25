@@ -107,7 +107,9 @@ async function main() {
   const today = nyDate(Date.now());
   const byDay = {};
   for (const b of data.NVDA.m15) { const d = nyDate(b.t); (byDay[d] ||= []).push(b.t); }
-  const days = Object.keys(byDay).filter(d => d < today && byDay[d].length >= 13).sort().slice(-(NSESS + WARM));
+  // `--today`: بعد الإغلاق تُضمّ جلسةُ اليوم نفسها (مكتملةً) إلى الإعادة
+  const TODAY_OK = process.argv.includes("--today");
+  const days = Object.keys(byDay).filter(d => (TODAY_OK ? d <= today : d < today) && byDay[d].length >= 13).sort().slice(-(NSESS + WARM));
   const steps = [];
   for (const d of days) for (const t of byDay[d]) steps.push({ day: d, T: t + 900e3 });
   console.log(`  الجلسات: ${days.join(" · ")} · ${steps.length} خطوة`);
