@@ -5768,8 +5768,8 @@ function computeLevels(rec) {
   const O = state.opps;
   const cnow = O && Number.isFinite(O.candleKey) ? (O.candleKey + 900) * 1000 + 1 : Date.now();
   const k0 = rec.tf["4h"] && rec.tf["4h"].c, d0 = rec.tf["1d"] && rec.tf["1d"].c;
-  const k = k0 && k0.length ? closedBars(k0, "4h", cnow) : k0;
-  const d = d0 && d0.length ? closedBars(d0, "1d", cnow) : d0;
+  const k = k0 && k0.length ? closedBars(k0, "4h", cnow).slice(-AN_WIN) : k0;
+  const d = d0 && d0.length ? closedBars(d0, "1d", cnow).slice(-AN_WIN) : d0;
   const base = k && k.length > 20 ? k : d;
   const row = symRow(rec.s);
   const f = state.fund && state.fund.f && state.fund.f[rec.s];

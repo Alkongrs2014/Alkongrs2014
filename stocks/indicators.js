@@ -704,7 +704,11 @@ function isLiveBar(tf, t, now) {
      والمطبعة الجزئية التي بُني لها الشرط تُعرَف بلا أيّ افتراضٍ عن
      الشبكة — انظر `closedBars`. */
   if (ms) return (t + ms) > now;
-  return Math.floor(t / 86400000) === Math.floor(now / 86400000);
+  /* `>=` لا `===`: ساعةُ التأكيد (`cnow`) قد تكون إغلاقَ أمس بينما
+     السلسلة تحمل شمعةَ اليوم الجارية — تاريخُها **بعد** الساعة، فكانت
+     تُقرأ «مغلقة» ويدخل يومٌ لم يكتمل في المؤشّرات اليومية. قِيس عند
+     افتتاح 2026-09-25. */
+  return Math.floor(t / 86400000) >= Math.floor(now / 86400000);
 }
 
 /* =====================================================================
@@ -731,6 +735,14 @@ function isLiveBar(tf, t, now) {
    الأخيرة في الجلسة الأمريكية (‎16:30→20:00‎) وهي مشروعة رغم قِصَرها.
    قِيس على البيانات الحيّة: ختمُ المطبعة ‎17:20:17‎ — سبع عشرة ثانية. */
 function wholeMinute(t) { return Number.isFinite(t) && (t % 60000) === 0; }
+/* نافذةُ التحليل ثابتةُ الطول: السلسلة المحفوظة 260 شمعة **تشمل** الجارية
+   حين توجد، فكان عددُ المغلق 259 مرّةً و260 مرّة — وظهورُ شمعةٍ جارية
+   جديدة (افتتاحُ يومٍ جديد) يُسقط أقدم شمعةٍ مغلقة فتتغيّر EMA200 وكل ما
+   يُبنى عليها **بلا أن تُغلق شمعة**. قِيس 2026-09-25 عند الافتتاح:
+   META اليومي 58.8 → 76.5 ومفتاحُ الشمعة لم يتقدّم. فيُحلَّل دائماً آخرُ
+   259 شمعةً مغلقة. */
+var AN_WIN = 259;
+
 function closedBars(k, tf, now) {
   if (!Array.isArray(k) || k.length < 2) return k || [];
   var n = k.length;
@@ -751,6 +763,6 @@ if (typeof module !== "undefined" && module.exports) {
                      sessionVwap: sessionVwap, openingRange: openingRange,
                      volMedian: volMedian,
                      BAR_MS: BAR_MS, barTime: barTime,
-                     isLiveBar: isLiveBar, closedBars: closedBars, wholeMinute: wholeMinute,
+                     isLiveBar: isLiveBar, closedBars: closedBars, AN_WIN: AN_WIN, wholeMinute: wholeMinute,
                      analyze: analyze, aggregate: aggregate, srcStep: srcStep };
 }

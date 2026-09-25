@@ -298,6 +298,7 @@ function dropLast(cc, tf, now) {
 /* نسخةٌ من سجلّ الرمز بلا الشمعة الجارية، ومؤشّراتُها **معادةُ الحساب**
    من المقصوص. وقراءةُ `rec.an` المحفوظة هنا تعيد إدخال الشمعة الجارية
    من الباب الخلفي — فهي محسوبةٌ على السلسلة كاملة. */
+var AN_WIN_S = 259;   // = AN_WIN في indicators.js — نافذة التحليل الثابتة
 function closedRec(rec, now) {
   if (!rec || !rec.tf) return null;
   var out = {}, key;
@@ -307,7 +308,7 @@ function closedRec(rec, now) {
     for (t in (box || {})) {
       var cc = dropLast(box[t] && box[t].c, t, now);
       if (!cc) continue;
-      (o = o || {})[t] = { c: cc };
+      (o = o || {})[t] = { c: cc.slice(-AN_WIN_S) };
     }
     return o;
   };

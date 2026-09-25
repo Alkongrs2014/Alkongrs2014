@@ -19,6 +19,8 @@ import { fetchCandlesTD, hasTwelveData, tdSleep, tdStats } from "./lib/twelvedat
 import { fetchCandles as fetchCandlesBN, bnStats } from "./lib/binance.mjs";
 import { analyze, overallScore, aggregate, TFS, TF_WEIGHT, bandStable,
          closedBars, isLiveBar, barTime } from "./lib/indicators.mjs";
+import { createRequire as __cr } from "node:module";
+const IND_AN_WIN = __cr(import.meta.url)("../stocks/indicators.js").AN_WIN;
 import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar } from "./lib/session.mjs";
 import * as PROV from "./providers/index.mjs";
 
@@ -553,7 +555,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
      وإلا قرأت الأسهم الأمريكية مساءً شمعةَ أمس اليومية. */
   rec.an = {};
   for (const tf of AN_TFS) {
-    const kk = rec.tf[tf]?.c ? closedBars(rec.tf[tf].c, tf, now) : null;
+    const kk = rec.tf[tf]?.c ? closedBars(rec.tf[tf].c, tf, now).slice(-IND_AN_WIN) : null;
     const a = (kk && kk.length) ? analyze(kk) : null;
     if (!a) continue;
     const { series, ...rest } = a;                    // لا نحفظ السلاسل الكاملة (حجم)

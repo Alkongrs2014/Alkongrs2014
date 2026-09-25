@@ -41,7 +41,7 @@ fs.mkdirSync(CACHE, { recursive: true });
 fs.mkdirSync(path.dirname(OUTF), { recursive: true });
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks", "symbols.json"), "utf8"));
 const FUND = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, "data", "fundamentals.json"), "utf8")).f; } catch { return {}; } })();
-const KEEP = 260;
+const KEEP = 260, AW = 259;   // AN_WIN
 const r2 = (x) => Number.isFinite(x) ? Math.round(x * 100) / 100 : null;
 const pack = (a) => a.map(b => [Math.round(b.t / 1000), b.o, b.h, b.l, b.c, b.v]);
 const nyDate = (ms) => { const p = etParts(ms); return `${p.y}-${String(p.mo).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`; };
@@ -62,11 +62,11 @@ async function load(sym) {
 const upto = (arr, T, len) => { let n = 0; while (n < arr.length && arr[n].t < T) n++; return arr.slice(Math.max(0, n - (len || n)), n); };
 
 function stepRow(meta, D, T, prevBand) {
-  const s15 = closedBars(upto(D.m15, T, KEEP), "15m", T);
+  const s15 = closedBars(upto(D.m15, T, KEEP), "15m", T).slice(-AW);
   const all1h = upto(D.h1, T);
-  const s1h = closedBars(all1h.slice(-KEEP), "1h", T);
-  const s4h = closedBars(aggregate(all1h, 4).slice(-KEEP), "4h", T);
-  const s1d = closedBars(upto(D.d1, T, KEEP), "1d", T);
+  const s1h = closedBars(all1h.slice(-KEEP), "1h", T).slice(-AW);
+  const s4h = closedBars(aggregate(all1h, 4).slice(-KEEP), "4h", T).slice(-AW);
+  const s1d = closedBars(upto(D.d1, T, KEEP), "1d", T).slice(-AW);
   if (s15.length < 50 || s1d.length < 50) return null;
   const an = {};
   for (const [tf, k] of [["15m", s15], ["1h", s1h], ["4h", s4h], ["1d", s1d]]) {

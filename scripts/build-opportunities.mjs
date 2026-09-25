@@ -134,7 +134,7 @@ function symBars(sym, cache, nowMs) {
   const k = {};
   for (const tf of ["15m", "4h", "1d"]) {
     const cc = rec && rec.tf && rec.tf[tf] && rec.tf[tf].c;
-    k[tf] = cc && cc.length ? closedBars(unpackK(cc), tf, nowMs) : [];
+    k[tf] = cc && cc.length ? closedBars(unpackK(cc), tf, nowMs).slice(-259) : [];   // AN_WIN
   }
   return (cache[sym] = { rec, k });
 }

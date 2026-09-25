@@ -87,9 +87,14 @@ for (const f of fs.readdirSync(path.join(B, "sym"))) {
     if (!c || !c.length) continue;
     const last = c[c.length - 1];
     // شمعةٌ جارية: ختمُها بداية الشمعة التي تلي المفتاح (لم تُغلق عند الساعة)
-    const t = tf === "1d" ? Math.floor(close / 86400000) * 86400 + 13.5 * 3600 : cbar + 900;
-    if (t <= last[0]) continue;
+    /* ختمٌ بعد آخر شمعة بطول الفريم — وهو **بعد** ساعة التأكيد، أي لم
+       يُغلق. واليوميّ: يومٌ تالٍ (افتتاحُ الغد والمفتاحُ على إغلاق أمس —
+       الحالة التي كشفت علّتين عند افتتاح 2026-09-25). ثم تُقصّ السلسلة
+       إلى 260 كما يحفظها الجلب، فتسقط أقدمُ شمعةٍ مغلقة. */
+    const step = { "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400 }[tf];
+    const t = Math.max(last[0] + step, cbar + 900);
     c.push([t, last[4], last[4] * 1.05, last[4] * 0.93, last[4] * 1.04, 9e9]);
+    if (c.length > 260) c.splice(0, c.length - 260);
     appended++;
   }
   wrj(p, rec);
