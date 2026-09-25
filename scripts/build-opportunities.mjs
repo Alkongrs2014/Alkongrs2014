@@ -42,7 +42,7 @@ const { SCANS, scanRow, forcedDir } = require("../stocks/scans.js");
 const { resolveOpp } = require("../stocks/direction.js");
 const { consFromRows, scsFrom, oppQualityOf } = require("../stocks/confluence.js");
 const { STRATEGIES, STRAT_BY_ID } = require("../stocks/strategies.js");
-const { buildOpps, oppsCanon, candleKeyAt } = require("../stocks/opportunities.js");
+const { buildOpps, oppsCanon, snapCanon, candleKeyAt } = require("../stocks/opportunities.js");
 const { closedBars } = require("../stocks/indicators.js");
 const { unpackK } = require("../stocks/plan.js");
 const { freshness, scanTF } = require("../stocks/evaluate.js");
@@ -311,7 +311,7 @@ export function buildSnapshot(now = Date.now()) {
     };
   }
 
-  const rowsHash = sha12(oppsCanon(scans) + "\n" + JSON.stringify(bySym) + "\n" + JSON.stringify(life));
+  const rowsHash = sha12(snapCanon({ scans, bySym, life }));
   const strategyVersion = logicVersion();
   let count = 0;
   for (const id of Object.keys(scans)) count += scans[id].length;

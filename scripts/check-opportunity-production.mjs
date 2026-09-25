@@ -27,7 +27,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { oppsCanon } = require("../stocks/opportunities.js");
+const { oppsCanon, snapCanon } = require("../stocks/opportunities.js");
 
 const REMOTE = process.argv.includes("--remote");
 const RAW = "https://raw.githubusercontent.com/Alkongrs2014/Alkongrs2014/data";
@@ -85,7 +85,7 @@ for (let i = 0; i < N; i++) {
   for (const r of (sum && sum.rows) || []) if (Number.isFinite(r.p)) px[r.s] = r.p;
   samples.push({ at: Date.now(), candleKey: opp.candleKey, rowsHash: opp.rowsHash,
                  strategyVersion: opp.strategyVersion, generatedAt: opp.generatedAt,
-                 count: opp.count, flat: flatten(opp), canon: oppsCanon(opp.scans), px });
+                 count: opp.count, flat: flatten(opp), canon: snapCanon(opp), px });
   const t = new Date().toISOString().slice(11, 19);
   console.log(`  عيّنة ${i + 1} · ${t} · شمعة ${iso(opp.candleKey)} · بصمة ${opp.rowsHash} · ${opp.count} صفّاً`);
 }

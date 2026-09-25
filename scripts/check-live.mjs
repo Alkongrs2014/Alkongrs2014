@@ -198,7 +198,7 @@ try {
     const mism = Object.keys(fromSnap).filter(k => JSON.stringify(fromSnap[k]) !== JSON.stringify(shown[k] || []));
     return { missing: false, candleKey: o.candleKey, rowsHash: o.rowsHash,
              strategyVersion: o.strategyVersion, count: o.count,
-             canon: (typeof oppsCanon === "function") ? oppsCanon(o.scans) : null,
+             canon: (typeof snapCanon === "function") ? snapCanon(o) : (typeof oppsCanon === "function") ? oppsCanon(o.scans) : null,
              mism };
   });
   if (snap.missing) no("لقطة الفرص موجودة ومقروءة");

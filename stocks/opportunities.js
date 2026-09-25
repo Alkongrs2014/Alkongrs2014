@@ -213,8 +213,19 @@ function oppsCanon(scansObj) {
   return parts.join("\n");
 }
 
+/* نصُّ البصمة الكامل — الصفوف ثم تحليل الخمسين ثم دورة الحياة. دالّةٌ
+   واحدة يقرؤها الخادم والفحوص معاً: بصمةٌ تُحسب بطريقتين تُبلّغ عن
+   فرقٍ لا وجود له. وترتيبُ مفاتيح `bySym`/`life` يبقى كما كتبه الخادم
+   عبر JSON، فالنصّ نفسه في الطرفين. */
+function snapCanon(doc) {
+  var s = oppsCanon(doc.scans || {});
+  if (doc.bySym) s += "\n" + JSON.stringify(doc.bySym) + "\n" + JSON.stringify(doc.life || {});
+  return s;
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    snapCanon: snapCanon,
     OPP_BAR_MS: OPP_BAR_MS,
     candleKeyAt: candleKeyAt,
     buildOpps: buildOpps,
