@@ -55,7 +55,10 @@ const sha12 = (s) => createHash("sha256").update(s).digest("hex").slice(0, 12);
 /* أدنى نسبةٍ من الصفوف الحيّة يجب أن تحمل الفريمات الأربعة. انظر
    «البوّابة ٠» أدناه. */
 const DEPTH_MIN = 0.90;
-const rd = (f) => { try { return JSON.parse(fs.readFileSync(path.join(OUT, f), "utf8")); } catch { return null; } };
+/* مصدر المدخلات قابلٌ للحقن: إعادةُ التشغيل التاريخية تمرّ بالمحرّك نفسه
+   حرفاً بحرف وبياناتُها في الذاكرة — لا نسخةٌ ثانية من المنطق. */
+let IO = null;
+const rd = (f) => { if (IO) return IO.rd(f); try { return JSON.parse(fs.readFileSync(path.join(OUT, f), "utf8")); } catch { return null; } };
 
 /* نسخةُ المنطق = بصمةُ الملفّات التي تحدّد الصفوف. تغيُّرُ أيٍّ منها
    يغيّر القائمة بحقّ، فيُسمح بإعادة البناء داخل نفس الشمعة. ولا تشمل
@@ -126,7 +129,8 @@ const lifeKey = (s, scan, d) => s + "|" + scan + "|" + d;
 function symBars(sym, cache, nowMs) {
   if (sym in cache) return cache[sym];
   let rec = null;
-  try { rec = JSON.parse(fs.readFileSync(path.join(OUT, "sym", sym + ".json"), "utf8")); } catch { /* بلا ملف */ }
+  if (IO) rec = IO.sym(sym);
+  else try { rec = JSON.parse(fs.readFileSync(path.join(OUT, "sym", sym + ".json"), "utf8")); } catch { /* بلا ملف */ }
   const k = {};
   for (const tf of ["15m", "4h", "1d"]) {
     const cc = rec && rec.tf && rec.tf[tf] && rec.tf[tf].c;
@@ -166,7 +170,11 @@ function seedFromSignals(sigs) {
   return by;
 }
 
-export function buildSnapshot(now = Date.now()) {
+export function buildSnapshot(now = Date.now(), io = null) {
+  IO = io;
+  try { return buildSnapshotImpl(now); } finally { IO = null; }
+}
+function buildSnapshotImpl(now) {
   const summary = rd("summary.json");
   const strat = rd("strategies.json");
   if (!summary || !Array.isArray(summary.rows) || !summary.rows.length)
@@ -239,12 +247,23 @@ export function buildSnapshot(now = Date.now()) {
   for (const [k, v] of Object.entries(prevLife || {}))
     life[k] = { ...v, t: (v.t || []).slice(), end: v.end ? { ...v.end } : null };
   const seen = new Set();
+  const closedRe = [];
   const annotate = (row, scan, sd) => {
     if (!(sd === 1 || sd === -1)) return null;
     const key = lifeKey(row.s, scan.id, sd);
     seen.add(key);
     let L = life[key];
     const B = symBars(row.s, bars, nowMs);
+    /* **إعدادٌ قائم بعد انتهاء صفقته يولد فرصةً جديدة** من الشمعة التالية
+       لانتهائها. كان المنتهي بهدفٍ أو وقف يبقى محجوباً ما دام شرطُه يُطلق،
+       فأخفت إعادةُ تشغيل الجلسات العشر حركاتِ استمرارٍ كاملة: AMD ‎+9.92%‎
+       وMU ‎+4.91%‎ وPLTR ‎+3.67%‎ وFSLR ‎−10.36%‎ — كلُّها بشرطٍ يُطلق
+       وخطةٍ سابقة «مكتملة». أمّا المنتهي بالقِدَم فلا يُعاد: إعدادٌ عمره
+       عشرون شمعةً من فريمه ليس جديداً لأن الساعة تقدّمت. */
+    if (L && L.end && (L.end.k === "tgt" || L.end.k === "stop") && L.end.at < candleKey) {
+      closedRe.push([key, L.end.k]);
+      L = null; delete life[key];
+    }
     if (!L) {
       const sg = seeds[key];
       const sgSince = sg ? Math.round(sg.at / 1000) : null;
@@ -287,7 +306,7 @@ export function buildSnapshot(now = Date.now()) {
      شمعتين يُنهى ويُحذف، فيعود شرطُه لاحقاً فرصةً جديدةً بعمرٍ جديد.
      والمنتهي (وقف/هدف/قِدَم) **الحاضر** يبقى محجوباً ما دام شرطُه يُطلق —
      وإلا عاد في الشمعة التالية «جديداً» وهو هو. */
-  const closedNow = [];
+  const closedNow = closedRe.slice();
   for (const [k, L] of Object.entries(life)) {
     if (seen.has(k)) continue;
     if (L.k < candleKey) { L.miss = (L.miss || 0) + 1; L.k = candleKey; }
