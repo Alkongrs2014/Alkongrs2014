@@ -360,9 +360,18 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
     let got = false;
 
     const tryYahoo = async () => {
-      const { candles, meta: m } = await fetchChart(sym, {
-        range: RANGE[tf], interval: tf, prePost: tf === "15m"
-      });
+      /* ياهو يردّ ‎422‎ على مدى السنتين للساعة في أسهمٍ أُدرجت حديثاً
+         (GEV · ALAB · RDDT — قِيس 2026-09-25)، فيسقط الفريم الساعيّ ومعه
+         ‎4h‎ ويخرج الرمز من «توافق الفريمات» بلا سبب. سنةٌ تكفي EMA200
+         على ‎4h‎ (‎1752‎ شمعة ساعة ⇒ ~‎440‎ شمعة ‎4h‎). */
+      let res;
+      try {
+        res = await fetchChart(sym, { range: RANGE[tf], interval: tf, prePost: tf === "15m" });
+      } catch (e) {
+        if (!(tf === "1h" && /422/.test(e.message))) throw e;
+        res = await fetchChart(sym, { range: "1y", interval: tf, prePost: false });
+      }
+      const { candles, meta: m } = res;
       if (tf === "15m") extRaw["15m"] = candles;     // قبل الترشيح
       const full = tradingOnly(candles, tf);
       // الساعة تُطلب بمدى سنتين (`RANGE["1h"]`) فتعود بآلاف الشمعات، ثم
