@@ -1888,7 +1888,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
         <!-- نوعُ السوق مرشّحُ عرضٍ لا مدخلُ حساب: يصفّي صفوف اللقطة ولا
              يعيد ترتيبها. والقيمةُ تبقى في `<select>` مخفيّ كي يقرأها
              `renderScreen` كما كان بلا تفريعٍ ثانٍ لمصدر الحالة. -->
-        <div class="seg" id="scrMktSeg" role="group" aria-label="نوع السوق">
+        <div class="seg" id="scrMktSeg" role="group" aria-label="نوع السوق" style="display:none">
           <button data-mkt="all" class="on">الكل</button>
           <button data-mkt="us">أسهم</button>
           <button data-mkt="crypto">عملات</button>
@@ -7786,7 +7786,7 @@ function renderScreen() {
        «قائمة» في لونٍ رماديّ واحد يُخفي أن المرجع خرج من النافذة. */
     const FR = { fresh: "good", live: "", late: "hot", stale: "bad" };
     if (sg) chips.push(`<span class="${fr ? (FR[fr.k] || "") : "cold"}">${
-      tNow - sg.at < 15 * 60e3 ? "هذه الشمعة" : esc(age(tNow - sg.at))}${fr ? " · " + esc(fr.t) : ""}</span>`);
+      tNow - sg.at <= 15 * 60e3 ? "هذه الشمعة" : esc(age(tNow - sg.at))}${fr ? " · " + esc(fr.t) : ""}</span>`);
     /* الخطة المثبّتة لحظةَ ظهور الفرصة: دخول ثم أهداف في جهة الفرصة
        (الخادم يرفض أيّ هدفٍ في الجهة الخاطئة)، وما بُلغ منها بالشمعات
        المغلقة. */
