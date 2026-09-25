@@ -42,7 +42,7 @@ async function remote() {
   } catch (e) { return { err: e.message }; }
 }
 
-const state = rd(path.join(DIR, "state.json")) || { seen: {}, anomalies: [], rejects: 0, lastLogT: 0 };
+const state = rd(path.join(DIR, "state.json")) || { seen: {}, anomalies: [], rejects: 0, lastLogT: Date.now() };
 const start = Date.now();
 const stopAt = Math.min(UNTIL, start + MINUTES * 60e3);
 console.log(`▶ مراقبة ${hhmm(start)} → ${hhmm(stopAt)}`);
@@ -82,7 +82,7 @@ while (Date.now() < stopAt) {
   for (const e of aud) {
     if (!(e.t > state.lastLogT)) continue;
     state.lastLogT = e.t;
-    if (/داخل نفس الشمعة/.test(e.why || "")) {
+    if (e.action === "hold" && /مرفوضة/.test(e.why || "")) {
       state.rejects++;
       console.log(`  ⚠ رفضُ بوّابة: ${e.why}`);
     }
