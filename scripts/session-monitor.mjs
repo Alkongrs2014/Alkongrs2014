@@ -84,7 +84,8 @@ while (Date.now() < stopAt) {
     state.lastLogT = e.t;
     if (e.action === "hold" && /مرفوضة/.test(e.why || "")) {
       state.rejects++;
-      console.log(`  ⚠ رفضُ بوّابة: ${e.why}`);
+      state.rejSeen = state.rejSeen || {};
+      if (!state.rejSeen[e.rowsHash]) { state.rejSeen[e.rowsHash] = 1; console.log(`  ⚠ رفضُ بوّابة: ${e.why}`); }
     }
   }
 

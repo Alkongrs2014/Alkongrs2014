@@ -217,9 +217,21 @@ function oppsCanon(scansObj) {
    واحدة يقرؤها الخادم والفحوص معاً: بصمةٌ تُحسب بطريقتين تُبلّغ عن
    فرقٍ لا وجود له. وترتيبُ مفاتيح `bySym`/`life` يبقى كما كتبه الخادم
    عبر JSON، فالنصّ نفسه في الطرفين. */
+function stableJSON(v) {
+  if (Array.isArray(v)) return "[" + v.map(stableJSON).join(",") + "]";
+  if (v && typeof v === "object") {
+    var ks = Object.keys(v).sort(), out = [];
+    for (var i = 0; i < ks.length; i++) if (v[ks[i]] !== undefined) out.push(JSON.stringify(ks[i]) + ":" + stableJSON(v[ks[i]]));
+    return "{" + out.join(",") + "}";
+  }
+  return JSON.stringify(v === undefined ? null : v);
+}
 function snapCanon(doc) {
   var s = oppsCanon(doc.scans || {});
-  if (doc.bySym) s += "\n" + JSON.stringify(doc.bySym) + "\n" + JSON.stringify(doc.life || {});
+  /* مفاتيحُ مرتّبة: ترتيبُ bySym كان يتبع ترتيب صفوف الملخّص، وهو بالقيمة
+     السوقية **اللحظية** — فتتغيّر البصمة والمحتوى هو هو (قِيس 2026-09-25
+     شمعة 14:00Z: صفر فرقٍ في أيّ قيمة). */
+  if (doc.bySym) s += "\n" + stableJSON(doc.bySym) + "\n" + stableJSON(doc.life || {});
   return s;
 }
 
