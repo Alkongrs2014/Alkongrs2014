@@ -203,6 +203,14 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   const wide = readJSON(path.join(out, "wide.json"), { rows: [] });
   const seen = new Set(summary.rows.map(r => r.s));
   const all = summary.rows.concat((wide.rows || []).filter(r => r && !seen.has(r.s)));
+  /* ساعةُ الشمعة — تُحسب هنا مرّةً قبل كل ما يقيس زمناً (انظر شرحها عند
+     الحلقة). وكلُّ ما يدخل CONFIRMED يقرؤها لا ساعةَ الحائط: الجلسة
+     والنافذة ومهلةُ الإمساك. بلا ذلك يتغيّر «عدد الاستراتيجيات» عند حدّ
+     جلسةٍ أو بانقضاء ستّين دقيقة حائطٍ دون أن تُغلق شمعة. */
+  let cbarMax = 0;
+  for (const r of all) if (Number.isFinite(r.cbar)) cbarMax = Math.max(cbarMax, r.cbar);
+  const cnow = cbarMax ? (cbarMax + 900) * 1000 + 1 : null;
+  const tnow = cnow || now;
 
   const prevFile = readJSON(path.join(out, "strategies.json"), { rows: [] });
   const prevBy = {};
@@ -212,7 +220,7 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   const holdPrev = {}, holdNext = {};
   for (const [k, v] of Object.entries(prevFile.hold || {})) {
     const h = unpackHold(v);
-    if (h && (Date.now() - v[4] * 1000) < HOLD_TTL) holdPrev[k] = h;
+    if (h && (tnow - v[4] * 1000) < HOLD_TTL) holdPrev[k] = h;
   }
 
   const edgeFile = readJSON(path.join(out, "strategy-edge.json"));
@@ -300,9 +308,6 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
 
      وبلا `cbar` في الملخّص (أوّل تشغيل) تبقى ساعة الحائط — سلوكٌ سابقٌ
      لا ينكسر. */
-  let cbarMax = 0;
-  for (const r of all) if (Number.isFinite(r.cbar)) cbarMax = Math.max(cbarMax, r.cbar);
-  const cnow = cbarMax ? (cbarMax + 900) * 1000 + 1 : null;
   if (cnow) info("scanner", `ساعة التأكيد مثبَّتة على شمعة ${new Date(cbarMax * 1000).toISOString().slice(11, 16)}Z (من cbar)`);
   for (const row of all) {
     const rec = readJSON(path.join(out, "sym", `${row.s}.json`));
@@ -316,8 +321,8 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
        رياضياتٍ خالصة — وهي التي تجعل خطّ أساس الحجم يقارن ما قبل
        الافتتاح بما قبل الافتتاح. */
     const mkt = rec.mkt || row.mkt || null;
-    const sess = sessionOf(now, mkt);
-    const win = currentWindow(now, mkt);
+    const sess = sessionOf(tnow, mkt);
+    const win = currentWindow(tnow, mkt);
     const c = S.buildCtx({ rec, row, now, px, sess, win, cnow,
                            sessOf: (t) => sessionOf(t, mkt) });
     const opt = onlyPrice ? { only: "price" } : {};
@@ -360,8 +365,8 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
       const rC = S.evalStrategy(st, S.confirmCtx(st, c), { hold: hPrev || {} });
       /* تُلتقط الحالة **قبل** شرط التفعيل أدناه: الصامتةُ لا صفَّ لها
          ومرساتُها هي بالضبط ما يجب ألّا يضيع. */
-      if (rC.hold && rC.hold.ld) holdNext[key] = packHold(rC.hold, now);
-      else if (hPrev && hPrev.ld) holdNext[key] = packHold(hPrev, now);
+      if (rC.hold && rC.hold.ld) holdNext[key] = packHold(rC.hold, tnow);
+      else if (hPrev && hPrev.ld) holdNext[key] = packHold(hPrev, tnow);
       if (rC.off === S.UNCONFIRMED) { unconfirmed++; unconfirmedSyms.add(row.s); }
       if (!rC.dir || !Number.isFinite(rC.sc)) continue;     // لم يتفعّل أو متعذّر
 

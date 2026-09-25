@@ -116,7 +116,7 @@ export function update(sig, price, now) {
   if (!(price > 0) || !(sig.entry > 0)) return sig;
   const d = sig.dir === -1 ? -1 : 1;
   const ret = (price - sig.entry) / sig.entry * 100 * d;
-  sig.last = r2(price);
+  sig.last = rp(price);          // `r2` كان يمحو الأصول الرخيصة — انظر `rp`
   sig.ret = r2(ret);
   sig.mfe = r2(Math.max(sig.mfe ?? ret, ret));
   sig.mae = r2(Math.min(sig.mae ?? ret, ret));
@@ -550,9 +550,17 @@ async function main() {
 
      الثاني: شرطٌ أُزيل من `SCANS` فلا تعريف له — لا وسمَ يُعرض ولا حافةَ
      تُقارَن، وإبقاؤه مفتوحاً يُبقي في الإحصاء صفقةً لا شاشة تفسّرها. */
-  let reDir = 0, gone = 0;
+  let reDir = 0, gone = 0, outU = 0, mis = 0;
+  /* الكون الثابت (خمسون سهماً): سجلّاتُ ما خرج منه تُغلق ولا تُحذف —
+     نفس نمط `gone`. وسجلٌّ اتجاهُه يخالف اتجاه خطته يُغلق كذلك: قياسُه
+     مقلوبٌ بالبناء، ولا يُصلَح بأثرٍ رجعي. */
+  const U = (() => { try { return new Set(JSON.parse(fs.readFileSync(path.join(ROOT, "stocks", "symbols.json"), "utf8")).symbols.map(x => x.s)); } catch { return null; } })();
   for (const sig of records) {
     if (sig.conv) continue;
+    if (U && U.size && !U.has(sig.sym)) { sig.conv = "universe"; if (sig.open) { sig.open = false; sig.closed = now; } outU++; continue; }
+    if (sig.snap && (sig.snap.dir === 1 || sig.snap.dir === -1) && (sig.dir === -1 ? -1 : 1) !== sig.snap.dir) {
+      sig.conv = "unidir"; if (sig.open) { sig.open = false; sig.closed = now; } mis++; continue;
+    }
     const known = SCANS.some(x => x.id === sig.scan);
     if (!known) { sig.conv = "gone"; if (sig.open) { sig.open = false; sig.closed = now; } gone++; continue; }
     const fd = forcedDir(sig.scan);
@@ -563,6 +571,8 @@ async function main() {
   }
   if (reDir) console.log(`  ⟳ هجرة سياسة الاتجاه: أُغلق ${reDir} سجلاً بُني باتجاه النتيجة`);
   if (gone) console.log(`  ⟳ شروطٌ أُزيلت: أُغلق ${gone} سجلاً بلا تعريف`);
+  if (outU) console.log(`  ⟳ خارج الكون الثابت: أُغلق ${outU} سجلاً`);
+  if (mis) console.log(`  ⟳ اتجاهُ السجلّ يخالف خطته: أُغلق ${mis} سجلاً`);
 
   /* ٠ب٢) سجلٌّ فُرض اتجاهُه ضدّ قراءةٍ قاطعة — سياسةٌ لم تعد قائمة.
 
@@ -724,11 +734,14 @@ async function main() {
 
       const rec = {
         sym: r.s, scan: scan.id, at: now, at2: now,
-        entry: r2(r.p), last: r2(r.p), ret: 0, mfe: 0, mae: 0,
+        entry: rp(r.p), last: rp(r.p), ret: 0, mfe: 0, mae: 0,
         atr: rp(r.atr), open: true,
         // `dir` يُكتب حين يخالف +1 وحده — نفس أسلوب `mkt` الشرطي، فسجلّ
         // يتراكم بعشرات الآلاف لا يحمل حقلاً قيمته هي الافتراض
-        ...(scan.dir === -1 ? { dir: -1 } : {}),
+        /* الاتجاه اتجاهُ **الخطة المحلولة** لا وسمُ الشرط: كان «أرخص من
+           قطاعه ▲» بخطة بيع يُقاس ربحُه صعوداً، فتظهر علامات +1/+2/+5%
+           فوق خطةٍ هابطة — «فرصة PUT بأهداف CALL». */
+        ...(snap.dir === -1 ? { dir: -1 } : {}),
         // لقطة اللحظة: النتيجة الفنية وحالة الفريمات كما كانت **حين ظهرت
         // الإشارة**، لا كما تُحسب اليوم. لا تُحدَّث أبداً — إعادةُ حسابها
         // لاحقاً ببيانات لم تكن متاحة تجعل السجلّ يدّعي أنه رأى ما لم يرَه.

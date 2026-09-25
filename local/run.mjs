@@ -376,7 +376,9 @@ function publish() {
    التشخيص ولا تطلبه الواجهة. و`.opportunities.tmp.json` ملفُّ الكتابة
    الذرّية، ووجودُه عابر. */
   const NO_PUBLISH = new Set([".run.lock", ".run.skips.json", "i18n.json", "cik.json",
-                              "opportunities-log.json", ".opportunities.tmp.json"]);
+                              "opportunities-log.json", ".opportunities.tmp.json",
+                              /* أرشيفُ ما قبل الكون الثابت (1100 ملفّ رمز) — لا يقرؤه أحد */
+                              ".archive", ".monitor"]);
   let skipped = 0;
   for (const n of NO_PUBLISH) {
     if (n.startsWith(".run.")) continue;      // حالةُ خادمٍ لا حجمَ يُعلَن

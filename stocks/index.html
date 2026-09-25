@@ -5025,6 +5025,16 @@ const LAZY = {
      شمعة، فإعادةُ رسمها عند وصولها ترسم القائمة **مرّةً واحدة**. */
   "opportunities.json": (j) => {
     if (!j || !j.scans) return;
+    /* **حارس الرتابة**: البيانات تأتي من raw.githubusercontent بحوافّ
+       متعدّدة، ونسخةٌ أقدم قد تصل بعد أحدث. قبولُها يُرجع القائمة شمعةً
+       إلى الوراء ثم تعود — فتُقرأ «تغيّرت بلا شمعة». لا يُقبل مفتاحٌ أقدم
+       ولا لقطةٌ أقدم بنفس المفتاح. */
+    const cur = state.opps;
+    if (cur && Number.isFinite(cur.candleKey) && Number.isFinite(j.candleKey)) {
+      if (j.candleKey < cur.candleKey) return;
+      if (j.candleKey === cur.candleKey && (j.generatedAt || 0) < (cur.generatedAt || 0)) return;
+      if (j.candleKey === cur.candleKey && j.rowsHash === cur.rowsHash) return;   // لا جديد — لا رسم
+    }
     state.opps = j;
     if (state.view === "screen") renderScreen();
     // الرئيسية تعرض أبرزَ ثلاثٍ من نفس اللقطة، فتُحدَّث حين تصل
@@ -5301,8 +5311,9 @@ function renderStrategies(rec) {
   if (!snap) { hide("لم يصل strategies.json"); return; }
   const { res, cons } = snap;
   const S_ = scsFrom(cons);
-  const od = oppDirOf(symRow(rec.s));
-  const sd = od ? od.dir : null;
+  const so = snapOpp(rec.s);
+  const od = so ? null : (state.opps ? null : oppDirOf(symRow(rec.s)));
+  const sd = so ? so.sd : (od ? od.dir : null);
 
   const fam = (id) => (STRAT_BY_ID[id] && FAMS[STRAT_BY_ID[id].fam]) || "";
   const now = Date.now();
@@ -5750,13 +5761,21 @@ function renderFund() {
    الخطة بنفسها لاختلف الدعم المعروض في الجدول عن الدعم المستعمل في
    الخطة — رقمان مختلفان لنفس الشيء في نفس الشاشة. */
 function computeLevels(rec) {
-  const k = rec.tf["4h"] && rec.tf["4h"].c, d = rec.tf["1d"] && rec.tf["1d"].c;
+  /* **شمعاتٌ مغلقة وسعرُ إغلاقٍ مؤكَّد** — لا السعر اللحظي ولا الشمعة
+     الجارية. كانت الخطة هنا تُحسب بـ`row.p` وعلى شمعةٍ يومية لم تُغلق،
+     فيتبدّل دخولُها وأهدافها كل دقيقتين تحت قائمةٍ ثابتة. والساعة ساعةُ
+     لقطة الفرص (إغلاق شمعتها) لا ساعةُ الحائط. */
+  const O = state.opps;
+  const cnow = O && Number.isFinite(O.candleKey) ? (O.candleKey + 900) * 1000 + 1 : Date.now();
+  const k0 = rec.tf["4h"] && rec.tf["4h"].c, d0 = rec.tf["1d"] && rec.tf["1d"].c;
+  const k = k0 && k0.length ? closedBars(k0, "4h", cnow) : k0;
+  const d = d0 && d0.length ? closedBars(d0, "1d", cnow) : d0;
   const base = k && k.length > 20 ? k : d;
   const row = symRow(rec.s);
   const f = state.fund && state.fund.f && state.fund.f[rec.s];
   return levelsFrom({
     k4h: k, k1d: d,
-    px: (row && row.p) || (base && base.length ? base[base.length - 1].c : null),
+    px: (row && Number.isFinite(row.pc) ? row.pc : null) || (base && base.length ? base[base.length - 1].c : null),
     a: base && base.length ? analyze(base) : null,
     w52h: f && Number.isFinite(f.w52h) ? f.w52h : null,
     w52l: f && Number.isFinite(f.w52l) ? f.w52l : null
@@ -6426,7 +6445,23 @@ function renderLog() {
    والسجلّ لا يتضرّر: `snap` تُكتب مرّة ولا تُلمس، وشاشة السجلّ تقرأ منها
    لا من هنا. فالمحفوظ يبقى ما رآه المستخدم لحظتَه، والمعروضُ الآن يبقى
    متّسقاً مع نفسه. */
+/* فرصةُ الرمز في اللقطة — أعلى صفوفه درجةً عبر الشروط. شاشةُ السهم
+   تقرأ منها اتجاهها وخطتها كي لا تختلف عن القائمة بحرف. */
+function snapOpp(sym) {
+  const O = state.opps;
+  if (!O || !O.scans) return null;
+  let best = null;
+  for (const id of Object.keys(O.scans))
+    for (const r of O.scans[id] || [])
+      if (r.s === sym && (!best || r.q > best.q)) best = { ...r, scan: id };
+  return best;
+}
+
 function oppDirFor(sym) {
+  const so = snapOpp(sym);
+  if (so && (so.sd === 1 || so.sd === -1)) return so.sd;
+  const bs = state.opps && state.opps.bySym && state.opps.bySym[sym];
+  if (bs) return baseDirOf(bs.score, bs.band);
   const row = symRow(sym);
   if (!row) return null;
   const od = oppDirOf(row);
@@ -6454,6 +6489,23 @@ function tradePlan(rec, dir) {
 
   const p = planFrom({ px: L.px, atr, resAll: L.resAll, supAll: L.supAll }, d);
   if (!p) return null;
+
+  /* خطةُ الفرصة المثبّتة لحظةَ ظهورها (اللقطة) تغلب المحسوبة الآن: البطاقة
+     في القائمة تعرضها، ودخولٌ وأهدافٌ مختلفة هنا تُقرأ تناقضاً. */
+  const so = snapOpp(rec.s);
+  if (so && so.sd === d && Number.isFinite(so.e) && Number.isFinite(so.st) && Array.isArray(so.t)) {
+    const risk = (so.e - so.st) * d;
+    if (risk > 0) {
+      p.entry = so.e; p.stop = so.st; p.risk = risk;
+      p.targets = so.t.map((tp, i) => ({ p: tp, rr: (tp - so.e) * d / risk, pct: (tp - so.e) * d / so.e * 100,
+                                          name: (p.targets[i] && p.targets[i].name) || (d > 0 ? "مقاومة" : "دعم") }));
+      p.primary = p.targets.find(t => t.rr >= 2) || p.targets[p.targets.length - 1] || null;
+      p.meets2 = !!(p.primary && p.primary.rr >= 2);
+      p.target = p.primary ? p.primary.p : null; p.rr = p.primary ? p.primary.rr : null;
+      p.targetPct = p.primary ? p.primary.pct : null; p.stopPct = risk / so.e * 100;
+      p.fromSnap = { since: so.since, hit: so.hit || 0, scan: so.scan };
+    }
+  }
 
   const bad = validatePlan(p);
   if (bad.length) { diag("plan", `خطة ${rec.s} مرفوضة`, bad); return null; }
@@ -7685,10 +7737,14 @@ function renderScreen() {
     const chg = lr && Number.isFinite(lr.chg) ? lr.chg : null;
     const col = !isFinite(chg) ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
     const v = r.v || "";           // قيمةُ المسح محسوبةٌ على الخادم عند إغلاق الشمعة
-    const sg = openSig[r.s];
-    // الطزاجة بجانب العمر: «قبل يومين» رقمٌ يحتاج ترجمة، و🟠 متأخرة
-    // ترجمتُه بمقياس فريم الشرط نفسه
-    const fr = sg ? freshness(now - sg.at, scanTF(scan.id)) : null;
+    /* العمرُ وسعرُ الظهور والطزاجة **من اللقطة نفسها** (دورة حياة الفرصة
+       على الخادم بالشمعات المغلقة) — لا من `signals.json` الذي يُحدَّث
+       بالسعر اللحظي ويُستبدل سجلُّه، فكان العمر يقفز بلا شمعة. والعمر
+       يُقاس إلى ختم الشمعة لا إلى ساعة الحائط: رقمٌ يتغيّر كل دقيقة بلا
+       شمعةٍ هو بعينه ما لا يجب أن يحدث. */
+    const sg = Number.isFinite(r.since) ? { at: r.since * 1000, entry: r.px0 } : null;
+    const tNow = Number.isFinite(OPP.candleKey) ? (OPP.candleKey + 900) * 1000 : now;
+    const fr = sg ? freshness(Math.max(0, tNow - sg.at), scanTF(scan.id)) : null;
     /* العمرُ وسعرُ الظهور والطزاجة نزلت إلى شرائط الذيل: سطرٌ رابع تحت
        الاسم كان يجعل كتلة الهويّة أطول من الرقم الذي جاء القارئ لأجله. */
     /* سطرُ التوافق: الأثر **بالنقاط** لا بوصف. ويُقال في ثلاث حالات
@@ -7730,7 +7786,16 @@ function renderScreen() {
        «قائمة» في لونٍ رماديّ واحد يُخفي أن المرجع خرج من النافذة. */
     const FR = { fresh: "good", live: "", late: "hot", stale: "bad" };
     if (sg) chips.push(`<span class="${fr ? (FR[fr.k] || "") : "cold"}">${
-      esc(age(now - sg.at))}${fr ? " · " + esc(fr.t) : ""}</span>`);
+      tNow - sg.at < 15 * 60e3 ? "هذه الشمعة" : esc(age(tNow - sg.at))}${fr ? " · " + esc(fr.t) : ""}</span>`);
+    /* الخطة المثبّتة لحظةَ ظهور الفرصة: دخول ثم أهداف في جهة الفرصة
+       (الخادم يرفض أيّ هدفٍ في الجهة الخاطئة)، وما بُلغ منها بالشمعات
+       المغلقة. */
+    if (Number.isFinite(r.e)) chips.push(`<span>دخول <span class="num">${money(r.e)}</span></span>`);
+    if (Array.isArray(r.t) && r.t.length)
+      chips.push(`<span>${r.t.map((x, k) => `<span class="${k < (r.hit || 0) ? "good" : ""}">T${k + 1} <span class="num">${money(x)}</span></span>`).join(" · ")}</span>`);
+    if (r.hit > 0) chips.push(`<span class="good">بلغ T${r.hit}</span>`);
+    if (Number.isFinite(r.mv) && Math.abs(r.mv) >= 0.05)
+      chips.push(`<span class="${r.mv > 0 ? "good" : "bad"}">منذ الظهور <span class="num">${r.mv > 0 ? "+" : ""}${r.mv.toFixed(2)}%</span></span>`);
     if (Number.isFinite(cf.n) && cf.n > 0)
       chips.push(`<span>${cf.n === 1 ? "إشارة منفردة" : bd(cf.n) + " استراتيجيات"}</span>`);
     /* سعرُ الظهور يُعرض حين يكون موجباً: لقطاتٌ قديمة قُرّبت بخاناتٍ
@@ -8365,6 +8430,20 @@ const scEdge = () => {
    ===================================================================== */
 const stratIdx = { src: null, byS: null, meta: null, total: 0 };
 function stratIndex() {
+  /* صفوفُ الاستراتيجيات **من لقطة الفرص** حين تحملها: هي نفسها التي بُنيت
+     عليها القائمة، على الشمعة نفسها. `strategies.json` يُكتب كل دقيقتين
+     فكان يسبق اللقطة أو يتأخّر عنها، فيختلف «عدد الاستراتيجيات» في شاشة
+     السهم عنه في القائمة. */
+  const O = state.opps;
+  if (O && O.bySym && Object.values(O.bySym).some(b => Array.isArray(b.rows))) {
+    if (stratIdx.src === O) return stratIdx;
+    const byS = {};
+    for (const [sym, b] of Object.entries(O.bySym)) byS[sym] = (b.rows || []).map(r => ({ s: sym, ...r }));
+    stratIdx.src = O; stratIdx.byS = byS;
+    stratIdx.meta = STRAT_BY_ID;
+    stratIdx.total = STRATEGIES.length;
+    return stratIdx;
+  }
   const st = state.strategies;
   if (!st || !Array.isArray(st.rows)) return null;
   if (stratIdx.src === st) return stratIdx;

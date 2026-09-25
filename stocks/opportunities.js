@@ -93,8 +93,14 @@ function buildOpps(deps, input) {
     });
     var R = resolveOpp({ score: row.score, band: row.band, tfScore: row.tfScore, hits: hits });
     if (!R.dir) return null;
-    return { dir: R.dir };
+    var kept = {};
+    for (var q2 = 0; q2 < R.kept.length; q2++) kept[R.kept[q2].id] = 1;
+    return { dir: R.dir, kept: kept };
   }
+  /* تعليقٌ من الخادم على الصفّ: دورة الحياة والخطة (`annotate` تُحقن
+     لأنها تحتاج الشمعات، وهذا الملفّ لا يقرأ ملفّات). غيابُها = بلا
+     تعليق ولا مضاعِف — سلوكٌ سابقٌ لا ينكسر. */
+  var annotate = typeof input.annotate === "function" ? input.annotate : null;
 
   var out = {}, dirCache = {}, consCache = {};
   for (var si = 0; si < SCANS.length; si++) {
@@ -105,7 +111,17 @@ function buildOpps(deps, input) {
     var hits = [];
     for (var p = 0; p < pool.length; p++) {
       var r = pool[p];
-      try { if (scan.test(scanRow(r), F[r.s], ctx)) hits.push(r); } catch (e) { /* تخطَّ */ }
+      var fired = false;
+      try { fired = !!scan.test(scanRow(r), F[r.s], ctx); } catch (e) { /* تخطَّ */ }
+      if (!fired) continue;
+      /* **اتّساق الاتجاه**: الصفّ يُدرج تحت شرطٍ بقي بعد `resolveOpp`
+         وحده. كان «تباعد هابط ▼» يعرض سهماً اتجاهُه ▲ (و«أرخص من قطاعه
+         ▲» سهماً ▼)، فتُقرأ فرصةُ هبوطٍ بخطة صعود — وهو بعينه ما تمنعه
+         قاعدة «الحجب للشرط المتناقض». وتعارضٌ جوهري (`!dir`) لا فرصة. */
+      if (!(r.s in dirCache)) dirCache[r.s] = dirOf(r);
+      var od0 = dirCache[r.s];
+      if (!od0 || !od0.kept[scan.id]) continue;
+      hits.push(r);
     }
     if (!hits.length) { out[scan.id] = []; continue; }
 
@@ -132,6 +148,8 @@ function buildOpps(deps, input) {
       var od = dirCache[sym];
       var sd = od ? od.dir : null;
       var q = oppQualityOf(base, sc.scs, sd);
+      var ann = annotate ? annotate(row2, scan, sd) : null;
+      if (ann && ann.drop) continue;          // انتهت دورةُ حياتها — لا تُعرض
       var v = "";
       try { v = scan.val(scanRow(row2), F[sym], ctx) || ""; } catch (e) { /* بلا قيمة */ }
       var nAct = 0;
@@ -149,8 +167,16 @@ function buildOpps(deps, input) {
         scs: sc.scs == null ? null : Math.round(sc.scs * 1e4) / 1e4,
         pct: sc.pct == null ? null : sc.pct,
         cdir: sc.dir, mixed: sc.mixed ? 1 : 0, n: nAct,
-        sd: sd == null ? null : sd
+        sd: sd == null ? null : sd,
+        /* الدرجة النهائية = درجةُ المسح والتوافق × الطزاجة × ما بقي من
+           الحركة. `q0` تُحفظ كي يُرى أثرُ العمر لا أن يُستنتج. */
+        q0: Math.round(q.q * 1e4) / 1e4
       });
+      if (ann) {
+        var last = rowsOut[rowsOut.length - 1];
+        last.q = Math.round(q.q * (ann.mult == null ? 1 : ann.mult) * 1e4) / 1e4;
+        for (var ak in ann.f) last[ak] = ann.f[ak];
+      }
     }
     /* الترتيب النهائي بالدرجة، والرتبة الخام تفصل عند التساوي */
     rowsOut.sort(function (a, b) { return (b.q - a.q) || 0; });
@@ -179,7 +205,8 @@ function oppsCanon(scansObj) {
     var seg = [ids[i], String(rows.length)];
     for (var j = 0; j < rows.length; j++) {
       var r = rows[j];
-      seg.push([j, r.s, r.q, r.adj, r.scs, r.cdir, r.mixed, r.n, r.sd, r.v, r.cbar, r.ctf].join("|"));
+      seg.push([j, r.s, r.q, r.adj, r.scs, r.cdir, r.mixed, r.n, r.sd, r.v, r.cbar, r.ctf,
+                r.since, r.px0, r.e, r.st, (r.t || []).join(","), r.hit, r.fk].join("|"));
     }
     parts.push(seg.join(";"));
   }

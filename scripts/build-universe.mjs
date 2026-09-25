@@ -101,6 +101,12 @@ function parseCSV(text) {
 
 async function main() {
   const cfg = JSON.parse(fs.readFileSync(CFG_PATH, "utf8"));
+  /* الكون الثابت قرارُ المالك لا ناتجُ هذه الأداة: تشغيلُها كان سيعيد
+     S&P وBinance فوق الخمسين بصمت. تغييرُه يدويّ في symbols.json. */
+  if (cfg.fixed) {
+    console.log(`■ الكون ثابت (${cfg.symbols.length} سهماً) — لا بناء. عدّل symbols.json يدوياً.`);
+    return;
+  }
   const core = new Set(cfg.symbols.map(s => s.s));
   console.log(`▶ الكون الحالي: ${cfg.symbols.length} مرشّحاً أساسياً`);
 
@@ -302,7 +308,8 @@ function selfCheck() {
   t("الكريبتو في الملف الحالي بصيغة التطبيق وله mkt", () => {
     const cfg = JSON.parse(fs.readFileSync(CFG_PATH, "utf8"));
     const all = [...(cfg.crypto || []), ...(cfg.wide || []).filter(w => w.mkt === "crypto")];
-    if (!all.length) throw new Error("لا كريبتو في الملف");
+    // الكون الثابت بلا كريبتو بقرار — غيابُه حالةٌ صحيحة لا نقص
+    if (!all.length && !cfg.fixed) throw new Error("لا كريبتو في الملف");
     for (const c of all) {
       if (!c.s.endsWith("-USD")) throw new Error(`${c.s} ليس بصيغة التطبيق`);
       if (c.mkt !== "crypto") throw new Error(`${c.s} بلا mkt`);

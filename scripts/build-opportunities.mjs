@@ -43,6 +43,11 @@ const { resolveOpp } = require("../stocks/direction.js");
 const { consFromRows, scsFrom, oppQualityOf } = require("../stocks/confluence.js");
 const { STRATEGIES, STRAT_BY_ID } = require("../stocks/strategies.js");
 const { buildOpps, oppsCanon, candleKeyAt } = require("../stocks/opportunities.js");
+const { closedBars } = require("../stocks/indicators.js");
+const { unpackK } = require("../stocks/plan.js");
+const { freshness, scanTF } = require("../stocks/evaluate.js");
+import { buildSnap } from "./track-signals.mjs";
+import { rp } from "./lib/round.mjs";
 
 const IS_MAIN = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 const OUT = process.env.OPP_OUT || path.join(ROOT, "data");
@@ -96,6 +101,69 @@ function sectorMedians(rows, F) {
     };
   }
   return out;
+}
+
+/* =====================================================================
+   دورة حياة الفرصة — **حتمية، على الشمعات المغلقة وحدها.**
+
+   كانت «منذ 8 أيام» تُقرأ من `signals.json` الذي يُحدَّث بالسعر اللحظي،
+   والفرصة لا تُغلق حين يزول سببها، والترتيب لا يعرف عمرها ولا ما تحقّق
+   من حركتها — فتتصدّر قديمةٌ راكدة فوق فرصةٍ جديدة أقوى.
+
+   الآن لكل `رمز|شرط|اتجاه` حالةٌ تُحفظ في اللقطة نفسها وتتقدّم مع
+   المفتاح وحده: بدايةُ الاستمرار وإغلاقُها، والخطة المثبّتة لحظتها،
+   وما بُلغ من أهدافها بالشمعات المغلقة بعدها (شمعةٌ تلمس الوقف والهدف
+   معاً وقفٌ — قاعدة المحاكاة الثانية). وتنتهي الفرصة بالوقف أو بآخر
+   هدف أو بغياب شرطها شمعتين أو بانقضاء صلاحيتها («قديمة» بمقياس فريم
+   الشرط). والتحديث **متساوي القوّة**: إعادةُ البناء داخل الشمعة نفسها
+   تعطي الحالة نفسها بالحرف.
+   ===================================================================== */
+const MISS_MAX = 2;                        // غيابُ الشرط شمعتين ⇒ انتهى سببُها
+const F_FRESH = { fresh: 1, live: 0.85, late: 0.6 };   // «قديمة» تُنهى
+const F_ROOM = [1, 0.7, 0.4, 0.4];         // بعد T1 / بعد T2: الحركة جرت
+const lifeKey = (s, scan, d) => s + "|" + scan + "|" + d;
+
+function symBars(sym, cache, nowMs) {
+  if (sym in cache) return cache[sym];
+  let rec = null;
+  try { rec = JSON.parse(fs.readFileSync(path.join(OUT, "sym", sym + ".json"), "utf8")); } catch { /* بلا ملف */ }
+  const k = {};
+  for (const tf of ["15m", "4h", "1d"]) {
+    const cc = rec && rec.tf && rec.tf[tf] && rec.tf[tf].c;
+    k[tf] = cc && cc.length ? closedBars(unpackK(cc), tf, nowMs) : [];
+  }
+  return (cache[sym] = { rec, k });
+}
+
+/* يمرّ على الشمعات بالترتيب ويحدّث الحالة: دخول ثم وقف ثم أهداف. */
+function walk(L, bars) {
+  for (const b of bars) {
+    const ts = Math.round(b.t / 1000);
+    if (ts <= L.upto) continue;
+    L.upto = ts;
+    if (L.end) continue;
+    const d = L.d;
+    const fav = d === 1 ? b.h : b.l, adv = d === 1 ? b.l : b.h;
+    if (Number.isFinite(fav)) L.mfe = d === 1 ? Math.max(L.mfe ?? fav, fav) : Math.min(L.mfe ?? fav, fav);
+    if (Number.isFinite(adv)) L.mae = d === 1 ? Math.min(L.mae ?? adv, adv) : Math.max(L.mae ?? adv, adv);
+    if (!L.in && Number.isFinite(L.e) && (adv - L.e) * d <= 0) L.in = 1;
+    if (L.in && Number.isFinite(L.st) && (adv - L.st) * d <= 0) {
+      L.end = { k: "stop", at: ts }; continue;               // الوقف يغلب في الشمعة نفسها
+    }
+    const t = L.t || [];
+    while (L.hit < t.length && (fav - t[L.hit]) * d >= 0) L.hit++;
+    if (t.length && L.hit >= t.length) L.end = { k: "tgt", at: ts };
+  }
+}
+
+function seedFromSignals(sigs) {
+  const by = {};
+  for (const r of sigs || []) {
+    if (!r.open || r.conv || !r.snap || !(r.snap.dir === 1 || r.snap.dir === -1)) continue;
+    const k = lifeKey(r.sym, r.scan, r.snap.dir);
+    if (!by[k] || r.at > by[k].at) by[k] = r;
+  }
+  return by;
 }
 
 export function buildSnapshot(now = Date.now()) {
@@ -159,17 +227,96 @@ export function buildSnapshot(now = Date.now()) {
   const byS = {};
   for (const r of strat.rows) (byS[r.s] ||= []).push(r);
 
+  /* الحالة السابقة: من اللقطة القائمة. وأوّل تشغيلٍ بلا حالة يبذر من
+     سجلّ الإشارات المفتوح (عمرٌ صادق) — مرّةً واحدة، فلا يدخل ملفٌّ
+     يتغيّر داخل الشمعة في حسابٍ متكرّر. */
+  const prevDoc = rd("opportunities.json");
+  const prevLife = (prevDoc && prevDoc.life) || null;
+  const seeds = prevLife ? {} : seedFromSignals((rd("signals.json") || {}).records);
+  const nowMs = (candleKey + 900) * 1000 + 1;        // ساعة الشمعة لا الحائط
+  const bars = {};
+  const life = {};
+  for (const [k, v] of Object.entries(prevLife || {}))
+    life[k] = { ...v, t: (v.t || []).slice(), end: v.end ? { ...v.end } : null };
+  const seen = new Set();
+  const annotate = (row, scan, sd) => {
+    if (!(sd === 1 || sd === -1)) return null;
+    const key = lifeKey(row.s, scan.id, sd);
+    seen.add(key);
+    let L = life[key];
+    const B = symBars(row.s, bars, nowMs);
+    if (!L) {
+      const sg = seeds[key];
+      const sgSince = sg ? Math.round(sg.at / 1000) : null;
+      L = { d: sd, since: candleKey, px0: row.pc, e: null, st: null, t: [], hit: 0, in: 0,
+            upto: candleKey, miss: 0, k: candleKey, end: null, mfe: null, mae: null };
+      if (sg && sgSince < candleKey && Array.isArray(sg.snap.t)) {
+        L.since = sgSince; L.px0 = sg.snap.px ?? sg.entry; L.upto = sgSince;
+        L.e = sg.snap.e; L.st = sg.snap.s; L.t = sg.snap.t.slice(); L.seed = 1;
+        // ما سبق نافذةَ ‎15د‎ يُقرأ من اليومي المغلق **بعد** يوم الإشارة
+        const k15 = B.k["15m"]; const t15 = k15.length ? k15[0].t / 1000 : Infinity;
+        walk(L, B.k["1d"].filter(b => b.t / 1000 > L.since && b.t / 1000 < t15));
+      } else {
+        const snap = B.rec ? buildSnap({ row: { ...row, p: row.pc, __dir: sd, __scan: scan.id },
+          sym: row.s, an: B.rec.an, k4h: B.k["4h"], k1d: B.k["1d"],
+          f: { w52h: row.w52h, w52l: row.w52l }, at: nowMs }) : null;
+        if (snap) { L.e = snap.e; L.st = snap.s; L.t = snap.t.slice(); }
+      }
+      life[key] = L;
+    }
+    walk(L, B.k["15m"]);
+    if (L.k < candleKey) { L.miss = 0; L.k = candleKey; }
+    L.miss = 0;
+    const fr = freshness((candleKey - L.since) * 1000, scanTF(scan.id));
+    if (!L.end && fr && fr.k === "stale") L.end = { k: "old", at: candleKey };
+    if (L.end) return { drop: true };
+    const mv = Number.isFinite(row.pc) && L.px0 > 0 ? (row.pc / L.px0 - 1) * 100 * sd : null;
+    return {
+      mult: (F_FRESH[fr && fr.k] ?? 1) * F_ROOM[Math.min(L.hit, 3)],
+      f: { since: L.since, px0: L.px0 == null ? null : rp(L.px0), e: L.e, st: L.st, t: L.t,
+           hit: L.hit, in: L.in, fk: fr ? fr.k : null, mv: mv == null ? null : Math.round(mv * 100) / 100 }
+    };
+  };
+
   const scans = buildOpps(
     { SCANS, scanRow, forcedDir, resolveOpp, consFromRows, scsFrom, oppQualityOf },
     { rows: summary.rows, wideRows, fund: F, secMed,
-      stratByS: byS, stratMeta: STRAT_BY_ID, stratTotal: STRATEGIES.length, edge });
+      stratByS: byS, stratMeta: STRAT_BY_ID, stratTotal: STRATEGIES.length, edge, annotate });
 
-  const rowsHash = sha12(oppsCanon(scans));
+  /* ما غاب شرطُه في هذه الشمعة: يُعدّ غيابُه مرّةً لكل مفتاح، وبعد
+     شمعتين يُنهى ويُحذف، فيعود شرطُه لاحقاً فرصةً جديدةً بعمرٍ جديد.
+     والمنتهي (وقف/هدف/قِدَم) **الحاضر** يبقى محجوباً ما دام شرطُه يُطلق —
+     وإلا عاد في الشمعة التالية «جديداً» وهو هو. */
+  const closedNow = [];
+  for (const [k, L] of Object.entries(life)) {
+    if (seen.has(k)) continue;
+    if (L.k < candleKey) { L.miss = (L.miss || 0) + 1; L.k = candleKey; }
+    if (L.miss >= MISS_MAX) { closedNow.push([k, L.end ? L.end.k : "gone"]); delete life[k]; }
+  }
+
+  /* تحليل الخمسين كلّهم — لا من ظهر في قائمةٍ وحده. شاشةُ السهم تقرؤه
+     فلا تحسب شيئاً بنفسها، فلا يختلف رقمُها عن رقم القائمة. */
+  const bySym = {};
+  for (const r of summary.rows) {
+    const c = consFromRows(byS[r.s] || [], STRAT_BY_ID, { total: STRATEGIES.length, edge });
+    const sc = scsFrom(c.cons);
+    let nAct = 0; for (const x of c.res) if (x.dir && x.active) nAct++;
+    bySym[r.s] = {
+      score: r.score, band: r.band ?? null, tf: r.tfScore || {}, pc: r.pc ?? null, cbar: r.cbar ?? null,
+      n: nAct, scs: sc.scs == null ? null : Math.round(sc.scs * 1e4) / 1e4, cdir: sc.dir, mixed: sc.mixed ? 1 : 0,
+      /* صفوف الاستراتيجيات المؤكَّدة بالحقول التي يقرؤها `consFromRows` وحدها —
+         شاشة السهم تبني منها إجماعها فلا يختلف عن القائمة */
+      rows: (byS[r.s] || []).map(x => ({ st: x.st, dir: x.dir || 0, sc: x.sc ?? null, act: x.act ?? null,
+                                         band: x.band ?? null, at: x.at ?? null, px: x.px ?? null }))
+    };
+  }
+
+  const rowsHash = sha12(oppsCanon(scans) + "\n" + JSON.stringify(bySym) + "\n" + JSON.stringify(life));
   const strategyVersion = logicVersion();
   let count = 0;
   for (const id of Object.keys(scans)) count += scans[id].length;
 
-  return { ok: true, candleKey, rowsHash, strategyVersion, scans, count,
+  return { ok: true, candleKey, rowsHash, strategyVersion, scans, count, life, bySym, closedNow,
            generatedAt: now, confBar, maxCbar, depth,
            edgeReady: !!edgeFile, fundReady: !!Object.keys(F).length,
            wideRows: wideRows.length, liveRows: summary.rows.length };
@@ -246,7 +393,10 @@ async function main() {
                /* العمق يُحفظ كي تعرف `decide` أن اللقطة القائمة بُنيت
                   ببياناتٍ كاملة — لا لتُعرض */
                depth: next.depth },
-    scans: next.scans
+    scans: next.scans,
+    bySym: next.bySym,
+    life: next.life,
+    closedNow: next.closedNow
   };
   /* كتابةٌ ذرّية: ملفٌّ مؤقّت ثم إعادة تسمية. الكتابة المباشرة تترك
      نافذةً يقرأ فيها المتصفّح نصف ملفّ. */

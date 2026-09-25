@@ -280,10 +280,12 @@ const SCANS = [
     why: "إعلان الأرباح خلال سبعة أيام. ليست فرصة بل تحذير: الحركة بعد الإعلان تحدث غالباً بفجوة سعرية يقفز فيها السعر فوق وقف الخسارة دون أن يمرّ به.",
     test: (r, f) => {
       if (!f || !f.earnings || !f.earnings.at) return false;
-      const d = (f.earnings.at - Date.now()) / 86400000;
+      // بتاريخ الشمعة المؤكَّدة لا بساعة الحائط: العدُّ التنازلي كان
+      // يغيّر العضوية عند منتصف ليلٍ لا تُغلق فيه شمعة
+      const d = (f.earnings.at - (r.cbar ? r.cbar * 1000 : Date.now())) / 86400000;
       return d >= 0 && d <= 7;
     },
-    val: (r, f) => `بعد ${Math.ceil((f.earnings.at - Date.now()) / 86400000)} يوم`,
+    val: (r, f) => `بعد ${Math.ceil((f.earnings.at - (r.cbar ? r.cbar * 1000 : Date.now())) / 86400000)} يوم`,
     rank: (r, f) => f.earnings.at }
     // بلا btTest: لا نحتفظ بتواريخ الأرباح الماضية
 ];

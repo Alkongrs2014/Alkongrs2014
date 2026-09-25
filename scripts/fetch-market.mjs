@@ -887,8 +887,12 @@ async function main() {
       // حجم آخر شمعة يومية = حجم الجلسة الجارية (أو آخر جلسة مكتملة حين
       // يكون السوق مغلقاً). أدق من متوسط عشرة أيام، فنقدّمه عليه.
       vol: num(q?.regularMarketVolume) ?? (lastV || null) ?? num(fnd?.avgVol),
-      w52h: rp(num(q?.fiftyTwoWeekHigh) ?? num(fnd?.w52h)),
-      w52l: rp(num(q?.fiftyTwoWeekLow) ?? num(fnd?.w52l)),
+      /* حدّا 52 أسبوعاً من الشموع اليومية **المغلقة** لا من عرض السعر:
+         عرضُ ياهو يضمّ قمّة اليوم الجاري وقاعه، فكانت عضويةُ «قرب قمة/قاع
+         52» تتبدّل داخل الجلسة بلا أن تُغلق شمعة. والعرضُ بديلٌ حين تقصر
+         السلسلة وحدها. */
+      w52h: rp(w52c(d1c, "h") ?? num(q?.fiftyTwoWeekHigh) ?? num(fnd?.w52h)),
+      w52l: rp(w52c(d1c, "l") ?? num(q?.fiftyTwoWeekLow) ?? num(fnd?.w52l)),
       stale: !!rec.stale, src: rec.src
     };
   };
@@ -1057,8 +1061,10 @@ function selfCheck() {
 
   t("الطبقتان الواسعة والكريبتو لا تتقاطعان مع الأساسية", () => {
     const core = new Set(cfg.symbols.map(s => s.s));
-    if (!cfg.wide?.length) throw new Error("لا طبقة واسعة");
-    if (!cfg.crypto?.length) throw new Error("لا كريبتو");
+    // الكون الثابت (fixed) بلا طبقةٍ واسعة ولا كريبتو بقرار المالك
+    if (!cfg.fixed && !cfg.wide?.length) throw new Error("لا طبقة واسعة");
+    if (!cfg.fixed && !cfg.crypto?.length) throw new Error("لا كريبتو");
+    cfg.wide = cfg.wide || []; cfg.crypto = cfg.crypto || [];
     const seen = new Set(core);
     for (const s of [...cfg.wide, ...cfg.crypto]) {
       if (!s.s || !s.en || !s.sec) throw new Error(`حقل ناقص في ${s.s}`);
@@ -1536,4 +1542,17 @@ function selfCheck() {
 }
 
 if (CHECK) selfCheck();
-else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });
+else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });/* أعلى/أدنى 252 شمعةً يومية مغلقة — أو `null` إن قصرت السلسلة عن
+   سنةٍ تقريباً (200)، فلا يُسمّى مدى شهرين «52 أسبوعاً». */
+function w52c(d1c, k) {
+  if (!Array.isArray(d1c) || d1c.length < 200) return null;
+  let v = k === "h" ? -Infinity : Infinity;
+  for (const x of d1c.slice(-252)) {
+    const y = x[k];
+    if (!Number.isFinite(y)) continue;
+    v = k === "h" ? Math.max(v, y) : Math.min(v, y);
+  }
+  return Number.isFinite(v) ? v : null;
+}
+
+
