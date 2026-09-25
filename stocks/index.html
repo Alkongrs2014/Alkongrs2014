@@ -2619,9 +2619,36 @@ function marketStatus(period, now = Date.now()) {
 /* =======================================================================
    4) جلب البيانات
    ======================================================================= */
+/* =======================================================================
+   البيانات من **دفعةٍ بعينها** لا من اسم الفرع.
+
+   رابط الفرع (`.../data/file`) تقدّمه حوافّ متعدّدة، فقِيس يوم 2026-09-25
+   أن نسخةً أقدم تعود بعد أحدث في 8 من 26 شمعة، لدقيقةٍ أو اثنتين بعد كل
+   نشر — فيرى الزائر الجديد الشمعة السابقة، وقد تأتي ملفّاتٌ من دفعتين. أمّا
+   رابط الدفعة (`.../<sha>/file`) فثابتٌ لا يتغيّر محتواه، فكلُّ الملفّات من
+   نسخةٍ واحدة. والـsha يُسأل عنه مرّةً في الدقيقة (حدّ واجهة GitHub ستّون
+   طلباً في الساعة)، وعند تعذّره يعود إلى رابط الفرع — تدهورٌ لا تعطّل. */
+let dataRef = { sha: null, at: 0, p: null };
+async function dataBase() {
+  const m = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(DATA);
+  if (!m) return DATA;
+  if (dataRef.sha && Date.now() - dataRef.at < 60e3) return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${dataRef.sha}`;
+  if (!dataRef.p) dataRef.p = (async () => {
+    try {
+      const r = await fetch(`https://api.github.com/repos/${m[1]}/${m[2]}/commits/${m[3]}`,
+                            { headers: { Accept: "application/vnd.github.sha" }, signal: AbortSignal.timeout(8000) });
+      if (r.ok) { const s = (await r.text()).trim(); if (/^[0-9a-f]{40}$/.test(s)) dataRef = { sha: s, at: Date.now(), p: null }; }
+    } catch { /* يعود إلى رابط الفرع */ }
+    dataRef.p = null;
+  })();
+  await dataRef.p;
+  return dataRef.sha ? `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${dataRef.sha}` : DATA;
+}
+
 async function getJSON(name) {
   if (!DATA) throw new Error("DATA_BASE غير مضبوط في config.js");
-  const url = `${DATA}/${name}?t=${Math.floor(Date.now() / 60000)}`;
+  const base = await dataBase();
+  const url = base === DATA ? `${DATA}/${name}?t=${Math.floor(Date.now() / 60000)}` : `${base}/${name}`;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 20000);
   try {

@@ -39,8 +39,8 @@
    تُترك للتذكّر — وهي نفس مبدأ «حارسٌ يمرّ دون أن تُختبر حالتُه حارسٌ
    مفترَض لا محروس».
    ===================================================================== */
-const V = "webtrade-v35";
-const SHELL_SHA = "b26d279a9bbb";     // يحسبها `check-ui` من ملفّات CORE
+const V = "webtrade-v36";
+const SHELL_SHA = "2aa8b9ebba9d";     // يحسبها `check-ui` من ملفّات CORE
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";
@@ -104,6 +104,9 @@ async function staleWhileRevalidate(req, cacheName) {
 const keyOf = (req) => {
   const u = new URL(req.url);
   u.search = "";
+  // رابطُ الدفعة (`/<sha>/`) يُطبَّع إلى اسمٍ ثابت: مفتاحٌ لكل دفعة يملأ الذاكرة
+  // ولا يُطابَق عند انقطاع الشبكة — نفس علّة `?t=` أعلاه
+  u.pathname = u.pathname.replace(/\/[0-9a-f]{40}\//, "/data/");
   return new Request(u.toString(), { headers: req.headers });
 };
 
