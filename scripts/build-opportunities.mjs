@@ -403,6 +403,8 @@ async function main() {
         fs.mkdirSync(dd, { recursive: true });
         fs.writeFileSync(path.join(dd, `${next.candleKey}-${next.rowsHash}.json`),
           JSON.stringify({ candleKey: next.candleKey, scans: next.scans, bySym: next.bySym, life: next.life }));
+        // ومعه صفوف الاستراتيجيات كاملةً ببواباتها — كي يُسمّى المدخل الذي تحرّك
+        try { fs.copyFileSync(path.join(OUT, "strategies.json"), path.join(dd, `${next.candleKey}-${next.rowsHash}.strategies.json`)); } catch {}
       } catch { /* تشخيصٌ لا يُسقط التشغيل */ }
     }
     console.log(`  لقطة الفرص: ${d.reason} · شمعة ${iso(next.candleKey)} · ${next.count} صفّاً`);

@@ -69,6 +69,7 @@ while (Date.now() < stopAt) {
       console.log(`  • ${src}: شمعة ${hhmm(x.k * 1000)} · ${x.n} صفّاً · ${x.h} (${hhmm(t)})`);
       if (src === "local" && loc) {
         fs.writeFileSync(path.join(DIR, "snap", `opp-${x.k}.json`), JSON.stringify(loc));
+        try { fs.copyFileSync(path.join(DATA, "strategies.json"), path.join(DIR, "snap", `strat-${x.k}.json`)); } catch {}
         const sum = rd(path.join(DATA, "summary.json"));
         if (sum) fs.writeFileSync(path.join(DIR, "snap", `sum-${x.k}.json`),
           JSON.stringify({ t, rows: sum.rows.map(r => ({ s: r.s, p: r.p, pc: r.pc, cbar: r.cbar, chg: r.chg, score: r.score, band: r.band, tf: r.tfScore })) }));
