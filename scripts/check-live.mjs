@@ -256,6 +256,72 @@ try {
     : ok("اتجاه الإجماع لا ينقلب بوصول ملفّ الحوافّ",
          dirs.shown ? `${dirs.shown} جهةً معروضة وكلُّها ثابتة` : "لا جهةَ تُعرض قبل اكتمال أوزانها");
 
+  /* ══ ٦) دفتر الكريبتو منفصل — على الصفحة المنشورة لا على القرص ══
+     لقطةُ الأسهم (مفتاحاً وبصمةً وصفوفاً معروضة) تُؤخذ قبل فتح خانة
+     الكريبتو وبعد العودة منها، وبعد تحديث كريبتو يقع **وهو غير معروض**
+     — وهي اللحظة التي كان الخلط يقع فيها: كاتبٌ غير متزامن يكتب في
+     الحالة المعروضة. والشرط: صفر فرق، وصفر `-USD` في الأسهم، وكلُّ صفٍّ
+     في الكريبتو `-USD`، وملفُّ العملة يُطلب من `crypto/sym/`. */
+  {
+    const symReqs = [];
+    page.on("request", r => { const u = r.url(); if (/\/sym\/[^/]+\.json/.test(u)) symReqs.push(u); });
+    const usSnap = () => page.evaluate(() => ({
+      book: state.book, key: state.opps && state.opps.candleKey, hash: state.opps && state.opps.rowsHash,
+      dom: [...document.querySelectorAll("#scanList .srow")].map(e => e.dataset.open).join(","),
+      usd: [...document.querySelectorAll("#scanList .srow")].filter(e => /-USD$/.test(e.dataset.open)).length
+        + Object.keys((state.opps && state.opps.bySym) || {}).filter(s => /-USD$/.test(s)).length
+        + ((state.summary && state.summary.rows) || []).filter(r => r.mkt === "crypto").length
+    }));
+    await page.evaluate(() => go("screen"));
+    await page.waitForFunction(() => document.querySelectorAll("#scanList .srow").length > 0, null, { timeout: 20000 });
+    const us0 = await usSnap();
+
+    await page.evaluate(() => go("crypto"));
+    let cr = null;
+    try {
+      await page.waitForFunction(() => document.querySelectorAll("#cScanList .srow").length > 0
+        || /لا عملة|تعذّر/.test(document.querySelector("#cScanList").textContent), null, { timeout: 20000 });
+      cr = await page.evaluate(() => ({
+        book: state.book, key: state.opps && state.opps.candleKey, hash: state.opps && state.opps.rowsHash,
+        rows: [...document.querySelectorAll("#cScanList .srow")].map(e => e.dataset.open),
+        allCrypto: ((state.summary && state.summary.rows) || []).every(r => r.mkt === "crypto"),
+        n: ((state.summary && state.summary.rows) || []).length
+      }));
+    } catch (e) { cr = null; }
+    if (!cr || !cr.n) no("خانة الكريبتو تُحمَّل من دفترها", "لا صفوف في دفتر الكريبتو المنشور");
+    else {
+      const alien = cr.rows.filter(s => !/-USD$/.test(s));
+      (cr.book === "crypto" && cr.allCrypto && !alien.length && Number.isFinite(cr.key) && cr.key % 900 === 0)
+        ? ok("خانة الكريبتو من دفترها وحده", `${cr.n} عملة · ${cr.rows.length} فرصة معروضة · شمعة ${new Date(cr.key * 1000).toISOString().slice(11, 16)}Z`)
+        : no("خانة الكريبتو من دفترها وحده", JSON.stringify({ book: cr.book, allCrypto: cr.allCrypto, alien, key: cr.key }));
+
+      if (cr.rows.length) {
+        await page.evaluate(() => document.querySelector("#cScanList .srow").click());
+        await page.waitForFunction(() => state.sym && state.symCache[state.sym], null, { timeout: 20000 }).catch(() => {});
+        const bad = symReqs.filter(u => /-USD\.json/.test(u) && !/\/crypto\/sym\//.test(u));
+        const good = symReqs.filter(u => /\/crypto\/sym\//.test(u));
+        (good.length && !bad.length)
+          ? ok("شاشة العملة تقرأ ملفّها من crypto/sym", good[0].split("/").slice(-3).join("/").split("?")[0])
+          : no("شاشة العملة تقرأ ملفّها من crypto/sym", `crypto: ${good.length} · خارجه: ${bad.join(" ")}`);
+        await page.evaluate(() => go("crypto"));
+      }
+    }
+
+    await page.evaluate(() => go("screen"));
+    await page.waitForFunction(() => document.querySelectorAll("#scanList .srow").length > 0, null, { timeout: 20000 });
+    // تحديثُ كريبتو يقع والأسهم معروضة — يجب أن يُكتب في مركنه لا فوقها
+    await page.evaluate(async () => {
+      const k = BOOKS.crypto.opps;
+      if (k) put("crypto", "opps", { ...k, candleKey: k.candleKey + 900, rowsHash: "probe" });
+      await refreshCrypto();
+    });
+    const us1 = await usSnap();
+    const same = us0.key === us1.key && us0.hash === us1.hash && us0.dom === us1.dom;
+    (same && us1.book === "us" && !us0.usd && !us1.usd)
+      ? ok("الأسهم لا تتغيّر بخانة الكريبتو ولا بتحديثها", `مفتاح ${us1.key} · بصمة ${us1.hash} · ${us1.dom.split(",").length} صفّاً · صفر -USD`)
+      : no("الأسهم لا تتغيّر بخانة الكريبتو ولا بتحديثها", JSON.stringify({ us0, us1 }).slice(0, 400));
+  }
+
   /* ══ ٥) لا استثناء ولا قيدَ تشخيص ══ */
   const real = errs.filter(e => !/favicon|manifest|404|Failed to load resource/i.test(e));
   real.length ? no("لا استثناء في الصفحة المنشورة", real.slice(0, 3).join(" | "))

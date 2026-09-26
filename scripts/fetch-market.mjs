@@ -16,12 +16,12 @@ import {
 } from "./lib/yahoo.mjs";
 import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
 import { fetchCandlesTD, hasTwelveData, tdSleep, tdStats } from "./lib/twelvedata.mjs";
-import { fetchCandles as fetchCandlesBN, bnStats } from "./lib/binance.mjs";
+import { fetchCandles as fetchCandlesBN, fetchQuotes as fetchQuotesBN, bnStats } from "./lib/binance.mjs";
 import { analyze, overallScore, aggregate, TFS, TF_WEIGHT, bandStable,
          closedBars, isLiveBar, barTime } from "./lib/indicators.mjs";
 import { createRequire as __cr } from "node:module";
 const IND_AN_WIN = __cr(import.meta.url)("../stocks/indicators.js").AN_WIN;
-import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar } from "./lib/session.mjs";
+import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar, CRYPTO_STATUS } from "./lib/session.mjs";
 import * as PROV from "./providers/index.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -94,7 +94,21 @@ const EXT_TFS = ["15m"];
 const KEEP_X = 260;
 const RANGE_X = { "15m": "60d" };
 
-const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
+/* =====================================================================
+   **الدفتر** — أيُّ كونٍ يُجلب. الافتراضي `stocks/symbols.json` (الأسهم)
+   بلا أيّ تغيّر، و`UNIVERSE=stocks/crypto.json` مع `--out data/crypto`
+   يشغّل دفتر الكريبتو بنفس الشيفرة في مجلّده هو.
+
+   الدفتران منفصلان بالملفّ والمجلّد لا بطبقةٍ داخل ملفّ: خلطُهما في
+   ملخّصٍ واحد جعل شمعةَ عملةٍ تقدّم `candleKey` للكون كلّه وتحرّك
+   الرتبة المئوية لسهمٍ لم تُغلق شمعته (موثَّق في CLAUDE.md).
+   ===================================================================== */
+const UNIVERSE = process.env.UNIVERSE || "stocks/symbols.json";
+const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, UNIVERSE), "utf8"));
+cfg.indices = cfg.indices || [];
+/* كونٌ كلُّه كريبتو: أسعاره من Binance لا ياهو (ياهو يعطي `ARB-USD` أصلاً
+   ميتاً — مصيدةٌ موثّقة)، وحالةُ سوقه `OPEN24` لا جلسةُ نيويورك. */
+const CRYPTO_BOOK = cfg.symbols.length > 0 && cfg.symbols.every(x => x.mkt === "crypto");
 
 /* ---------- ميزانية طلبات Twelve Data لكل تشغيل ----------
    الخطة المجانية: 8 طلبات/دقيقة و800/يوم. تعبئة الفريمات الثلاثة لكل
@@ -408,7 +422,9 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
       if (meta.mkt !== "crypto") return;
       try {
         const { candles } = await fetchCandlesBN(sym, { interval: tf });
-        const full = tradingOnly(candles, tf);
+        /* لا `tradingOnly`: الكريبتو ‎24/7‎، وترشيحُ ‎15د‎ بجلسة نيويورك كان
+           يُبقي سلسلته بالصدفة وحدها (ألفُ شمعة لا تبلغ ‎220‎ شمعة جلسة). */
+        const full = candles;
         if (tf === "1h") full1h = full;
         rec.tf[tf] = { updated: now, c: slimCandles(full.slice(-KEEP)) };
         rec.src = "binance";
@@ -423,6 +439,9 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
     await tryBinance();
     const yahooFirst = PREFER_YAHOO;
     if (got) { /* Binance كفى */ }
+    /* في دفتر الكريبتو لا سقوطَ إلى ياهو: رمزُه عند ياهو قد يكون أصلاً آخر
+       (`ARB-USD` الميت)، وبيانات الأمس السليمة أصدق من أصلٍ خاطئ طازج. */
+    else if (CRYPTO_BOOK) { /* يبقى القديم أدناه */ }
     else if (yahooFirst) {
       try { await tryYahoo(); } catch (e) { errors.push(`${tf}: ${e.message}`); }
       if (!got) await tryTD();
@@ -434,7 +453,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   }
 
   // Yahoo سقط كلياً لهذا الرمز -> جرّب Stooq لليومي حتى لا ينقطع السهم
-  if (!rec.tf["1d"]?.c?.length) {
+  if (!rec.tf["1d"]?.c?.length && !CRYPTO_BOOK) {
     try {
       const { candles } = await fetchStooqDaily(sym);
       rec.tf["1d"] = { updated: now, c: slimCandles(candles.slice(-KEEP)) };
@@ -691,7 +710,9 @@ async function main() {
       console.log(`  ✓ أسعار ${label}: ${quotes ? Object.keys(quotes).length : 0} رمز`);
     } catch (e) { console.warn(`  ⚠ أسعار ${label} فشلت: ${e.message}`); }
   };
-  if (PREFER_YAHOO) {
+  if (CRYPTO_BOOK) {
+    await tryQuotes("Binance", fetchQuotesBN);
+  } else if (PREFER_YAHOO) {
     await tryQuotes("Yahoo (دفعات)", fetchQuotes);
     await tryQuotes("Finnhub (احتياط)", fetchQuotesFinnhub);
   } else {
@@ -971,7 +992,9 @@ async function main() {
   // بمدى يومي أوسع بمراتب، فبيتكوين وحده يزيح متوسط "مزاج السوق" ويحتل
   // قائمتَي الرابحين والخاسرين كل يوم تقريباً. يبقى في الملخّص ويخرج من
   // الإحصاء.
-  const usRows = summary.filter(r => r.mkt !== "crypto");
+  /* ودفترُ الكريبتو يحسب إحصاءه على صفوفه هو: هنا لا خلطَ يُمنع، والملفّ
+     ملفُّه وحده. */
+  const usRows = CRYPTO_BOOK ? summary : summary.filter(r => r.mkt !== "crypto");
   // Number.isFinite لا isFinite: العالمية تحوّل null إلى صفر، فسهم بلا
   // سعر يُحسب "تغيّر 0%" ويدخل متوسط قطاعه ويجرّه نحو الصفر
   const withChg = usRows.filter(r => Number.isFinite(r.chg));
@@ -988,7 +1011,8 @@ async function main() {
   // فترات التداول من رمز أمريكي حصراً: الكريبتو يتداول 24/7 وميتاداتاه
   // تعطي نافذة يوم كامل، فتقول الترويسة "السوق مفتوح" ليل السبت.
   const period = rows.find(r => r.mkt !== "crypto" && r.period)?.period || null;
-  const status = period ? marketStatus(period, now) : approxMarketStatus(now);
+  const status = CRYPTO_BOOK ? CRYPTO_STATUS
+               : period ? marketStatus(period, now) : approxMarketStatus(now);
 
   const mktScore = scored.length ? r2(scored.reduce((a, r) => a + r.score, 0) / scored.length) : null;
   const mktBand = bandStable(mktScore, readJSON(path.join(OUT, "market.json"), {})?.band);

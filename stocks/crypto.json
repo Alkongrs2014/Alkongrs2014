@@ -1,0 +1,220 @@
+{
+ "note": "دفتر الكريبتو — كونٌ ثابت منفصل عن symbols.json. لا يُقرأ من دفتر الأسهم.",
+ "fixed": true,
+ "top": 30,
+ "symbols": [
+  {
+   "s": "BTC-USD",
+   "ar": "بيتكوين",
+   "en": "BTC",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "ETH-USD",
+   "ar": "إيثيريوم",
+   "en": "ETH",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "ZEC-USD",
+   "ar": "زي كاش",
+   "en": "ZEC",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "SOL-USD",
+   "ar": "سولانا",
+   "en": "SOL",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "XRP-USD",
+   "ar": "ريبل",
+   "en": "XRP",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "NEAR-USD",
+   "ar": "نير",
+   "en": "NEAR",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "SUI-USD",
+   "ar": "سوي",
+   "en": "SUI",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "WLD-USD",
+   "ar": "WLD",
+   "en": "WLD",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "ENA-USD",
+   "ar": "إيثينا",
+   "en": "ENA",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "TAO-USD",
+   "ar": "بيتنسور",
+   "en": "TAO",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "DOGE-USD",
+   "ar": "دوجكوين",
+   "en": "DOGE",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "UNI-USD",
+   "ar": "يونيسواب",
+   "en": "UNI",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "BABY-USD",
+   "ar": "BABY",
+   "en": "BABY",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "AVAX-USD",
+   "ar": "أفالانش",
+   "en": "AVAX",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "BNB-USD",
+   "ar": "بينانس كوين",
+   "en": "BNB",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "LTC-USD",
+   "ar": "لايتكوين",
+   "en": "LTC",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "ADA-USD",
+   "ar": "كاردانو",
+   "en": "ADA",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "LINK-USD",
+   "ar": "تشين لينك",
+   "en": "LINK",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "XPL-USD",
+   "ar": "XPL",
+   "en": "XPL",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "DASH-USD",
+   "ar": "DASH",
+   "en": "DASH",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "SAGA-USD",
+   "ar": "SAGA",
+   "en": "SAGA",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "FIL-USD",
+   "ar": "فايلكوين",
+   "en": "FIL",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "PUMP-USD",
+   "ar": "PUMP",
+   "en": "PUMP",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "MUBARAK-USD",
+   "ar": "MUBARAK",
+   "en": "MUBARAK",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "RUNE-USD",
+   "ar": "RUNE",
+   "en": "RUNE",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "GRAM-USD",
+   "ar": "GRAM",
+   "en": "GRAM",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "ONDO-USD",
+   "ar": "أوندو",
+   "en": "ONDO",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "RARE-USD",
+   "ar": "RARE",
+   "en": "RARE",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "PEPE-USD",
+   "ar": "بيبي",
+   "en": "PEPE",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  },
+  {
+   "s": "ARB-USD",
+   "ar": "أربيتروم",
+   "en": "ARB",
+   "sec": "كريبتو",
+   "mkt": "crypto"
+  }
+ ],
+ "wide": [],
+ "crypto": [],
+ "indices": []
+}

@@ -39,7 +39,19 @@ import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DATA = path.join(ROOT, "data");
+/* =====================================================================
+   **دفتر الكريبتو** (`run.mjs crypto`) — مجلّدٌ وقفلٌ وسجلُّ انسحابٍ
+   خاصّة به تحت `data/crypto/`، ونفس السكربتات بكونٍ آخر.
+
+   والقفل منفصلٌ عمداً: Binance لا يقاسم ياهو حصّةً، والقفل وُجد لحماية
+   حصّة المزوّد والكتابة على بياناتٍ مشتركة — ولا بيانات مشتركة هنا.
+   قفلٌ مشترك كان سيجعل دورةَ أسهمٍ تنتظر عملةً، وهذا بعينه التداخل
+   الذي يُراد منعه بين الدفترين.
+   ===================================================================== */
+const DATA_ROOT = path.join(ROOT, "data");
+const IS_CRYPTO = process.argv.slice(2).some(a => a.toLowerCase() === "crypto");
+const CRYPTO_DIR = path.join(DATA_ROOT, "crypto");
+const DATA = IS_CRYPTO ? CRYPTO_DIR : DATA_ROOT;
 const PORT = Number(process.env.PORT || 8080);
 
 /* ---------- تحميل .env بلا أي تبعية خارجية ---------- */
@@ -124,7 +136,7 @@ function noteSkip(job, blocker, waited, outcome) {
    الدورة يجعل تشغيلين ينتظران نفس القفل فيتراكمان بلا نهاية.
    ===================================================================== */
 const WAIT_CAP = {          // ثوانٍ — أقلّ من دورة كل مهمة
-  quotes: 110, strategies: 110, signals: 110, mdir: 110, confirm: 240,
+  quotes: 110, strategies: 110, signals: 110, mdir: 110, confirm: 240, crypto: 600,
   market: 540, filings: 240, news: 240,
   options: 1500,
   daily: 3000, backtest: 3000, stratbt: 3000
@@ -338,6 +350,22 @@ function validateData() {
            noLive: bad.map(b => b.s) };
 }
 
+/* بوّابة دفتر الكريبتو — **منفصلةٌ ولا تحجب الأسهم**. فشلُها يُسقط مجلّد
+   `crypto/` من النشر ويقوله، ولا يمنع نشر الأسهم: عطلُ دفترٍ لا يجوز
+   أن يجمّد الآخر، وهذا هو الاستقلال نفسه مطبَّقاً على النشر. */
+function validateCrypto() {
+  const read = (f) => JSON.parse(fs.readFileSync(path.join(CRYPTO_DIR, f), "utf8"));
+  const sum = read("summary.json"), opp = read("opportunities.json");
+  const rows = sum.rows || [];
+  if (rows.length < 10) throw new Error(`${rows.length} صفّاً فقط`);
+  const alien = rows.filter(r => r.mkt !== "crypto");
+  if (alien.length) throw new Error(`صفوفٌ غير كريبتو في دفتر الكريبتو: ${alien.map(r => r.s).join(", ")}`);
+  const four = rows.filter(r => Object.keys(r.tfScore || {}).length === 4).length;
+  if (four < rows.length * 0.70) throw new Error(`${four} من ${rows.length} بأربعة فريمات`);
+  if (!Number.isFinite(opp.candleKey)) throw new Error("لقطة الفرص بلا candleKey");
+  return { rows: rows.length, four, candleKey: opp.candleKey };
+}
+
 function publish() {
   let info;
   try { info = validateData(); }
@@ -384,7 +412,15 @@ function publish() {
     if (n.startsWith(".run.")) continue;      // حالةُ خادمٍ لا حجمَ يُعلَن
     try { skipped += fs.statSync(path.join(DATA, n)).size; } catch {}
   }
-  fs.cpSync(DATA, stage, { recursive: true, filter: (src) => !NO_PUBLISH.has(path.basename(src)) });
+  let cryptoOk = false;
+  if (fs.existsSync(CRYPTO_DIR)) {
+    try {
+      const c = validateCrypto(); cryptoOk = true;
+      console.log(`  ✓ دفتر الكريبتو: ${c.rows} صفّاً · ${c.four} بأربعة فريمات · شمعة ${new Date(c.candleKey * 1000).toISOString()}`);
+    } catch (e) { console.warn(`  ⚠ دفتر الكريبتو لم يجتز فحصه — يُستبعد من هذا النشر ولا يحجب الأسهم: ${e.message}`); }
+  }
+  fs.cpSync(DATA, stage, { recursive: true, filter: (src) =>
+    !NO_PUBLISH.has(path.basename(src)) && (cryptoOk || path.resolve(src) !== CRYPTO_DIR) });
   if (skipped) console.log(`  ⤫ استُبعد ${Math.round(skipped / 1024)} ك.ب حالةَ خادمٍ لا يقرؤها المتصفح`);
 
   // اسم المؤلّف من إعدادات المستودع الأب إن وُجد، وإلا اسم محايد
@@ -440,6 +476,16 @@ else {
      الشمعتان. والإمساك هو الصواب: الخطأ أن تُمزج شمعتان لا أن تتأخّر
      اللقطة. ووجودُه هناك يلتقط الحالة التي يصادف فيها التوافق. */
   if (cmd === "confirm") process.env.FAST_CONFIRM = "1";
+  /* دفتر الكريبتو: نفس سكربتات التأكيد بكونه ومجلّده. لا `track-signals`
+     (يقرأ `symbols.json` مرقوناً فيغلق كل إشارةٍ خارجه) ولا
+     `market-direction` (توجّه **السوق الأمريكي**). والتأكيد السريع لأن
+     Binance يعطي الكون في ثوانٍ بلا حصّة تُزاحَم. */
+  if (cmd === "crypto") {
+    process.env.FAST_CONFIRM = "1";
+    process.env.UNIVERSE = "stocks/crypto.json";
+    process.env.OPP_OUT = CRYPTO_DIR;
+    fs.mkdirSync(CRYPTO_DIR, { recursive: true });
+  }
   const jobs = cmd === "quotes" ? ["fetch-quotes.mjs", "track-strategies.mjs --only-price", "build-opportunities.mjs"]
              // التتبّع بعد الشمعات مباشرة: يقرأ summary.json الذي كتبته
              // للتوّ، بلا أي طلب شبكة — فتُثبَّت الإشارة لحظة ظهورها
@@ -451,6 +497,7 @@ else {
                 المستخدمَ في ثوانٍ بدل دقائق. ولا يمسّ السعر اللحظي أيَّ
                 حساب: هو نفسه `fetch-market` بفريمٍ واحد. */
              : cmd === "confirm" ? ["fetch-market.mjs", "track-strategies.mjs", "build-opportunities.mjs"]
+             : cmd === "crypto" ? ["fetch-market.mjs", "track-strategies.mjs", "build-opportunities.mjs"]
              : cmd === "strategies" ? ["track-strategies.mjs", "build-opportunities.mjs", "market-direction.mjs"]
              /* توجّه السوق: بلا شبكة — يقرأ ملفات الرموز المكتوبة للتوّ.
                 يلي `track-strategies` لا يسبقه: كلاهما يقرأ نفس الملفات،

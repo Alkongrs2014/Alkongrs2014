@@ -27,6 +27,12 @@ const CFG_PATH = path.join(ROOT, "stocks/symbols.json");
 const args = process.argv.slice(2);
 const CHECK = args.includes("--check");
 const DRY = args.includes("--dry");
+/* `--crypto` يبني كونَ دفتر الكريبتو في ملفّه هو (`stocks/crypto.json`)
+   ولا يلمس `symbols.json`. الدفتران منفصلان بالملفّ لا بطبقةٍ داخل ملفّ:
+   الخلطُ في ملفٍّ واحد هو ما جعل شمعةَ عملةٍ تحرّك درجةَ سهم. */
+const CRYPTO_BOOK = args.includes("--crypto");
+const CRYPTO_PATH = path.join(ROOT, "stocks/crypto.json");
+const CRYPTO_N = 30;
 
 const SP500_CSV =
   "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv";
@@ -342,5 +348,33 @@ function selfCheck() {
   process.exit(fail ? 1 : 0);
 }
 
+/* كونٌ ثابت كالخمسين: أعلى ‎30‎ زوجاً سيولةً بعد استبعاد المستقرّة والرافعة
+   والأسهم المرمَّزة. يُكتب مرّةً ثم يُجمَّد (`fixed`) — كونٌ يتبدّل بحجم
+   اليوم يجعل قائمة الفرص تتبدّل بعضويّة الكون لا بإغلاق الشمعة. */
+async function buildCrypto() {
+  if (fs.existsSync(CRYPTO_PATH) && JSON.parse(fs.readFileSync(CRYPTO_PATH, "utf8")).fixed) {
+    console.log("■ كون الكريبتو ثابت — لا بناء. عدّل stocks/crypto.json يدوياً.");
+    return;
+  }
+  const pairsAll = await listUsdtPairs();
+  const tagged = await listTaggedStocks();
+  if (!tagged) throw new Error("تعذّر وسم bStocks — لا يُبنى كونٌ قد يحوي أسهماً مرمَّزة");
+  const pairs = pairsAll.filter(t => !tagged.has(t.sym)).slice(0, CRYPTO_N);
+  if (pairs.length < CRYPTO_N) throw new Error(`${pairs.length} زوجاً فقط`);
+  const symbols = pairs.map(t => {
+    const base = t.sym.replace(/USDT$/, "");
+    return { s: t.app, ar: CRYPTO_AR[base] || base, en: base, sec: "كريبتو", mkt: "crypto" };
+  });
+  const out = {
+    note: "دفتر الكريبتو — كونٌ ثابت منفصل عن symbols.json. لا يُقرأ من دفتر الأسهم.",
+    fixed: true, top: symbols.length, symbols, wide: [], crypto: [], indices: []
+  };
+  console.log(symbols.map(x => x.s).join(" "));
+  if (DRY) { console.log("(--dry: لم يُكتب شيء)"); return; }
+  fs.writeFileSync(CRYPTO_PATH, JSON.stringify(out, null, 1));
+  console.log(`✔ كُتب ${CRYPTO_PATH} (${symbols.length} زوجاً)`);
+}
+
 if (CHECK) selfCheck();
+else if (CRYPTO_BOOK) buildCrypto().catch(e => { console.error("✗ فشل البناء:", e.message); process.exit(1); });
 else main().catch(e => { console.error("✗ فشل البناء:", e.message); process.exit(1); });

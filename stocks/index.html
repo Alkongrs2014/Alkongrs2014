@@ -1873,6 +1873,32 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   </div>
 </section>
 
+<!-- ================= الكريبتو — دفترٌ منفصل =================
+     نفس عرض الفرص على لقطةٍ أخرى (crypto/opportunities.json) بمفتاحها
+     وكونها. لا شيء هنا يقرأ ملفّاً من دفتر الأسهم، ولا العكس. -->
+<section data-view="crypto">
+  <div class="card" data-size="hero">
+    <div class="sticky-hd">
+      <div class="schead" style="margin-bottom:9px">
+        <h2 style="margin:0">فرص الكريبتو</h2>
+        <span class="chip live">يعمل ٢٤/٧</span>
+      </div>
+      <div class="scans" id="cScanPicker"></div>
+    </div>
+    <div id="cScanList"><div class="skl" style="height:150px"></div></div>
+    <p class="srcline" id="cScanCount"></p>
+    <details class="plain">
+      <summary>ما الفرق بين هذا الدفتر ودفتر الأسهم؟</summary>
+      <p class="scan-why" id="cScanWhy" style="margin:0 0 9px;padding:0"></p>
+      <p class="srcline" style="text-align:start">
+        كونٌ ثابت من أعلى العملات سيولةً عند Binance، بنفس الفريمات (15د · ساعة · 4 ساعات · يومي)
+        ونفس الشروط والاستراتيجيات — لكن بلقطةٍ وشمعةٍ وملفّاتٍ خاصّة به. فإغلاقُ شمعة عملةٍ لا يغيّر
+        نقطةً ولا ترتيباً في الأسهم، والعكس. ولا حافّة مقيسة للعملات بعد، فأوزان الاستراتيجيات محايدة.
+      </p>
+    </details>
+  </div>
+</section>
+
 <!-- ================= الفرص ================= -->
 <section data-view="screen">
   <div class="card" data-size="hero">
@@ -2321,6 +2347,8 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   <g id="i-bell" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <path d="M6.6 10a5.4 5.4 0 1 1 10.8 0c0 4 1.6 5.4 1.6 5.4H5s1.6-1.4 1.6-5.4Z"/>
     <path d="M10.3 18.6a2 2 0 0 0 3.4 0"/></g>
+  <g id="i-coin" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.4"/><path d="M9.6 8h3.6a2 2 0 0 1 0 4H9.6h4a2 2 0 0 1 0 4H9.6ZM11 6.4V8M11 16v1.6M13 6.4V8M13 16v1.6"/></g>
   <g id="i-info" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="8.4"/><path d="M12 11.2v5M12 7.9h.01"/></g>
 </defs></svg>
@@ -2349,6 +2377,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   <button data-go="screen"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-screen"/></svg>الفرص</button>
   <button data-go="mdir"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mdir"/></svg>السوق</button>
   <button data-go="list" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>الأسهم</button>
+  <button data-go="crypto" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-coin"/></svg>الكريبتو</button>
   <button data-go="analysis"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-analysis"/></svg>التحليل</button>
   <button data-go="log" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>السجل</button>
   <button data-go="news" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-news"/></svg>الأخبار</button>
@@ -2366,6 +2395,10 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   <button class="sheet-r" data-nav="list">
     <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>
     <span class="g">الأسهم<small>الكون كاملاً — بحثٌ وترشيحٌ وقوائم</small></span>
+    <span class="go">‹</span></button>
+  <button class="sheet-r" data-nav="crypto">
+    <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-coin"/></svg>
+    <span class="g">الكريبتو<small>فرصُ العملات 24/7 — دفترٌ منفصل عن الأسهم</small></span>
     <span class="go">‹</span></button>
   <button class="sheet-r" data-nav="log">
     <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>
@@ -2438,8 +2471,50 @@ const state = {
   chartOv: true,
   // الزوم عدد الشمعات المرئية، والإزاحة عدد الشمعات المتروكة من اليمين.
   // كلاهما null = المدى الافتراضي المشتقّ من عرض الشاشة.
-  zoom: null, pan: 0
+  zoom: null, pan: 0,
+  /* الدفتر النشط — «us» الأسهم (الافتراضي) أو «crypto». انظر `setBook`. */
+  book: "us"
 };
+
+/* =====================================================================
+   **دفترا الأسهم والكريبتو** — منفصلان بالبيانات لا بالمرشّحات.
+
+   كان الكريبتو داخل ملخّص الأسهم، فكانت شمعةُ عملةٍ تُقدّم مفتاحَ لقطة
+   الكون كلّه وتحرّك الرتبة المئوية لسهمٍ لم تُغلق شمعته. فصار دفتراً
+   ثانياً بملفّاته هو (`crypto/…`)، وهنا نظيرُه في المتصفّح:
+
+   · حقولُ البيانات في `state` تصف **الدفتر النشط** وحده. فكلُّ دالّة عرضٍ
+     تقرأ `state.opps` و`state.summary` كما كانت — بلا فرعٍ ولا نسخةٍ
+     ثانية — والأسهم (الدفتر الافتراضي) تسلك مسارَها نفسه بالحرف.
+   · الدفتر غير النشط **مركونٌ** في `BOOKS`. والتبديل عند الانتقال بين
+     الشاشات وحده (`go`): خانة «الكريبتو» وشاشةُ عملةٍ فُتحت منها دفترُ
+     الكريبتو، وكلُّ ما عداهما دفترُ الأسهم.
+   · **كلُّ كاتبٍ غير متزامن يسمّي دفتره** (`put`): جلبٌ للأسهم بدأ ثم
+     انتقل المستخدم إلى الكريبتو قبل وصوله يُكتب في مركن الأسهم لا فوق
+     الكريبتو المعروض. هذا هو الحارس الذي يمنع الخلط بعينه.
+   ===================================================================== */
+const BOOK_KEYS = ["summary", "market", "opps", "strategies", "stratEdge", "wide", "fund",
+                   "symCache", "signals", "an", "rsIdx", "scan", "lastScanRows"];
+const BOOKS = {
+  us: {},
+  /* بلا حوافّ مقيسة للكريبتو: الأرشيف لم يُبنَ له. كائنٌ بلا صفوف يعني
+     «أوزانٌ محايدة» — وهو نفسُ ما بُنيت عليه لقطة الخادم (`edge:false`)،
+     فلا يختلف الإجماع المعروض عن المحفوظ. */
+  crypto: { symCache: {}, stratEdge: { rows: [], neutral: true } }
+};
+const bookPre = (b = state.book) => (b === "crypto" ? "crypto/" : "");
+function bookGet(b, k) { return state.book === b ? state[k] : BOOKS[b][k]; }
+function put(b, k, v) { if (state.book === b) state[k] = v; else BOOKS[b][k] = v; }
+function setBook(b) {
+  if (state.book === b || !BOOKS[b]) return;
+  const park = BOOKS[state.book];
+  for (const k of BOOK_KEYS) park[k] = state[k];
+  const nx = BOOKS[b];
+  for (const k of BOOK_KEYS) state[k] = k in nx ? nx[k] : (k === "symCache" ? {} : null);
+  state.book = b;
+  // المشتقّات من بيانات الدفتر تُبنى من جديد — مخزونُها يصف الدفتر الآخر
+  fundCache = null; ovCache = { key: null, val: null };
+}
 
 /* الأرقام اللاتينية داخل نص عربي تُعيد ترتيب نفسها بشكل خاطئ (bidi).
    <bdi> يعزل الرقم فيظهر كما هو. صنف .num آمن أصلاً لأنه inline-block. */
@@ -2676,10 +2751,13 @@ const unpackCandles = (arr) => Array.isArray(arr) && Array.isArray(arr[0])
   : arr;
 
 async function getSymbol(sym) {
-  if (state.symCache[sym]) return state.symCache[sym];
-  const d = await getJSON(`sym/${sym}.json`);
+  /* المخزن والمسار يُؤخذان **قبل** الانتظار: تبديلُ الدفتر أثناء الجلب
+     كان سيكتب ملفَّ عملةٍ في مخزن الأسهم. */
+  const cache = state.symCache, pre = bookPre();
+  if (cache[sym]) return cache[sym];
+  const d = await getJSON(`${pre}sym/${sym}.json`);
   for (const o of Object.values(d.tf || {})) o.c = unpackCandles(o.c);
-  state.symCache[sym] = d;
+  cache[sym] = d;
   return d;
 }
 
@@ -5038,9 +5116,43 @@ function renderRSSym(sym) {
    والوعد يُحفظ لا الملف: نداءان متزامنان على نفس الملف يعطيان طلباً
    واحداً، وهو ما يحدث فعلاً حين يُفتح سهمٌ من شاشة التحليل.
    ======================================================================= */
+/* حارس الرتابة — لكل دفترٍ على مفتاحه هو: لقطةُ الكريبتو لا تُقارن
+   بلقطة الأسهم أبداً، فشمعةُ عملةٍ لا تُقدِّم ولا تؤخّر قائمةَ أسهم. */
+function oppsNewer(cur, j) {
+  if (!j || !j.scans) return false;
+  if (cur && Number.isFinite(cur.candleKey) && Number.isFinite(j.candleKey)) {
+    if (j.candleKey < cur.candleKey) return false;
+    if (j.candleKey === cur.candleKey && (j.generatedAt || 0) < (cur.generatedAt || 0)) return false;
+    if (j.candleKey === cur.candleKey && j.rowsHash === cur.rowsHash) return false;
+  }
+  return true;
+}
+
+/* تحديثُ دفتر الكريبتو — دورتُه هو وملفّاته هو (`crypto/…`)، ولا يكتب
+   إلا في دفتره باسمه. يعمل 24/7: لا بوّابة «السوق مغلق» هنا. */
+let cryptoBusy = false;
+async function refreshCrypto() {
+  if (cryptoBusy) return;
+  cryptoBusy = true;
+  try {
+    const [sum, mkt, opp] = await Promise.all(
+      ["summary.json", "market.json", "opportunities.json"].map(f => getJSON("crypto/" + f)));
+    if (!sum || !Array.isArray(sum.rows) || !sum.rows.length) throw new Error("ملخّص الكريبتو فارغ");
+    put("crypto", "summary", sum); put("crypto", "market", mkt); put("crypto", "symCache", {});
+    if (oppsNewer(bookGet("crypto", "opps"), opp)) put("crypto", "opps", opp);
+    BOOKS.cryptoErr = null;
+  } catch (e) {
+    BOOKS.cryptoErr = e.message;
+    diag("crypto", "تعذّر جلب دفتر الكريبتو", e && e.message);
+  } finally { cryptoBusy = false; }
+  if (state.book !== "crypto") return;
+  if (state.view === "crypto") renderScreen();
+  else if (state.sym) { try { await getSymbol(state.sym); renderDetail(); } catch (e) {} }
+}
+
 const LAZY = {
   "fundamentals.json": (f) => {
-    state.fund = f; fundCache = null;                 // الرتب تُبنى من هذا الملف
+    put("us", "fund", f); fundCache = null;           // الرتب تُبنى من هذا الملف
     if (state.sym) { renderFund(); const r = state.symCache[state.sym]; if (r) renderLevels(r); }
     if (state.view === "screen") { renderScreen(); renderEarnings(); }
     if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
@@ -5056,20 +5168,15 @@ const LAZY = {
        متعدّدة، ونسخةٌ أقدم قد تصل بعد أحدث. قبولُها يُرجع القائمة شمعةً
        إلى الوراء ثم تعود — فتُقرأ «تغيّرت بلا شمعة». لا يُقبل مفتاحٌ أقدم
        ولا لقطةٌ أقدم بنفس المفتاح. */
-    const cur = state.opps;
-    if (cur && Number.isFinite(cur.candleKey) && Number.isFinite(j.candleKey)) {
-      if (j.candleKey < cur.candleKey) return;
-      if (j.candleKey === cur.candleKey && (j.generatedAt || 0) < (cur.generatedAt || 0)) return;
-      if (j.candleKey === cur.candleKey && j.rowsHash === cur.rowsHash) return;   // لا جديد — لا رسم
-    }
-    state.opps = j;
+    if (!oppsNewer(bookGet("us", "opps"), j)) return;   // لا جديد — لا رسم
+    put("us", "opps", j);
     if (state.view === "screen") renderScreen();
     // الرئيسية تعرض أبرزَ ثلاثٍ من نفس اللقطة، فتُحدَّث حين تصل
     if (state.view === "now") renderTopOpp();
   },
   "strategies.json": (j) => {
     if (!j || !Array.isArray(j.rows)) return;
-    state.strategies = j;
+    put("us", "strategies", j);
     // ثلاثةُ مستهلكين لا واحد بعد إضافة درجة التوافق: الماسح، وبطاقة
     // السهم، وترتيبُ الفرص. وكلٌّ يُعاد رسمه حين يصل الملفّ لا قبله.
     if (state.sym) renderStrategies(state.symCache[state.sym] || { s: state.sym });
@@ -5077,7 +5184,7 @@ const LAZY = {
     if (state.view === "mdir") renderMarketDir();
   },
   "strategy-edge.json": (j) => {
-    state.stratEdge = j;
+    put("us", "stratEdge", j);
     // الحوافّ هي أوزان الإجماع، فتغيّرها يغيّر كلَّ درجة توافق معروضة
     if (state.sym) renderStrategies(state.symCache[state.sym] || { s: state.sym });
     if (state.view === "screen") renderScreen();
@@ -5095,7 +5202,7 @@ const LAZY = {
   },
   "analytics.json": (j) => {
     if (!j || !Array.isArray(j.rs)) return;
-    state.an = j; state.rsIdx = null;
+    put("us", "an", j); put("us", "rsIdx", null);
     if (state.view === "analysis") renderDerived();
     if (state.view === "list" && /^rs/.test($("#qSort").value)) renderList();
     if (state.sym) renderDetail();
@@ -5113,7 +5220,7 @@ const LAZY = {
   },
   "wide.json": (w) => {
     if (!w || !Array.isArray(w.rows)) return;
-    state.wide = w;
+    put("us", "wide", w);
     fillSymbolSelects();
     if (state.view === "list") renderList();
   }
@@ -7660,22 +7767,41 @@ function renderCompare() {
    ماسح الفرص — الشروط في stocks/scans.js، نسخة واحدة يقرأها الخادم أيضاً
    ======================================================================= */
 
-function renderScreen() {
-  const pick = $("#scanPicker");
-  if (!pick) return;
-  if (!pick.dataset.built) {
-    pick.innerHTML = SCANS.map(s => `<button data-scan="${s.id}">${esc(s.lbl)}</button>`).join("");
-    pick.dataset.built = "1";
-    $$("#scanPicker button").forEach(b => b.onclick = () => { state.scan = b.dataset.scan; renderScreen(); });
-  }
-  const id = state.scan || SCANS[0].id;
-  $$("#scanPicker button").forEach(b => b.classList.toggle("on", b.dataset.scan === id));
-  const scan = SCANS.find(s => s.id === id) || SCANS[0];
-  $("#scanWhy").textContent = scan.why;
-  renderScanHistory(scan.id);
+/* شاشتا الفرص — **نفس الدالّة بعناصر مختلفة لا نسختان**. والبيانات
+   من الدفتر النشط (`state`)، فشاشة الكريبتو تقرأ لقطة الكريبتو وحدها. */
+const SCR = {
+  us:     { pick: "#scanPicker",  list: "#scanList",  count: "#scanCount",  why: "#scanWhy",  exp: "#scanExport" },
+  crypto: { pick: "#cScanPicker", list: "#cScanList", count: "#cScanCount", why: "#cScanWhy", exp: null }
+};
+/* شرطان لا ينطبقان على العملات أصلاً: الأساسيات والأرباح. */
+const CRYPTO_NA = new Set(["cheap", "earn"]);
 
-  const el = $("#scanList");
-  if (!state.summary) { el.innerHTML = `<div class="empty">جارِ التحميل…</div>`; return; }
+function renderScreen() {
+  const CR = state.view === "crypto";
+  const U = CR ? SCR.crypto : SCR.us;
+  const pick = $(U.pick);
+  if (!pick) return;
+  const LIST = CR ? SCANS.filter(s => !CRYPTO_NA.has(s.id)) : SCANS;
+  if (!pick.dataset.built) {
+    pick.innerHTML = LIST.map(s => `<button data-scan="${s.id}">${esc(s.lbl)}</button>`).join("");
+    pick.dataset.built = "1";
+    $$(U.pick + " button").forEach(b => b.onclick = () => { state.scan = b.dataset.scan; renderScreen(); });
+  }
+  const id = LIST.some(s => s.id === state.scan) ? state.scan : LIST[0].id;
+  $$(U.pick + " button").forEach(b => b.classList.toggle("on", b.dataset.scan === id));
+  const scan = LIST.find(s => s.id === id) || LIST[0];
+  $(U.why).textContent = scan.why;
+  // حافّةُ الشرط من أرشيف **الأسهم** — لا تُعرض على العملات كأنها لها
+  if (!CR) renderScanHistory(scan.id);
+
+  const el = $(U.list);
+  if (!state.summary) {
+    el.innerHTML = CR && BOOKS.cryptoErr
+      ? `<div class="warn">تعذّر جلب دفتر الكريبتو — ${esc(BOOKS.cryptoErr)}</div>`
+      : `<div class="empty">جارِ التحميل…</div>`;
+    if (CR) refreshCrypto();
+    return;
+  }
 
   /* =====================================================================
      **المصدر الوحيد لهذه القائمة لقطةٌ ذرّية من الخادم — لا حسابٌ هنا.**
@@ -7701,10 +7827,10 @@ function renderScreen() {
      سعراً فقط ولا يدخل عضويةً ولا ترتيباً ولا درجة. */
   const OPP = state.opps;
   if (!OPP || !OPP.scans) {
-    need("opportunities.json");
+    if (CR) refreshCrypto(); else need("opportunities.json");
     el.innerHTML = `<div class="skl" style="height:64px"></div><div class="skl" style="height:64px;margin-top:8px"></div><div class="skl" style="height:64px;margin-top:8px"></div>`;
-    const c0 = $("#scanCount"); if (c0) c0.textContent = "لقطة الفرص تُجلب…";
-    const b0 = $("#scanExport"); if (b0) b0.style.display = "none";
+    const c0 = $(U.count); if (c0) c0.textContent = "لقطة الفرص تُجلب…";
+    const b0 = U.exp && $(U.exp); if (b0) b0.style.display = "none";
     state.lastScanRows = [];
     return;
   }
@@ -7722,7 +7848,7 @@ function renderScreen() {
      ولا يعيد ترتيبها. كان الترتيب يُعاد داخل كل نوع، فدرجةُ الرمز
      تتغيّر بإخفاء رموزٍ أخرى — ودرجةٌ تتبدّل بتغيير مرشّحِ عرضٍ ليست
      درجةَ الرمز. والتصنيف من `mkt` المحفوظ في اللقطة نفسها. */
-  const mktSel = ($("#scrMkt") && $("#scrMkt").value) || "all";
+  const mktSel = CR ? "crypto" : (($("#scrMkt") && $("#scrMkt").value) || "all");
   let hits = (OPP.scans[scan.id] || []).slice();
   if (mktSel === "us") hits = hits.filter(r => r.mkt !== "crypto");
   else if (mktSel === "crypto") hits = hits.filter(r => r.mkt === "crypto");
@@ -7733,12 +7859,12 @@ function renderScreen() {
   // نتائج المسح الأخير تُحفظ للتصدير: إعادةُ بنائها في زرّ التصدير
   // تعني نسخةً ثانية من الشرط والترتيب تتباعد بأول تعديل
   state.lastScanRows = hits;
-  { const b = $("#scanExport"); if (b) b.style.display = hits.length ? "" : "none"; }
+  { const b = U.exp && $(U.exp); if (b) b.style.display = hits.length ? "" : "none"; }
 
   const unitWord = mktSel === "crypto" ? "عملة" : mktSel === "us" ? "سهم" : "رمز";
   if (!hits.length) {
     el.innerHTML = `<div class="empty">لا ${esc(unitWord)} ينطبق عليه هذا الشرط الآن — وهذا نتيجة صحيحة لا عطل</div>`;
-    $("#scanCount").textContent = "";
+    $(U.count).textContent = "";
     return;
   }
   // عمر الفرصة من سجلّ الإشارة نفسه: شرطٌ محقَّق اليوم قد يكون محقَّقاً
@@ -7860,7 +7986,7 @@ function renderScreen() {
   /* المقام هو ما مُسح فعلاً لا ما نملكه: «5 من 97» بينما مُسح 510
      يصف نسبةً لم تُحسب. والعددُ من اللقطة نفسها لا من حالة المتصفّح. */
   const unitWordN = mktSel === "crypto" ? "عملة" : mktSel === "us" ? "سهماً" : "رمزاً";
-  const mktNote = mktSel === "us" ? " (الأسهم فقط)" : mktSel === "crypto" ? " (العملات فقط)" : "";
+  const mktNote = CR ? " (دفتر الكريبتو)" : mktSel === "us" ? " (الأسهم فقط)" : mktSel === "crypto" ? " (العملات فقط)" : "";
   const src = OPP.sources || {};
   const poolN = scan.wide ? (src.liveRows || 0) + (src.wideRows || 0) : (src.liveRows || 0);
   const scope = `${bd(poolN)} ${unitWordN}${mktNote}${scan.wide ? " (الكون كاملاً)" : ""}`;
@@ -7880,8 +8006,11 @@ function renderScreen() {
      الصفوف لأنه الذي يحكم كتابتها. */
   const barNote = Number.isFinite(OPP.candleKey)
     ? ` · على إغلاق شمعة ${esc(stamp(OPP.candleKey * 1000))} · بصمة ${esc(String(OPP.rowsHash || "").slice(0, 8))}` : "";
-  $("#scanCount").textContent =
-    `${bd(hits.length)} من ${scope}${confNote}${barNote} · بُنيت ${ago(OPP.generatedAt)}`;
+  /* وفي الكريبتو: لا حوافّ مقيسة فالأوزان محايدة — يُقال ولا يُفترض. */
+  const edgeNote = CR ? " · أوزان الاستراتيجيات محايدة (لا أرشيف مقيس للعملات)" : "";
+  // `bd()` تعيد HTML — `textContent` كانت تطبع وسوم <bdi> حرفياً
+  $(U.count).innerHTML =
+    `${bd(hits.length)} من ${scope}${confNote}${barNote}${edgeNote} · بُنيت ${ago(OPP.generatedAt)}`;
 }
 
 function renderEarnings() {
@@ -8400,7 +8529,7 @@ function detailGroup(g) {
   setTimeout(layoutWide, 0);
 }
 
-const SHEET_VIEWS = ["list", "log", "news"];
+const SHEET_VIEWS = ["list", "crypto", "log", "news"];
 let sheetLast = null;          // العنصر الذي كان مركَّزاً قبل الفتح
 
 function sheetOpen(id) {
@@ -8554,6 +8683,12 @@ function oppDirOf(row, F, ctxScan) {
 }
 
 function go(view) {
+  /* الدفتر يتبع الشاشة: «الكريبتو» وشاشةُ رمزٍ فُتحت منها للكريبتو،
+     وكلُّ ما عداهما للأسهم. والعودة إلى الأسهم تستأنف تحديثها فوراً. */
+  const bk = view === "crypto" ? "crypto" : view === "detail" ? state.book : "us";
+  const was = state.book;
+  setBook(bk);
+  if (was !== bk) setTimeout(() => refresh(bk === "us"), 0);
   state.view = view;
   $$("section[data-view]").forEach(s => s.classList.toggle("on", s.dataset.view === view));
   const isDetail = view === "detail";
@@ -8577,6 +8712,7 @@ function go(view) {
     need("fundamentals.json"); need("strategies.json"); need("strategy-edge.json");
     renderScreen(); renderEarnings(); renderArchive();
   }
+  if (view === "crypto") renderScreen();
   if (view === "news") { need("news.json"); need("filings.json"); }
   if (view === "analysis") {
     need("fundamentals.json"); need("analytics.json");
@@ -8683,6 +8819,10 @@ function layoutWide() {
 }
 
 async function refresh(force = false) {
+  /* دفترُ الكريبتو يُحدَّث بدورته هو (‎24/7‎) ولا يمرّ ببوّابة «السوق
+     الأمريكي مغلق» أدناه — وإلا تجمّدت الخانة ليلاً وفي العطلة، وهو
+     غرضُها كلُّه. والأسهم لا تُجلب وهو معروض: تُستأنف عند العودة. */
+  if (state.book === "crypto") return refreshCrypto();
   if (state.busy) return;
   // السوق مغلق = البيانات لا تتغيّر. نخفّف التحديث بدل سحب الملفات كل دقيقتين بلا فائدة.
   if (!force && state.lastOk) {
@@ -8695,12 +8835,15 @@ async function refresh(force = false) {
   try {
     const [sum, mkt] = await Promise.all([getJSON("summary.json"), getJSON("market.json")]);
     if (!sum || !Array.isArray(sum.rows) || !sum.rows.length) throw new Error("ملف الملخص فارغ");
-    state.summary = sum; state.market = mkt; state.lastOk = Date.now();
-    state.symCache = {}; state.optCache = {};  // أعِد تحميل ملفات الأسهم والعقود بعد التحديث
+    // الكتابة في دفتر الأسهم باسمه: قد يكون المستخدم انتقل إلى الكريبتو أثناء الجلب
+    put("us", "summary", sum); put("us", "market", mkt); state.lastOk = Date.now();
+    put("us", "symCache", {}); state.optCache = {};  // أعِد تحميل ملفات الأسهم والعقود بعد التحديث
     save("cache", { sum, mkt, t: Date.now() });
-    renderAll();
-    checkAlerts();
-    if (state.sym) { try { await getSymbol(state.sym); renderDetail(); } catch (e) {} }
+    if (state.book === "us") {
+      renderAll();
+      checkAlerts();
+      if (state.sym) { try { await getSymbol(state.sym); renderDetail(); } catch (e) {} }
+    }
   } catch (e) {
     $("#stamp").textContent = "تعذّر التحديث — " + e.message;
   } finally {
@@ -8724,7 +8867,8 @@ async function refresh(force = false) {
   // سجلّ الإشارات نفسه — منه تعرف شاشة السهم متى ظهرت الإشارة وما بلغه
   // السعر بعدها، وبلا لحظة بداية لا معنى لـ"تحقق المستوى"
   getJSON("signals.json").then(j => {
-    state.signals = j;
+    put("us", "signals", j);
+    if (state.book !== "us") return;
     if (state.sym && state.symCache[state.sym]) {
       renderPlan(state.symCache[state.sym]);
       renderTrend(state.symCache[state.sym]);
