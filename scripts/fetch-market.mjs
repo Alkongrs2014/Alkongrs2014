@@ -18,7 +18,7 @@ import { fetchQuotesFinnhub, fhStats } from "./lib/finnhub.mjs";
 import { fetchCandlesTD, hasTwelveData, tdSleep, tdStats } from "./lib/twelvedata.mjs";
 import { fetchCandles as fetchCandlesBN, bnStats } from "./lib/binance.mjs";
 import { analyze, overallScore, aggregate, TFS, TF_WEIGHT, bandStable,
-         closedBars, isLiveBar, barTime } from "./lib/indicators.mjs";
+         closedBars, isLiveBar, barTime, BAR_MS } from "./lib/indicators.mjs";
 import { createRequire as __cr } from "node:module";
 const IND_AN_WIN = __cr(import.meta.url)("../stocks/indicators.js").AN_WIN;
 import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar } from "./lib/session.mjs";
@@ -554,8 +554,9 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
      والحذف **مشروط** لا مطلق (انظر `closedBars`): شمعةٌ مغلقة تبقى،
      وإلا قرأت الأسهم الأمريكية مساءً شمعةَ أمس اليومية. */
   rec.an = {};
+  const cnow = candleClock(rec, now);
   for (const tf of AN_TFS) {
-    const kk = rec.tf[tf]?.c ? closedBars(rec.tf[tf].c, tf, now).slice(-IND_AN_WIN) : null;
+    const kk = rec.tf[tf]?.c ? closedBars(rec.tf[tf].c, tf, cnow).slice(-IND_AN_WIN) : null;
     const a = (kk && kk.length) ? analyze(kk) : null;
     if (!a) continue;
     const { series, ...rest } = a;                    // لا نحفظ السلاسل الكاملة (حجم)
@@ -587,6 +588,39 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   rec.stale = !touched;
   if (errors.length) rec.errors = errors;
   return guardFrames(prev, rec, tier);
+}
+
+/* =====================================================================
+   ساعةُ الشمعة — نهايةُ آخر شمعة ‎15د‎ مغلقة في الجلسة الرسمية.
+
+   `candleKey` = `max(cbar)` = آخر شمعة ‎15د‎ مغلقة، والتحليل كان يقصّ
+   الفريمات الأخرى بساعة **الحائط**. وبعد الإغلاق يفترقان: المفتاح يبقى
+   ‎19:45Z‎ الجمعة طوال العطلة، بينما تصير شمعةُ الساعة ‎19:30‎ «مغلقة»
+   عند ‎20:30‎ وشمعةُ الجمعة اليومية عند منتصف ليل UTC — فتتغيّر النتيجة
+   و`tfScore` و`volc` تحت المفتاح نفسه. قِيس عطلة 2026-09-26: ‎193‎ رفضاً
+   في `opportunities-log.json` («البصمة تغيّرت داخل نفس الشمعة»)، ثم
+   تعديلٌ في ملفّ منطقٍ رفع `strategyVersion` فمرّ الحسابُ المنجرف كلُّه
+   دفعةً واحدة (NVDA ‎62→74‎ · AAPL ‎76→80‎) بلا أن تُغلق شمعة.
+
+   بساعة الشمعة يصير المُدخَل دالّةً في البيانات وحدها: لا تدخل شمعةٌ
+   إلا حين تُغلق شمعةُ ‎15د‎ تقدّم المفتاح نفسه. وهي **نفس ساعة
+   `track-strategies`** (`(cbar + 900) × 1000 + 1`) فيصف الملخّصُ
+   والاستراتيجياتُ الشمعاتِ نفسها.
+
+   وأثناء الجلسة لا يتغيّر شيء: كلُّ فريمٍ أمريكيّ (ساعة على ‎:30‎، ‎4h‎
+   حتى ‎20:00‎، اليومي بالتاريخ) ينتهي على حدّ ربع ساعة، وساعةُ الحائط
+   بين `cnow` و`cnow + 15د` — فلا حدَّ بينهما يفرّق. الفارق في العطلة
+   وحدها: الساعة ‎19:30‎ ويومُ الجمعة يدخلان مع أوّل شمعة الإثنين
+   (‎13:45Z‎) بمفتاحٍ جديد، لا منتصفَ ليل السبت تحت المفتاح القديم.
+
+   ورمزٌ بلا ‎15د‎ (البديل والطبقة الواسعة) يعود إلى ساعة الحائط: لا
+   مفتاحَ له يُشتقّ منه، وهو السلوك السابق حرفياً. */
+function candleClock(rec, now) {
+  const cc = rec?.tf?.["15m"]?.c;
+  if (!cc || cc.length < 2) return now;
+  const kk = closedBars(cc, "15m", now);
+  const t = kk.length ? barTime(kk[kk.length - 1]) : null;
+  return Number.isFinite(t) ? t + BAR_MS["15m"] + 1 : now;
 }
 
 /* ---------- التشغيل ---------- */
@@ -835,17 +869,18 @@ async function main() {
        ولا يُستبدل `p` في الصفّ: هو السعر المعروض في كل شاشة، وسعرٌ
        متأخّرٌ ربعَ ساعة في الترويسة خللٌ ظاهر. الفصل بين «ما يُعرض»
        و«ما يُقاس عليه» هو نفس فصل LIVE عن CONFIRMED في الاستراتيجيات. */
+    const cnow = candleClock(rec, now);    // انظر `candleClock` — لا ساعة الحائط
     const confBar = (() => {
       for (const tf of ["15m", "1h", "4h", "1d"]) {
         const cc = rec.tf[tf]?.c;
         if (!cc || cc.length < 2) continue;
-        const kk = closedBars(cc, tf, now);
+        const kk = closedBars(cc, tf, cnow);
         if (!kk.length) continue;
         return { tf, b: kk[kk.length - 1] };
       }
       return null;
     })();
-    const d1c = d1.length >= 2 ? closedBars(d1, "1d", now) : d1;
+    const d1c = d1.length >= 2 ? closedBars(d1, "1d", cnow) : d1;
     const volC = d1c.length ? d1c[d1c.length - 1].v : null;
     const prevC = d1.length > 1 ? d1[d1.length - 2].c : null;
     const lastV = d1.length ? num(d1[d1.length - 1].v) : null;
@@ -1475,6 +1510,45 @@ function selfCheck() {
     if (Math.abs(full.rsi - cut.rsi) < 1)
       throw new Error("الشمعة الجارية لا تغيّر المؤشّرات — الفحص بلا مفعول");
     return "الجارية تُحذف · المغلقة تبقى · والفرق مقيس";
+  });
+
+  /* =====================================================================
+     ساعةُ الشمعة بعد الإغلاق — الجمعة ‎19:45Z‎ مفتاحُ العطلة كلّها، فلا
+     يجوز أن يدخل تحته شيءٌ لم يكن داخلاً عند أوّل كتابة. بساعة الحائط
+     كانت الساعة ‎19:30‎ تدخل ‎20:30‎ ويومُ الجمعة منتصفَ الليل (‎193‎
+     رفضاً عطلة 2026-09-26). والضابط السلبيّ يثبت أن الفحص يرى العلّة.
+     ===================================================================== */
+  t("ساعة الشمعة تثبّت ما يدخل التحليل بعد الإغلاق — وتطابق الحائط أثناء الجلسة", () => {
+    const q = 900000, h = 3600000, day = 86400000;
+    const fri = Date.parse("2026-09-25T13:30:00Z");
+    const bar = (t, c) => ({ t, o: c, h: c, l: c, c, v: 1 });
+    const k15 = [], k1h = [];
+    for (let i = 0; i < 26; i++) k15.push(bar(fri + i * q, 100 + i));   // 13:30 … 19:45
+    for (let i = 0; i < 7; i++) k1h.push(bar(fri + i * h, 100 + i));    // 13:30 … 19:30
+    const k1d = [bar(fri - day, 99), bar(fri, 101)];
+    const rec = { tf: { "15m": { c: k15 }, "1h": { c: k1h }, "1d": { c: k1d } } };
+    const cut = (now) => {
+      const c = candleClock(rec, now);
+      return [closedBars(k1h, "1h", c).length, closedBars(k1d, "1d", c).length].join("/");
+    };
+    const walls = ["2026-09-25T20:03:00Z", "2026-09-25T20:45:00Z",
+                   "2026-09-26T00:30:00Z", "2026-09-27T22:00:00Z"].map(Date.parse);
+    eq(candleClock(rec, walls[0]), Date.parse("2026-09-25T20:00:00Z") + 1, "الساعة = نهاية 19:45");
+    const ref = cut(walls[0]);
+    for (const w of walls) eq(cut(w), ref, "ما يدخل التحليل ثابتٌ طوال العطلة (" + new Date(w).toISOString() + ")");
+    // الضابط السلبيّ: ساعة الحائط كانت تُدخل الساعة ‎19:30‎ واليومَ تحت المفتاح نفسه
+    const wall = (w) => [closedBars(k1h, "1h", w).length, closedBars(k1d, "1d", w).length].join("/");
+    if (wall(walls[0]) === wall(walls[3]))
+      throw new Error("ساعة الحائط لا تنجرف في المُثبِّت — الفحص بلا مفعول");
+    // وأثناء الجلسة لا فرق: كلُّ حدٍّ أمريكيّ على شبكة ربع الساعة
+    for (let m = 0; m < 390; m += 7) {
+      const w = fri + q + m * 60000;                      // بعد إغلاق أوّل شمعة
+      const sub = { tf: { "15m": { c: k15.filter(b => b.t < w) } } };
+      const c = candleClock(sub, w);
+      eq(closedBars(k1h, "1h", c).length, closedBars(k1h, "1h", w).length, "ساعة @" + m);
+      eq(closedBars(k1d, "1d", c).length, closedBars(k1d, "1d", w).length, "يومي @" + m);
+    }
+    return `العطلة ${ref} ثابت على ${walls.length} ساعات حائط · الجلسة مطابقة`;
   });
 
   t("aggregate ثابتٌ أمام تدحرج النافذة — لا ينزاح بطول المصفوفة", () => {
