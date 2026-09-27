@@ -44,7 +44,20 @@ async function domCheck() {
     try { chromium = require(c).chromium; break; } catch { /* التالي */ }
   }
   if (!chromium) return { err: "لا Playwright" };
-  const browser = await chromium.launch({ headless: true });
+  /* داخل مهمة المجدول لا يرى Playwright متصفّحه المنزَّل («Executable doesn't
+     exist» والملفّ موجود — قِيس 2026-09-27)، بينما يراه من الطرفية. فسلسلةُ
+     بدائل: الافتراضي، ثم Chromium الكامل من نفس المجلّد، ثم Edge المثبَّت في
+     ويندوز. ويُسجَّل أيُّها عمل. */
+  let browser = null, via = null;
+  const tries = [["default", {}],
+    ["chromium", { executablePath: path.join(process.env.LOCALAPPDATA || "", "ms-playwright", "chromium-1234", "chrome-win64", "chrome.exe") }],
+    ["msedge", { channel: "msedge" }]];
+  const fails = [];
+  for (const [name, o] of tries) {
+    try { browser = await chromium.launch({ headless: true, ...o }); via = name; break; }
+    catch (err) { fails.push(name + ": " + err.message.split(/\r?\n/)[0].slice(0, 120)); }
+  }
+  if (!browser) return { err: fails.join(" | ") };
   try {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
@@ -72,7 +85,7 @@ async function domCheck() {
     return { s: { k: s.key, h: s.hash, dom: h12(s.rows.join(",")), ok: s.rows.join() === s.file.join(), usd: s.rows.filter(x => /-USD$/.test(x)).length },
              c: { k: c.key, h: c.hash, dom: h12(c.rows.join(",")), ok: c.rows.join() === c.file.join(), n: c.rows.length,
                   alien: c.rows.filter(x => !/-USD$/.test(x)).length },
-             errs: errs.length };
+             errs: errs.length, via };
   } finally { await browser.close(); }
 }
 
@@ -110,7 +123,7 @@ async function main() {
       e.dom = await domCheck();
       if (e.dom.c && (!e.dom.c.ok || e.dom.c.alien)) e.dv = 1;
       if (e.dom.s && (!e.dom.s.ok || e.dom.s.usd)) e.dv = 1;
-    } catch (err) { e.dom = { err: err.message.slice(0, 160) }; }
+    } catch (err) { e.dom = { err: err.message.slice(0, 600), node: process.execPath, pwb: process.env.PLAYWRIGHT_BROWSERS_PATH || null, lad: process.env.LOCALAPPDATA || null }; }
   }
   fs.appendFileSync(LOG, JSON.stringify(e) + "\n");
   console.log(JSON.stringify(e));
