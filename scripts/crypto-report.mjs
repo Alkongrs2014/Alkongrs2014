@@ -137,6 +137,21 @@ function main() {
   const summ = (a) => ({ n: a.length, avg: avg(a), med: med(a), win: a.length ? a.filter(x => x > 0).length / a.length : null });
   out.ranking = Object.fromEntries(Object.entries(R).map(([k, v]) => [k, { h1: summ(v[1]), h4: summ(v[4]) }]));
   out.snapshots = snaps.length;
+  /* الارتعاش: فرصةٌ (عملة|إعداد|جهة) غابت عن قائمتها ثم عادت خلال ساعة —
+     المشكلة التي بلّغ عنها المالك بـPUMP. وكذلك في «الأقوى الآن». */
+  const flick = (get) => {
+    const pres = new Map();
+    snaps.forEach((s, i) => { for (const key of get(s)) { if (!pres.has(key)) pres.set(key, []); pres.get(key).push(i); } });
+    let gaps = 0, back = 0;
+    for (const idx of pres.values()) for (let j = 1; j < idx.length; j++) {
+      const g = idx[j] - idx[j - 1] - 1; if (g > 0) { gaps++; if (g <= 12) back++; }
+    }
+    return { keys: pres.size, gaps, backWithin1h: back };
+  };
+  out.flicker = {
+    lists: flick(s => Object.entries(s.scans || {}).flatMap(([id, rows]) => rows.map(r => `${r.s}|${id}|${r.sd}`))),
+    best: flick(s => (s.best || []).map(r => `${r.s}|${r.sd}`))
+  };
 
   /* ٦ — توافق البيتكوين على الفرص المعروضة نفسها */
   const grp = (f) => { const g = all.filter(f); return { n: g.length, t1: g.filter(x => x.hit >= 1).length,
@@ -177,6 +192,7 @@ if (process.argv.includes("--json")) { console.log(JSON.stringify(o, null, 1)); 
 const S = o.stability, X = o.outcomes, T = o.timing, B = o.btc;
 console.log(`\n▶ تقرير اختبار الكريبتو · ${S.from || "—"} → ${S.to || "—"}\n`);
 console.log(`١ الثبات: ${S.samples} عيّنة منشورة · ${S.cryptoCandles} شمعة · تغيّرٌ داخل الشمعة ${S.intraCandleChanges} · رجوع ${S.backwards} · صفحة ${S.domChecks} فحصاً (${S.domMismatch} مخالفة) · أخطاء ${S.errors}`);
+console.log(`   الارتعاش: القوائم ${o.flicker.lists.gaps} غياباً (عاد خلال ساعة ${o.flicker.lists.backWithin1h}) من ${o.flicker.lists.keys} فرصة · «الأقوى الآن» ${o.flicker.best.gaps} (عاد ${o.flicker.best.backWithin1h})`);
 console.log(`٨ الأسهم: بصمات ${S.stocksHashes.join("، ")} · تغيّرٌ داخل شمعتها ${S.stocksIntraChanges} · تقدّمُ مفتاحها ${S.stocksKeyMoves.length}`);
 console.log(`٣/٤ الفرص المعروضة ${X.shown} (منتهية ${X.ended} · مفتوحة ${X.open}) · دخلت ${X.entered} · T1 ${X.t1} · T2 ${X.t2}/${X.t2Den} · T3 ${X.t3}/${X.t3Den} · وقف ${X.stop} (بعد T1: ${X.stopAfterT1}) · زال السبب ${X.gone} · قديمة ${X.old}`);
 console.log(`   وسيط أقصى ربح ${pct(X.medMfe)} · وسيط أقصى تراجع ${pct(X.medMae)} · حسب الإعداد ${JSON.stringify(X.byScan)}`);

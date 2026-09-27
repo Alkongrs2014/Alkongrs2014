@@ -5164,7 +5164,8 @@ function renderCryptoRegime() {
 
 /* ما انتهى من الفرص المعروضة — «السجلّ» الخاص بدفتر الكريبتو. الفرصة التي
    بلغت هدفها الأخير أو ضُرب وقفها أو زال سببها لا تبقى في القائمة. */
-const END_LABEL = { tgt: "بلغت هدفها الأخير", stop: "ضُرب الوقف", old: "انتهت صلاحيتها", gone: "زال سببها" };
+const END_LABEL = { tgt: "بلغت هدفها الأخير", stop: "ضُرب الوقف", old: "انتهت صلاحيتها (20 ساعة بلا حسم)",
+                    gone: "زال سببها — تأكّد على الفريمات الأعلى", out: "خرجت لصالح أقوى" };
 function renderCryptoEnded() {
   const el = $("#cEnded"); if (!el) return;
   const H = (BOOKS.cryptoHist && BOOKS.cryptoHist.rows) || [];
@@ -8028,6 +8029,13 @@ function renderScreen() {
     const setupTag = CR && scan.id === "best" && r.scan
       ? `<span class="cold">${esc((SCANS.find(x => x.id === r.scan) || {}).lbl || r.scan)}</span>` : "";
     if (setupTag) chips.unshift(setupTag);
+    /* جودة الدخول تُقال بأرقامها: التمدّد عن متوسّط ‎20‎ الساعة (بـATR) والمسافة
+       الباقية إلى الهدف التالي مقابل الوقف — منهما تُبنى الدرجة لا من قوّة
+       الصعود السابق. */
+    if (CR && Number.isFinite(r.ext))
+      chips.push(`<span class="${r.ext > 1.5 ? "hot" : ""}">تمدّد <span class="num">${r.ext.toFixed(1)}</span>×ATR</span>`);
+    if (CR && Number.isFinite(r.rr))
+      chips.push(`<span class="${r.rr < 1 ? "hot" : ""}">مسافة للهدف <span class="num">${r.rr.toFixed(1)}</span>× الوقف</span>`);
     if (Number.isFinite(r.mv) && Math.abs(r.mv) >= 0.05)
       chips.push(`<span class="${r.mv > 0 ? "good" : "bad"}">منذ الظهور <span class="num">${r.mv > 0 ? "+" : ""}${r.mv.toFixed(2)}%</span></span>`);
     if (Number.isFinite(cf.n) && cf.n > 0)

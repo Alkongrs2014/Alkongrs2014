@@ -70,15 +70,85 @@ const CRYPTO = process.env.BOOK === "crypto";
 const BAR_SEC = Number(process.env.OPP_BAR_SEC || (CRYPTO ? 300 : 900));
 const WALK_TF = CRYPTO ? "5m" : "15m";
 const C_SETUPS = ["align", "alignDn", "divBull", "divBear", "pullback"];
-const C_FRESH_TF = "4h";          // أعلى فريمات الفرص — نظيرُ «اليومي» في الأسهم
-const C_TOP = 20, C_BEST = 15, C_QMIN = 0.5, C_MISS = 6, BTC_W = 0.25;
-const LIFE_V = "c5";              // لقطةٌ من قبل هذا الإعداد لا تُورَث حالتُها
+/* الطزاجة على الساعة: جديدة ≤ ساعتين · قائمة ≤ ‎6‎ · متأخّرة ≤ ‎20‎ · بعدها
+   «قديمة» تنتهي. كانت على ‎4س‎ (قديمةٌ بعد ‎80‎ ساعة) فبقيت إعداداتٌ حيّة
+   بلا حسمٍ تحتلّ القائمة يوماً كاملاً. */
+const C_FRESH_TF = "1h";
+const C_TOP = 20, C_BEST = 15, C_QMIN = 0.5, BTC_W = 0.25;
+/* =====================================================================
+   **دورة حياة الكريبتو ٢** — ما كشفه اختبار السبت (2026-09-27):
+
+   ‎303‎ من ‎317‎ فرصة منتهية خرجت بـ«زال السبب» لا بهدفٍ ولا وقف، و`PUMP`
+   اختفت ‎11‎ مرّة في ‎14‎ ساعة — **عشرٌ منها لأن ‎5د‎ وحده نزل** تحت ‎15‎
+   والفريمات الثلاثة الأعلى صاعدة بقوّة (‎15د 76 · ساعة 94 · 4س 94‎).
+   `allTF` يشترط الأربعة في كل شمعة، و‎5د‎ يتذبذب بطبيعته.
+
+   ١) **الدخول غير البقاء** (`C_CORE`): الإعداد يُدخَل بشرطه كاملاً (الأربعة
+      — زخمٌ حاضر)، ويبقى صالحاً ما دامت الفريمات الأعلى على جهته. فتذبذبُ
+      ‎5د‎ لا يمسح فرصةً قائمة على ‎15د/ساعة/4س‎.
+   ٢) **بوّابة الجودة وسقف العدد للدخول وحده**: فرصةٌ عُرضت لا تسقط من القائمة
+      لأن رتبتها صارت ‎21‎ أو درجتها المئوية نزلت — تخرج بدورة حياتها فقط.
+   ٣) **زوالُ السبب مؤكَّد**: ‎3‎ شموع ‎5د‎ مغلقة متتالية لا يصمد فيها حتى
+      قلبُ الإعداد (الفريمات الأعلى) — ربعُ ساعة، شمعةُ ‎15د‎ كاملة.
+   ٤) **لا مطاردة**: الدرجة تُخفَّض بقدر تمدّد السعر عن متوسّط ‎20‎ على الساعة
+      (بوحدات ATR الساعة) وبقدر ضيق المسافة الباقية إلى الهدف التالي مقابل
+      الوقف. عملةٌ صعدت بقوّة قبل ظهورها لا تأخذ درجةً أعلى لأنها صعدت.
+   ٥) **البيتكوين يرجّح ولا يخنق**: الموافِقة ‎+25%‎ كحدٍّ أقصى، والمعاكِسة
+      ‎−12%‎ كحدٍّ أقصى (كانت ‎−25%‎) — إعدادٌ هابطٌ قويّ في سوقٍ صاعد يُوسَم
+      ولا يُدفن تحت القائمة.
+   ===================================================================== */
+const C_MISS = 3, BTC_W_DN = 0.12, C_CAP = 40;
+/* قلبُ الإعداد: الساعة و‎4س‎ على جهته، و‎15د‎ **لا يعاكسه بقوّة** (فوق ‎−45‎
+   في جهته). أوّلُ صيغةٍ اشترطت ‎15د‎ ≥ ‎15‎ فصارت هي المتذبذبة: في إعادة
+   تشغيل الأحد، ‎105‎ من ‎113‎ انتهاءً «زال السبب» كان ‎15د‎ وحده والساعة و‎4س‎
+   قائمتان. فالوزن للأعلى كما طلب المالك: ‎5د‎ للدخول، و‎15د‎ حارسُ انعكاس،
+   والساعة و‎4س‎ هما الإعداد. */
+const coreHolds = (tf, d) => ["1h", "4h"].every(t => Number.isFinite(tf[t]) && tf[t] * d >= 15)
+  && Number.isFinite(tf["15m"]) && tf["15m"] * d > -45;
+/* قلبُ كل إعدادٍ — ما يجب أن يبقى صحيحاً كي تبقى الفرصة، لا شرطُ دخولها:
+   · التوافق: الساعة و‎4س‎ على جهته و‎15د‎ لا يعاكس بقوّة (أعلاه).
+   · الارتداد: **الاتجاه الأمّ** قائم (فوق م200 وم50 فوق م200). شرطُ الدخول
+     «تحت م20» يسقط حين ينجح الارتداد نفسه — فكانت الصفقة الرابحة تنتهي
+     «زال السبب» وهي في طريقها إلى هدفها (‎14‎ في إعادة تشغيل الأحد).
+   · التباعد: الساعة لا تعاكسه بقوّة — إشارةُ انعطافٍ تُعطى وقتها. */
+const C_CORE = {
+  align:    [1,  (r) => coreHolds(r.tfScore || {}, 1)],
+  alignDn:  [-1, (r) => coreHolds(r.tfScore || {}, -1)],
+  pullback: [1,  (r) => Number.isFinite(r.e200) && r.p > r.e200 && r.e50 > r.e200],
+  divBull:  [1,  (r) => Number.isFinite((r.tfScore || {})["1h"]) && r.tfScore["1h"] > -45],
+  divBear:  [-1, (r) => Number.isFinite((r.tfScore || {})["1h"]) && r.tfScore["1h"] < 45]
+};
+const LIFE_V = "c6";              // لقطةٌ من قبل هذا الإعداد لا تُورَث حالتُها
 export const btcAlign = (sd, regime) => {
   if (!(sd === 1 || sd === -1) || !regime || !Number.isFinite(regime.score)) return null;
   const a = Math.max(-1, Math.min(1, sd * regime.score / 100));
   return { a: Math.round(a * 100) / 100,
            k: a >= 0.45 ? "strong" : a >= 0.15 ? "mid" : a > -0.15 ? "flat" : "counter" };
 };
+export const btcMult = (a) => a >= 0 ? 1 + BTC_W * a : 1 + BTC_W_DN * a;
+/* التمدّد: كم ATR (ساعة) يبعد الإغلاق عن متوسّط ‎20‎ الساعة في جهة الفرصة.
+   حتى ‎1×‎ طبيعي، وبعده ينقص المعامِل ‎25%‎ لكل ATR إضافي (أدنى ‎0.4‎). */
+/* قِيس على إعادة تشغيل الأحد («الأقوى الآن»، ‎1092‎ عيّنة، عائد ‎4س‎ في جهة
+   الفرصة): تمدّد ≤1 ‎−0.11%‎ · 1–2 ‎−0.46%‎ · 2–3 ‎−0.56%‎ · >3 ‎−1.06%‎ —
+   علاقةٌ رتيبة، فالعقوبة تبدأ من ‎0.5‎ ATR وتنقص ‎30%‎ لكل ATR (أدنى ‎0.3‎).
+   معايرةٌ على العيّنة نفسها — والاختبار الحيّ بعدها هو الحكم. */
+export const extFactor = (ext) => !Number.isFinite(ext) || ext <= 0.5 ? 1 : Math.max(0.3, 1 - 0.3 * (ext - 0.5));
+/* المسافة الباقية: (الهدف التالي − الإغلاق) ÷ (الإغلاق − الوقف). ‎1.5‎ فأكثر
+   كامل، ودونها يتناسب (أدنى ‎0.4‎)، وتحت الوقف أو بلا هدفٍ باقٍ ‎0.4‎. */
+export const roomFactor = (rr) => !Number.isFinite(rr) || rr <= 0 ? 0.3 : Math.min(1, Math.max(0.3, rr / 2));
+/* =====================================================================
+   **الدرجة للكريبتو = جودةُ الدخول أولاً، وقوّةُ الإعداد ثانياً.**
+
+   فُكّكت الدرجة على إعادة تشغيل الأحد (‎3570‎ صفّاً، عائد ‎4س‎ في جهة
+   الفرصة): رتبةُ الإعداد (قوّة الاتجاه) **معكوسة الدلالة** — النصف الأدنى
+   ‎+0.15%‎ والأعلى ‎−0.46%‎ — وكذلك عددُ الاستراتيجيات المتّفقة (‎4‎ فأكثر
+   ‎−0.46%‎). أمّا التمدّد والمسافة الباقية والحداثة فتتنبّأ في الاتجاه
+   الصحيح. وهو نفس درس أرشيف الأسهم (عشر سنوات): هذا الكون يدفع على الدخول
+   المبكّر ويعاقب على مطاردة الزخم.
+   فقوّة الإعداد تبقى **بوّابةً** للدخول ووزناً ثانوياً (‎40%‎)، والباقي
+   لجودة الدخول: غير متمدّد · أمامه مسافة · حديث · والبيتكوين مرجِّحاً.
+   ===================================================================== */
+const setupWeight = (q0) => 0.6 + 0.4 * Math.max(0, Math.min(1, Number.isFinite(q0) ? q0 : 0));
 const sha12 = (s) => createHash("sha256").update(s).digest("hex").slice(0, 12);
 /* أدنى نسبةٍ من الصفوف الحيّة يجب أن تحمل الفريمات الأربعة. انظر
    «البوّابة ٠» أدناه. */
@@ -290,7 +360,10 @@ function buildSnapshotImpl(now) {
        وMU ‎+4.91%‎ وPLTR ‎+3.67%‎ وFSLR ‎−10.36%‎ — كلُّها بشرطٍ يُطلق
        وخطةٍ سابقة «مكتملة». أمّا المنتهي بالقِدَم فلا يُعاد: إعدادٌ عمره
        عشرون شمعةً من فريمه ليس جديداً لأن الساعة تقدّمت. */
-    if (L && L.end && (L.end.k === "tgt" || L.end.k === "stop") && L.end.at < candleKey) {
+    /* و«خرجت لصالح أقوى» (`out`) تعود فرصةً جديدة بعد ساعة إن بقي إعدادُها —
+       لا فوراً (وإلا صارت الإزاحة ارتعاشاً باسمٍ آخر) ولا أبداً. */
+    if (L && L.end && (L.end.k === "tgt" || L.end.k === "stop" ||
+        (CRYPTO && L.end.k === "out" && candleKey - L.end.at >= 3600)) && L.end.at < candleKey) {
       closedRe.push([key, L.end.k]);
       L = null; delete life[key];
     }
@@ -325,15 +398,38 @@ function buildSnapshotImpl(now) {
     }
     const mv = Number.isFinite(row.pc) && L.px0 > 0 ? (row.pc / L.px0 - 1) * 100 * sd : null;
     const ba = CRYPTO ? btcAlign(sd, regime) : null;
+    let cx = null;
+    if (CRYPTO) {
+      const a1 = B.rec && B.rec.an && B.rec.an["1h"];
+      const ext = (a1 && a1.atr > 0 && Number.isFinite(a1.e20) && Number.isFinite(row.pc)) ? sd * (row.pc - a1.e20) / a1.atr : null;
+      const nt = (L.t || [])[L.hit];
+      const rr = (Number.isFinite(nt) && Number.isFinite(L.st) && Number.isFinite(row.pc) && (row.pc - L.st) * sd > 0)
+        ? (nt - row.pc) * sd / ((row.pc - L.st) * sd) : null;
+      cx = { ext: ext == null ? null : Math.round(ext * 100) / 100, rr: rr == null ? null : Math.round(rr * 100) / 100,
+             m: extFactor(ext) * roomFactor(rr) * (ba ? btcMult(ba.a) : 1) };
+    }
     return {
-      mult: (F_FRESH[fr && fr.k] ?? 1) * F_ROOM[Math.min(L.hit, 3)] * (ba ? 1 + BTC_W * ba.a : 1),
+      mult: (F_FRESH[fr && fr.k] ?? 1) * F_ROOM[Math.min(L.hit, 3)] * (cx ? cx.m : 1),
       f: { since: L.since, px0: L.px0 == null ? null : rp(L.px0), e: L.e, st: L.st, t: L.t,
            hit: L.hit, in: L.in, fk: fr ? fr.k : null, mv: mv == null ? null : Math.round(mv * 100) / 100,
-           ...(ba ? { ba: ba.a, bk: ba.k } : {}) }
+           ...(ba ? { ba: ba.a, bk: ba.k } : {}), ...(cx ? { ext: cx.ext, rr: cx.rr,
+             cm: Math.round((F_FRESH[fr && fr.k] ?? 1) * F_ROOM[Math.min(L.hit, 3)] * cx.m * 1e4) / 1e4 } : {}) }
     };
   };
 
-  const SC = CRYPTO ? SCANS.filter(s => C_SETUPS.includes(s.id)) : SCANS;
+  /* البقاء: إعدادٌ عُرض في شمعةٍ سابقة ولم ينتهِ، وقلبُه (الفريمات الأعلى)
+     ما زال على جهته — يُعدّ مُطلِقاً وإن نزل ‎5د‎. `prevLife` حالةُ اللقطة
+     السابقة، فالقرار واحدٌ مهما أُعيد البناء داخل الشمعة. */
+  const alive = (s, id, d) => { const L = prevLife && prevLife[lifeKey(s, id, d)]; return !!(L && L.shown && !L.end); };
+  const SC = !CRYPTO ? SCANS : SCANS.filter(s => C_SETUPS.includes(s.id)).map(s => {
+    const core = C_CORE[s.id];
+    if (!core) return s;
+    const [d, holds] = core;
+    return { ...s, test: (r, f, ctx) => {
+      if (s.test(r, f, ctx)) return true;
+      return alive(r.s, s.id, d) && holds(r);
+    } };
+  });
   const scans = buildOpps(
     { SCANS: SC, scanRow, forcedDir, resolveOpp, consFromRows, scsFrom, oppQualityOf },
     { rows: summary.rows, wideRows, fund: F, secMed,
@@ -357,10 +453,29 @@ function buildSnapshotImpl(now) {
      المحرّك رتّب كلَّ ما أطلق شرطاً؛ هنا يُبقى ما يستحقّ اسم «فرصة». */
   let best = null;
   if (CRYPTO) {
+    /* الدرجة المعروضة تُعاد: وزنُ الإعداد × معامِل جودة الدخول (`cm` من
+       دورة الحياة). ثم يُعاد الترتيب بها — والقديمة `q0` محفوظةٌ للتشخيص. */
+    for (const id of Object.keys(scans)) {
+      for (const r of scans[id]) if (Number.isFinite(r.cm)) r.q = Math.round(setupWeight(r.q0) * r.cm * 1e4) / 1e4;
+      scans[id].sort((a, b) => b.q - a.q);
+    }
     const pool = [];
     for (const id of Object.keys(scans)) {
-      const kept = scans[id].filter(r => Number.isFinite(r.e) && Number.isFinite(r.st) &&
-        Array.isArray(r.t) && r.t.length && !r.mixed && r.q >= C_QMIN).slice(0, C_TOP);
+      /* المعروضةُ سابقاً تبقى ما دامت حيّة؛ والجديدةُ تمرّ بالبوّابة ثم السقف
+         على ما بقي من مقاعده. والترتيب بعدها بالدرجة كما هو. */
+      const wasShown = (r) => { const L = life[lifeKey(r.s, id, r.sd)]; return !!(L && L.shown); };
+      const planOk = (r) => Number.isFinite(r.e) && Number.isFinite(r.st) && Array.isArray(r.t) && r.t.length;
+      /* **العضوية غير الترتيب.** الحيّةُ تبقى في قائمة إعدادها ما دامت حيّة —
+         لا تُزاح بسقفٍ ولا برتبة (جُرّبت الإزاحة بأضعف القائمين فصارت ‎227‎
+         من ‎263‎ نهايةً «أُزيحت»: الدرجة تتحرّك كل شمعة، فالإزاحةُ ارتعاشٌ
+         باسمٍ آخر). والجديدةُ تدخل ببوّابة الجودة حتى سقف ‎40‎ للإعداد.
+         والقائمة لا تتشبّع بالقديم لأن الطزاجة على الساعة (قديمةٌ بعد ‎20‎
+         ساعة)، و«الأقوى الآن» هي الأعلى ‎15‎ بالدرجة الحالية. */
+      const seats = scans[id].filter(r => planOk(r) && wasShown(r));
+      const fresh = scans[id].filter(r => planOk(r) && !wasShown(r) && !r.mixed && (r.q0 ?? r.q) >= C_QMIN)
+                             .slice(0, Math.max(0, C_CAP - seats.length));
+      const pick = new Set([...seats, ...fresh]);
+      const kept = scans[id].filter(r => pick.has(r));
       kept.forEach((r, i) => {
         const L = life[lifeKey(r.s, id, r.sd)];
         // أوّلُ ظهور: الرتبة والدرجة وتوافق البيتكوين لحظتَها — للتقرير لا للعرض

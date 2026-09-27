@@ -195,8 +195,12 @@ export function snapFor(c, r, plan, at) {
    جاريةٌ مغلقةً (‎cbar+900‎ على شبكة ‎5د‎ تُدخل الجارية وما بعدها). */
 const BAR_SEC = Number(process.env.OPP_BAR_SEC || 900);
 
-export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes = null } = {}) {
-  const summary = readJSON(path.join(out, "summary.json"));
+/* `io` اختياري: قارئٌ بديل (`(rel, def) => json`) لإعادة التشغيل التاريخية —
+   تُمرَّر الشمعات مقصوصةً عند كل شمعةٍ ماضية في الذاكرة بدل كتابة مئات
+   الملفّات لكل شمعة. غيابُه = القراءة من `out` كما كانت بالحرف. */
+export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes = null, io = null } = {}) {
+  const rj = io || ((rel, d = null) => readJSON(path.join(out, rel), d));
+  const summary = rj("summary.json");
   if (!summary || !Array.isArray(summary.rows) || !summary.rows.length)
     throw new Error("لا summary.json — لا يُكتب فوق بياناتٍ سليمة");
 
@@ -205,7 +209,7 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
      لحظةِ بدءٍ مسجَّلة — والواجهة تقول «منذ هذه الدورة» أبداً، وهو
      أسوأ سؤالٍ يمكن أن يُترك بلا جواب في هذه الميزة.
      وصفوفها تُقرأ للسعر و52 أسبوعاً وحدها؛ التحليل من ملف الرمز. */
-  const wide = readJSON(path.join(out, "wide.json"), { rows: [] });
+  const wide = rj("wide.json", { rows: [] });
   const seen = new Set(summary.rows.map(r => r.s));
   const all = summary.rows.concat((wide.rows || []).filter(r => r && !seen.has(r.s)));
   /* ساعةُ الشمعة — تُحسب هنا مرّةً قبل كل ما يقيس زمناً (انظر شرحها عند
@@ -217,7 +221,7 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   const cnow = cbarMax ? (cbarMax + BAR_SEC) * 1000 + 1 : null;
   const tnow = cnow || now;
 
-  const prevFile = readJSON(path.join(out, "strategies.json"), { rows: [] });
+  const prevFile = rj("strategies.json", { rows: [] });
   const prevBy = {};
   for (const r of prevFile.rows || []) prevBy[stateKey(r.s, r.st)] = r;
   /* مرساةُ الهيستريسس من الخريطة المستقلّة، وبمهلة. والصفُّ القائم
@@ -228,12 +232,12 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
     if (h && (tnow - v[4] * 1000) < HOLD_TTL) holdPrev[k] = h;
   }
 
-  const edgeFile = readJSON(path.join(out, "strategy-edge.json"));
+  const edgeFile = rj("strategy-edge.json");
   const edge = {};
   for (const r of (edgeFile && edgeFile.rows) || []) edge[r.id] = r;
 
-  const openPrev = readJSON(path.join(out, "strat-signals.json"), { records: [] });
-  const histPrev = readJSON(path.join(out, "strat-history.json"), { records: [] });
+  const openPrev = rj("strat-signals.json", { records: [] });
+  const histPrev = rj("strat-history.json", { records: [] });
   const prevTotal = (openPrev.records || []).length + (histPrev.records || []).length;
 
   const rows = [], trends = {}, live = (openPrev.records || []).slice();
@@ -315,7 +319,7 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
      لا ينكسر. */
   if (cnow) info("scanner", `ساعة التأكيد مثبَّتة على شمعة ${new Date(cbarMax * 1000).toISOString().slice(11, 16)}Z (من cbar)`);
   for (const row of all) {
-    const rec = readJSON(path.join(out, "sym", `${row.s}.json`));
+    const rec = rj(`sym/${row.s}.json`);
     if (!rec) { skipped++; continue; }
     const px = num(quotes && quotes[row.s]) ?? num(row.p);
     if (!(px > 0)) { skipped++; continue; }
@@ -627,7 +631,11 @@ function selfTest() {
   process.exit(fail ? 1 : 0);
 }
 
-if (CHECK) selfTest();
+/* حارس الاستيراد: إعادة التشغيل تستورد `runOnce` — واستيرادٌ يشغّل الملفّ
+   كان سيكتب في `data/` (مصيدة `IS_MAIN` الموثّقة في track-signals). */
+const IS_MAIN = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+if (!IS_MAIN) { /* مستورَد */ }
+else if (CHECK) selfTest();
 else {
   const now = Date.now();
   const res = runOnce({ out: OUT, now, onlyPrice: ONLY_PRICE });
