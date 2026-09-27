@@ -637,6 +637,11 @@ body.sheet-open{overflow:hidden}
 .opp-ft span.good{background:var(--upBg);color:var(--up);border-color:rgba(43,217,138,.24)}
 .opp-ft span.bad{background:var(--dnBg);color:var(--dn);border-color:rgba(255,77,99,.26)}
 .opp-ft span.cold{background:rgba(150,182,214,.05);color:var(--tx3)}
+/* الأهداف المتحقّقة في الكريبتو — سطرٌ ظاهر لا شريطٌ بين الشرائط */
+.opp-hit{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 9px;position:relative;z-index:2}
+.opp-hit span{font-size:11.5px;font-weight:700;color:var(--up);background:var(--upBg);
+  border:1px solid rgba(43,217,138,.24);border-radius:var(--r-pill);padding:3px 10px}
+#cEnded .good{color:var(--up)} #cEnded .cold{color:var(--tx3)}
 
 /* الترويسة اللاصقة لشاشة الفرص: المرشّحات تبقى في متناول الإبهام */
 .sticky-hd{position:sticky;top:0;z-index:20;margin:-15px -15px 12px;
@@ -1565,6 +1570,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   <div class="card" data-grp="chart">
     <h2>الشارت والمتوسطات</h2>
     <div class="tf-picker" id="tfPicker">
+      <button data-tf="5m" hidden>5 دقائق</button>
       <button data-tf="15m">15 دقيقة</button>
       <button data-tf="1h" class="on">ساعة</button>
       <button data-tf="4h">4 ساعات</button>
@@ -1885,17 +1891,24 @@ section[data-view="now"].on{display:flex;flex-direction:column}
       </div>
       <div class="scans" id="cScanPicker"></div>
     </div>
+    <div id="cRegime"></div>
     <div id="cScanList"><div class="skl" style="height:150px"></div></div>
     <p class="srcline" id="cScanCount"></p>
     <details class="plain">
       <summary>ما الفرق بين هذا الدفتر ودفتر الأسهم؟</summary>
       <p class="scan-why" id="cScanWhy" style="margin:0 0 9px;padding:0"></p>
       <p class="srcline" style="text-align:start">
-        كونٌ ثابت من أعلى العملات سيولةً عند Binance، بنفس الفريمات (15د · ساعة · 4 ساعات · يومي)
+        كلُّ عملةٍ تُتداول فعلاً في Binance Spot فوق عتبة سيولة، يُعاد بناؤها مرّةً في اليوم. الفرص على
+        فريمات 5د · 15د · ساعة · 4 ساعات، وتوجّه السوق من البيتكوين على ساعة · 4 ساعات · يومي، وكلُّ رقمٍ
+        على الشموع المغلقة وحدها — تتحدّث القائمة عند إغلاق كل شمعة 5 دقائق ولا تتغيّر بينها.
         ونفس الشروط والاستراتيجيات — لكن بلقطةٍ وشمعةٍ وملفّاتٍ خاصّة به. فإغلاقُ شمعة عملةٍ لا يغيّر
         نقطةً ولا ترتيباً في الأسهم، والعكس. ولا حافّة مقيسة للعملات بعد، فأوزان الاستراتيجيات محايدة.
       </p>
     </details>
+  </div>
+  <div class="card">
+    <h2>انتهت مؤخراً</h2>
+    <div id="cEnded"><div class="skl" style="height:90px"></div></div>
   </div>
 </section>
 
@@ -5128,6 +5141,50 @@ function oppsNewer(cur, j) {
   return true;
 }
 
+/* توجّه سوق الكريبتو — **من اللقطة** (نفس البيتكوين الذي رتّب القائمة)،
+   على 1h · 4h · 1d المغلقة. */
+function renderCryptoRegime() {
+  const el = $("#cRegime"); if (!el) return;
+  const R = state.opps && state.opps.regime;
+  if (!R || !Number.isFinite(R.score)) { el.innerHTML = ""; return; }
+  const w = R.dir > 0 ? "صاعد" : R.dir < 0 ? "هابط" : "محايد";
+  const c = R.dir > 0 ? "var(--up)" : R.dir < 0 ? "var(--dn)" : "var(--mut)";
+  const cell = (tf) => {
+    const v = (R.tf || {})[tf], b = (R.breadth || {})[tf] || {};
+    const lb = labelOf(v);
+    return `<div class="stat"><div class="k">${esc(tfLbl(tf))}</div>
+      <div class="v" style="color:${lb.c}">${Number.isFinite(v) ? Math.round(v) : "—"}</div>
+      <div class="sub">${esc(lb.t)} · العملات ▲${bd(b.up ?? 0)} ▼${bd(b.dn ?? 0)}</div></div>`;
+  };
+  el.innerHTML = `<div class="note" style="margin:0 0 10px;border-inline-start:3px solid ${c}">
+      <b>اتجاه البيتكوين: <span style="color:${c}">${w} ${bd(R.pct)}%</span></b>
+      <span class="mut"> — مرجعُ سوق الكريبتو. فرصةٌ بنفس اتجاهه تُرفع درجتها، ومعاكسةٌ تُخفَّض وتُوسَم ولا تُمنع.</span></div>
+    <div class="grid3">${["1h", "4h", "1d"].map(cell).join("")}</div>`;
+}
+
+/* ما انتهى من الفرص المعروضة — «السجلّ» الخاص بدفتر الكريبتو. الفرصة التي
+   بلغت هدفها الأخير أو ضُرب وقفها أو زال سببها لا تبقى في القائمة. */
+const END_LABEL = { tgt: "بلغت هدفها الأخير", stop: "ضُرب الوقف", old: "انتهت صلاحيتها", gone: "زال سببها" };
+function renderCryptoEnded() {
+  const el = $("#cEnded"); if (!el) return;
+  const H = (BOOKS.cryptoHist && BOOKS.cryptoHist.rows) || [];
+  if (!H.length) { el.innerHTML = `<div class="empty">لم تنتهِ فرصةٌ معروضة بعد.</div>`; return; }
+  const rows = H.slice(-25).reverse();
+  const n = { tgt: 0, stop: 0, t1: 0 };
+  for (const h of H) { if (h.end && h.end.k === "tgt") n.tgt++; if (h.end && h.end.k === "stop") n.stop++; if (h.hit >= 1) n.t1++; }
+  el.innerHTML = `<p class="srcline">${bd(H.length)} فرصة منتهية · بلغت الهدف الأول ${bd(n.t1)} · أكملت أهدافها ${bd(n.tgt)} · ضُرب وقفها ${bd(n.stop)}</p>` +
+    rows.map(h => {
+      const k = (h.end && h.end.k) || "gone";
+      const good = k === "tgt" || h.hit > 0;
+      const tg = (h.t || []).map((_, i) => `<span class="${i < h.hit ? "good" : "cold"}">T${i + 1}${i < h.hit ? " ✓" : ""}</span>`).join(" ");
+      return `<div class="srow"><div class="id">
+        <div class="t">${esc(h.s)} <span class="tick">${h.d === 1 ? "▲ صعود" : "▼ هبوط"} · ${esc((SCANS.find(x => x.id === h.scan) || {}).lbl || h.scan)}</span></div>
+        <div class="n" style="color:${k === "stop" ? "var(--dn)" : good ? "var(--up)" : "var(--mut)"}">${esc(END_LABEL[k] || k)} · ${tg}</div>
+        <div class="n mut">ظهرت ${esc(stamp(h.shown * 1000))} عند <span class="num">${money(h.px0)}</span> · انتهت ${esc(stamp(((h.end && h.end.at) || h.shown) * 1000))}</div>
+      </div></div>`;
+    }).join("");
+}
+
 /* تحديثُ دفتر الكريبتو — دورتُه هو وملفّاته هو (`crypto/…`)، ولا يكتب
    إلا في دفتره باسمه. يعمل 24/7: لا بوّابة «السوق مغلق» هنا. */
 let cryptoBusy = false;
@@ -5141,12 +5198,14 @@ async function refreshCrypto() {
     put("crypto", "summary", sum); put("crypto", "market", mkt); put("crypto", "symCache", {});
     if (oppsNewer(bookGet("crypto", "opps"), opp)) put("crypto", "opps", opp);
     BOOKS.cryptoErr = null;
+    getJSON("crypto/opp-history.json").then(h => { BOOKS.cryptoHist = h; if (state.view === "crypto") renderCryptoEnded(); })
+      .catch(() => {});
   } catch (e) {
     BOOKS.cryptoErr = e.message;
     diag("crypto", "تعذّر جلب دفتر الكريبتو", e && e.message);
   } finally { cryptoBusy = false; }
   if (state.book !== "crypto") return;
-  if (state.view === "crypto") renderScreen();
+  if (state.view === "crypto") { renderScreen(); renderCryptoRegime(); renderCryptoEnded(); }
   else if (state.sym) { try { await getSymbol(state.sym); renderDetail(); } catch (e) {} }
 }
 
@@ -5404,7 +5463,7 @@ function renderDetail() {
 }
 
 function renderTfTable(rec) {
-  const parts = TFS.filter(tf => rec.an && rec.an[tf]);
+  const parts = (state.book === "crypto" ? ["5m", "15m", "1h", "4h"] : TFS).filter(tf => rec.an && rec.an[tf]);
   if (!parts.length) { $("#tfTable").innerHTML = `<div class="empty">لا توجد بيانات كافية</div>`; return; }
   $("#tfTable").innerHTML = parts.map(tf => {
     const an = rec.an[tf];
@@ -5415,7 +5474,7 @@ function renderTfTable(rec) {
     const ax = Number.isFinite(an.adx)
       ? `<span class="tf-adx${an.adx < 20 ? " chop" : ""}" title="قوّة الاتجاه ADX">${fmt(an.adx, 0)}</span>` : "";
     return `<div class="tf">
-      <div class="tf-name">${TF_LABEL[tf]}</div>
+      <div class="tf-name">${tfLbl(tf)}</div>
       <div class="tf-bar"><div class="tf-fill" style="${side}"></div></div>
       <div class="tf-val" style="color:${lb.c}">${lb.t}${ax}</div></div>`;
   }).join("");
@@ -7064,6 +7123,8 @@ function syncTFPicker(rec) {
   const btns = $$("#tfPicker button");
   btns.forEach(b => {
     const ok = has(b.dataset.tf);
+    // ‎5د‎ للكريبتو وحده — يُخفى حيث لا وجود له بدل أن يظهر معطَّلاً
+    if (b.dataset.tf === "5m") b.hidden = !ok;
     b.disabled = !ok;
     b.style.opacity = ok ? "" : ".35";
     b.title = ok ? "" : "غير متاح لهذا الرمز";
@@ -7076,7 +7137,10 @@ function syncTFPicker(rec) {
 }
 
 function renderIndicators(rec) {
-  const k = rec.tf[state.activeTF] && rec.tf[state.activeTF].c;
+  const k0 = rec.tf[state.activeTF] && rec.tf[state.activeTF].c;
+  /* الكريبتو: المؤشّرات المعروضة على الشموع المغلقة وحدها — كما يحسبها
+     الخادم. الشمعة الجارية لا تدخل رقماً في هذا الدفتر ولو للعرض. */
+  const k = (k0 && state.book === "crypto") ? closedBars(k0, state.activeTF, Date.now()) : k0;
   const a = k ? analyze(k) : null;
   if (!a) { $("#indicators").innerHTML = `<div class="empty">لا بيانات كافية على هذا الفريم</div>`; return; }
   const px = a.px;
@@ -7773,15 +7837,21 @@ const SCR = {
   us:     { pick: "#scanPicker",  list: "#scanList",  count: "#scanCount",  why: "#scanWhy",  exp: "#scanExport" },
   crypto: { pick: "#cScanPicker", list: "#cScanList", count: "#cScanCount", why: "#cScanWhy", exp: null }
 };
-/* شرطان لا ينطبقان على العملات أصلاً: الأساسيات والأرباح. */
-const CRYPTO_NA = new Set(["cheap", "earn"]);
+/* الكريبتو: «الأقوى الآن» (أعلى ‎15‎ عملة من كل الإعدادات، عملةٌ مرّةً
+   واحدة) ثم الإعدادات الفعلية وحدها. «حجم غير معتاد» و«قرب قمة/قاع 52»
+   معلوماتٌ عن العملة لا صفقات — فلا تظهر هنا (الخادم لا يبنيها أصلاً). */
+const CRYPTO_BEST = { id: "best", lbl: "الأقوى الآن",
+  why: "أعلى العملات درجةً عبر كل الإعدادات — من الكون كاملاً (كلُّ ما يُتداول فعلاً فوق عتبة السيولة)، بعد بوّابة الجودة ومعامِل توافق البيتكوين. العملة تظهر مرّةً بأقوى إعدادٍ لها." };
+const CRYPTO_SCAN_IDS = ["align", "alignDn", "divBull", "divBear", "pullback"];
+const BK_LABEL = { strong: "قوي", mid: "متوسط", flat: "محايد", counter: "معاكس" };
+const tfLbl = (tf) => TF_LABEL[tf] || ({ "5m": "5 دقائق" }[tf]) || tf;
 
 function renderScreen() {
   const CR = state.view === "crypto";
   const U = CR ? SCR.crypto : SCR.us;
   const pick = $(U.pick);
   if (!pick) return;
-  const LIST = CR ? SCANS.filter(s => !CRYPTO_NA.has(s.id)) : SCANS;
+  const LIST = CR ? [CRYPTO_BEST, ...SCANS.filter(s => CRYPTO_SCAN_IDS.includes(s.id))] : SCANS;
   if (!pick.dataset.built) {
     pick.innerHTML = LIST.map(s => `<button data-scan="${s.id}">${esc(s.lbl)}</button>`).join("");
     pick.dataset.built = "1";
@@ -7896,8 +7966,9 @@ function renderScreen() {
        يُقاس إلى ختم الشمعة لا إلى ساعة الحائط: رقمٌ يتغيّر كل دقيقة بلا
        شمعةٍ هو بعينه ما لا يجب أن يحدث. */
     const sg = Number.isFinite(r.since) ? { at: r.since * 1000, entry: r.px0 } : null;
-    const tNow = Number.isFinite(OPP.candleKey) ? (OPP.candleKey + 900) * 1000 : now;
-    const fr = sg ? freshness(Math.max(0, tNow - sg.at), scanTF(scan.id)) : null;
+    const barSec = OPP.barSec || 900;
+    const tNow = Number.isFinite(OPP.candleKey) ? (OPP.candleKey + barSec) * 1000 : now;
+    const fr = sg ? freshness(Math.max(0, tNow - sg.at), CR ? "4h" : scanTF(scan.id)) : null;
     /* العمرُ وسعرُ الظهور والطزاجة نزلت إلى شرائط الذيل: سطرٌ رابع تحت
        الاسم كان يجعل كتلة الهويّة أطول من الرقم الذي جاء القارئ لأجله. */
     /* سطرُ التوافق: الأثر **بالنقاط** لا بوصف. ويُقال في ثلاث حالات
@@ -7939,14 +8010,24 @@ function renderScreen() {
        «قائمة» في لونٍ رماديّ واحد يُخفي أن المرجع خرج من النافذة. */
     const FR = { fresh: "good", live: "", late: "hot", stale: "bad" };
     if (sg) chips.push(`<span class="${fr ? (FR[fr.k] || "") : "cold"}">${
-      tNow - sg.at <= 15 * 60e3 ? "هذه الشمعة" : esc(age(tNow - sg.at))}${fr ? " · " + esc(fr.t) : ""}</span>`);
+      tNow - sg.at <= barSec * 1000 ? "هذه الشمعة" : esc(age(tNow - sg.at))}${fr ? " · " + esc(fr.t) : ""}</span>`);
     /* الخطة المثبّتة لحظةَ ظهور الفرصة: دخول ثم أهداف في جهة الفرصة
        (الخادم يرفض أيّ هدفٍ في الجهة الخاطئة)، وما بُلغ منها بالشمعات
        المغلقة. */
     if (Number.isFinite(r.e)) chips.push(`<span>دخول <span class="num">${money(r.e)}</span></span>`);
     if (Array.isArray(r.t) && r.t.length)
       chips.push(`<span>${r.t.map((x, k) => `<span class="${k < (r.hit || 0) ? "good" : ""}">T${k + 1} <span class="num">${money(x)}</span></span>`).join(" · ")}</span>`);
-    if (r.hit > 0) chips.push(`<span class="good">بلغ T${r.hit}</span>`);
+    if (r.hit > 0 && !CR) chips.push(`<span class="good">بلغ T${r.hit}</span>`);
+    /* الكريبتو: كلُّ هدفٍ تحقّق يُقال باسمه — بالشموع المغلقة بعد الظهور.
+       وبلوغُ الأخير يُنهي الفرصة فلا تبقى هنا (تنتقل إلى «انتهت مؤخراً»). */
+    const hitLine = CR && r.hit > 0
+      ? `<div class="opp-hit">${["الأول", "الثاني", "الثالث"].slice(0, r.hit)
+          .map(n => `<span class="good">تحقق الهدف ${n} ✓</span>`).join("")}</div>` : "";
+    const btcLine = CR && r.bk
+      ? `<div class="n conf" style="color:${r.bk === "counter" ? "var(--dn)" : r.bk === "flat" ? "var(--mut)" : "var(--up)"}">توافق مع BTC: ${BK_LABEL[r.bk] || "—"}${r.bk === "counter" ? " — تتحرّك عكس اتجاه البيتكوين" : ""}</div>` : "";
+    const setupTag = CR && scan.id === "best" && r.scan
+      ? `<span class="cold">${esc((SCANS.find(x => x.id === r.scan) || {}).lbl || r.scan)}</span>` : "";
+    if (setupTag) chips.unshift(setupTag);
     if (Number.isFinite(r.mv) && Math.abs(r.mv) >= 0.05)
       chips.push(`<span class="${r.mv > 0 ? "good" : "bad"}">منذ الظهور <span class="num">${r.mv > 0 ? "+" : ""}${r.mv.toFixed(2)}%</span></span>`);
     if (Number.isFinite(cf.n) && cf.n > 0)
@@ -7966,10 +8047,11 @@ function renderScreen() {
         <div class="id">
           <div class="t">${esc(nm(r))}<span class="tick">${esc(r.s)}</span></div>
           <div class="n">${esc(r.sec || "—")}</div>
-          ${conf}
+          ${conf}${btcLine}
         </div>
         <div class="opp-dir ${dirC}">${dirT}</div>
       </div>
+      ${hitLine}
       <div class="opp-bd">
         <div class="opp-px">
           <div class="p num">${money(px)}</div>
@@ -8712,7 +8794,7 @@ function go(view) {
     need("fundamentals.json"); need("strategies.json"); need("strategy-edge.json");
     renderScreen(); renderEarnings(); renderArchive();
   }
-  if (view === "crypto") renderScreen();
+  if (view === "crypto") { renderScreen(); renderCryptoRegime(); renderCryptoEnded(); }
   if (view === "news") { need("news.json"); need("filings.json"); }
   if (view === "analysis") {
     need("fundamentals.json"); need("analytics.json");

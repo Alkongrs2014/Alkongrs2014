@@ -5,7 +5,8 @@
    السياق: الكريبتو كان داخل ملخّص الأسهم، فكانت شمعةُ عملةٍ تُقدّم
    `candleKey = max(cbar)` للكون كلّه، والرتبة المئوية تُحسب على المجمَّع —
    فتتحرّك درجةُ سهمٍ لم تُغلق شمعته. فأُخرج الكريبتو كلّه (2026-09-25)،
-   ثم عاد **دفتراً ثانياً**: كونُه `stocks/crypto.json`، ومجلّده
+   ثم عاد **دفتراً ثانياً**: كونُه `data/crypto/universe.json` (يُبنى يومياً
+   من كلّ ما يُتداول في Binance Spot)، ومجلّده
    `data/crypto/`، وقفلُه وسجلُّه ولقطتُه له وحده.
 
    وهذا الملفّ يحرس الانفصال من ثلاث جهات:
@@ -42,7 +43,8 @@ const isCoin = (s) => /-USD$/.test(s);
 
 /* ---------- ١) الكونان ---------- */
 const US = rdj(path.join(ROOT, "stocks/symbols.json"));
-const CR = rdj(path.join(ROOT, "stocks/crypto.json"));
+const CR = (() => { try { return { symbols: rdj(path.join(DATA, "crypto", "universe.json")).rows }; }
+                    catch { return { symbols: [] }; } })();
 
 t("كون الأسهم بلا كريبتو", () => {
   const all = [...US.symbols, ...(US.wide || []), ...(US.crypto || [])];
@@ -50,12 +52,13 @@ t("كون الأسهم بلا كريبتو", () => {
   ok(!bad.length, `في symbols.json: ${bad.map(x => x.s).join(", ")}`);
 });
 t("كون الكريبتو كريبتو كلُّه وثابت", () => {
-  ok(CR.fixed === true, "crypto.json بلا fixed");
-  ok(CR.symbols.length >= 10, `${CR.symbols.length} زوجاً فقط`);
+  if (!CR.symbols.length) { console.log("    (لا كون كريبتو محلياً بعد)"); return; }
+  ok(CR.symbols.length >= 50, `${CR.symbols.length} عملة فقط`);
+  const stable = CR.symbols.filter(x => /^(USDC|FDUSD|TUSD|BUSD|DAI|USDP|USDE|PYUSD|WBTC|WBETH)-USD$/.test(x.s));
+  ok(!stable.length, `مستقرّة/ملفوفة في الكون: ${stable.map(x => x.s).join(", ")}`);
   const bad = CR.symbols.filter(x => x.mkt !== "crypto" || !isCoin(x.s));
   ok(!bad.length, `غير كريبتو: ${bad.map(x => x.s).join(", ")}`);
-  ok(!(CR.wide || []).length && !(CR.crypto || []).length && !(CR.indices || []).length,
-     "طبقاتٌ إضافية في كون الكريبتو");
+
   ok(new Set(CR.symbols.map(x => x.s)).size === CR.symbols.length, "رمزٌ مكرّر");
 });
 t("لا رمز مشترك بين الكونين", () => {
@@ -99,7 +102,7 @@ t("المفتاحان مستقلّان: لقطة الكريبتو بمفتاحه
   const c = path.join(CDIR, "opportunities.json");
   if (!fs.existsSync(c)) return;
   const us = rdj(path.join(DATA, "opportunities.json")), cr = rdj(c);
-  ok(Number.isFinite(cr.candleKey) && cr.candleKey % 900 === 0, "مفتاح الكريبتو ليس على شبكة الربع ساعة");
+  ok(Number.isFinite(cr.candleKey) && cr.candleKey % 300 === 0, "مفتاح الكريبتو ليس على شبكة الخمس دقائق");
   // مصدرُ مفتاح الأسهم صفوفُ الأسهم وحدها — لا أحدثُ من أحدث cbar سهم
   const maxUs = Math.max(...rdj(path.join(DATA, "summary.json")).rows.map(r => r.cbar || 0));
   ok(us.candleKey <= maxUs, `مفتاح الأسهم ${us.candleKey} أحدث من صفوف الأسهم ${maxUs}`);
@@ -153,10 +156,10 @@ try {
   if (haveCrypto) {
     const f = path.join(B, "crypto/summary.json");
     const s = rdj(f);
-    for (const r of s.rows) { r.cbar = (r.cbar || 0) + 900; r.p = r.p * 1.07; r.pc = r.pc * 1.07; }
+    for (const r of s.rows) { r.cbar = (r.cbar || 0) + 300; r.p = r.p * 1.07; r.pc = r.pc * 1.07; }
     fs.writeFileSync(f, JSON.stringify(s));
     const o = path.join(B, "crypto/opportunities.json");
-    const j = rdj(o); j.candleKey += 900; fs.writeFileSync(o, JSON.stringify(j));
+    const j = rdj(o); j.candleKey += 300; fs.writeFileSync(o, JSON.stringify(j));
   }
 
   t("محرّك الأسهم لا يتأثّر بأيّ شمعة أو سعر كريبتو", () => {
@@ -179,8 +182,9 @@ try {
   t("دفتر الكريبتو لا يكتب خارج مجلّده", () => {
     if (!haveCrypto) return;
     const before = hashTree(A, path.join(A, "crypto"));
-    node(["scripts/track-strategies.mjs", "--out", path.join(A, "crypto")]);
-    node(["scripts/build-opportunities.mjs"], { OPP_OUT: path.join(A, "crypto") });
+    const CE = { BOOK: "crypto", OPP_BAR_SEC: "300" };
+    node(["scripts/track-strategies.mjs", "--out", path.join(A, "crypto")], CE);
+    node(["scripts/build-opportunities.mjs"], { ...CE, OPP_OUT: path.join(A, "crypto") });
     const after = hashTree(A, path.join(A, "crypto"));
     const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])]
       .filter(k => before[k] !== after[k]);

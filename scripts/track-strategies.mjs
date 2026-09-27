@@ -190,6 +190,11 @@ export function snapFor(c, r, plan, at) {
 /* =====================================================================
    التشغيل
    ===================================================================== */
+/* طولُ شمعة المفتاح بالثواني — ‎900‎ للأسهم (‎15د‎) و‎300‎ لدفتر الكريبتو
+   (‎5د‎). ساعةُ التأكيد `cnow` = نهايةُ شمعة `cbar`: بطولٍ خاطئ تُقرأ شمعةٌ
+   جاريةٌ مغلقةً (‎cbar+900‎ على شبكة ‎5د‎ تُدخل الجارية وما بعدها). */
+const BAR_SEC = Number(process.env.OPP_BAR_SEC || 900);
+
 export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes = null } = {}) {
   const summary = readJSON(path.join(out, "summary.json"));
   if (!summary || !Array.isArray(summary.rows) || !summary.rows.length)
@@ -209,7 +214,7 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
      جلسةٍ أو بانقضاء ستّين دقيقة حائطٍ دون أن تُغلق شمعة. */
   let cbarMax = 0;
   for (const r of all) if (Number.isFinite(r.cbar)) cbarMax = Math.max(cbarMax, r.cbar);
-  const cnow = cbarMax ? (cbarMax + 900) * 1000 + 1 : null;
+  const cnow = cbarMax ? (cbarMax + BAR_SEC) * 1000 + 1 : null;
   const tnow = cnow || now;
 
   const prevFile = readJSON(path.join(out, "strategies.json"), { rows: [] });
@@ -458,6 +463,10 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   for (const [k, v] of Object.entries(holdNext))
     if (v[1] !== 0 || !rowKeys.has(k)) holdKeep[k] = v;
 
+  /* في دفتر الكريبتو ساعةُ التأكيد شمعةُ ‎5د‎ نفسها (`cbar`): الاستراتيجيات
+     تُقيَّم على ما أُغلق عندها، فختمُها هو ختمُ اللقطة — لا ختمُ ‎15د‎ الذي
+     يتأخّر عنها حتى عشر دقائق فيُبقي بوّابة «شمعةٍ واحدة» مغلقةً أبداً. */
+  if (BAR_SEC !== 900 && cbarMax) confBar = cbarMax;
   return { rows, trends, stillOpen, history, now,
            confBar, holdNext: holdKeep,
            stats: { symbols, skipped, rows: rows.length, added, closed,

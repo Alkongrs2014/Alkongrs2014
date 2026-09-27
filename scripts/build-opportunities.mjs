@@ -51,6 +51,34 @@ import { rp } from "./lib/round.mjs";
 
 const IS_MAIN = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 const OUT = process.env.OPP_OUT || path.join(ROOT, "data");
+/* =====================================================================
+   **دفتر الكريبتو** (`BOOK=crypto`) — نفس المحرّك بإعداداتٍ أخرى، لا نسخة:
+     · المفتاح شمعةُ ‎5د‎ (`OPP_BAR_SEC=300`) والمشي على ‎5د‎ المغلقة.
+     · **الإعدادات وحدها فرص** (`C_SETUPS`): «حجم غير معتاد» و«قرب قمة/قاع
+       52» معلوماتٌ عن العملة لا صفقات، وتُعرض في شاشتها لا في القائمة.
+     · **بوّابة جودة قبل العرض**: خطةٌ كاملة (دخول ووقف وهدف)، وإجماعٌ غير
+       متعارض، ودرجةٌ ≥ ‎0.5‎ — ثم أعلى ‎20‎ لكل إعداد. مئاتُ العملات التي
+       تحقّق شرطاً عامّاً لا تُسمّى فرصاً.
+     · **البيتكوين مرجعاً**: معامِلٌ على الدرجة ‎1 ± 0.25‎ بحسب توافق جهة
+       الفرصة مع اتجاه البيتكوين (1h/4h/1d المغلقة) وقوّته. المعاكسة لا
+       تُمنع — تُخفَّض وتُوسَم.
+     · **سجلٌّ للمنتهية** (`opp-history.json`) وأرشيفُ لقطةٍ لكل شمعة
+       (`.monitor/snaps`) — منهما تقرير الأداء.
+   والقيم كلُّها ثابتةٌ قبل الاختبار ولا تُضبط أثناءه.
+   ===================================================================== */
+const CRYPTO = process.env.BOOK === "crypto";
+const BAR_SEC = Number(process.env.OPP_BAR_SEC || (CRYPTO ? 300 : 900));
+const WALK_TF = CRYPTO ? "5m" : "15m";
+const C_SETUPS = ["align", "alignDn", "divBull", "divBear", "pullback"];
+const C_FRESH_TF = "4h";          // أعلى فريمات الفرص — نظيرُ «اليومي» في الأسهم
+const C_TOP = 20, C_BEST = 15, C_QMIN = 0.5, C_MISS = 6, BTC_W = 0.25;
+const LIFE_V = "c5";              // لقطةٌ من قبل هذا الإعداد لا تُورَث حالتُها
+export const btcAlign = (sd, regime) => {
+  if (!(sd === 1 || sd === -1) || !regime || !Number.isFinite(regime.score)) return null;
+  const a = Math.max(-1, Math.min(1, sd * regime.score / 100));
+  return { a: Math.round(a * 100) / 100,
+           k: a >= 0.45 ? "strong" : a >= 0.15 ? "mid" : a > -0.15 ? "flat" : "counter" };
+};
 const sha12 = (s) => createHash("sha256").update(s).digest("hex").slice(0, 12);
 /* أدنى نسبةٍ من الصفوف الحيّة يجب أن تحمل الفريمات الأربعة. انظر
    «البوّابة ٠» أدناه. */
@@ -132,7 +160,7 @@ function symBars(sym, cache, nowMs) {
   if (IO) rec = IO.sym(sym);
   else try { rec = JSON.parse(fs.readFileSync(path.join(OUT, "sym", sym + ".json"), "utf8")); } catch { /* بلا ملف */ }
   const k = {};
-  for (const tf of ["15m", "4h", "1d"]) {
+  for (const tf of [WALK_TF, "4h", "1d"]) {
     const cc = rec && rec.tf && rec.tf[tf] && rec.tf[tf].c;
     k[tf] = cc && cc.length ? closedBars(unpackK(cc), tf, nowMs).slice(-259) : [];   // AN_WIN
   }
@@ -239,9 +267,11 @@ function buildSnapshotImpl(now) {
      سجلّ الإشارات المفتوح (عمرٌ صادق) — مرّةً واحدة، فلا يدخل ملفٌّ
      يتغيّر داخل الشمعة في حسابٍ متكرّر. */
   const prevDoc = rd("opportunities.json");
-  const prevLife = (prevDoc && prevDoc.life) || null;
+  const prevLife = (prevDoc && prevDoc.life && (!CRYPTO || prevDoc.lifeV === LIFE_V)) ? prevDoc.life : null;
+  const regime = CRYPTO ? ((rd("market.json") || {}).regime || null) : null;
+  const ended = [];                    // ما انتهى من الفرص المعروضة في هذه الشمعة
   const seeds = prevLife ? {} : seedFromSignals((rd("signals.json") || {}).records);
-  const nowMs = (candleKey + 900) * 1000 + 1;        // ساعة الشمعة لا الحائط
+  const nowMs = (candleKey + BAR_SEC) * 1000 + 1;    // ساعة الشمعة لا الحائط
   const bars = {};
   const life = {};
   for (const [k, v] of Object.entries(prevLife || {}))
@@ -283,22 +313,29 @@ function buildSnapshotImpl(now) {
       }
       life[key] = L;
     }
-    walk(L, B.k["15m"]);
+    walk(L, B.k[WALK_TF]);
     if (L.k < candleKey) { L.miss = 0; L.k = candleKey; }
     L.miss = 0;
-    const fr = freshness((candleKey - L.since) * 1000, scanTF(scan.id));
+    const fr = freshness((candleKey - L.since) * 1000, CRYPTO ? C_FRESH_TF : scanTF(scan.id));
     if (!L.end && fr && fr.k === "stale") L.end = { k: "old", at: candleKey };
-    if (L.end) return { drop: true };
+    if (L.end) {
+      // فرصةٌ عُرضت ثم انتهت (هدفٌ أخير · وقف · قِدَم) — تُسجَّل مرّةً
+      if (CRYPTO && L.shown && !L.logged) { L.logged = 1; ended.push({ key, ...L }); }
+      return { drop: true };
+    }
     const mv = Number.isFinite(row.pc) && L.px0 > 0 ? (row.pc / L.px0 - 1) * 100 * sd : null;
+    const ba = CRYPTO ? btcAlign(sd, regime) : null;
     return {
-      mult: (F_FRESH[fr && fr.k] ?? 1) * F_ROOM[Math.min(L.hit, 3)],
+      mult: (F_FRESH[fr && fr.k] ?? 1) * F_ROOM[Math.min(L.hit, 3)] * (ba ? 1 + BTC_W * ba.a : 1),
       f: { since: L.since, px0: L.px0 == null ? null : rp(L.px0), e: L.e, st: L.st, t: L.t,
-           hit: L.hit, in: L.in, fk: fr ? fr.k : null, mv: mv == null ? null : Math.round(mv * 100) / 100 }
+           hit: L.hit, in: L.in, fk: fr ? fr.k : null, mv: mv == null ? null : Math.round(mv * 100) / 100,
+           ...(ba ? { ba: ba.a, bk: ba.k } : {}) }
     };
   };
 
+  const SC = CRYPTO ? SCANS.filter(s => C_SETUPS.includes(s.id)) : SCANS;
   const scans = buildOpps(
-    { SCANS, scanRow, forcedDir, resolveOpp, consFromRows, scsFrom, oppQualityOf },
+    { SCANS: SC, scanRow, forcedDir, resolveOpp, consFromRows, scsFrom, oppQualityOf },
     { rows: summary.rows, wideRows, fund: F, secMed,
       stratByS: byS, stratMeta: STRAT_BY_ID, stratTotal: STRATEGIES.length, edge, annotate });
 
@@ -310,13 +347,48 @@ function buildSnapshotImpl(now) {
   for (const [k, L] of Object.entries(life)) {
     if (seen.has(k)) continue;
     if (L.k < candleKey) { L.miss = (L.miss || 0) + 1; L.k = candleKey; }
-    if (L.miss >= MISS_MAX) { closedNow.push([k, L.end ? L.end.k : "gone"]); delete life[k]; }
+    if (L.miss >= (CRYPTO ? C_MISS : MISS_MAX)) {
+      closedNow.push([k, L.end ? L.end.k : "gone"]);
+      if (CRYPTO && L.shown && !L.logged) ended.push({ key: k, ...L, end: L.end || { k: "gone", at: candleKey } });
+      delete life[k];
+    }
+  }
+  /* ══ الكريبتو: بوّابة الجودة ثم «الأقوى الآن» ══
+     المحرّك رتّب كلَّ ما أطلق شرطاً؛ هنا يُبقى ما يستحقّ اسم «فرصة». */
+  let best = null;
+  if (CRYPTO) {
+    const pool = [];
+    for (const id of Object.keys(scans)) {
+      const kept = scans[id].filter(r => Number.isFinite(r.e) && Number.isFinite(r.st) &&
+        Array.isArray(r.t) && r.t.length && !r.mixed && r.q >= C_QMIN).slice(0, C_TOP);
+      kept.forEach((r, i) => {
+        const L = life[lifeKey(r.s, id, r.sd)];
+        // أوّلُ ظهور: الرتبة والدرجة وتوافق البيتكوين لحظتَها — للتقرير لا للعرض
+        if (L && !L.shown) { L.shown = candleKey; L.q0 = r.q; L.r0 = i + 1; L.ba0 = r.ba ?? null; }
+        pool.push({ ...r, scan: id, _i: i });
+      });
+      scans[id] = kept;
+    }
+    const seenS = new Set();
+    /* التعادل في الدرجة شائع (السقف ‎1‎ × معامِل البيتكوين نفسه)، فيُفصل
+       برتبة الصفّ داخل إعداده — وهي رتبةُ القوّة بمقياس الإعداد (النتيجة
+       في «توافق الفريمات») — لا بالاسم. */
+    best = pool.sort((a, b) => (b.q - a.q) || (a._i - b._i) || (a.s < b.s ? -1 : 1))
+               .filter(r => !seenS.has(r.s) && seenS.add(r.s)).slice(0, C_BEST)
+               .map(({ _i, ...r }) => r);
+    for (let i = 0; i < best.length; i++) {
+      const L = life[lifeKey(best[i].s, best[i].scan, best[i].sd)];
+      if (L && !L.b0) L.b0 = i + 1;              // أوّلُ رتبةٍ في «الأقوى الآن»
+    }
+    scans.best = best;
   }
 
   /* تحليل الخمسين كلّهم — لا من ظهر في قائمةٍ وحده. شاشةُ السهم تقرؤه
      فلا تحسب شيئاً بنفسها، فلا يختلف رقمُها عن رقم القائمة. */
   const bySym = {};
+  const listed = CRYPTO ? new Set(["BTC-USD", ...Object.values(scans).flat().map(r => r.s)]) : null;
   for (const r of summary.rows) {
+    if (listed && !listed.has(r.s)) continue;
     const c = consFromRows(byS[r.s] || [], STRAT_BY_ID, { total: STRATEGIES.length, edge });
     const sc = scsFrom(c.cons);
     let nAct = 0; for (const x of c.res) if (x.dir && x.active) nAct++;
@@ -335,7 +407,7 @@ function buildSnapshotImpl(now) {
   let count = 0;
   for (const id of Object.keys(scans)) count += scans[id].length;
 
-  return { ok: true, candleKey, rowsHash, strategyVersion, scans, count, life, bySym, closedNow,
+  return { ok: true, candleKey, rowsHash, strategyVersion, scans, count, life, bySym, closedNow, regime, ended,
            generatedAt: now, confBar, maxCbar, depth,
            edgeReady: !!edgeFile, fundReady: !!Object.keys(F).length,
            wideRows: wideRows.length, liveRows: summary.rows.length };
@@ -427,15 +499,51 @@ async function main() {
     scans: next.scans,
     bySym: next.bySym,
     life: next.life,
-    closedNow: next.closedNow
+    closedNow: next.closedNow,
+    ...(CRYPTO ? { book: "crypto", lifeV: LIFE_V, barSec: BAR_SEC, regime: next.regime,
+                   setups: C_SETUPS, gate: { qmin: C_QMIN, top: C_TOP, best: C_BEST, btcW: BTC_W } } : {})
   };
   /* كتابةٌ ذرّية: ملفٌّ مؤقّت ثم إعادة تسمية. الكتابة المباشرة تترك
      نافذةً يقرأ فيها المتصفّح نصف ملفّ. */
   const tmp = path.join(OUT, ".opportunities.tmp.json");
   fs.writeFileSync(tmp, JSON.stringify(doc));
   fs.renameSync(tmp, path.join(OUT, "opportunities.json"));
+  if (CRYPTO) cryptoArchive(next);
   console.log(`  لقطة الفرص: كُتبت — ${d.reason} · شمعة ${iso(next.candleKey)} · ${next.count} صفّاً · بصمة ${next.rowsHash}`);
   return 0;
+}
+
+/* سجلُّ المنتهية وأرشيفُ اللقطات — **بعد** الكتابة وحدها: لقطةٌ مرفوضة لم
+   يرها أحد فلا تُسجَّل. والسجلّ مفتاحُه `رمز|إعداد|جهة|بدء` فإعادةُ
+   البناء لا تكرّره. */
+function cryptoArchive(next) {
+  try {
+    const hp = path.join(OUT, "opp-history.json");
+    let H = [];
+    try { H = JSON.parse(fs.readFileSync(hp, "utf8")).rows || []; } catch { /* أوّل مرّة */ }
+    const have = new Set(H.map(h => h.id));
+    for (const L of next.ended || []) {
+      const [s, scan, d] = L.key.split("|");
+      const id = `${L.key}|${L.since}`;
+      if (have.has(id)) continue;
+      H.push({ id, s, scan, d: +d, since: L.since, shown: L.shown, px0: L.px0, e: L.e, st: L.st, t: L.t,
+               hit: L.hit, in: L.in, end: L.end, mfe: L.mfe, mae: L.mae,
+               q0: L.q0 ?? null, r0: L.r0 ?? null, b0: L.b0 ?? null, ba0: L.ba0 ?? null });
+    }
+    H = H.slice(-3000);
+    fs.writeFileSync(hp + ".tmp", JSON.stringify({ updated: next.generatedAt, rows: H }));
+    fs.renameSync(hp + ".tmp", hp);
+    const sd = path.join(OUT, ".monitor", "snaps");
+    fs.mkdirSync(sd, { recursive: true });
+    const slim = (r) => ({ s: r.s, scan: r.scan, sd: r.sd, q: r.q, pc: r.pc, e: r.e, st: r.st, t: r.t, hit: r.hit, ba: r.ba ?? null });
+    const all = {};
+    for (const [id, rows] of Object.entries(next.scans)) if (id !== "best") all[id] = rows.map(slim);
+    fs.writeFileSync(path.join(sd, `${next.candleKey}.json`), JSON.stringify({
+      k: next.candleKey, h: next.rowsHash, regime: next.regime,
+      best: (next.scans.best || []).map(slim), scans: all }));
+    const old = fs.readdirSync(sd).sort();
+    for (const f of old.slice(0, Math.max(0, old.length - 1500))) fs.unlinkSync(path.join(sd, f));
+  } catch (e) { console.warn(`  ⚠ أرشيف الكريبتو: ${e.message}`); }
 }
 
 /* ══ الفحص الذاتي — بلا شبكة ══ */

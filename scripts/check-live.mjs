@@ -291,7 +291,7 @@ try {
     if (!cr || !cr.n) no("خانة الكريبتو تُحمَّل من دفترها", "لا صفوف في دفتر الكريبتو المنشور");
     else {
       const alien = cr.rows.filter(s => !/-USD$/.test(s));
-      (cr.book === "crypto" && cr.allCrypto && !alien.length && Number.isFinite(cr.key) && cr.key % 900 === 0)
+      (cr.book === "crypto" && cr.allCrypto && !alien.length && Number.isFinite(cr.key) && cr.key % 300 === 0)
         ? ok("خانة الكريبتو من دفترها وحده", `${cr.n} عملة · ${cr.rows.length} فرصة معروضة · شمعة ${new Date(cr.key * 1000).toISOString().slice(11, 16)}Z`)
         : no("خانة الكريبتو من دفترها وحده", JSON.stringify({ book: cr.book, allCrypto: cr.allCrypto, alien, key: cr.key }));
 

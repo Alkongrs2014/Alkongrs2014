@@ -119,9 +119,11 @@ export async function fetchQuotes(symbols) {
    ===================================================================== */
 const LIMIT = { "5m": 1000, "15m": 1000, "1h": 1000, "4h": 500, "1d": 400 };
 
-export async function fetchCandles(sym, { interval = "1d" } = {}) {
+/* `limit` اختياري: دفتر الكريبتو يجلب **ما أُغلق منذ آخر جلب** وحده
+   (شمعتان أو ثلاث) لا ألف شمعة كل خمس دقائق لكل عملة. */
+export async function fetchCandles(sym, { interval = "1d", limit = null } = {}) {
   const b = toBinance(sym);
-  const lim = LIMIT[interval] || 500;
+  const lim = limit || LIMIT[interval] || 500;
   const j = await req(
     "/api/v3/klines?symbol=" + encodeURIComponent(b) + "&interval=" + interval + "&limit=" + lim,
     { weight: 2 }
@@ -185,6 +187,37 @@ export async function fetchCandles(sym, { interval = "1d" } = {}) {
 const PRODUCTS_URL =
   "https://www.binance.com/bapi/asset/v2/public/asset-service/product/get-products";
 let bStocksCache = null, bStocksAt = 0;
+
+/* المنتجات الموسومة بأيٍّ من الوسوم — `tCommodities` (ذهبٌ مرمَّز) كـ
+   `bStocks`: أصلٌ اصطناعيّ يتبع شيئاً آخر لا عملة. */
+let tagCache = null, tagAt = 0;
+export async function listTaggedProducts(tags, { maxAge = 6 * 3600e3 } = {}) {
+  if (!tagCache || Date.now() - tagAt >= maxAge) {
+    try {
+      const r = await fetch(PRODUCTS_URL, { signal: AbortSignal.timeout(20000), headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
+        "Accept": "application/json" } });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      if (!(j.data || []).length) throw new Error("ردٌّ فارغ");
+      tagCache = j.data; tagAt = Date.now();
+    } catch (e) { return null; }
+  }
+  const out = new Set();
+  for (const x of tagCache) if (x.s && (x.tags || []).some(t => tags.includes(t))) out.add(x.s);
+  return out;
+}
+
+/* حالة التداول الرسمية — الزوج الموقوف أو المشطوب يبقى في `ticker/24hr`
+   بسعره الأخير (قِيس: ‎252‎ زوجاً من ‎657‎)، فالسعر وحده لا يقول «يُتداول». */
+export async function listTradingUsdt() {
+  const j = await req("/api/v3/exchangeInfo?permissions=SPOT", { weight: 20 });
+  const out = new Set();
+  for (const s of j.symbols || [])
+    if (s.status === "TRADING" && s.quoteAsset === "USDT" && s.isSpotTradingAllowed) out.add(s.symbol);
+  if (out.size < 100) throw new Error(`${out.size} زوجاً متداولاً فقط — ردٌّ غير متوقّع`);
+  return out;
+}
 
 export async function listTaggedStocks({ maxAge = 6 * 3600e3 } = {}) {
   if (bStocksCache && Date.now() - bStocksAt < maxAge) return bStocksCache;

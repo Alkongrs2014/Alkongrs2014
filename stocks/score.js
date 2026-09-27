@@ -114,17 +114,23 @@ function scoreFrom(o) {
   return max > 0 ? Math.max(-100, Math.min(100, sc / max * 100)) : 0;
 }
 
-/* النتيجة الكلية الموزونة عبر الفريمات */
-function overallScore(byTf) {
+/* النتيجة الكلية الموزونة عبر الفريمات.
+
+   `overallScoreOf` تأخذ قائمة الفريمات وأوزانها صراحةً كي يستعملها دفتر
+   الكريبتو بفريماته (‎5د/15د/ساعة/4س‎) — نفس الرياضيات لا نسخةٌ ثانية.
+   و`overallScore` هي نفسها بفريمات الأسهم وأوزانها، فمسارُ الأسهم لم
+   يتغيّر بحرف. */
+function overallScoreOf(byTf, tfs, w) {
   var sum = 0, wsum = 0;
-  for (var i = 0; i < TFS.length; i++) {
-    var a = byTf[TFS[i]];
+  for (var i = 0; i < tfs.length; i++) {
+    var a = byTf[tfs[i]];
     if (!a || !Number.isFinite(a.score)) continue;
-    sum += a.score * TF_WEIGHT[TFS[i]];
-    wsum += TF_WEIGHT[TFS[i]];
+    sum += a.score * w[tfs[i]];
+    wsum += w[tfs[i]];
   }
   return wsum ? sum / wsum : null;
 }
+function overallScore(byTf) { return overallScoreOf(byTf, TFS, TF_WEIGHT); }
 
 /* =====================================================================
    النطاقات — خمسة، وحدودها ‎±15‎ و‎±45‎.
@@ -183,7 +189,7 @@ function labelOf(sc, band) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    TFS, TF_LABEL, TF_WEIGHT, DEAD_ATR, scoreFrom, overallScore,
+    TFS, TF_LABEL, TF_WEIGHT, DEAD_ATR, scoreFrom, overallScore, overallScoreOf,
     BANDS, BAND_MARGIN, BAND_LABEL, bandOf, bandStable, labelOf
   };
 }

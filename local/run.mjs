@@ -136,7 +136,7 @@ function noteSkip(job, blocker, waited, outcome) {
    الدورة يجعل تشغيلين ينتظران نفس القفل فيتراكمان بلا نهاية.
    ===================================================================== */
 const WAIT_CAP = {          // ثوانٍ — أقلّ من دورة كل مهمة
-  quotes: 110, strategies: 110, signals: 110, mdir: 110, confirm: 240, crypto: 600,
+  quotes: 110, strategies: 110, signals: 110, mdir: 110, confirm: 240, crypto: 200,
   market: 540, filings: 240, news: 240,
   options: 1500,
   daily: 3000, backtest: 3000, stratbt: 3000
@@ -363,7 +363,10 @@ function validateCrypto() {
   const four = rows.filter(r => Object.keys(r.tfScore || {}).length === 4).length;
   if (four < rows.length * 0.70) throw new Error(`${four} من ${rows.length} بأربعة فريمات`);
   if (!Number.isFinite(opp.candleKey)) throw new Error("لقطة الفرص بلا candleKey");
-  return { rows: rows.length, four, candleKey: opp.candleKey };
+  /* ملفّات الشمعات تُنشر للمعروض وحده: الكون ~‎270‎ عملة × خمسة فريمات
+     ‎~21‎ م.ب تتجدّد كل خمس دقائق، والواجهة لا تفتح إلا عملةً من القائمة. */
+  const show = new Set(Object.keys(opp.bySym || {}));
+  return { rows: rows.length, four, candleKey: opp.candleKey, show };
 }
 
 function publish() {
@@ -419,8 +422,18 @@ function publish() {
       console.log(`  ✓ دفتر الكريبتو: ${c.rows} صفّاً · ${c.four} بأربعة فريمات · شمعة ${new Date(c.candleKey * 1000).toISOString()}`);
     } catch (e) { console.warn(`  ⚠ دفتر الكريبتو لم يجتز فحصه — يُستبعد من هذا النشر ولا يحجب الأسهم: ${e.message}`); }
   }
-  fs.cpSync(DATA, stage, { recursive: true, filter: (src) =>
-    !NO_PUBLISH.has(path.basename(src)) && (cryptoOk || path.resolve(src) !== CRYPTO_DIR) });
+  let cShow = null;
+  try { if (cryptoOk) cShow = validateCrypto().show; } catch { cShow = null; }
+  const CSYM = path.join(CRYPTO_DIR, "sym"), CSTRAT = path.join(CRYPTO_DIR, "strat");
+  fs.cpSync(DATA, stage, { recursive: true, filter: (src) => {
+    const p = path.resolve(src);
+    if (NO_PUBLISH.has(path.basename(src))) return false;
+    if (!cryptoOk && p === CRYPTO_DIR) return false;
+    // الكريبتو: تسلسلُ الاستراتيجيات لا تقرؤه الواجهة، وملفّاتُ الشمعات للمعروض وحده
+    if (p === CSTRAT || p.startsWith(CSTRAT + path.sep)) return false;
+    if (p.startsWith(CSYM + path.sep)) return !!cShow && cShow.has(path.basename(p, ".json"));
+    return true;
+  } });
   if (skipped) console.log(`  ⤫ استُبعد ${Math.round(skipped / 1024)} ك.ب حالةَ خادمٍ لا يقرؤها المتصفح`);
 
   // اسم المؤلّف من إعدادات المستودع الأب إن وُجد، وإلا اسم محايد
@@ -481,8 +494,11 @@ else {
      `market-direction` (توجّه **السوق الأمريكي**). والتأكيد السريع لأن
      Binance يعطي الكون في ثوانٍ بلا حصّة تُزاحَم. */
   if (cmd === "crypto") {
-    process.env.FAST_CONFIRM = "1";
-    process.env.UNIVERSE = "stocks/crypto.json";
+    /* الكون ديناميكيّ يُبنى يومياً في `fetch-crypto` (كلُّ ما يُتداول فعلاً
+       فوق عتبة السيولة)، والمفتاح شمعةُ ‎5د‎، والمحرّك واللقطة بإعداد
+       الدفتر. */
+    process.env.BOOK = "crypto";
+    process.env.OPP_BAR_SEC = "300";
     process.env.OPP_OUT = CRYPTO_DIR;
     fs.mkdirSync(CRYPTO_DIR, { recursive: true });
   }
@@ -497,7 +513,9 @@ else {
                 المستخدمَ في ثوانٍ بدل دقائق. ولا يمسّ السعر اللحظي أيَّ
                 حساب: هو نفسه `fetch-market` بفريمٍ واحد. */
              : cmd === "confirm" ? ["fetch-market.mjs", "track-strategies.mjs", "build-opportunities.mjs"]
-             : cmd === "crypto" ? ["fetch-market.mjs", "track-strategies.mjs", "build-opportunities.mjs"]
+             : cmd === "crypto" ? ["fetch-crypto.mjs", "track-strategies.mjs", "build-opportunities.mjs"]
+             // مراقبة الكريبتو المنشور — قراءةٌ وحدها، بلا قفل
+             : cmd === "cmon" ? ["crypto-monitor.mjs"]
              : cmd === "strategies" ? ["track-strategies.mjs", "build-opportunities.mjs", "market-direction.mjs"]
              /* توجّه السوق: بلا شبكة — يقرأ ملفات الرموز المكتوبة للتوّ.
                 يلي `track-strategies` لا يسبقه: كلاهما يقرأ نفس الملفات،
@@ -540,7 +558,7 @@ else {
      للقفل يجعل تحليلاً يدويّاً ينتظر دورةَ جلبٍ ثم **ينسحب** بعد
      انتهاء السقف، فيُقرأ ذلك فشلاً في التحليل وهو ازدحامٌ على قفل.
      وقع فعلاً عند أوّل تجربة: «market تعمل — ننتظر دورنا» ثم انسحاب. */
-  const READ_ONLY = ["replay", "audit"];
+  const READ_ONLY = ["replay", "audit", "cmon"];
   if (!READ_ONLY.includes(cmd) && !acquireLock(cmd)) process.exit(0);
   process.on("exit", releaseLock);
   for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { releaseLock(); process.exit(1); });
