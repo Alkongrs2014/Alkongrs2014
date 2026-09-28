@@ -24,7 +24,9 @@ const opt = (k) => { const a = args.find((x) => x.startsWith(k + "=")); return a
 
 async function source() {
   if (opt("--dir")) return { dir: path.resolve(opt("--dir")), kind: "dir", drop: false };
-  if (has("--fixtures")) return { dir: path.join(ROOT, "tests", "fixtures", "data"), kind: "fixtures", drop: false };
+  /* نسخةٌ من المثبّتات لا المثبّتات نفسها: فحصُ الحتمية يشغّل المحرّك فيكتب سجلَّ
+     تشغيله في مجلّده — وقع فعلاً (crypto/logs داخل المثبّتات الملتزمة) */
+  if (has("--fixtures")) return { dir: await takeSnapshot({ src: path.join(ROOT, "tests", "fixtures", "data"), job: "doctor" }), kind: "fixtures", drop: true };
   if (has("--remote")) {
     const work = fs.mkdtempSync(path.join(os.tmpdir(), "webtrade-doc-remote-"));
     const url = execFileSync("git", ["remote", "get-url", "origin"], { cwd: ROOT, encoding: "utf8" }).trim();
@@ -83,7 +85,7 @@ try {
   /* الفشل الحرج يُحفظ بمدخلاته قبل حذف اللقطة — وإلا ضاع ما يعيد إنتاجه */
   const crit = results.filter((r) => !r.ok && r.sev === "CRITICAL");
   for (const c of crit) captureFailure({ source: "doctor", check: c, dataDir: src.dir });
-  if (src.drop) (src.kind === "snapshot" ? dropSnapshot(src.dir) : fs.rmSync(src.dir, { recursive: true, force: true }));
+  if (src.drop) (src.kind === "snapshot" || src.kind === "fixtures" ? dropSnapshot(src.dir) : fs.rmSync(src.dir, { recursive: true, force: true }));
 }
 
 const crit = results.filter((r) => !r.ok && r.sev === "CRITICAL");

@@ -56,10 +56,9 @@ if (QUICK) {
 {
   const r = spawnSync("git", ["status", "--porcelain", "--", "tests/fixtures"], { cwd: ROOT, encoding: "utf8" });
   const dirty = (r.stdout || "").trim();
-  steps.push({ name: "المثبّتات لم تُلمس", ok: !dirty, critical: true, ms: 0, tail: dirty.split("
-").slice(0, 3).join(" | ") });
-  console.log(`${dirty ? "✗" : "✔"} المثبّتات لم تُلمس${dirty ? " — " + dirty.split("
-")[0] : ""}`);
+  const lines = dirty ? dirty.split(/\r?\n/) : [];
+  steps.push({ name: "المثبّتات لم تُلمس", ok: !dirty, critical: true, ms: 0, tail: lines.slice(0, 3).join(" | ") });
+  console.log(`${dirty ? "✗" : "✔"} المثبّتات لم تُلمس${dirty ? " — " + lines[0] : ""}`);
 }
 const failed = steps.filter((s) => !s.ok && s.critical);
 const report = { at: new Date().toISOString(), quick: QUICK, status: failed.length ? "FAIL" : "PASS", steps };

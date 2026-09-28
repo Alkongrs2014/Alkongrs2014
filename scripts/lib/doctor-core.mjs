@@ -84,6 +84,14 @@ export function structuralChecks(dir) {
   if (opp) out.push(T("grid.stocks", "INV-41", "CRITICAL", opp.candleKey % 900 === 0, "candleKey=" + opp.candleKey));
   if (copp) out.push(T("grid.crypto", "INV-41", "CRITICAL", copp.candleKey % 300 === 0, "candleKey=" + copp.candleKey));
 
+  /* INV-04: لا رمزٌ مكرّر في أيّ ملخّص (كشفه التعذيب) */
+  for (const [book, s] of [["stocks", sum], ["crypto", csum]]) {
+    if (!s) continue;
+    const seen = new Set(), dup = new Set();
+    for (const r of s.rows) { if (seen.has(r.s)) dup.add(r.s); seen.add(r.s); }
+    out.push(T("unique." + book, "INV-04", "CRITICAL", !dup.size, [...dup].join(", ")));
+  }
+
   /* INV-11: عمق الفريمات */
   if (sum) {
     const four = sum.rows.filter((r) => Object.keys(r.tfScore || {}).length === 4).length;

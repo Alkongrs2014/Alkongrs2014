@@ -20,7 +20,9 @@ const note = (name, r) => {
   const out = ((r.stdout || "") + (r.stderr || "")).replace(/\x1b\[[0-9;]*m/g, "");
   const m = out.match(/Tests\s+(?:(\d+) failed \| )?(\d+) passed/);
   res.push({ name, ok: r.status === 0, failed: m ? Number(m[1] || 0) : null, passed: m ? Number(m[2]) : null,
-             gate: (out.match(/نتائج البوّابة: (\{[^}]*\})/) || [])[1] || null });
+             gate: (out.match(/نتائج البوّابة: (\{[^}]*\})/) || [])[1] || null,
+             /* الفشل يُحفظ بسطوره — تقريرٌ يقول «فشل واحد» بلا اسمه لا يُعاد إنتاجه */
+             failures: r.status === 0 ? [] : out.split(/\r?\n/).filter((l) => /×|FAIL|→|AssertionError|مثالٌ مضادّ|Error:/.test(l)).slice(0, 30) });
   console.log(`${r.status === 0 ? "✔" : "✗"} ${name} — ${m ? m[0] : out.trim().split("\n").slice(-2).join(" ")}`);
 };
 note(`الخصائص × ${RUNS}`, run(["vitest", "run", "tests/property"], { FC_RUNS: RUNS }));

@@ -19,7 +19,10 @@ http.createServer((req, res) => {
   if (u.startsWith("/stocks/")) f = path.join(ROOT, "stocks", u.slice(8) || "index.html");
   else if (u.startsWith("/data/")) f = path.join(DATA, u.slice(6));
   if (f && fs.existsSync(f) && fs.statSync(f).isDirectory()) f = path.join(f, "index.html");
-  if (!f || !f.startsWith(ROOT.slice(0, 2)) || !fs.existsSync(f)) { res.writeHead(404); return res.end("404"); }
+  /* احتواءٌ حقيقيّ: الملفّ تحت stocks/ أو تحت مجلّد البيانات (قد يكون على قرصٍ آخر —
+     اللقطات في المجلّد المؤقّت) — لا مقارنةُ حرف القرص */
+  const inside = (base) => f && (path.resolve(f) + path.sep).startsWith(path.resolve(base) + path.sep);
+  if (!f || !(inside(path.join(ROOT, "stocks")) || inside(DATA)) || !fs.existsSync(f)) { res.writeHead(404); return res.end("404"); }
   res.writeHead(200, { "Content-Type": MIME[path.extname(f)] || "application/octet-stream", "Cache-Control": "no-store" });
   fs.createReadStream(f).pipe(res);
 }).listen(PORT, () => console.log(`e2e server :${PORT} data=${DATA}`));

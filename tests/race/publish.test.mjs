@@ -88,6 +88,25 @@ describe("النشر المعاملاتيّ", () => {
     expect(head()).toBe(null);
   });
 
+  /* كشفه التعذيب (200 مرشَّح): رمزٌ مكرّر في الملخّص كان يمرّ من كلّ البوّابات
+     فيُعرض مرّتين ويُحسب في الاتساع والقطاعات مرّتين. */
+  it("REG-DUP-SYMBOL: رمزٌ مكرّر في ملخّص الأسهم لا يُنشر", async () => {
+    await pub();
+    const h = head();
+    const s = rj("summary.json"); s.rows.push({ ...s.rows[0] }); s.updated += 1000; wj("summary.json", s);
+    expect((await pub()).code).toBe("invalid");
+    expect(head()).toBe(h);
+  });
+  it("REG-DUP-SYMBOL: ولا في دفتر الكريبتو — يُحمَل المنشور بدلاً منه", async () => {
+    await pub();
+    const before = remoteFile("crypto/summary.json");
+    const f = path.join(data, "crypto/summary.json");
+    const c = JSON.parse(fs.readFileSync(f, "utf8")); c.rows.push({ ...c.rows[0] }); c.updated += 1000;
+    fs.writeFileSync(f, JSON.stringify(c)); bump();
+    expect((await pub()).code).toBe("published");
+    expect(remoteFile("crypto/summary.json").rows.length).toBe(before.rows.length);
+  });
+
   it("INV-11: جلبٌ منقوص العمق لا يحلّ محلّ الكامل", async () => {
     await pub();
     const s = rj("summary.json");

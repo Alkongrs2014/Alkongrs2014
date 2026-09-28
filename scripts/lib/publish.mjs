@@ -43,6 +43,13 @@ export const NO_PUBLISH = new Set([".run.lock", ".publish.lock", ".run.skips.jso
 /* =====================================================================
    بوّابتا الدفترين — كما كانتا في `run.mjs` حرفياً، على **مجلّدٍ مُمرَّر**.
    ===================================================================== */
+/* رمزٌ مكرّر يُعرض مرّتين ويُحسب في الاتساع والقطاعات مرّتين — كشفه التعذيب:
+   كان يمرّ من كلّ البوّابات (المخطّط لا يعبّر عن التفرّد بمفتاح). */
+export function dupSymbols(rows) {
+  const seen = new Set(), dup = new Set();
+  for (const r of rows || []) { if (seen.has(r.s)) dup.add(r.s); seen.add(r.s); }
+  return [...dup];
+}
 export function validateStocks(dir) {
   const read = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
   const sum = read("summary.json"), mkt = read("market.json");
@@ -55,6 +62,8 @@ export function validateStocks(dir) {
   const empty = sum.rows.filter((r) => (!Number.isFinite(r.p) || r.p <= 0) && (!Number.isFinite(r.pc) || r.pc <= 0));
   if (empty.length) throw new Error(`صفوف بلا سعرٍ حيّ ولا إغلاقٍ مؤكَّد: ${empty.map((b) => b.s).join(", ")}`);
   if (!mkt.status) throw new Error("market.json بلا حالة سوق");
+  const dup = dupSymbols(sum.rows);
+  if (dup.length) throw new Error(`رموزٌ مكرّرة في الملخّص: ${dup.join(", ")}`);
   const crypto = sum.rows.filter((r) => r.mkt === "crypto");
   if (crypto.length) throw new Error(`صفوف كريبتو في دفتر الأسهم: ${crypto.map((r) => r.s).join(", ")}`);
   const four = sum.rows.filter((r) => Object.keys(r.tfScore || {}).length === 4).length;
@@ -75,6 +84,8 @@ export function validateCryptoBook(dir) {
   if (rows.length < 10) throw new Error(`${rows.length} صفّاً فقط`);
   const alien = rows.filter((r) => r.mkt !== "crypto");
   if (alien.length) throw new Error(`صفوفٌ غير كريبتو في دفتر الكريبتو: ${alien.map((r) => r.s).join(", ")}`);
+  const dup = dupSymbols(rows);
+  if (dup.length) throw new Error(`رموزٌ مكرّرة: ${dup.join(", ")}`);
   const four = rows.filter((r) => Object.keys(r.tfScore || {}).length === 4).length;
   if (four < rows.length * 0.70) throw new Error(`${four} من ${rows.length} بأربعة فريمات`);
   if (!Number.isFinite(opp.candleKey)) throw new Error("لقطة الفرص بلا candleKey");
