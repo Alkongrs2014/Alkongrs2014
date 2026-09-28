@@ -91,7 +91,9 @@ describe("INV-23: رمزٌ مستقلّ مُضاف لا يغيّر غيره", ()
        المثبّتات الملتزمة تُفسد المرجع المجمَّد (وقع فعلاً: logs/ ظهر فيها) */
     const out = fs.mkdtempSync(path.join(os.tmpdir(), "wt-meta-"));
     const a = runOnce({ out, now: strat.updated, io: base }), b = runOnce({ out, now: strat.updated, io: withExtra });
-    fs.rmSync(out, { recursive: true, force: true });
+    /* الحذف عند الخروج لا فوراً: مسجّلُ التشغيل يكتب بلا انتظار، وحذفُ المجلّد
+       تحته يرمي خطأً غير ملتقَط يُسقط عامل الاختبار (أسقط Stryker فعلاً) */
+    process.once("exit", () => { try { fs.rmSync(out, { recursive: true, force: true }); } catch {} });
     expect(strip(b.rows)).toBe(strip(a.rows));
     expect(b.rows.some((r) => r.s === "ZZZZ")).toBe(a.rows.some((r) => r.s === summary.rows[0].s));
   });
