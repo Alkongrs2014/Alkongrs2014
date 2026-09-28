@@ -14,7 +14,15 @@ const BAD_TEXT = /\bNaN\b|\bInfinity\b|\bundefined\b|\[object Object\]/;
 async function open(page) {
   const errors = [], failed = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => { if (m.type() === "error" && !/favicon|manifest/i.test(m.text())) errors.push("console: " + m.text()); });
+  /* يُستثنى ردّ api.github.com وحده: حدُّه 60 طلباً/ساعة لكل عنوان بلا مصادقة،
+     و`dataBase()` تلتقط الرفض وتسقط إلى رابط الفرع (تدهورٌ هادئ موثّق) —
+     المتصفّح يطبع الرفض وإن عولج. أيُّ خطأٍ آخر يبقى فشلاً. */
+  page.on("console", (m) => {
+    if (m.type() !== "error" || /favicon|manifest/i.test(m.text())) return;
+    const url = (m.location() && m.location().url) || "";
+    if (/api\.github\.com/.test(url) && /status of 403|status of 429/.test(m.text())) return;
+    errors.push("console: " + m.text() + (url ? " @ " + url : ""));
+  });
   page.on("requestfailed", (r) => { if (!/fonts\.(googleapis|gstatic)|api\.github\.com/.test(r.url())) failed.push(r.url()); });
   page.on("response", (r) => { if (r.status() >= 500) failed.push(r.status() + " " + r.url()); });
   await page.goto("stocks/");
