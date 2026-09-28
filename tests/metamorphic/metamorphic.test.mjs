@@ -10,6 +10,7 @@
    ===================================================================== */
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { runOnce } from "../../scripts/track-strategies.mjs";
@@ -86,7 +87,11 @@ describe("INV-23: رمزٌ مستقلّ مُضاف لا يغيّر غيره", ()
     };
     const strip = (rows) => JSON.stringify(rows.filter((r) => r.s !== "ZZZZ").map(({ pAt, ...x }) => x)
       .sort((a, b) => (a.s + a.st).localeCompare(b.s + b.st)));
-    const a = runOnce({ out: FIX, now: strat.updated, io: base }), b = runOnce({ out: FIX, now: strat.updated, io: withExtra });
+    /* مجلّدٌ مؤقّت لا المثبّتات: `runOnce` يكتب سجلّ تشغيله في `out`، والكتابة في
+       المثبّتات الملتزمة تُفسد المرجع المجمَّد (وقع فعلاً: logs/ ظهر فيها) */
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), "wt-meta-"));
+    const a = runOnce({ out, now: strat.updated, io: base }), b = runOnce({ out, now: strat.updated, io: withExtra });
+    fs.rmSync(out, { recursive: true, force: true });
     expect(strip(b.rows)).toBe(strip(a.rows));
     expect(b.rows.some((r) => r.s === "ZZZZ")).toBe(a.rows.some((r) => r.s === summary.rows[0].s));
   });

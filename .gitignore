@@ -1,5 +1,6 @@
 .env
-data/
+# data/ في الجذر وحده — «data/» بلا شرطة يطابق أيّ مجلّدٍ بهذا الاسم فأسقط مثبّتات الاختبار من المستودع
+/data/
 node_modules/
 reports/*
 !reports/.gitkeep

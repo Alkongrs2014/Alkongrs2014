@@ -27,7 +27,7 @@ try {
   fs.cpSync(snap, OUT, { recursive: true, filter: (src) => !DROP.has(path.basename(src)) });
   const cdir = path.join(OUT, "crypto");
   if (fs.existsSync(cdir)) {
-    for (const n of ["strat-history.json", "strat-signals.json", "opportunities-log.json"]) fs.rmSync(path.join(cdir, n), { force: true });
+    for (const n of ["strat-history.json", "strat-signals.json", "opportunities-log.json", "strat", "logs"]) fs.rmSync(path.join(cdir, n), { recursive: true, force: true });
     const opp = JSON.parse(fs.readFileSync(path.join(cdir, "opportunities.json"), "utf8"));
     const keep = new Set(Object.keys(opp.bySym || {}).slice(0, CRYPTO_SYMS));
     const sym = path.join(cdir, "sym");

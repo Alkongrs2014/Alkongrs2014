@@ -52,6 +52,15 @@ if (QUICK) {
   step("الصحّة", node, ["scripts/health.mjs"], {}, { critical: false });
 }
 
+/* المثبّتات مرجعٌ مجمَّد: أيُّ اختبارٍ كتب فيها أفسد المرجع بصمت (وقع: logs/). */
+{
+  const r = spawnSync("git", ["status", "--porcelain", "--", "tests/fixtures"], { cwd: ROOT, encoding: "utf8" });
+  const dirty = (r.stdout || "").trim();
+  steps.push({ name: "المثبّتات لم تُلمس", ok: !dirty, critical: true, ms: 0, tail: dirty.split("
+").slice(0, 3).join(" | ") });
+  console.log(`${dirty ? "✗" : "✔"} المثبّتات لم تُلمس${dirty ? " — " + dirty.split("
+")[0] : ""}`);
+}
 const failed = steps.filter((s) => !s.ok && s.critical);
 const report = { at: new Date().toISOString(), quick: QUICK, status: failed.length ? "FAIL" : "PASS", steps };
 fs.mkdirSync(path.join(ROOT, "reports"), { recursive: true });

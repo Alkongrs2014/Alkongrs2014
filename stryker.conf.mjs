@@ -4,7 +4,7 @@
    وتُبرَّر الناجية في reports/mutation-summary.json. */
 export default {
   testRunner: "vitest",
-  vitest: { configFile: "vitest.stryker.config.mjs" },
+  vitest: { configFile: "vitest.stryker.config.mjs", related: false },
   coverageAnalysis: "perTest",
   mutate: [
     "stocks/score.js",
@@ -25,5 +25,5 @@ export default {
   concurrency: 6,
   timeoutMS: 60000,
   tempDirName: ".stryker-tmp",
-  ignorePatterns: ["data", "reports", "node_modules", ".archive"]
+  ignorePatterns: ["/data", "/reports", "/node_modules", "/.stryker-tmp"]
 };
