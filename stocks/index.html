@@ -5201,6 +5201,14 @@ async function refreshCrypto() {
     BOOKS.cryptoErr = null;
     getJSON("crypto/opp-history.json").then(h => { BOOKS.cryptoHist = h; if (state.view === "crypto") renderCryptoEnded(); })
       .catch(() => {});
+    /* قائمة مراقبة «افتتاح 5m عند خط 200» — ملفٌّ مستقلّ لا يمسّ اللقطة.
+       حارسُ رتابة كاللقطة: نسخةٌ أقدم من حافّةٍ أخرى لا تُرجع القائمة شمعة. */
+    getJSON("crypto/ma200-open.json").then(m => {
+      const cur = BOOKS.cryptoMa200;
+      if (!m || !Array.isArray(m.rows) || (cur && m.bar < cur.bar)) return;
+      BOOKS.cryptoMa200 = m;
+      if (state.view === "crypto" && state.scan === "ma200") renderScreen();
+    }).catch(e => diag("crypto", "تعذّر جلب قائمة خط 200", e && e.message));
   } catch (e) {
     BOOKS.cryptoErr = e.message;
     diag("crypto", "تعذّر جلب دفتر الكريبتو", e && e.message);
@@ -7844,15 +7852,71 @@ const SCR = {
 const CRYPTO_BEST = { id: "best", lbl: "الأقوى الآن",
   why: "أعلى العملات درجةً عبر كل الإعدادات — من الكون كاملاً (كلُّ ما يُتداول فعلاً فوق عتبة السيولة)، بعد بوّابة الجودة ومعامِل توافق البيتكوين. العملة تظهر مرّةً بأقوى إعدادٍ لها." };
 const CRYPTO_SCAN_IDS = ["align", "alignDn", "divBull", "divBear", "pullback"];
+/* قائمة مراقبة لا إعداد: لا تدخل اللقطة ولا الدرجة ولا الترتيب، وتُقرأ من
+   `crypto/ma200-open.json` وحده (`scripts/scan-ma200-open.mjs`). */
+const CRYPTO_MA200 = { id: "ma200", lbl: "افتتاح 5m عند خط 200",
+  why: "عملاتٌ افتتحت شمعة 5 دقائق الجديدة قرب خط 200 (EMA 200 أو SMA 200) ضمن ±0.20%. الخطّان من الشموع المغلقة السابقة وحدها، والافتتاح من بداية الشمعة الجارية لا السعر اللحظي. قائمة مراقبة — ليست فرصة تداول ولا تغيّر أي درجة أو ترتيب." };
 const BK_LABEL = { strong: "قوي", mid: "متوسط", flat: "محايد", counter: "معاكس" };
 const tfLbl = (tf) => TF_LABEL[tf] || ({ "5m": "5 دقائق" }[tf]) || tf;
+
+/* «افتتاح 5m عند خط 200» — عرضٌ فقط. الترتيب والمسافة والخطّان كلُّها من
+   الخادم، ودرجةُ الفرصة منقولةٌ من اللقطة للعرض ولا يعتمد عليها شيء. */
+function renderMa200(el, cnt) {
+  const M = BOOKS.cryptoMa200;
+  if (!M) {
+    el.innerHTML = `<div class="skl" style="height:64px"></div><div class="skl" style="height:64px;margin-top:8px"></div>`;
+    if (cnt) cnt.textContent = "قائمة خط 200 تُجلب…";
+    refreshCrypto();
+    return;
+  }
+  const B = M.btc || {};
+  const btcT = B.dir > 0 ? "▲ صاعد" : B.dir < 0 ? "▼ هابط" : "⇄ محايد";
+  const btcC = B.dir > 0 ? "var(--up)" : B.dir < 0 ? "var(--dn)" : "var(--mut)";
+  const btcLine = `اتجاه BTC: <span style="color:${btcC}">${btcT}${Number.isFinite(B.pct) ? " " + bd(B.pct) + "%" : ""}</span>`;
+  const note = `<div class="n mut" style="margin-bottom:8px">قائمة مراقبة — لا تُعدّ فرصة ولا تغيّر أي درجة أو استراتيجية أو ترتيب.</div>`;
+  if (cnt) cnt.innerHTML = `${bd(M.count)} من ${bd(M.eligible)} عملة مؤهّلة (من ${bd(M.scanned)} في الكون) · شمعة 5د ${esc(stamp(M.bar * 1000))} · النطاق ±${M.bandPct}% · ${btcLine}`;
+  if (!M.rows.length) {
+    el.innerHTML = note + `<div class="empty">لم تفتتح أيُّ عملةٍ هذه الشمعة ضمن ±${M.bandPct}% من خط 200 — نتيجة صحيحة لا عطل</div>`;
+    return;
+  }
+  const dTxt = (d) => `${d > 0 ? "+" : ""}${d.toFixed(3)}%`;
+  /* فارقُ ‎0.01%‎ بين الافتتاح والخطّ يختفي بخانتين: DOT ‎1.2503‎ و‎1.2502‎ كلاهما
+     «‎$1.25‎». فالسعر هنا بخاناتٍ أكثر من العرض العام — والرقم نفسُه من الخادم. */
+  const px = (x) => money(x, x >= 1000 ? 2 : x >= 1 ? 4 : priceDigits(x) + 1);
+  el.innerHTML = note + M.rows.map((r, i) => {
+    const sideC = r.side > 0 ? "up" : r.side < 0 ? "dn" : "neu";
+    const sideT = r.side > 0 ? "فتحت فوق الخط" : r.side < 0 ? "فتحت تحت الخط" : "فتحت على الخط";
+    const lines = r.lines.map(L => `<span class="${L.k === r.near ? "" : "cold"}">${L.k} 200 <span class="num">${px(L.v)}</span> ·
+      <span class="num" style="color:${L.d > 0 ? "var(--up)" : L.d < 0 ? "var(--dn)" : "var(--mut)"}">${dTxt(L.d)}</span></span>`).join("");
+    return `<div class="srow opp d-${sideC}" data-open="${esc(r.s)}">
+      <div class="opp-hd">
+        <div class="rank num">${i + 1}</div>
+        ${monoTile(r.s, "كريبتو")}
+        <div class="id">
+          <div class="t">${esc(nm(r))}<span class="tick">${esc(r.s)}</span></div>
+          <div class="n">${btcLine}</div>
+        </div>
+        <div class="opp-dir ${sideC}">${r.side > 0 ? "▲" : r.side < 0 ? "▼" : "⇄"} ${sideT}</div>
+      </div>
+      <div class="opp-bd">
+        <div class="opp-px">
+          <div class="p num">${px(r.o)}</div>
+          <div class="c mut">افتتاح 5د</div>
+        </div>
+        <div class="hitv">${esc(r.near)} 200 · ${dTxt(r.dmin)}${Number.isFinite(r.q)
+          ? `<span class="hg">درجة الفرصة <span class="num">${r.q}</span></span>` : `<span class="hg" style="color:var(--mut)">لا فرصة حالية</span>`}</div>
+      </div>
+      <div class="opp-ft">${lines}</div>
+    </div>`;
+  }).join("");
+}
 
 function renderScreen() {
   const CR = state.view === "crypto";
   const U = CR ? SCR.crypto : SCR.us;
   const pick = $(U.pick);
   if (!pick) return;
-  const LIST = CR ? [CRYPTO_BEST, ...SCANS.filter(s => CRYPTO_SCAN_IDS.includes(s.id))] : SCANS;
+  const LIST = CR ? [CRYPTO_BEST, ...SCANS.filter(s => CRYPTO_SCAN_IDS.includes(s.id)), CRYPTO_MA200] : SCANS;
   if (!pick.dataset.built) {
     pick.innerHTML = LIST.map(s => `<button data-scan="${s.id}">${esc(s.lbl)}</button>`).join("");
     pick.dataset.built = "1";
@@ -7866,6 +7930,9 @@ function renderScreen() {
   if (!CR) renderScanHistory(scan.id);
 
   const el = $(U.list);
+  // قائمة المراقبة تُرسم من ملفّها وتعود قبل مسار اللقطة: لا تقرأ `OPP.scans`
+  // ولا تكتب `state.lastScanRows`
+  if (CR && scan.id === "ma200") { renderMa200(el, $(U.count)); return; }
   if (!state.summary) {
     el.innerHTML = CR && BOOKS.cryptoErr
       ? `<div class="warn">تعذّر جلب دفتر الكريبتو — ${esc(BOOKS.cryptoErr)}</div>`

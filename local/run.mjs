@@ -513,7 +513,9 @@ else {
                 المستخدمَ في ثوانٍ بدل دقائق. ولا يمسّ السعر اللحظي أيَّ
                 حساب: هو نفسه `fetch-market` بفريمٍ واحد. */
              : cmd === "confirm" ? ["fetch-market.mjs", "track-strategies.mjs", "build-opportunities.mjs"]
-             : cmd === "crypto" ? ["fetch-crypto.mjs", "track-strategies.mjs", "build-opportunities.mjs"]
+             /* `scan-ma200-open` آخراً: قائمة مراقبة تقرأ ولا تكتب إلا ملفَّها،
+                وتقرأ درجةَ الفرصة من اللقطة التي كُتبت للتوّ — للعرض وحده. */
+             : cmd === "crypto" ? ["fetch-crypto.mjs", "track-strategies.mjs", "build-opportunities.mjs", "scan-ma200-open.mjs"]
              // مراقبة الكريبتو المنشور — قراءةٌ وحدها، بلا قفل
              : cmd === "cmon" ? ["crypto-monitor.mjs"]
              : cmd === "strategies" ? ["track-strategies.mjs", "build-opportunities.mjs", "market-direction.mjs"]

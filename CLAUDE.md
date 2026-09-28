@@ -43,6 +43,7 @@
 stocks/index.html      التطبيق كاملاً (5 تبويبات: الآن، الأسهم، الفرص، تحليل، الأخبار)
 stocks/config.js       الإعدادات — يكتشف مكانه تلقائياً (localhost أم ويب)
 stocks/symbols.json    كون الرموز بثلاث طبقات (انظر «الطبقتان» أدناه)
+scripts/scan-ma200-open.mjs  قائمة مراقبة الكريبتو: افتتاح 5د عند EMA/SMA 200 (لا تمسّ الفرص)
 scripts/fetch-crypto.mjs   دفتر الكريبتو: الكون اليومي من Binance + شموع 5د..1d مغلقة + توجّه البيتكوين
 scripts/check-crypto-stability.mjs  ثبات الكريبتو داخل شمعة 5د — مسار الخادم كاملاً (بلا شبكة)
 scripts/crypto-monitor.mjs  مراقبة المنشور كل 5 دقائق (data/crypto/.monitor/live.jsonl)
@@ -3796,4 +3797,29 @@ node local/run.mjs cmon                   # دورة مراقبة واحدة (ب
 node scripts/replay-crypto.mjs --from=ISO --to=ISO [--engine=./x.mjs] --out=f.json
 node scripts/replay-compare.mjs a.json b.json [--sym=PUMP-USD] [--live]
 node scripts/crypto-report.mjs --since=ISO     # يشمل الارتعاش الآن
+```
+
+### قائمة «افتتاح 5m عند خط 200» — مراقبةٌ لا فرصة (2026-09-28)
+
+`scripts/scan-ma200-open.mjs` ← `data/crypto/ma200-open.json`، آخرَ دورة
+`run.mjs crypto`. العملات التي افتتحت شمعة ‎5د‎ الجارية ضمن ‎±0.20%‎ من
+EMA200 أو SMA200، مرتّبةً بالأقرب.
+
+- **الخطّان من المغلق وحده**: `closedBars` ثم `ema` على نافذة `AN_WIN` نفسها
+  التي يمرّ بها `analyzeRec` — قِيس مطابقتُه `an["5m"].e200` في ‎18/18‎.
+  و**من الجارية الافتتاحُ وحده**، وهو لا يتغيّر داخل الشمعة فالقائمة ثابتةٌ
+  بالبناء. قِيس: الافتتاح = `klines` Binance للشمعة الجارية ‎18/18‎، ويخالف
+  السعر اللحظي في ‎15/18‎.
+- **ملفٌّ جُلب قبل بدء الشمعة الجارية يُتخطّى**: الشمعة السابقة فيه جزئية
+  (كانت جاريةً لحظة جلبه)، والخطُّ منها ليس خطَّ المغلق.
+- الشمعة الجارية مخزَّنة أصلاً في `tf["5m"].c` (Binance تعيدها في `klines`)
+  فيُقرأ افتتاحُها منه، وإلا يُطلب `limit=1` مباشرةً للماسح وحده.
+- **لا يكتب إلا ملفَّه**: بصمة ‎805‎ ملفّ بيانات (الأسهم والكريبتو) قبل
+  التشغيل وبعده متطابقة. ودرجةُ الفرصة تُنقل من اللقطة **للعرض**.
+- العرض: `renderMa200` يعود قبل مسار اللقطة في `renderScreen` (لا يقرأ
+  `OPP.scans` ولا يكتب `state.lastScanRows`)، وبخاناتٍ أكثر من `money`
+  العامة: فارقُ ‎0.01%‎ يختفي بخانتين.
+
+```bash
+node scripts/scan-ma200-open.mjs --check
 ```
