@@ -642,6 +642,13 @@ body.sheet-open{overflow:hidden}
 .opp-hit span{font-size:11.5px;font-weight:700;color:var(--up);background:var(--upBg);
   border:1px solid rgba(43,217,138,.24);border-radius:var(--r-pill);padding:3px 10px}
 #cEnded .good{color:var(--up)} #cEnded .cold{color:var(--tx3)}
+/* فاصلُ الفئتين في «الفرص الآن»: الجديدةُ أولاً ثم المستمرّة — عنوانٌ لا بطاقة،
+   فلا تعدّه أدواتُ الإثبات صفّاً (`.srow`) */
+.opp-grp{font-size:11.5px;font-weight:700;color:var(--tx2);margin:14px 2px 8px;
+  display:flex;align-items:baseline;gap:8px}
+.opp-grp:first-child{margin-top:2px}
+.opp-grp.new{color:var(--up)}
+.opp-grp small{font-weight:500;color:var(--tx3);font-size:10.5px}
 
 /* الترويسة اللاصقة لشاشة الفرص: المرشّحات تبقى في متناول الإبهام */
 .sticky-hd{position:sticky;top:0;z-index:20;margin:-15px -15px 12px;
@@ -3010,10 +3017,13 @@ function renderTopOpp() {
     const sc = SCANS.find(x => x.id === id);
     for (const r of O.scans[id] || []) {
       if (!Number.isFinite(r.q)) continue;
-      if (!best[r.s] || r.q > best[r.s].q) best[r.s] = { r, lbl: sc ? sc.lbl : id };
+      /* الجديدةُ تغلب المستمرّة للرمز نفسه، ثم الدرجة */
+      const cur = best[r.s], fN = r.fr === 1 ? 1 : 0, fC = cur && cur.r.fr === 1 ? 1 : 0;
+      if (!cur || fN > fC || (fN === fC && r.q > cur.r.q)) best[r.s] = { r, lbl: sc ? sc.lbl : id };
     }
   }
-  const top = Object.values(best).sort((a, b) => b.r.q - a.r.q).slice(0, 3);
+  /* «أبرز الفرص الآن»: الجديدةُ أولاً — مستمرّةٌ منذ أيام لا تُعرض كأنها رصدُ الآن */
+  const top = Object.values(best).sort((a, b) => ((b.r.fr === 1) - (a.r.fr === 1)) || (b.r.q - a.r.q)).slice(0, 3);
   if (!top.length) {
     el.innerHTML = `<div class="empty" style="padding:18px">لا فرصةٌ مطابقةٌ لأيّ شرط الآن — وهذا نتيجة صحيحة لا عطل</div>`;
     if (src) src.textContent = ""; return;
@@ -3030,7 +3040,7 @@ function renderTopOpp() {
       ${monoTile(r.s, r.sec, "sm")}
       <div class="g">
         <div class="t">${esc(nm(r))}<span class="tick">${esc(r.s)}</span></div>
-        <div class="s">${esc(lbl)} · <span class="num" style="color:${ccol}">${
+        <div class="s">${r.fr === 1 ? `<b style="color:var(--up)">جديدة</b> · ` : r.fr === 0 ? `<span style="color:var(--tx3)">مستمرّة</span> · ` : ""}${esc(lbl)} · <span class="num" style="color:${ccol}">${
           chg === null ? "—" : pct(chg)}</span> · <span class="num">${money(px)}</span></div>
       </div>
       <div class="q"><b class="num">${Math.round(r.q * 100)}</b><i>درجة</i></div>
@@ -3038,7 +3048,7 @@ function renderTopOpp() {
   }).join("");
   $$("#topOpp [data-open]").forEach(x => x.onclick = () => openSymbol(x.dataset.open));
   if (src) src.textContent = Number.isFinite(O.candleKey)
-    ? `أعلى ثلاث درجاتٍ في لقطة ${stamp(O.candleKey * 1000)} — بترتيب الخادم نفسه، بلا إعادة حساب`
+    ? `الجديدة أولاً ثم أعلى الدرجات في لقطة ${stamp(O.candleKey * 1000)} — بترتيب الخادم نفسه، بلا إعادة حساب`
     : "";
 }
 
@@ -8043,6 +8053,26 @@ function renderScreen() {
     if (!openSig[s.sym] || s.at > openSig[s.sym].at) openSig[s.sym] = s;
   }
 
+  /* =====================================================================
+     **جديدةٌ الآن غيرُ مستمرّةٍ منذ أيام** — والخادم يقرّر لا المتصفّح.
+
+     `fr` من اللقطة: إطلاقٌ أو تجديدٌ أو دخولٌ على إحدى آخر أربع شمعات
+     ‎15د‎ مغلقة. واللقطةُ ترتّب الجديدةَ أولاً، فالعرض يضع عنوانين فوق
+     الفئتين ولا يعيد ترتيب شيء. كان الوسم «جديدة» يُشتقّ من فريم الشرط
+     (اليوميّ: يومان)، فتظهر فرصةٌ عمرها ‎68‎ ساعة بجانب فرصةٍ أُطلقت على
+     آخر إغلاق وكأنهما رصدٌ واحد. والكريبتو خارج هذا: له دورةُ حياته.
+     ===================================================================== */
+  const FZ = !CR && hits.some(r => r.fr != null);
+  const nNew = FZ ? hits.filter(r => r.fr === 1).length : 0;
+  const minsAgo = (sec) => Math.max(0, Math.round((OPP.candleKey - sec) / 60));
+  const grpHd = (i) => {
+    if (!FZ) return "";
+    if (i === 0 && nNew) return `<div class="opp-grp new">جديدة الآن · ${bd(nNew)}<small>أُطلقت أو دخلت على إحدى آخر أربع شمعات ١٥ دقيقة مغلقة</small></div>`;
+    if (i === nNew) return (nNew ? "" : `<div class="empty" style="padding:14px">لا فرصةَ جديدة على هذا الشرط في آخر ساعة — والمستمرّة أدناه</div>`) +
+      `<div class="opp-grp">مستمرّة · ${bd(hits.length - nNew)}<small>رُصدت سابقاً وما زالت صالحة — ليست رصداً جديداً</small></div>`;
+    return "";
+  };
+
   el.innerHTML = hits.map((r, i) => {
     /* السعر والتغيّر من الطبقة الحيّة إن وُجدا — **عرضاً فقط**. وإلا
        فإغلاقُ شمعة التأكيد المحفوظ في اللقطة: رقمٌ حقيقي لا ملفّق. */
@@ -8100,7 +8130,20 @@ function renderScreen() {
        مجموعةُ قيمه مفتوحة لا يُفحص بواحدةٍ منها». وطيُّ «قديمة» مع
        «قائمة» في لونٍ رماديّ واحد يُخفي أن المرجع خرج من النافذة. */
     const FR = { fresh: "good", live: "", late: "hot", stale: "bad" };
-    if (sg) chips.push(`<span class="${fr ? (FR[fr.k] || "") : "cold"}">${
+    if (FZ && sg) {
+      /* الأسهم: «جديدة منذ X دقيقة» بساعة الشمعة، أو «مستمرّة منذ …» — ولا
+         وسمَ «جديدة» بفريم الشرط بعد اليوم */
+      const m = r.fr === 1 ? minsAgo(r.fa) : null;
+      const when = m === 0 ? "على إغلاق آخر شمعة" : `منذ ${bd(m)} دقيقة`;
+      if (r.fr === 1 && r.fw === "fill") {
+        chips.push(`<span class="good">دخلت منطقة الدخول ${when}</span>`);
+        chips.push(`<span class="cold">الإعداد منذ ${esc(age(tNow - sg.at))}</span>`);
+      } else if (r.fr === 1) {
+        chips.push(`<span class="good">جديدة ${when}${r.fw === "renew" ? " · تجديد بعد انتهاء السابقة" : ""}</span>`);
+      } else {
+        chips.push(`<span class="cold">مستمرّة منذ ${esc(age(tNow - sg.at))}</span>`);
+      }
+    } else if (sg) chips.push(`<span class="${fr ? (FR[fr.k] || "") : "cold"}">${
       tNow - sg.at <= barSec * 1000 ? "هذه الشمعة" : esc(age(tNow - sg.at))}${fr ? " · " + esc(fr.t) : ""}</span>`);
     /* الخطة المثبّتة لحظةَ ظهور الفرصة: دخول ثم أهداف في جهة الفرصة
        (الخادم يرفض أيّ هدفٍ في الجهة الخاطئة)، وما بُلغ منها بالشمعات
@@ -8138,7 +8181,9 @@ function renderScreen() {
     if (r.wide) chips.push(`<span class="cold">يوميّ فقط</span>`);
     if (r.ctf) chips.push(`<span class="cold">على ${esc(r.ctf)}</span>`);
 
-    return `<div class="srow opp d-${dirC}${i < 3 ? " top r" + (i + 1) : ""}" data-open="${esc(r.s)}">
+    /* التمييز البصريّ للثلاثة الأولى من **الجديدة** وحدها: مستمرّةٌ لا تتصدّر */
+    const topI = FZ ? (r.fr === 1 && i < 3) : i < 3;
+    return `${grpHd(i)}<div class="srow opp d-${dirC}${topI ? " top r" + (i + 1) : ""}" data-open="${esc(r.s)}">
       <div class="opp-hd">
         <div class="rank num">${i + 1}</div>
         ${monoTile(r.s, r.sec)}
@@ -8189,8 +8234,9 @@ function renderScreen() {
   /* وفي الكريبتو: لا حوافّ مقيسة فالأوزان محايدة — يُقال ولا يُفترض. */
   const edgeNote = CR ? " · أوزان الاستراتيجيات محايدة (لا أرشيف مقيس للعملات)" : "";
   // `bd()` تعيد HTML — `textContent` كانت تطبع وسوم <bdi> حرفياً
+  const newNote = FZ ? ` (${bd(nNew)} جديدة · ${bd(hits.length - nNew)} مستمرّة)` : "";
   $(U.count).innerHTML =
-    `${bd(hits.length)} من ${scope}${confNote}${barNote}${edgeNote} · بُنيت ${ago(OPP.generatedAt)}`;
+    `${bd(hits.length)}${newNote} من ${scope}${confNote}${barNote}${edgeNote} · بُنيت ${ago(OPP.generatedAt)}`;
 }
 
 function renderEarnings() {

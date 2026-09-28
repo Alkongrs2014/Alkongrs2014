@@ -242,6 +242,40 @@ const MISS_MAX = 2;                        // غيابُ الشرط شمعتين
 const F_FRESH = { fresh: 1, live: 0.85, late: 0.6 };   // «قديمة» تُنهى
 const F_ROOM = [1, 0.7, 0.4, 0.4];         // بعد T1 / بعد T2: الحركة جرت
 const lifeKey = (s, scan, d) => s + "|" + scan + "|" + d;
+/* =====================================================================
+   **جديدةٌ الآن غيرُ قائمةٍ منذ أيام** — تعريفٌ على شمعات ‎15د‎ المغلقة.
+
+   كانت «جديدة» تُقرأ من `freshness` بفريم الشرط، وأغلبُ الشروط يوميّة:
+   «جديدة» = يومان، و«قائمة» = ستة أيام. فكانت «الفرص الآن» تخلط إعداداً
+   أُطلق على آخر إغلاق بإعدادٍ مستمرٍّ منذ أربعة أيام في ترتيبٍ واحد —
+   قِيس 2026-09-28: CALL ثلاثٌ أعمارها ‎67–69‎ ساعة، وPUT سبعٌ منها
+   خمسٌ بين ‎70‎ و‎283‎ ساعة. ولم يكن شيءٌ يحجب فرصةً جديدة (لا سقف، ولا
+   تكرار مفتاح، ولا قفلُ «قديمة» في ‎320‎ خطوة إعادة) — العلّة التسمية
+   والترتيب لا العضوية.
+
+   جديدةٌ (`fr`) إن وقع أحدُ حدثين خلال آخر أربع شمعات ‎15د‎ مغلقة:
+   · **إطلاق** (`trig`): بدأت دورةُ حياةٍ جديدة — الشرط غاب شمعتين ثم عاد.
+   · **تجديد** (`renew`): انتهت الصفقة السابقة بهدفٍ أو وقف والإعدادُ قائم
+     فوُلدت خطةٌ جديدة بدخولٍ وأهدافٍ جديدة.
+   · **دخول** (`fill`): إعدادٌ قائمٌ كان ينتظر ارتداداً إلى دخوله، فلمسته
+     شمعةٌ مغلقة الآن — «حقّق شروط الدخول من جديد». يُوسَم باسمه كي لا يُقرأ
+     إعداداً جديداً.
+   وما عداها **مستمرّة**: تبقى في اللقطة بحالتها وخطتها، تحت الجديدة لا
+   بينها. ولا تتغيّر الدرجة `q` ولا العضوية ولا عتبات الشروط — المتغيّر
+   الترتيبُ بين الفئتين والوسم. والتكرار ممنوعٌ بالبناء: المفتاح
+   `رمز|شرط|جهة` واحدٌ لدورة الحياة، والشمعة التالية لا تُنشئ سجلاً.
+   ===================================================================== */
+export const FRESH_WIN = 4 * 900;
+export function freshOf(L, candleKey) {
+  const trig = candleKey - L.since < FRESH_WIN && !L.seed;
+  const fill = Number.isFinite(L.inAt) && L.inAt > L.since && candleKey - L.inAt < FRESH_WIN;
+  if (trig) return { fr: 1, fa: L.since, fw: L.re ? "renew" : "trig" };
+  if (fill) return { fr: 1, fa: L.inAt, fw: "fill" };
+  return { fr: 0, fa: Math.max(L.since, Number.isFinite(L.inAt) ? L.inAt : 0), fw: null };
+}
+/* الجديدةُ أولاً ثم المستمرّة، وكلٌّ بترتيب الدرجة كما هو (فرزٌ مستقرّ) */
+export const freshFirst = (rows) => rows.map((r, i) => [r, i])
+  .sort((a, b) => ((b[0].fr || 0) - (a[0].fr || 0)) || (a[1] - b[1])).map(x => x[0]);
 
 function symBars(sym, cache, nowMs) {
   if (sym in cache) return cache[sym];
@@ -267,7 +301,7 @@ function walk(L, bars) {
     const fav = d === 1 ? b.h : b.l, adv = d === 1 ? b.l : b.h;
     if (Number.isFinite(fav)) L.mfe = d === 1 ? Math.max(L.mfe ?? fav, fav) : Math.min(L.mfe ?? fav, fav);
     if (Number.isFinite(adv)) L.mae = d === 1 ? Math.min(L.mae ?? adv, adv) : Math.max(L.mae ?? adv, adv);
-    if (!L.in && Number.isFinite(L.e) && (adv - L.e) * d <= 0) L.in = 1;
+    if (!L.in && Number.isFinite(L.e) && (adv - L.e) * d <= 0) { L.in = 1; L.inAt = ts; }
     if (L.in && Number.isFinite(L.st) && (adv - L.st) * d <= 0) {
       L.end = { k: "stop", at: ts }; continue;               // الوقف يغلب في الشمعة نفسها
     }
@@ -381,16 +415,19 @@ function buildSnapshotImpl(now) {
        عشرون شمعةً من فريمه ليس جديداً لأن الساعة تقدّمت. */
     /* و«خرجت لصالح أقوى» (`out`) تعود فرصةً جديدة بعد ساعة إن بقي إعدادُها —
        لا فوراً (وإلا صارت الإزاحة ارتعاشاً باسمٍ آخر) ولا أبداً. */
+    let reK = null;                       // سببُ انتهاء السابقة إن وُلدت هذه تجديداً
     if (L && L.end && (L.end.k === "tgt" || L.end.k === "stop" ||
         (CRYPTO && L.end.k === "out" && candleKey - L.end.at >= 3600)) && L.end.at < candleKey) {
       closedRe.push([key, L.end.k]);
+      reK = L.end.k;
       L = null; delete life[key];
     }
     if (!L) {
       const sg = seeds[key];
       const sgSince = sg ? Math.round(sg.at / 1000) : null;
       L = { d: sd, since: candleKey, px0: row.pc, e: null, st: null, t: [], hit: 0, in: 0,
-            upto: candleKey, miss: 0, k: candleKey, end: null, mfe: null, mae: null };
+            upto: candleKey, miss: 0, k: candleKey, end: null, mfe: null, mae: null,
+            ...(reK ? { re: reK } : {}) };
       if (sg && sgSince < candleKey && Array.isArray(sg.snap.t)) {
         L.since = sgSince; L.px0 = sg.snap.px ?? sg.entry; L.upto = sgSince;
         L.e = sg.snap.e; L.st = sg.snap.s; L.t = sg.snap.t.slice(); L.seed = 1;
@@ -416,6 +453,7 @@ function buildSnapshotImpl(now) {
       return { drop: true };
     }
     const mv = Number.isFinite(row.pc) && L.px0 > 0 ? (row.pc / L.px0 - 1) * 100 * sd : null;
+    const fz = CRYPTO ? null : freshOf(L, candleKey);
     const ba = CRYPTO ? btcAlign(sd, regime) : null;
     let cx = null;
     if (CRYPTO) {
@@ -431,6 +469,7 @@ function buildSnapshotImpl(now) {
       mult: (F_FRESH[fr && fr.k] ?? 1) * F_ROOM[Math.min(L.hit, 3)] * (cx ? cx.m : 1),
       f: { since: L.since, px0: L.px0 == null ? null : rp(L.px0), e: L.e, st: L.st, t: L.t,
            hit: L.hit, in: L.in, fk: fr ? fr.k : null, mv: mv == null ? null : Math.round(mv * 100) / 100,
+           ...(fz || {}),
            ...(ba ? { ba: ba.a, bk: ba.k } : {}), ...(cx ? { ext: cx.ext, rr: cx.rr,
              cm: Math.round((F_FRESH[fr && fr.k] ?? 1) * F_ROOM[Math.min(L.hit, 3)] * cx.m * 1e4) / 1e4 } : {}) }
     };
@@ -516,6 +555,9 @@ function buildSnapshotImpl(now) {
     }
     scans.best = best;
   }
+
+  /* الأسهم: الجديدةُ أولاً في كل مسح — الدرجة كما هي والرتبة بعد الفئة */
+  if (!CRYPTO) for (const id of Object.keys(scans)) scans[id] = freshFirst(scans[id]);
 
   /* تحليل الخمسين كلّهم — لا من ظهر في قائمةٍ وحده. شاشةُ السهم تقرؤه
      فلا تحسب شيئاً بنفسها، فلا يختلف رقمُها عن رقم القائمة. */

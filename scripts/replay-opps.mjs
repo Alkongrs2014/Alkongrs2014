@@ -36,7 +36,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arg = (k, d) => { const a = process.argv.find(x => x.startsWith(`--${k}=`)); return a ? a.split("=")[1] : d; };
 const NSESS = Number(arg("sessions", "10")), WARM = Number(arg("warm", "2"));
 const CACHE = path.join(ROOT, "data", ".archive", "replay-cache");
-const OUTF = path.join(ROOT, "data", ".monitor", "replay-opps.json");
+const OUTF = arg("out", path.join(ROOT, "data", ".monitor", "replay-opps.json"));
 fs.mkdirSync(CACHE, { recursive: true });
 fs.mkdirSync(path.dirname(OUTF), { recursive: true });
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks", "symbols.json"), "utf8"));
@@ -109,7 +109,9 @@ async function main() {
   for (const b of data.NVDA.m15) { const d = nyDate(b.t); (byDay[d] ||= []).push(b.t); }
   // `--today`: بعد الإغلاق تُضمّ جلسةُ اليوم نفسها (مكتملةً) إلى الإعادة
   const TODAY_OK = process.argv.includes("--today");
-  const days = Object.keys(byDay).filter(d => (TODAY_OK ? d <= today : d < today) && byDay[d].length >= 13).sort().slice(-(NSESS + WARM));
+  // وجلسةُ اليوم الجارية تُقبل ناقصةً مع `--today`: السؤال «ماذا عُرض حتى الآن؟»
+  const days = Object.keys(byDay).filter(d => (TODAY_OK ? d <= today : d < today) &&
+    (byDay[d].length >= 13 || (TODAY_OK && d === today))).sort().slice(-(NSESS + WARM));
   const steps = [];
   for (const d of days) for (const t of byDay[d]) steps.push({ day: d, T: t + 900e3 });
   console.log(`  الجلسات: ${days.join(" · ")} · ${steps.length} خطوة`);
@@ -142,9 +144,13 @@ async function main() {
     prevDoc = { candleKey: doc.candleKey, scans: doc.scans, life: doc.life, bySym: doc.bySym };
     const list = [];
     for (const [id, rs] of Object.entries(doc.scans))
-      rs.forEach((r, i) => list.push({ s: r.s, scan: id, sd: r.sd, q: r.q, i, since: r.since, px0: r.px0, e: r.e, st: r.st, t: r.t, hit: r.hit, fk: r.fk, pc: r.pc }));
+      rs.forEach((r, i) => list.push({ s: r.s, scan: id, sd: r.sd, q: r.q, i, since: r.since, px0: r.px0, e: r.e, st: r.st, t: r.t,
+        hit: r.hit, fk: r.fk, pc: r.pc, in: r.in, fr: r.fr, fa: r.fa, fw: r.fw }));
     const ended = Object.entries(doc.life).filter(([, L]) => L.end).map(([k, L]) => [k, L.end.k, L.since]);
-    timeline.push({ day: st.day, T: st.T, list, closed: doc.closedNow, ended });
+    // النطاق لكل رمز — لتشخيص ما أسقطه حسمُ الاتجاه (لا يدخل أيَّ قرار)
+    const bands = Object.fromEntries(rows.map(r => [r.s, r.band]));
+    const tfs = Object.fromEntries(rows.map(r => [r.s, ["15m", "1h", "4h", "1d"].map(t => r.tfScore[t] ?? null)]));
+    timeline.push({ day: st.day, T: st.T, list, closed: doc.closedNow, ended, bands, tfs });
   }
   console.log(`  ⏱ ${((Date.now() - t0) / 1000).toFixed(1)}ث`);
 

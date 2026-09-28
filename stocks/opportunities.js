@@ -206,7 +206,9 @@ function oppsCanon(scansObj) {
     for (var j = 0; j < rows.length; j++) {
       var r = rows[j];
       seg.push([j, r.s, r.q, r.adj, r.scs, r.cdir, r.mixed, r.n, r.sd, r.v, r.cbar, r.ctf,
-                r.since, r.px0, r.e, r.st, (r.t || []).join(","), r.hit, r.fk].join("|"));
+                r.since, r.px0, r.e, r.st, (r.t || []).join(","), r.hit, r.fk,
+                /* الجديدة/المستمرّة تُعرض فتُبصم — وهي مشتقّةٌ من الشمعة وحدها */
+                r.fr, r.fa, r.fw].join("|"));
     }
     parts.push(seg.join(";"));
   }
