@@ -256,7 +256,23 @@ function stale(prev, tf, now, live = false) {
   const u = prev?.tf?.[tf]?.updated;
   if (!u) return true;
   const age = (tf === "1d" && live) ? DAILY_LIVE_AGE : MAX_AGE[tf];
-  return (now - u) >= age;
+  if ((now - u) >= age) return true;
+  return closedSinceFetch(prev.tf[tf].c, tf, u, now);
+}
+
+/* شمعةٌ كانت جاريةً لحظة الجلب وأُغلقت بعده: المحفوظ منها ناقص، و`closedBars`
+   ستقرؤها مغلقةً بساعة التأكيد. قِيس 2026-09-28: جُلبت الساعة 13:48Z، وبصلاحية
+   55 دقيقة بقيت شمعة 13:30 بثماني عشرة دقيقة حتى 14:48 — فنُشر مفتاح 14:15
+   بفريم ساعةٍ خاطئ لستّة عشر سهماً. الصلاحية بالعمر لا تعرف متى تُغلق الشمعة؛
+   هذا يعرف. للفريمات ذات الطول الثابت وحدها — اليومي بالتاريخ وصلاحيته الخاصة. */
+function closedSinceFetch(c, tf, updated, now) {
+  const ms = BAR_MS[tf];
+  if (!ms || !Array.isArray(c)) return false;
+  for (let i = c.length - 1; i >= 0 && i >= c.length - 3; i--) {
+    const end = barTime(c[i]) + ms;
+    if (end > updated && end <= now) return true;
+  }
+  return false;
 }
 
 /* حالة الجلسة في scripts/lib/session.mjs — تستعملها مهمة الأسعار
@@ -1637,7 +1653,7 @@ if (IS_MAIN) {
   if (CHECK) selfCheck();
   else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });
 }
-export { carryFrames, guardFrames, keepFrames };
+export { carryFrames, guardFrames, keepFrames, stale };
 /* أعلى/أدنى 252 شمعةً يومية مغلقة — أو `null` إن قصرت السلسلة عن
    سنةٍ تقريباً (200)، فلا يُسمّى مدى شهرين «52 أسبوعاً». */
 function w52c(d1c, k) {

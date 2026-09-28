@@ -9,7 +9,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { carryFrames, guardFrames } from "../../scripts/fetch-market.mjs";
+import { carryFrames, guardFrames, stale } from "../../scripts/fetch-market.mjs";
 import { rp } from "../../scripts/lib/round.mjs";
 import { decide } from "../../scripts/build-opportunities.mjs";
 import { chartCandles } from "../../scripts/lib/yahoo.mjs";
@@ -41,6 +41,17 @@ describe("سلامة البيانات", () => {
     const c = chartCandles(res);
     expect(c.map((x) => x.t)).toEqual([1790343000000]);
     for (const x of c) expect(x.h >= Math.max(x.o, x.c) && Math.min(x.o, x.c) >= x.l && x.l > 0).toBe(true);
+  });
+  it("REG-PARTIAL-1H: شمعة ساعةٍ جُلبت جاريةً ثم أُغلقت تُعاد جلباً لا تُقرأ مغلقةً ناقصة", () => {
+    // 2026-09-28: جُلبت الساعة 13:48Z وشمعة 13:30 فيها 18 دقيقة، وبصلاحية 55 دقيقة
+    // لم تُجدَّد حتى 14:48 — فقرأ التأكيدُ عند 14:33 (مفتاح 14:15) الناقصةَ مغلقةً:
+    // 1h لستّة عشر سهماً خاطئة (KLAC +35.3 والصحيح −23.5).
+    const T = (h, m, s = 0) => Date.UTC(2026, 8, 28, h, m, s);
+    const prev = { tf: { "1h": { updated: T(13, 48, 1), c: [[T(12, 30) / 1000, 1, 1, 1, 1, 1], [T(13, 30) / 1000, 1, 1, 1, 1, 1], [T(13, 48, 12) / 1000, 1, 1, 1, 1, 0]] } } };
+    expect(stale(prev, "1h", T(14, 18))).toBe(false);   // 13:30 ما زالت جارية — لا جلب بلا سبب
+    expect(stale(prev, "1h", T(14, 33))).toBe(true);    // أُغلقت 14:30 وما حُفظ منها ناقص
+    const fresh = { tf: { "1h": { updated: T(14, 33), c: [[T(13, 30) / 1000, 1, 1, 1, 1, 1], [T(14, 30) / 1000, 1, 1, 1, 1, 1]] } } };
+    expect(stale(fresh, "1h", T(14, 48))).toBe(false);  // جُلبت بعد إغلاقها — كاملة
   });
   it("REG-WIDE-DEMOTE: رمزٌ نُزِّل إلى الواسعة تسقط فريماتُه اللحظية لا تبقى متقادمة", () => {
     const next = carryFrames(rec(["15m", "1h", "4h", "1d"]), { tf: {} }, "wide");
