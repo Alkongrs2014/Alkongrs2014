@@ -26,7 +26,15 @@ const note = (name, r) => {
   console.log(`${r.status === 0 ? "✔" : "✗"} ${name} — ${m ? m[0] : out.trim().split("\n").slice(-2).join(" ")}`);
 };
 note(`الخصائص × ${RUNS}`, run(["vitest", "run", "tests/property"], { FC_RUNS: RUNS }));
-note(`مرشَّحاتٌ فاسدة × ${N} + سباقات`, run(["vitest", "run", "tests/race/torture.test.mjs"], { TORTURE: "1", TORTURE_N: N }));
+/* المرشَّحات الفاسدة والسباقات بلا vitest — مهلةُ RPC فيه تُسقط تشغيلاً ناجحاً */
+{
+  const { runTorture } = await import("../tests/race/torture-core.mjs");
+  const r = await runTorture({ fixtures: path.join(ROOT, "tests", "fixtures", "data"), N: Number(N), log: (m) => console.log("  " + m) });
+  res.push({ name: `مرشَّحاتٌ فاسدة × ${N} + كريبتو فاسد + سباقات`, ok: r.ok, passed: null, failed: r.violations.length,
+             gate: JSON.stringify(r.gate), failures: r.violations.slice(0, 30),
+             detail: { candidates: r.candidates, cryptoCases: r.cryptoCases, raceRounds: r.raceRounds, racePublished: r.racePublished, raceRejected: r.raceRejected } });
+  console.log(`${r.ok ? "✔" : "✗"} مرشَّحاتٌ فاسدة × ${r.candidates} · كريبتو ${r.cryptoCases} · سباقات ${r.raceRounds} جولة — البوّابة ${JSON.stringify(r.gate)}`);
+}
 for (let i = 1; i <= REPEAT; i++) note(`السباقات والتحوّل — تكرار ${i}`, run(["vitest", "run", "tests/race/publish.test.mjs", "tests/metamorphic"]));
 const report = { at: new Date().toISOString(), runs: Number(RUNS), candidates: Number(N), repeat: REPEAT,
   status: res.every((r) => r.ok) ? "PASS" : "FAIL", results: res };
