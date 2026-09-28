@@ -152,7 +152,13 @@ t("بصمة الهيكل تطابق نسخة الذاكرة — لا تغيير�
   const files = [...new Set([...sw.matchAll(/"\.\/([^"]+)"/g)].map(m => m[1]))]
     .filter(f => f && fs.existsSync(path.join(DIR, f)));
   const h = crypto.createHash("sha256");
-  for (const f of files.sort()) h.update(fs.readFileSync(path.join(DIR, f)));
+  /* نهاياتُ الأسطر تُوحَّد قبل البصمة: ويندوز يسحب CRLF وCI على لينكس LF،
+     فبصمةٌ على البايتات الخام لا تتطابق بين الجهازين أبداً (سقط بها أوّل تشغيلٍ للبوّابة). */
+  const TEXT = /\.(js|html|json|svg|css|webmanifest)$/;
+  for (const f of files.sort()) {
+    const b = fs.readFileSync(path.join(DIR, f));
+    h.update(TEXT.test(f) ? Buffer.from(b.toString("utf8").split("\r\n").join("\n"), "utf8") : b);
+  }
   const now = h.digest("hex").slice(0, 12);
   const m = sw.match(/const SHELL_SHA = "([0-9a-f]{12})"/);
   if (!m) throw new Error("`SHELL_SHA` غائبة عن sw.js");

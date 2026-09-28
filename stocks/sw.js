@@ -40,7 +40,7 @@
    مفترَض لا محروس».
    ===================================================================== */
 const V = "webtrade-v42";
-const SHELL_SHA = "8e840458b8a3";     // يحسبها `check-ui` من ملفّات CORE
+const SHELL_SHA = "9d12e606e0ff";     // يحسبها `check-ui` من ملفّات CORE
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";
