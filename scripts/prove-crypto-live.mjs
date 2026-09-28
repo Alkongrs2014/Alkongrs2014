@@ -16,6 +16,7 @@
 
    يُشغَّل:  node scripts/prove-crypto-live.mjs [ثوانٍ=120]
    ===================================================================== */
+import "./lib/pw-browsers.mjs";          // قبل تحميل Playwright — انظر الملفّ
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";

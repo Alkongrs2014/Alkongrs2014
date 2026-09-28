@@ -12,6 +12,7 @@
 
    لا يكتب في أيّ ملفٍّ يقرؤه الموقع، ولا يأخذ قفلاً.
    ===================================================================== */
+import "./lib/pw-browsers.mjs";          // قبل تحميل Playwright — انظر الملفّ
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -40,7 +41,7 @@ function lastEntries(n = 400) {
 
 async function domCheck() {
   let chromium = null;
-  for (const c of [path.join(homedir(), ".claude/skills/playwright-skill/node_modules/playwright"), "playwright"]) {
+  for (const c of ["@playwright/test", path.join(homedir(), ".claude/skills/playwright-skill/node_modules/playwright"), "playwright"]) {
     try { chromium = require(c).chromium; break; } catch { /* التالي */ }
   }
   if (!chromium) return { err: "لا Playwright" };

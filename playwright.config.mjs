@@ -1,3 +1,4 @@
+import "./scripts/lib/pw-browsers.mjs";   // مسار المتصفّحات قبل أيّ تشغيل (المجدول لا يرى AppData المغلَّف)
 import { defineConfig, devices } from "@playwright/test";
 
 /* الواجهة على خادمٍ محليّ ببياناتٍ مثبّتة (حتمية في CI) أو بلقطةٍ من data/
