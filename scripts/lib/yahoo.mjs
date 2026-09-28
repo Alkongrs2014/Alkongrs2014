@@ -157,17 +157,27 @@ export async function fetchChart(symbol, { range, interval, prePost = false } = 
   const res = j?.chart?.result?.[0];
   if (!res) throw new Error(j?.chart?.error?.description || "empty chart result");
 
-  const ts = res.timestamp || [];
-  const q = res.indicators?.quote?.[0] || {};
+  const candles = chartCandles(res);
+  if (!candles.length) throw new Error("no usable candles");
+  return { candles, meta: res.meta || {} };
+}
+
+/* الشمعة الناقصة أو المتناقضة تُتخطّى ولا تُحفظ. ياهو يعطي أوّلَ الجلسة شمعةً
+   يوميةً افتتاحُها افتتاحُ اليوم السابق وأعلاها وأدناها من اليوم (TSM
+   2026-09-28: o=452.395 و h=449.6)، فيرفض الطبيب السريع (INV-04/05) النشرَ
+   كلَّه حتى يُعاد جلب اليومي بعد نصف ساعة. نفس شرط الطبيب حرفياً. */
+export function chartCandles(res) {
+  const ts = res?.timestamp || [];
+  const q = res?.indicators?.quote?.[0] || {};
   const candles = [];
   for (let i = 0; i < ts.length; i++) {
     const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
     // Yahoo يعيد null للشمعات الناقصة — نتخطاها بدل تلفيق رقم
-    if ([o, h, l, c].some(v => v === null || v === undefined || !isFinite(v))) continue;
+    if ([o, h, l, c].some(v => !Number.isFinite(v))) continue;
+    if (!(h >= Math.max(o, c) - 1e-9 && Math.min(o, c) >= l - 1e-9 && l > 0)) continue;
     candles.push({ t: ts[i] * 1000, o, h, l, c, v: q.volume?.[i] ?? 0 });
   }
-  if (!candles.length) throw new Error("no usable candles");
-  return { candles, meta: res.meta || {} };
+  return candles;
 }
 
 /* =====================================================================

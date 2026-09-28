@@ -12,6 +12,7 @@ import { createRequire } from "node:module";
 import { carryFrames, guardFrames } from "../../scripts/fetch-market.mjs";
 import { rp } from "../../scripts/lib/round.mjs";
 import { decide } from "../../scripts/build-opportunities.mjs";
+import { chartCandles } from "../../scripts/lib/yahoo.mjs";
 
 const require = createRequire(import.meta.url);
 const IND = require("../../stocks/indicators.js");
@@ -30,6 +31,16 @@ describe("سلامة البيانات", () => {
   });
   it("REG-FRAMES-DROP: الحارس يرفض الكتابة حين يُفقد فريم", () => {
     expect(() => guardFrames(rec(["15m", "1h", "1d"]), rec(["15m"]), "core")).toThrow(/فقدُ فريمات/);
+  });
+  it("REG-YAHOO-OPEN-OUTSIDE: شمعة ياهو اليومية أوّل الجلسة بافتتاحٍ خارج مداها تُتخطّى ولا تُحفظ", () => {
+    // 2026-09-28 13:33Z: TSM اليوم o=452.395 (افتتاحُ الجمعة) و h=449.6 — فرفض الطبيبُ
+    // السريع (INV-04/05) كلَّ نشرٍ للدفترين حتى أُعيد جلب اليومي.
+    const res = { timestamp: [1790343000, 1790602200], indicators: { quote: [{
+      open: [452.4, 452.395], high: [455.03, 449.6], low: [449.01, 447.01],
+      close: [450.61, 449.15], volume: [7751900, 506499] }] } };
+    const c = chartCandles(res);
+    expect(c.map((x) => x.t)).toEqual([1790343000000]);
+    for (const x of c) expect(x.h >= Math.max(x.o, x.c) && Math.min(x.o, x.c) >= x.l && x.l > 0).toBe(true);
   });
   it("REG-WIDE-DEMOTE: رمزٌ نُزِّل إلى الواسعة تسقط فريماتُه اللحظية لا تبقى متقادمة", () => {
     const next = carryFrames(rec(["15m", "1h", "4h", "1d"]), { tf: {} }, "wide");
