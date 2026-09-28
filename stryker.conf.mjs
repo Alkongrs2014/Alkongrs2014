@@ -16,7 +16,7 @@ export default {
     "stocks/strategies.js:450-505",
     "stocks/strategies.js:826-1389",
     "scripts/fetch-market.mjs:305-322",
-    "scripts/lib/publish.mjs:103-117"
+    "scripts/lib/publish.mjs:48-52", "scripts/lib/publish.mjs:114-127"
   ],
   reporters: ["html", "json", "clear-text", "progress"],
   htmlReporter: { fileName: "reports/mutation-report.html" },
