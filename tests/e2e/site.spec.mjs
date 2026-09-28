@@ -21,6 +21,9 @@ async function open(page) {
     if (m.type() !== "error" || /favicon|manifest/i.test(m.text())) return;
     const url = (m.location() && m.location().url) || "";
     if (/api\.github\.com/.test(url) && /status of 403|status of 429/.test(m.text())) return;
+    /* خطوط جوجل — الاعتماد الخارجي الوحيد المسموح، وسقوطها يعود إلى خطوط النظام
+       (نفس استثنائها من «طلبات حرجة فاشلة» أدناه). رُصد ERR_NO_BUFFER_SPACE عابراً. */
+    if (/fonts\.(googleapis|gstatic)\.com/.test(url)) return;
     errors.push("console: " + m.text() + (url ? " @ " + url : ""));
   });
   page.on("requestfailed", (r) => { if (!/fonts\.(googleapis|gstatic)|api\.github\.com/.test(r.url())) failed.push(r.url()); });
