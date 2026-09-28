@@ -45,6 +45,10 @@ const { overallScoreOf, bandStable } = require("../stocks/score.js");
 
 const args = process.argv.slice(2);
 const CHECK = args.includes("--check");
+/* إعادةُ فحص المستقرّة على **كون اليوم كما هو** — لا إعادة بنائه: البناء
+   الكامل يعيد عتبة السيولة بأحجام الساعة فيُدخل ويُخرج عملاتٍ أخرى داخل اليوم.
+   لتطبيق تعديلٍ في مرشّح المستقرّة فوراً؛ والبناء اليومي يطبّقه عند منتصف الليل. */
+const REPEG = args.includes("--repeg-universe");
 const oi = args.indexOf("--out");
 const OUT = oi >= 0 ? path.resolve(args[oi + 1]) : path.join(ROOT, "data", "crypto");
 
@@ -73,6 +77,36 @@ const STABLE = /^(USDC|FDUSD|TUSD|BUSD|USD1|DAI|USDP|EURI|AEUR|XUSD|USDE|PYUSD|R
 /* الملفوفة: نفسُ العملة بغلافٍ آخر — عرضُها يكرّر BTC/ETH في القائمة. */
 const WRAPPED = /^(WBTC|WBETH|BETH|STETH|WSTETH|CBETH|RETH|WETH|BTCB|SOLV|BNSOL)$/;
 const LEVER = /(UP|DOWN|BULL|BEAR)$/;
+/* **المستقرّة تُعرف بسلوكها لا باسمها.** قائمةُ `STABLE` أعلاه أسماءٌ معروفة،
+   وكلُّ مستقرّةٍ تُدرج بعدها تفلت منها — كما أفلتت `U` (سعرها ‎1.0001‎) فظهرت
+   في الفرص بدرجة ‎81‎ وفي ماسح خط 200. فالحكم الآن بالانحراف الأقصى لإغلاقات
+   ‎30‎ يوماً مغلقاً عن وسيطها (الإغلاق لا القمّة/القاع: ذيلٌ واحد أخرج USDP
+   ‎5.5%‎ بمدى القمّة والقاع).
+   قِيس 2026-09-28: المستقرّة الدولارية كلُّها ‎0.04–0.51%‎ (U ‎0.07‎ · USDC
+   ‎0.06‎ · BUSD ‎0.51‎)، وأهدأ ‎30‎ يوماً في نحو ثلاث سنوات لعملاتٍ حقيقية ‎1.24%‎
+   (PAXG ذهب، مستبعدٌ بوسم السلع أصلاً) و‎1.53%‎ (TRX) و‎3.15–3.39%‎ للكبار.
+   فالعتبة ‎1%‎ بهامشٍ ~‎2×‎ فوق أرخى مستقرّة و~‎1.5×‎ تحت أهدأ عملة.
+   والعملات الورقية (EUR ‎1.84%‎) تتحرّك بسعر الصرف فتبقى على قائمة الأسماء. */
+/* **والنافذة الكاملة شرط**: الفصل يصحّ على ‎30‎ يوماً وحدها. على نوافذ أقصر
+   تكون العملة الحقيقية أهدأ من المستقرّة — أهدأ ‎3‎ أيام ‎0.03%‎ (TRX)، و‎7‎
+   ‎0.33%‎ (SUN)، و‎14‎ ‎0.79%‎ (TRX). وقع فعلاً: HYPE بخمس شمعات منذ إدراجها
+   (‎~$92‎) خرجت ‎0.75%‎ فحُكم عليها مستقرّة. فالإدراج الأقصر من ‎30‎ يوماً
+   يُشترط فيه أيضاً وسيطٌ عند الدولار (‎±3%‎): مستقرّةٌ دولارية جديدة تُلتقط من
+   يومها الثالث، وعملةٌ حقيقية جديدة لا يُحكم عليها بأيّامٍ هادئة. */
+export const PEG_DEV = 1.0;
+const PEG_FULL = 30, PEG_MIN_BARS = 3, PEG_USD = 0.03;
+export function pegDev(closes) {
+  const c = closes.filter(Number.isFinite);
+  if (c.length < PEG_MIN_BARS) return null;                    // لا نعرف ⇒ لا حكم
+  const m = [...c].sort((a, b) => a - b)[c.length >> 1];
+  if (!(m > 0)) return null;
+  return { dev: Math.max(...c.map(x => Math.abs(x / m - 1))) * 100, med: m, n: c.length };
+}
+export function isPegged(closes) {
+  const p = pegDev(closes);
+  if (!p || p.dev > PEG_DEV) return false;
+  return p.n >= PEG_FULL || Math.abs(p.med - 1) <= PEG_USD;
+}
 
 const CRYPTO_AR = {
   BTC: "بيتكوين", ETH: "إيثيريوم", XRP: "ريبل", BNB: "بينانس كوين",
@@ -102,8 +136,8 @@ function writeJSON(rel, obj) {
 const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 /* يُرشِّح أزواج Binance إلى الكون المؤهَّل. دالّةٌ خالصة كي تُفحص بلا شبكة. */
-export function qualify(pairs, trading, synthetic) {
-  const out = [], why = { notTrading: 0, stable: 0, wrapped: 0, lever: 0, synthetic: 0, illiquid: 0 };
+export function qualify(pairs, trading, synthetic, pegged) {
+  const out = [], why = { notTrading: 0, stable: 0, pegged: 0, wrapped: 0, lever: 0, synthetic: 0, illiquid: 0 };
   for (const t of pairs) {
     const base = t.sym.replace(/USDT$/, "");
     if (!trading.has(t.sym)) { why.notTrading++; continue; }
@@ -112,6 +146,7 @@ export function qualify(pairs, trading, synthetic) {
     if (LEVER.test(base)) { why.lever++; continue; }
     if (synthetic && synthetic.has(t.sym)) { why.synthetic++; continue; }
     if (!(t.quoteVolume >= MIN_QV)) { why.illiquid++; continue; }
+    if (pegged && pegged.has(t.sym)) { why.pegged++; continue; }
     out.push({ s: t.app, en: base, ar: CRYPTO_AR[base] || base, sec: "كريبتو", mkt: "crypto", qv: Math.round(t.quoteVolume) });
   }
   /* ترتيبٌ ثابت للكون كلّه: بالاسم لا بالحجم. ترتيبُ الصفوف يفصل التعادل في
@@ -120,20 +155,51 @@ export function qualify(pairs, trading, synthetic) {
   return { rows: out, why };
 }
 
+/* يوميّاً مع بناء الكون: ‎31‎ شمعة يومية لكل مرشّح (‎~270‎ طلباً بوزن ‎2‎ مرّةً في
+   اليوم). فشلُ الجلب لعملةٍ = لا حكم عليها فتبقى، وفشلُ أكثر من العُشر يُسقط
+   البناء فيبقى كونُ أمس — كونٌ بُني بلا فحصٍ لنصفه أسوأ من كونٍ عمره يوم. */
+async function findPegged(cands) {
+  const set = new Set(), list = []; let fail = 0;
+  await pool(cands, 12, async (u) => {
+    try {
+      const { candles } = await fetchCandles(u.s, { interval: "1d", limit: 31 });
+      const closes = candles.slice(0, -1).map(x => x.c);                 // الجارية لا تدخل
+      if (isPegged(closes)) { const p = pegDev(closes); set.add(u.en + "USDT"); list.push({ s: u.s, dev: +p.dev.toFixed(3), n: p.n }); }
+    } catch { fail++; }
+  });
+  if (fail > cands.length * 0.1) throw new Error(`فحص المستقرّة تعذّر على ${fail} من ${cands.length}`);
+  list.sort((a, b) => a.s < b.s ? -1 : 1);
+  return { set, list };
+}
+
 async function loadUniverse(now) {
   const f = path.join(OUT, "universe.json");
   const cur = readJSON(f);
+  if (REPEG && cur && Array.isArray(cur.rows) && cur.rows.length) {
+    const pegged = await findPegged(cur.rows);
+    const rows = cur.rows.filter(r => !pegged.set.has(r.en + "USDT"));
+    if (rows.length < 50 || !rows.some(r => r.s === "BTC-USD")) throw new Error("إعادة فحص المستقرّة أفرغت الكون");
+    const u = { ...cur, rows, pegged: pegged.list, pegDev: PEG_DEV,
+                excluded: { ...cur.excluded, pegged: (cur.excluded?.pegged || 0) + (cur.rows.length - rows.length) } };
+    writeJSON("universe.json", u);
+    console.log(`  ✓ إعادة فحص المستقرّة على كون ${cur.day}: ${cur.rows.length} → ${rows.length}` +
+      (pegged.list.length ? ` · ${pegged.list.map(x => `${x.s} ${x.dev}%`).join(", ")}` : ""));
+    return u;
+  }
   if (cur && cur.day === utcDay(now) && Array.isArray(cur.rows) && cur.rows.length) return cur;
   try {
     const [pairs, trading, synthetic] = await Promise.all([
       listUsdtPairs(), listTradingUsdt(), listTaggedProducts(["bStocks", "tCommodities"])]);
     if (!synthetic) throw new Error("تعذّر وسم الأسهم/السلع المرمَّزة — لا يُبنى كونٌ قد يحويها");
-    const { rows, why } = qualify(pairs, trading, synthetic);
+    const pegged = await findPegged(qualify(pairs, trading, synthetic).rows);
+    const { rows, why } = qualify(pairs, trading, synthetic, pegged.set);
     if (rows.length < 50) throw new Error(`${rows.length} عملة فقط بعد الترشيح — ردٌّ غير متوقّع`);
     if (!rows.some(r => r.s === "BTC-USD")) throw new Error("البيتكوين ليس في الكون — مرجعُ السوق غائب");
-    const u = { day: utcDay(now), built: now, minQv: MIN_QV, candidates: pairs.length, excluded: why, rows };
+    const u = { day: utcDay(now), built: now, minQv: MIN_QV, candidates: pairs.length, excluded: why,
+                pegged: pegged.list, pegDev: PEG_DEV, rows };
     writeJSON("universe.json", u);
-    console.log(`  ✓ كون اليوم ${u.day}: ${rows.length} عملة من ${pairs.length} زوجاً · مستبعَد ${JSON.stringify(why)}`);
+    console.log(`  ✓ كون اليوم ${u.day}: ${rows.length} عملة من ${pairs.length} زوجاً · مستبعَد ${JSON.stringify(why)}` +
+      (pegged.list.length ? ` · مستقرّة بالسلوك: ${pegged.list.map(x => `${x.s} ${x.dev}%`).join(", ")}` : ""));
     return u;
   } catch (e) {
     // فشلُ البناء لا يُسقط الدورة: كونُ أمس يبقى حتى ينجح البناء
@@ -323,6 +389,21 @@ function selfCheck() {
     ok(rows.map(r => r.s).join() === "BTC-USD,SOL-USD", rows.map(r => r.s).join());
     ok(why.notTrading === 1 && why.stable === 1 && why.wrapped === 1 && why.lever === 1 && why.synthetic === 1 && why.illiquid === 1,
        JSON.stringify(why));
+  });
+  t("المستقرّة بالسلوك: اسمٌ غير معروف مثبَّتٌ على ‎1‎ يُستبعد، وعملةٌ حقيقية هادئة تبقى", () => {
+    const flat = Array.from({ length: 30 }, (_, i) => 1 + (i % 3 - 1) * 0.0005);          // U: ±0.05%
+    const calm = Array.from({ length: 30 }, (_, i) => 0.33 * (1 + Math.sin(i / 5) * 0.016)); // TRX بأهدأ شهر (~1.6%)
+    ok(isPegged(flat), `مثبَّتة ${pegDev(flat).dev}`);
+    ok(!isPegged(calm), `عملةٌ حقيقية حُكم عليها مستقرّة ${pegDev(calm).dev}`);
+    ok(pegDev([1, 1]) === null && !isPegged([1, 1]), "حُكم على شمعتين");
+    // HYPE الحقيقية: خمسُ شمعات منذ إدراجها ضمن ‎0.75%‎ عند ‎$92‎ — لا تُستبعد
+    ok(!isPegged([92.13, 92.42, 92.58, 91.73, 90.52]), "إدراجٌ جديد هادئ حُكم عليه مستقرّاً");
+    // مستقرّةٌ دولارية جديدة تُلتقط من يومها الثالث
+    ok(isPegged([1.0002, 0.9998, 1.0001]), "مستقرّة جديدة لم تُلتقط");
+    // ذيلٌ واحد لا يُخرج المستقرّة: الإغلاق لا القمّة/القاع
+    const P = [["BTCUSDT", 9e8], ["NEWPEGUSDT", 9e7]].map(([sym, qv]) => ({ sym, app: sym.replace(/USDT$/, "") + "-USD", quoteVolume: qv }));
+    const { rows, why } = qualify(P, new Set(P.map(p => p.sym)), new Set(), new Set(["NEWPEGUSDT"]));
+    ok(rows.map(r => r.s).join() === "BTC-USD" && why.pegged === 1, JSON.stringify(why));
   });
   t("الكون مرتَّبٌ بالاسم لا بالحجم — لا يعيد ترتيبَه حجمٌ لحظي", () => {
     const mk = (a, b) => qualify([{ sym: "ZZZUSDT", app: "ZZZ-USD", quoteVolume: a }, { sym: "AAAUSDT", app: "AAA-USD", quoteVolume: b }],
