@@ -58,6 +58,7 @@ import { createRequire } from "module";
 import { statusNow, sessionOf, currentWindow } from "./lib/session.mjs";
 import { initLog, info, signal as logSignal } from "./lib/log.mjs";
 import { rp } from "./lib/round.mjs";
+import { auditStamp } from "./lib/audit-trail.mjs";
 import { updateOutcome, guard, guardTotal, stillLive } from "./track-signals.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -440,6 +441,8 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
                         // فريمُ المشغِّل المعلن — يكشف تغيّر التعريف لاحقاً
                         stf: st.tf,
                         regime: C.marketRegime(c.an), snap, open: true,
+                        // إعادة التشغيل (io) لا تكتب أرشيفاً: مدخلاتُها ماضٍ مقصوص لا إصدارٌ حيّ
+                        aud: io ? null : auditStamp({ sym: row.s, symRec: rec, row, ck: cbarMax || null, barSec: BAR_SEC, outDir: out }),
                         out: { st: "wait", hit: snap.t.map(() => null), stopAt: null, enterAt: null } };
           live.push(sig); liveBy[key] = sig; added++;
         }

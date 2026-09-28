@@ -167,6 +167,25 @@ function logicVersion() {
   return sha12(LOGIC.map(f => f + ":" + sha12(fs.readFileSync(path.join(STOCKS, f), "utf8"))).join("|"));
 }
 
+/* نسخةُ خطّ المعالجة — ما يشكّل **مدخلات** اللقطة لا تعريفَ صفوفها.
+
+   `strategyVersion` تبصم سبعة ملفّات في `stocks/` وحدها، فإصلاحٌ في
+   `scripts/` (`candleClock` في `fetch-market`) أو في `plan.js`/`indicators.js`
+   لا يغيّرها — فتبقى اللقطة المنشورة المحسوبة **قبل** الإصلاح عالقةً داخل
+   شمعتها، ويُرفض الحسابُ الصحيح كلَّ دورة. قِيس 2026-09-26..28: 200 رفضٍ
+   متتالٍ «البصمة تغيّرت داخل نفس الشمعة» (`552c25a3` منشورةٌ مقابل
+   `bd0924b9` محسوبة) طوال العطلة. تغيُّرُ هذه النسخة يسمح بإعادة بناءٍ
+   **واحدة** داخل الشمعة ويُسجَّل سببُه — نفس استثناء `strategyVersion`. */
+const PIPE = [["scripts", "fetch-market.mjs"], ["scripts", "fetch-crypto.mjs"], ["scripts", "track-strategies.mjs"],
+              ["scripts", "build-opportunities.mjs"], ["stocks", "plan.js"], ["stocks", "indicators.js"],
+              ["stocks", "evaluate.js"], ["stocks", "session.js"], ["scripts/lib", "session.mjs"], ["scripts/lib", "round.mjs"]];
+function pipelineVersion() {
+  return sha12(PIPE.map(([d, f]) => {
+    try { return f + ":" + sha12(fs.readFileSync(path.join(ROOT, d, f), "utf8").replace(/\r\n/g, "\n")); }
+    catch { return f + ":-"; }
+  }).join("|"));
+}
+
 /* وسائط القطاعات — يحتاجها شرط «أرخص من قطاعه».
 
    **الشكل جزءٌ من العقد**: `ctx.secMed[sec]` كائنٌ لا رقم، والشرط
@@ -519,10 +538,11 @@ function buildSnapshotImpl(now) {
 
   const rowsHash = sha12(snapCanon({ scans, bySym, life }));
   const strategyVersion = logicVersion();
+  const pipeVersion = pipelineVersion();
   let count = 0;
   for (const id of Object.keys(scans)) count += scans[id].length;
 
-  return { ok: true, candleKey, rowsHash, strategyVersion, scans, count, life, bySym, closedNow, regime, ended,
+  return { ok: true, candleKey, rowsHash, strategyVersion, pipelineVersion: pipeVersion, scans, count, life, bySym, closedNow, regime, ended,
            generatedAt: now, confBar, maxCbar, depth,
            edgeReady: !!edgeFile, fundReady: !!Object.keys(F).length,
            wideRows: wideRows.length, liveRows: summary.rows.length };
@@ -539,6 +559,8 @@ export function decide(next, prev) {
   if (next.rowsHash === prev.rowsHash) return { write: false, reason: "لا تغيّر — نفس البصمة" };
   if (next.strategyVersion !== prev.strategyVersion)
     return { write: true, reason: "تغيّرت نسخة المنطق داخل نفس الشمعة — إعادة بناءٍ مقصودة" };
+  if (next.pipelineVersion && next.pipelineVersion !== prev.pipelineVersion)
+    return { write: true, reason: "تغيّرت نسخة خطّ المعالجة داخل نفس الشمعة — إعادة بناءٍ مقصودة" };
   /* ولقطةٌ قائمة بُنيت ببياناتٍ منقوصة تُستبدل داخل شمعتها.
      غيابُ `depth` يعني لقطةً من قبل البوّابة ٠، وهي بالتعريف غيرُ
      مُتحقَّقٍ من عمقها — فتُستبدل مرّةً واحدة ثم يحمل خليفتُها الحقل
@@ -579,7 +601,7 @@ async function main() {
   const d = decide(next, prev);
   appendLog({ t: now, action: d.write ? "write" : "hold", why: d.reason,
               candleKey: next.candleKey, rowsHash: next.rowsHash,
-              strategyVersion: next.strategyVersion, count: next.count });
+              strategyVersion: next.strategyVersion, pipelineVersion: next.pipelineVersion, count: next.count });
 
   if (!d.write) {
     /* الرفضُ يحمي المنشور ويُخفي المصدر — فيُحفظ الحسابُ المرفوض محلياً
@@ -603,6 +625,7 @@ async function main() {
     candleKey: next.candleKey,
     candleKeyIso: iso(next.candleKey),
     strategyVersion: next.strategyVersion,
+    pipelineVersion: next.pipelineVersion,
     rowsHash: next.rowsHash,
     count: next.count,
     sources: { confBar: next.confBar, maxCbar: next.maxCbar,
@@ -689,6 +712,12 @@ function selfTest() {
 
   decide({ ...changed, strategyVersion: "wwwwwwwwwwww" }, { ...base }).write
     ? ok("تغيّرُ نسخة المنطق يسمح داخل نفس الشمعة") : no("تغيّرُ نسخة المنطق يسمح داخل نفس الشمعة");
+
+  /* نسخة خطّ المعالجة: تغيّرُها يسمح مرّةً، وتساويها يُبقي الرفض */
+  decide({ ...changed, pipelineVersion: "pppppppppppp" }, { ...base, pipelineVersion: "qqqqqqqqqqqq" }).write
+    && !decide({ ...changed, pipelineVersion: "pppppppppppp" }, { ...base, pipelineVersion: "pppppppppppp" }).write
+    ? ok("تغيّرُ نسخة خطّ المعالجة يسمح داخل الشمعة، وتساويها يُبقي الرفض")
+    : no("تغيّرُ نسخة خطّ المعالجة يسمح داخل الشمعة، وتساويها يُبقي الرفض");
 
   !decide({ ...changed, candleKey: K - 900 }, { ...base }).write
     ? ok("مفتاحٌ إلى الوراء مرفوض — لا تُداس لقطةٌ أحدث") : no("مفتاحٌ إلى الوراء مرفوض");

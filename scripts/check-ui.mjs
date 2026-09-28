@@ -243,9 +243,9 @@ t("لا اعتماد خارجي غير خطوط جوجل", () => {
    **تقرؤه** الواجهة: لا خطأ في أي فحص، ولا شيء محلياً — والموقع المنشور
    وحده يرى 404 فيسقط قسمٌ كامل بصمت. فالقائمتان تُقابلان هنا. */
 t("لا ملف تنشره الواجهةُ وهو ممنوع من النشر", () => {
-  const run = fs.readFileSync(path.join(ROOT, "local", "run.mjs"), "utf8");
+  const run = fs.readFileSync(path.join(ROOT, "scripts", "lib", "publish.mjs"), "utf8");
   const m = run.match(/NO_PUBLISH\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
-  if (!m) throw new Error("لم أجد NO_PUBLISH في local/run.mjs");
+  if (!m) throw new Error("لم أجد NO_PUBLISH في scripts/lib/publish.mjs");
   const denied = [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1]);
   if (!denied.length) throw new Error("قائمة المنع فارغة");
 

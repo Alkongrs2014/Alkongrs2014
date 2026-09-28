@@ -46,7 +46,9 @@ const CHECKS = [
 
 const main = async () => {
   let snap = null;
-  if (FIXTURES) snap = path.join(ROOT, "tests", "fixtures", "data");
+  /* المثبّتات تُنسخ إلى مجلّدٍ مؤقّت: بعض أوضاع `--check` تكتب في `--out`،
+     والكتابة في المثبّتات الملتزمة تُفسد المرجع المجمَّد بصمت. */
+  if (FIXTURES) snap = await takeSnapshot({ src: path.join(ROOT, "tests", "fixtures", "data"), job: "checks" });
   else if (fs.existsSync(path.join(ROOT, "data"))) snap = await takeSnapshot({ job: "checks" });
 
   const results = [];
@@ -69,7 +71,7 @@ const main = async () => {
     console.log(`${status === "PASS" ? "✔" : "✗"} ${c.id.padEnd(22)} ${String(ms).padStart(6)}ms`);
     if (status === "FAIL") console.log("    " + tail.replace(/\n/g, "\n    "));
   }
-  if (snap && !FIXTURES) dropSnapshot(snap);
+  if (snap) dropSnapshot(snap);
 
   const fail = results.filter(r => r.status === "FAIL");
   const report = { at: new Date().toISOString(), ms: Date.now() - t00, fixtures: FIXTURES,

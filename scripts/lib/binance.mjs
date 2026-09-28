@@ -227,7 +227,10 @@ export async function listTaggedStocks({ maxAge = 6 * 3600e3 } = {}) {
         // نفس درس BLS وSEC: لا يُحجب الآليّ بل الطلبُ الذي لا يشبه متصفّحاً
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
         "Accept": "application/json"
-      }
+      },
+      /* مهلةٌ صريحة: fetch بلا signal يعلّق ولا يفشل — نفس علّة العقود التي
+         أوقفت تسع دورات بلا أثر. والنداء في بناء الكون اليوميّ المجدول. */
+      signal: AbortSignal.timeout(20000)
     });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const j = await r.json();

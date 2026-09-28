@@ -59,6 +59,11 @@ $tasks = @(
   @{ Name='WebTrade-Crypto';  Job='crypto';  Every=5;  Start='00:01'; LimitMin=4;   Desc='دفتر الكريبتو — شموع ومحرّك ولقطة فرص' }
   # مراقبة الكريبتو المنشور — تسجّل كل لقطةٍ منشورة وتقارن الأسهم (للتقرير)
   @{ Name='WebTrade-CryptoMon'; Job='cmon';  Every=5;  Start='00:04'; LimitMin=4;   Desc='مراقبة ثبات الكريبتو وعزل الأسهم على المنشور' }
+  # الحراسة — بلا قفلٍ ولا شبكةٍ للجلب ولا أيّ نموذج لغوي (scripts/health · fortress · torture · mutation)
+  @{ Name='WebTrade-Health';   Job='health';   Every=10; Start='00:09'; LimitMin=8;   Desc='صحّة المنشور ورجوعٌ آليّ عند عطبٍ تقنيّ' }
+  @{ Name='WebTrade-Fortress'; Job='fortress'; At='04:13'; LimitMin=90;  Desc='الفحص الشامل الليلي — الطبيب والاختبارات والإعادة والواجهة' }
+  @{ Name='WebTrade-Torture';  Job='torture';  At='05:43'; Day='FRI'; LimitMin=120; Desc='تعذيبٌ أسبوعي — آلاف الحالات والسباقات' }
+  @{ Name='WebTrade-Mutation'; Job='mutation'; At='02:43'; Day='SAT'; LimitMin=240; Desc='اختبار الطفرات الأسبوعي' }
 )
 
 # بلا نشر: لا حاجة لدورة الأسعار السريعة، فهي موجودة أصلاً كي يبقى
@@ -96,7 +101,8 @@ foreach ($t in $tasks) {
   # مرئية مع كل تشغيل — أي كل دقيقتين مع دورة الأسعار.
   $tr = 'wscript.exe "' + $vbs + '" ' + $jobArgs
   $a = @('/Create', '/TN', $t.Name, '/TR', $tr, '/F')
-  $a += if ($t.At) { @('/SC', 'DAILY', '/ST', $t.At) }
+  $a += if ($t.Day) { @('/SC', 'WEEKLY', '/D', $t.Day, '/ST', $t.At) }
+        elseif ($t.At) { @('/SC', 'DAILY', '/ST', $t.At) }
         else       { @('/SC', 'MINUTE', '/MO', "$($t.Every)", '/ST', $t.Start) }
 
   $out = & schtasks.exe @a 2>&1

@@ -1,0 +1,93 @@
+/* =====================================================================
+   الواجهة — كلُّ شاشة على سطح المكتب والهاتف.
+
+   لا يكفي أن تُحمَّل الصفحة: يُفحص ما يراه المستخدم — لا `NaN` ولا
+   `Infinity` ولا `undefined` في النصّ، لا شاشةٌ حرجة فارغة، لا استثناءٌ غير
+   ملتقَط، لا طلبٌ حرج فاشل، لا خلطٌ بين الأسهم والكريبتو، والتنقّل يعمل من
+   الشريط ومن ورقة «المزيد». (INV-51 · INV-40)
+   ===================================================================== */
+import { test, expect } from "@playwright/test";
+
+const VIEWS = ["now", "screen", "mdir", "analysis", "list", "crypto", "log", "news"];
+const BAD_TEXT = /\bNaN\b|\bInfinity\b|\bundefined\b|\[object Object\]/;
+
+async function open(page) {
+  const errors = [], failed = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("console", (m) => { if (m.type() === "error" && !/favicon|manifest/i.test(m.text())) errors.push("console: " + m.text()); });
+  page.on("requestfailed", (r) => { if (!/fonts\.(googleapis|gstatic)|api\.github\.com/.test(r.url())) failed.push(r.url()); });
+  page.on("response", (r) => { if (r.status() >= 500) failed.push(r.status() + " " + r.url()); });
+  await page.goto("stocks/");
+  await page.waitForFunction(() => typeof window.__diag === "function", null, { timeout: 30000 });
+  await page.waitForTimeout(1500);
+  return { errors, failed };
+}
+
+/* التنقّل كما يفعله المستخدم: زرُّ الشريط إن كان ظاهراً، وإلا ورقةُ «المزيد» */
+async function nav(page, view) {
+  const btn = page.locator(`.tabbar [data-go="${view}"]`);
+  if (await btn.isVisible()) await btn.click();
+  else {
+    await page.locator("#btnMore").click();
+    await page.locator(`#sheetMore [data-nav="${view}"]`).click();
+  }
+  await expect(page.locator(`section[data-view="${view}"]`)).toHaveClass(/\bon\b/, { timeout: 15000 });
+  await page.waitForTimeout(1200);
+}
+
+async function visibleText(page, view) {
+  return page.locator(`section[data-view="${view}"]`).innerText();
+}
+
+for (const view of VIEWS) {
+  test(`الشاشة «${view}» تُرسم بلا قيمٍ فاسدة ولا أخطاء`, async ({ page }) => {
+    const { errors, failed } = await open(page);
+    await nav(page, view);
+    const txt = await visibleText(page, view);
+    expect(txt.trim().length, "الشاشة فارغة").toBeGreaterThan(40);
+    expect(txt.match(BAD_TEXT), "نصٌّ فاسد ظاهر").toBeNull();
+    const js = await page.evaluate(() => (window.__errors ? window.__errors() : []).map((e) => e.msg));
+    expect(js, "أخطاء وقت التشغيل").toEqual([]);
+    const renderErr = await page.evaluate(() => window.__diag().filter((d) => /render|card|بطاقة/i.test(d.tag + d.msg)).map((d) => d.msg));
+    expect(renderErr, "بطاقةٌ فشل رسمها").toEqual([]);
+    expect(errors, "استثناءات/أخطاء console").toEqual([]);
+    expect(failed, "طلبات حرجة فاشلة").toEqual([]);
+  });
+}
+
+test("الفرص: قائمةٌ حقيقية بختم شمعة، ولا عملة في دفتر الأسهم", async ({ page }) => {
+  await open(page);
+  await nav(page, "screen");
+  const rows = page.locator('section[data-view="screen"] [data-open]');
+  await expect(rows.first()).toBeVisible({ timeout: 20000 });
+  const syms = await rows.evaluateAll((a) => a.map((x) => x.getAttribute("data-open")));
+  expect(syms.length).toBeGreaterThan(0);
+  expect(syms.filter((s) => /-USD$/.test(s)), "عملةٌ في فرص الأسهم").toEqual([]);
+  const txt = await visibleText(page, "screen");
+  expect(txt).toMatch(/شمعة/);
+});
+
+test("الكريبتو: دفترٌ منفصل — لا سهم في قائمته", async ({ page }) => {
+  await open(page);
+  await nav(page, "crypto");
+  const syms = await page.locator('section[data-view="crypto"] [data-open]').evaluateAll((a) => a.map((x) => x.getAttribute("data-open")));
+  expect(syms.length).toBeGreaterThan(0);
+  expect(syms.filter((s) => !/-USD$/.test(s)), "سهمٌ في دفتر الكريبتو").toEqual([]);
+});
+
+test("فتحُ سهمٍ من الفرص يعرض تفاصيله بلا خطأ، والعودة تعمل", async ({ page }) => {
+  const { errors } = await open(page);
+  await nav(page, "screen");
+  const first = page.locator('section[data-view="screen"] [data-open]').first();
+  await expect(first).toBeVisible({ timeout: 20000 });
+  const sym = await first.getAttribute("data-open");
+  await first.click();
+  await expect(page.locator('section[data-view="detail"]')).toHaveClass(/\bon\b/, { timeout: 15000 });
+  await page.waitForTimeout(2500);
+  const txt = await visibleText(page, "detail");
+  expect(txt).toContain(sym);
+  expect(txt.match(BAD_TEXT)).toBeNull();
+  await page.locator("#btnBack").click();
+  await expect(page.locator('section[data-view="detail"]')).not.toHaveClass(/\bon\b/);
+  expect(errors).toEqual([]);
+});

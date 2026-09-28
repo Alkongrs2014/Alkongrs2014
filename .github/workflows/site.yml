@@ -1,0 +1,120 @@
+name: بوّابة الجودة ← النشر ← التحقّق
+
+# مسارٌ واحد لا اثنان: النشر `needs: gate` في نفس الملفّ، فلا يمكن أن
+# تُنشر الصفحة قبل نجاح بوّابة الجودة **لنفس الالتزام** (INV-53).
+# وبعد النشر يُتحقَّق من الرابط الحقيقي، وفشلُه التقنيّ الحرج يُرجع
+# الصفحة إلى آخر التزامٍ تحقّق (الوسم pages-lkg) — INV-54.
+#
+# ⚠ يتطلّب أن يكون مصدر GitHub Pages «GitHub Actions»
+#   (Settings → Pages → Build and deployment → Source).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "التزامٌ بعينه للنشر (فارغ = الحالي)"
+        required: false
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  gate:
+    name: بوّابة الجودة
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref || github.sha }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: الفحوص الذاتية (بلا شبكة، على المثبّتات)
+        run: node scripts/run-checks.mjs --fixtures
+      - name: الطبيب على المثبّتات
+        run: node scripts/doctor.mjs --fixtures
+      - name: الوحدات والذهبية والانحدار والخصائص والسباقات والمرجع
+        run: npx vitest run
+        env: { FC_RUNS: "1000" }
+      - name: الواجهة (Playwright — سطح المكتب والهاتف)
+        run: npx playwright test
+        env: { CI: "1" }
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: gate-failure
+          path: |
+            reports/
+            test-results/
+          retention-days: 14
+
+  deploy:
+    name: النشر
+    needs: gate
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.pages.outputs.page_url }}" }
+    outputs:
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref || github.sha }}" }
+      - name: تجهيز الموقع (المستودع بلا أدوات الاختبار)
+        run: |
+          mkdir _site
+          rsync -a --exclude .git --exclude node_modules --exclude tests --exclude reports \
+                --exclude test-results --exclude _site ./ _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: pages
+        uses: actions/deploy-pages@v4
+
+  verify:
+    name: التحقّق من المنشور
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref || github.sha }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: الرابط الحقيقي — النسخة والبيانات والشاشات
+        run: node scripts/verify.mjs --wait=600
+      - name: ترقية آخر نسخةٍ سليمة
+        run: |
+          old=$(git ls-remote origin refs/tags/pages-lkg | cut -f1)
+          git tag -f pages-lkg
+          git push -q origin refs/tags/pages-lkg "--force-with-lease=refs/tags/pages-lkg:${old}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: verify-report, path: reports/, retention-days: 14 }
+
+  rollback:
+    name: الرجوع إلى آخر نسخةٍ سليمة
+    needs: [deploy, verify]
+    if: failure() && needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    environment: { name: github-pages }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: pages-lkg }
+      - run: |
+          mkdir _site
+          rsync -a --exclude .git --exclude node_modules --exclude tests --exclude reports \
+                --exclude test-results --exclude _site ./ _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - uses: actions/deploy-pages@v4

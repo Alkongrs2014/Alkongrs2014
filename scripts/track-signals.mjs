@@ -53,6 +53,7 @@ const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "
    صفر وبلا هدف — صفقةٌ في السجلّ بمخاطرةٍ غير موجبة. و`r2` تبقى لما
    ليس سعراً (العائد والنسبة والمضاعف). انظر `lib/round.mjs`. */
 import { rp, r2 } from "./lib/round.mjs";
+import { auditStamp } from "./lib/audit-trail.mjs";
 
 export function median(a) {
   const s = (a || []).filter(Number.isFinite).sort((x, y) => x - y);
@@ -749,6 +750,9 @@ async function main() {
         ...(r.tfScore ? { tfs: Object.fromEntries(
               Object.entries(r.tfScore).map(([k, v]) => [k, r2(v)])) } : {}),
         ...(r.mkt ? { mkt: r.mkt } : {}),
+        /* أثرُ التدقيق: المفتاح ونسخة المحرّك والالتزام وبصمة المدخلات — والمدخلات
+           نفسها في data/audit (انظر scripts/lib/audit-trail.mjs) */
+        ...(Number.isFinite(r.cbar) ? { aud: auditStamp({ sym: r.s, symRec: symFile(r.s), row: r, ck: r.cbar, outDir: OUT }) } : {}),
         ...(snap ? { snap, out: { st: "wait", hit: snap.t.map(() => null), stopAt: null, enterAt: null } } : {}),
         // المسار الثاني حيٌّ فقط حين تُبنى لقطتُه — وهي تُبنى الآن أو لا
         // تُبنى أبداً، شأنَ الأولى

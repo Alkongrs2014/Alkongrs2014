@@ -27,6 +27,8 @@ const RAW = "https://raw.githubusercontent.com/Alkongrs2014/Alkongrs2014/data";
 const GAP = Number(process.argv.slice(2).find(a => /^\d+$/.test(a)) || 120);
 
 const CANDS = [
+  /* المشروع أوّلاً (devDependency — لا يصل المتصفّح)، ثم مواضع المهارة */
+  "@playwright/test",
   path.join(homedir(), ".claude/skills/playwright-skill/node_modules/playwright"),
   path.join(homedir(), ".claude/plugins/marketplaces/playwright-skill/skills/playwright-skill/node_modules/playwright"),
   "playwright"

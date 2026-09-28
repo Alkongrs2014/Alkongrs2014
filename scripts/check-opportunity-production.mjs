@@ -40,7 +40,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function read(file) {
   if (!REMOTE) {
-    try { return JSON.parse(fs.readFileSync(path.join(ROOT, "data", file), "utf8")); } catch { return null; }
+    try { return JSON.parse(fs.readFileSync(path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), file), "utf8")); } catch { return null; }
   }
   try {
     const res = await fetch(`${RAW}/${file}?x=${Date.now()}`, { signal: AbortSignal.timeout(20000) });

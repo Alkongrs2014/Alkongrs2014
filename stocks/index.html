@@ -2642,6 +2642,29 @@ function diag(tag, msg, data) {
   return e;
 }
 window.__diag = () => state.diag;
+/* =======================================================================
+   أخطاءُ وقت التشغيل — حلقةٌ محلية لا خدمةٌ خارجية.
+
+   استثناءٌ غير ملتقَط أو وعدٌ مرفوض بلا معالج كان يمرّ إلى الـconsole وحده،
+   فلا يراه إلا من فتح أدوات المطوّر. الآن يُسجَّل في `diag` بوسم `js`، ويُحفظ
+   آخرُ عشرين في `localStorage` (يبقى بعد إعادة التحميل)، ويقرؤه فحصُ الواجهة
+   والتحقّق من المنشور عبر `window.__errors()`. ولا شيء يُرسَل إلى أيّ مكان:
+   قاعدة «بلا اعتماد خارجي» وتجربةٌ خاصّة معاً.
+   ======================================================================= */
+const ERR_KEY = "webtrade.errors";
+function noteRuntimeError(kind, msg, where) {
+  const e = diag("js", kind + ": " + msg, where || null);
+  try {
+    const a = JSON.parse(localStorage.getItem(ERR_KEY) || "[]");
+    a.push({ at: e.at, kind, msg: String(msg).slice(0, 300), where: where || null, v: document.documentElement.dataset.build || null });
+    localStorage.setItem(ERR_KEY, JSON.stringify(a.slice(-20)));
+  } catch (x) { /* التخزين قد يُحجب — الحلقة في الذاكرة تكفي */ }
+}
+window.addEventListener("error", (ev) => noteRuntimeError("error", ev.message || "خطأ",
+  ev.filename ? ev.filename.split("/").pop() + ":" + ev.lineno : null));
+window.addEventListener("unhandledrejection", (ev) => noteRuntimeError("rejection",
+  (ev.reason && (ev.reason.message || String(ev.reason))) || "وعدٌ مرفوض"));
+window.__errors = () => state.diag.filter((d) => d.tag === "js");
 function dur(ms) {
   if (!isFinite(ms) || ms <= 0) return "";
   const t = Math.floor(ms / 1000);

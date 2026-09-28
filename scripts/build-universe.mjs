@@ -111,7 +111,7 @@ async function main() {
   console.log(`▶ الكون الحالي: ${cfg.symbols.length} مرشّحاً أساسياً`);
 
   console.log("  جلب قائمة S&P 500 …");
-  const res = await fetch(SP500_CSV);
+  const res = await fetch(SP500_CSV, { signal: AbortSignal.timeout(30000) });
   if (!res.ok) throw new Error(`تعذّر جلب القائمة: ${res.status}`);
   const rows = parseCSV(await res.text());
   const head = rows.shift();

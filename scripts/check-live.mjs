@@ -31,6 +31,8 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace
    التركيب المعروفة ولا تُضاف إلى المشروع — قاعدة «بلا مكتبة خارجية»
    تخصّ ما يصل المتصفّح. */
 const CANDS = [
+  /* المشروع أوّلاً (devDependency — لا يصل المتصفّح)، ثم مواضع المهارة */
+  "@playwright/test",
   path.join(homedir(), ".claude/skills/playwright-skill/node_modules/playwright"),
   path.join(homedir(), ".claude/plugins/marketplaces/playwright-skill/skills/playwright-skill/node_modules/playwright"),
   "playwright"

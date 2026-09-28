@@ -35,7 +35,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import http from "node:http";
-import { spawn, execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -289,177 +289,36 @@ function serve() {
    ننسخ إلى مجلد مؤقّت ثم ندفع منه: مستودع git داخل data/ نفسه يخلط
    بيانات متولّدة بحالة نسخ، وحذفه لاحقاً محفوف بالخطأ.
    ===================================================================== */
-const git = (args, cwd) =>
-  execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 
-/* بوابة سلامة مطابقة لتلك التي في مهمة GitHub: لا تُنشر بيانات ناقصة
-   فوق بيانات سليمة منشورة. */
-function validateData() {
-  const read = (f) => JSON.parse(fs.readFileSync(path.join(DATA, f), "utf8"));
-  const sum = read("summary.json"), mkt = read("market.json");
-  if (!Array.isArray(sum.rows) || sum.rows.length < 40)
-    throw new Error(`summary.json فيه ${(sum.rows || []).length} صفاً فقط — مرفوض`);
-  /* =====================================================================
-     البوّابة **نسبيّة لا كلٌّ أو لا شيء** — وهذا تصحيحٌ لا إضعاف.
+/* =====================================================================
+   النشر — معاملاتيٌّ في `scripts/lib/publish.mjs`.
 
-     غرضُها المعلَن: ألّا تُنشر بياناتٌ ناقصة فوق بياناتٍ سليمة عند
-     **انهيار الشبكة**. أمّا صيغتُها الأولى فكانت ترفض النشر إن خلا
-     **صفٌّ واحد** من سعرٍ حيّ — وهو ما وقع فعلاً: رمزان من Binance
-     (`牛来-USD` و`PUMP-USD`) توقّفا عن التسعير، فمُنع النشر **كلُّه**
-     خمساً وعشرين دقيقة، وتوقّفت لقطة الفرص عن الوصول، وأخفق اختبار
-     الإثبات المباشر بـ«لم يظهر مفتاحٌ جديد».
-
-     وهي نفس مصيدة `بوابةٌ بالتساوي التامّ تنكسر عند أول توسّع`: شرطٌ
-     مطلق على كونٍ متغيّر يُسقط النظام على أوّل رمزٍ يموت.
-
-     فالنسبة ‎2%‎ مع سقفٍ مطلق: انهيارُ الشبكة يُسقط المئات فيُرفض،
-     ورمزٌ أو رمزان ميتان يُذكران بالاسم ويمرّان. **والصفُّ بلا سعرٍ
-     حيّ ليس صفّاً بلا بيانات**: `pc` فيه إغلاقُ شمعة التأكيد، وهو ما
-     يُقاس عليه أصلاً — والسعر المعروض يسقط إليه.
-
-     ولا تُسكت البوّابة: الأسماء تُعاد في `info` ليُنقّى الكون منها. */
-  const bad = sum.rows.filter(r => !r.s || !Number.isFinite(r.p) || r.p <= 0);
-  const BAD_MAX = Math.max(5, Math.ceil(sum.rows.length * 0.02));
-  if (bad.length > BAD_MAX)
-    throw new Error(`${bad.length} صفّاً بأسعار غير صالحة من ${sum.rows.length} (السقف ${BAD_MAX}) — مرفوض: ${bad.slice(0, 8).map(b => b.s).join(", ")}`);
-  /* والصفُّ بلا `pc` كذلك بلا شيء يُقاس عليه — ذاك رفضٌ مطلق ولو كان
-     واحداً: لا سعرَ حيّاً ولا إغلاقاً مؤكَّداً يعني صفّاً فارغاً. */
-  const empty = sum.rows.filter(r => (!Number.isFinite(r.p) || r.p <= 0) && (!Number.isFinite(r.pc) || r.pc <= 0));
-  if (empty.length) throw new Error(`صفوف بلا سعرٍ حيّ ولا إغلاقٍ مؤكَّد: ${empty.map(b => b.s).join(", ")}`);
-  if (!mkt.status) throw new Error("market.json بلا حالة سوق");
-  /* =====================================================================
-     عمقُ الفريمات — بوّابةٌ كانت غائبة، فنُشرت بياناتٌ منقوصة ‎19‎ دقيقة
-     من كل ثلاثين بلا أن يعترض شيء.
-
-     `tfScore` بمفتاحين تعني أن `allTF` (تشترط أربعةً بالضبط) لا يمكن أن
-     تتحقّق، وأن `atr`/`rsi`/`e200`/`adx`/`div` — وكلُّها من `an["1d"]` —
-     تُنشر `null`. أي أن الموقع يعرض سعراً وشارتاً ونتيجةً متّسقة كلُّها
-     محسوبةٌ على نصف بياناتها. والبوّابة تفحص العدد والسعر والحالة وعدد
-     الملفّات ولا تفحص هذا، فالمنقوص يمرّ.
-
-     والسقف أرخى من سقف اللقطة (‎90%‎) عن قصد: بوّابةٌ حادّة هنا تُجيع
-     النشرَ كما جاع برمزين ميتين، وأثرُ التأخير في النشر أسوأ من صفوفٍ
-     قليلة ناقصة — أمّا الانحدار الشامل فيُرفض. */
-  const four = sum.rows.filter(r => Object.keys(r.tfScore || {}).length === 4).length;
-  if (four < sum.rows.length * 0.70)
-    throw new Error(`${four} من ${sum.rows.length} صفّاً بأربعة فريمات — بياناتٌ منقوصة العمق، لن تُنشر`);
-  const files = fs.readdirSync(path.join(DATA, "sym")).length;
-  if (files < 40) throw new Error(`${files} ملف سهم فقط في data/sym — مرفوض`);
-  const stale = sum.rows.filter(r => r.stale).length;
-  return { rows: sum.rows.length, files, stale, updated: sum.updated, four,
-           noLive: bad.map(b => b.s) };
-}
-
-/* بوّابة دفتر الكريبتو — **منفصلةٌ ولا تحجب الأسهم**. فشلُها يُسقط مجلّد
-   `crypto/` من النشر ويقوله، ولا يمنع نشر الأسهم: عطلُ دفترٍ لا يجوز
-   أن يجمّد الآخر، وهذا هو الاستقلال نفسه مطبَّقاً على النشر. */
-function validateCrypto() {
-  const read = (f) => JSON.parse(fs.readFileSync(path.join(CRYPTO_DIR, f), "utf8"));
-  const sum = read("summary.json"), opp = read("opportunities.json");
-  const rows = sum.rows || [];
-  if (rows.length < 10) throw new Error(`${rows.length} صفّاً فقط`);
-  const alien = rows.filter(r => r.mkt !== "crypto");
-  if (alien.length) throw new Error(`صفوفٌ غير كريبتو في دفتر الكريبتو: ${alien.map(r => r.s).join(", ")}`);
-  const four = rows.filter(r => Object.keys(r.tfScore || {}).length === 4).length;
-  if (four < rows.length * 0.70) throw new Error(`${four} من ${rows.length} بأربعة فريمات`);
-  if (!Number.isFinite(opp.candleKey)) throw new Error("لقطة الفرص بلا candleKey");
-  /* ملفّات الشمعات تُنشر للمعروض وحده: الكون ~‎270‎ عملة × خمسة فريمات
-     ‎~21‎ م.ب تتجدّد كل خمس دقائق، والواجهة لا تفتح إلا عملةً من القائمة. */
-  const show = new Set(Object.keys(opp.bySym || {}));
-  return { rows: rows.length, four, candleKey: opp.candleKey, show };
-}
-
-function publish() {
-  let info;
-  try { info = validateData(); }
-  catch (e) {
-    console.error(`\n  ✗ البيانات المحلية لم تجتز فحص السلامة: ${e.message}`);
-    console.error("    شغّل  node local/run.mjs both  أولاً، ولا تنشر قبل أن تمرّ.\n");
-    return 1;
+   كان هنا: فحصُ `data/` الحيّ ثم نسخُه مرّةً ثانية إلى مجلّدٍ ثابت الاسم ثم
+   `push -f`. فما فُحص غيرُ ما نُشر، ونشران متداخلان يمحو أحدُهما تجهيزَ
+   الآخر، ونشرٌ أقدم ينتهي آخراً يكتب فوق الأحدث، ودفترُ كريبتو ساقط كان
+   يُحذف من الفرع اليتيم. الآن: لقطةٌ واحدة تحت قفل الكاتب ← بوّابتا الدفترين
+   والمخطّطات ← الطبيب السريع ← حارس الرتابة ← `--force-with-lease` ← آخر
+   نسخة سليمة (`data-lkg`). وأيُّ فشلٍ يترك المنشور كما هو.
+   ===================================================================== */
+async function publish() {
+  const { publishData } = await import("../scripts/lib/publish.mjs");
+  const { quickDoctor } = await import("../scripts/lib/doctor-core.mjs");
+  const r = await publishData({ root: ROOT, dataDir: DATA, quick: quickDoctor });
+  /* آخر نشرٍ يُسجَّل للصحّة — كلُّ محاولةٍ بنتيجتها، لا الناجحةُ وحدها */
+  try { fs.mkdirSync(path.join(ROOT, "reports"), { recursive: true });
+        fs.writeFileSync(path.join(ROOT, "reports", "publish-last.json"), JSON.stringify({ at: new Date().toISOString(), ok: r.ok, code: r.code, why: r.why, sha: r.sha || null, lkg: r.lkg || null })); } catch {}
+  if (r.info) console.log(`  ✓ ${r.info.rows} صفاً · ${r.info.four} بأربعة فريمات · ${r.info.files} ملف سهم · ${r.info.stale} قديماً`);
+  if (r.crypto) console.log(`  · دفتر الكريبتو: ${r.crypto}`);
+  if (r.ok) {
+    console.log(r.code === "unchanged" ? "  = لا جديد — المنشور مطابق"
+      : `  ✔ نُشر ${r.sha.slice(0, 10)}` + (r.lkg ? ` · آخر نسخة سليمة ${r.lkg.slice(0, 10)}` : ""));
+    return 0;
   }
-  console.log(`  ✓ ${info.rows} صفاً · ${info.four} بأربعة فريمات · ${info.files} ملف سهم · ${info.stale} قديماً`);
-  if (info.stale > info.rows / 2)
-    console.warn("  ⚠ أكثر من نصف الرموز قديمة محلياً — الأفضل تحديثها قبل النشر");
-
-  let url;
-  try { url = git(["remote", "get-url", "origin"], ROOT); }
-  catch { console.error("  ✗ لا يوجد ريموت origin — شغّل local/link-github.bat أولاً"); return 1; }
-
-  const stage = path.join(os.tmpdir(), "webtrade-publish");
-  fs.rmSync(stage, { recursive: true, force: true });
-
-  /* ما لا يُنشر — قائمة **منع** لا قائمة سماح.
-   *
-   * قائمة السماح تُسقط أي ملف بيانات جديد **بصمت**: يُضاف مُنتَجٌ إلى
-   * `data/` وتقرؤه الواجهة، فتجده 404 على الويب ولا شيء يقول لماذا.
-   * وهو عطلٌ أسوأ بكثير من بضع مئات الكيلوبايتات.
-   *
-   * والثلاثة هنا حالةُ خادمٍ بحتة لا يقرؤها المتصفح إطلاقاً:
-   *   `.run.lock`  ملف تشغيل — نشرُه دفعةٌ جديدة كل دورة لتغيّر رقم عملية
-   *   `i18n.json`  ذاكرة الترجمة (430 ك.ب) — يقرؤها `fetch-news` وحده
-   *   `cik.json`   خريطة CIK لـSEC (205 ك.ب) — يقرؤها `fetch-filings` وحده
-   *
-   * و`check-ui` يحرس القائمة: ملفٌ تشير إليه الواجهة لا يجوز أن يدخلها.
-   */
-  // `.run.skips.json` تشخيصٌ محلّي لجدولةِ هذا الجهاز — لا معنى له على
-  // الويب، والموقع المنشور لا جدولة له أصلاً
-  /* و`opportunities-log.json` سجلُّ تدقيقٍ لبوّابة اللقطة — يُقرأ عند
-   التشخيص ولا تطلبه الواجهة. و`.opportunities.tmp.json` ملفُّ الكتابة
-   الذرّية، ووجودُه عابر. */
-  const NO_PUBLISH = new Set([".run.lock", ".run.skips.json", "i18n.json", "cik.json",
-                              "opportunities-log.json", ".opportunities.tmp.json",
-                              /* أرشيفُ ما قبل الكون الثابت (1100 ملفّ رمز) — لا يقرؤه أحد */
-                              ".archive", ".monitor"]);
-  let skipped = 0;
-  for (const n of NO_PUBLISH) {
-    if (n.startsWith(".run.")) continue;      // حالةُ خادمٍ لا حجمَ يُعلَن
-    try { skipped += fs.statSync(path.join(DATA, n)).size; } catch {}
-  }
-  let cryptoOk = false;
-  if (fs.existsSync(CRYPTO_DIR)) {
-    try {
-      const c = validateCrypto(); cryptoOk = true;
-      console.log(`  ✓ دفتر الكريبتو: ${c.rows} صفّاً · ${c.four} بأربعة فريمات · شمعة ${new Date(c.candleKey * 1000).toISOString()}`);
-    } catch (e) { console.warn(`  ⚠ دفتر الكريبتو لم يجتز فحصه — يُستبعد من هذا النشر ولا يحجب الأسهم: ${e.message}`); }
-  }
-  let cShow = null;
-  try { if (cryptoOk) cShow = validateCrypto().show; } catch { cShow = null; }
-  const CSYM = path.join(CRYPTO_DIR, "sym"), CSTRAT = path.join(CRYPTO_DIR, "strat");
-  fs.cpSync(DATA, stage, { recursive: true, filter: (src) => {
-    const p = path.resolve(src);
-    if (NO_PUBLISH.has(path.basename(src))) return false;
-    if (!cryptoOk && p === CRYPTO_DIR) return false;
-    // الكريبتو: تسلسلُ الاستراتيجيات لا تقرؤه الواجهة، وملفّاتُ الشمعات للمعروض وحده
-    if (p === CSTRAT || p.startsWith(CSTRAT + path.sep)) return false;
-    if (p.startsWith(CSYM + path.sep)) return !!cShow && cShow.has(path.basename(p, ".json"));
-    return true;
-  } });
-  if (skipped) console.log(`  ⤫ استُبعد ${Math.round(skipped / 1024)} ك.ب حالةَ خادمٍ لا يقرؤها المتصفح`);
-
-  // اسم المؤلّف من إعدادات المستودع الأب إن وُجد، وإلا اسم محايد
-  const cfg = (k, d) => { try { return git(["config", k], ROOT) || d; } catch { return d; } };
-
-  try {
-    git(["init", "-q", "-b", "snapshot"], stage);
-    git(["config", "user.name", cfg("user.name", "webtrade-local")], stage);
-    git(["config", "user.email", cfg("user.email", "local@webtrade")], stage);
-    git(["remote", "add", "origin", url], stage);
-    git(["add", "-A"], stage);
-    const when = new Date().toISOString().slice(0, 16).replace("T", " ");
-    git(["commit", "-q", "-m", `بيانات محلية ${when} UTC`], stage);
-    // ‎-f‎ لأن الفرع يتيم يُعاد بناؤه كل مرة، تماماً كما تفعل مهمة GitHub
-    git(["push", "-f", "-q", "origin", "snapshot:data"], stage);
-  } catch (e) {
-    const why = String(e.stderr || e.message || "").trim().slice(0, 400);
-    console.error(`\n  ✗ فشل النشر: ${why}\n`);
-    return 1;
-  } finally {
-    fs.rmSync(stage, { recursive: true, force: true });
-  }
-
-  console.log(`\n  ✔ نُشرت على فرع data · آخر تحديث ${new Date(info.updated).toISOString()}`);
-  console.log("    الموقع المنشور يقرأها خلال دقائق (raw.githubusercontent يخزّن مؤقتاً)\n");
-  return 0;
+  /* القفلُ المشغول وعدمُ تطابق الإيجار ليسا فشلاً: كاتبٌ آخر يعمل أو سبقنا،
+     والمنشور سليم. يُقالان ويُخرج بصفر كي لا تُعلَّم المهمة فاشلة كلَّ مرّة. */
+  const soft = r.code === "locked" || r.code === "lease";
+  (soft ? console.log : console.error)(`  ${soft ? "⏭" : "✗"} ${r.why}`);
+  return soft ? 0 : 1;
 }
 
 /* ---------- التشغيل ---------- */
@@ -470,7 +329,15 @@ const loaded = loadEnv();
 fs.mkdirSync(DATA, { recursive: true });
 
 if (cmd === "serve") { serve(); }
-else if (cmd === "publish") { process.exit(publish()); }
+else if (cmd === "publish") { process.exit(await publish()); }
+/* الحراسة — قراءةٌ وحدها بلا قفل تشغيل (الطبيب والإعادة يأخذان لقطتهما تحت
+   القفل لثانية). بلا أيّ نموذج لغوي: سكربتاتٌ حتمية. */
+else if (["health", "fortress", "torture", "mutation", "doctor", "verify"].includes(cmd)) {
+  const extra = process.argv.slice(3);
+  const code = await new Promise((resolve) => spawn(process.execPath, [path.join(ROOT, "scripts", cmd + ".mjs"), ...extra],
+    { stdio: "inherit", cwd: ROOT }).on("close", resolve));
+  process.exit(code ?? 1);
+}
 else {
   console.log(`▶ وضع محلي · Yahoo أولاً (بلا حظر ولا سقف) · ${loaded} متغيّراً من .env`);
   if (!process.env.FINNHUB_API_KEY)
@@ -573,6 +440,7 @@ else {
   }
   console.log(bad ? `\n✗ فشل ${bad} من ${jobs.length}` : `\n✔ تم — البيانات في ${DATA}`);
   // النشر بعد الجلب وبشرط نجاحه: لا تُرفع نتيجة تشغيل فاشل فوق بيانات سليمة
-  if (!bad && wantPublish) { console.log("\n──── نشر ────"); process.exit(publish()); }
+  // القفل يُحرَّر قبل النشر: النشر يأخذ لقطته تحت نفس القفل فلا ينتظر نفسه
+  if (!bad && wantPublish) { releaseLock(); console.log("\n──── نشر ────"); process.exit(await publish()); }
   process.exit(bad ? 1 : 0);
 }
