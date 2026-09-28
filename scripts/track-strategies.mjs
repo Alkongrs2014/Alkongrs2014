@@ -291,6 +291,25 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
     }
     if (convGone || convTf)
       info("scanner", `هجرة سجلات: ${convGone} لاستراتيجيةٍ محذوفة · ${convTf} لفريمٍ تغيّر`);
+
+    /* `"pegged"` — مستقرّةٌ كُشفت بسلوكها فخرجت من كون الكريبتو. لا صفَّ لها
+       بعد اليوم فلا سعر يُحدّث سجلَّها، فيبقى «مفتوحاً» إلى الأبد. وقع مع
+       `U-USD`: تسعة سجلّات بقيت مفتوحة بعد خروجها — وسجلُّ مستقرّةٍ ليس
+       صفقةً أصلاً. والمرجعُ قائمةُ `pegged` في الكون المكتوب لا غيابُ الصفّ:
+       صفٌّ غاب لفشل جلبٍ عابر ليس خروجاً.
+       **ولا يعمّ الخارجين بالسيولة** عمداً: قِيس 2026-09-28 ‎218‎ سجلاً مفتوحاً
+       لـ‎35‎ عملةً نزلت تحت العتبة في أيامٍ سابقة، لكنها تعود فوقها أحياناً في
+       اليوم التالي — وإغلاقُها قرارُ سياسةٍ لم يُتّخذ بعد. */
+    const uni = process.env.BOOK === "crypto" ? rj("universe.json") : null;
+    if (uni && Array.isArray(uni.pegged) && uni.pegged.length) {
+      const peg = new Set(uni.pegged.map(x => x.s));
+      let convU = 0;
+      for (const sig of live) {
+        if (sig.conv || !sig.open || !peg.has(sig.sym)) continue;
+        sig.conv = "pegged"; sig.open = false; sig.closed = now; convU++;
+      }
+      if (convU) info("scanner", `هجرة سجلات: ${convU} لمستقرّةٍ خرجت من الكون`);
+    }
   }
 
   initLog(out);
