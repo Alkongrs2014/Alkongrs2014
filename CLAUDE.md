@@ -91,7 +91,7 @@ node scripts/make-fixtures.mjs                               # إعادة تجم
 - **أثرُ التدقيق**: كلُّ سجلّ إشارةٍ جديد يحمل `aud` (المفتاح، نسخة المحرّك،
   الالتزام، بصمة المدخلات) ومدخلاتُه في `data/audit/` (لا تُنشر).
 - **Pages خلف بوّابة** (`site.yml`: gate ← deploy ← verify ← rollback إلى الوسم
-  `pages-lkg`) — **يشترط Source = GitHub Actions في إعدادات Pages**. ما دام المصدر
+  `pages-lkg`) — **Source = GitHub Actions** (ضبطه المالك 2026-09-28؛ يُتحقَّق بغياب «pages build and deployment» عند الدفع). ما دام المصدر
   الفرعَ القديم فالنشر من `main` بلا بوّابة.
 - **مهامّ الحراسة** (Task Scheduler، بلا قفل ولا AI): `WebTrade-Health` كل عشر
   دقائق · `WebTrade-Fortress` ليلاً 04:13 · `WebTrade-Torture` الجمعة ·
