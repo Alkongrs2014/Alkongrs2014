@@ -1626,8 +1626,19 @@ function selfCheck() {
   process.exit(fail ? 1 : 0);
 }
 
-if (CHECK) selfCheck();
-else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });/* أعلى/أدنى 252 شمعةً يومية مغلقة — أو `null` إن قصرت السلسلة عن
+/* حارس `IS_MAIN`: الاستيراد كان يشغّل `main()` فيجلب الكون (357 طلباً قِيست)،
+   فلم يكن ممكناً اختبارُ `carryFrames`/`guardFrames` — وهما البوّابة التي
+   كانت ستكشف فقدان الفريمات في أوّل تشغيل. نفس علاج `track-signals`. */
+const IS_MAIN = process.argv[1] &&
+  /* مقارنةٌ بلا حالة أحرف احتياطاً (ويندوز لا يميّزها). قِيس أن Node يوحّد
+     الحالة بين المسارين فلا علّة قائمة — لكنّ الفشل هنا صامت: الجلب لا يعمل. */
+  path.resolve(process.argv[1]).toLowerCase() === path.resolve(fileURLToPath(import.meta.url)).toLowerCase();
+if (IS_MAIN) {
+  if (CHECK) selfCheck();
+  else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });
+}
+export { carryFrames, guardFrames, keepFrames };
+/* أعلى/أدنى 252 شمعةً يومية مغلقة — أو `null` إن قصرت السلسلة عن
    سنةٍ تقريباً (200)، فلا يُسمّى مدى شهرين «52 أسبوعاً». */
 function w52c(d1c, k) {
   if (!Array.isArray(d1c) || d1c.length < 200) return null;

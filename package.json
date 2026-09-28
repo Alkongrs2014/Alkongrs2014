@@ -1,0 +1,39 @@
+{
+  "name": "webtrade",
+  "private": true,
+  "description": "مرصد الأسهم الأمريكية — أدوات الفحص والحماية (devDependencies فقط؛ الموقع بلا اعتماد خارجي)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "checks": "node scripts/run-checks.mjs",
+    "test": "vitest run",
+    "test:golden": "vitest run tests/golden",
+    "test:reference": "vitest run tests/reference",
+    "test:regression": "vitest run tests/regression",
+    "test:unit": "vitest run tests/unit",
+    "test:property": "vitest run tests/property tests/metamorphic",
+    "test:race": "vitest run tests/race",
+    "test:replay": "vitest run tests/replay",
+    "test:e2e": "playwright test",
+    "test:mutation": "stryker run",
+    "doctor": "node scripts/doctor.mjs",
+    "verify": "node scripts/verify.mjs",
+    "health": "node scripts/health.mjs",
+    "torture": "node scripts/torture.mjs",
+    "fortress": "node scripts/fortress.mjs",
+    "fortress:quick": "node scripts/fortress.mjs --quick"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "fast-check": "^4.10.2",
+    "vitest": "^3.2.7"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

@@ -29,7 +29,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DATA = path.join(ROOT, "data");
+const DATA = (process.env.WEBTRADE_DATA || path.join(ROOT, "data"));
 const CDIR = path.join(DATA, "crypto");
 
 let pass = 0, fail = 0;

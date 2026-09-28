@@ -1048,7 +1048,8 @@ var STRATEGIES = [
         return (h.stochK - h.stochD) * d > 0 ? 1 : -1; } },
     { id: "volDry", lbl: "حجم التراجع خفيف", w: 1.0, kind: "ind", v: function (c) {
         // تراجعٌ صحّي يأتي بحجمٍ أقلّ من حجم الاتجاه: بيعٌ بلا إلحاح
-        var x = volRatio(c, "1h", 20);
+        // حجمُ فريم التراجع (`pbTf`) لا الساعة مرقونةً — نفس علّة `expRatio`
+        var x = volRatio(c, pbTf(c), 20);
         return x === null ? null : (x <= 1.1 ? 1 : (x <= 1.6 ? 0 : -1)); } },
     { id: "dayTrend", lbl: "موافقة الاتجاه اليومي", w: 1.0, kind: "ind", v: function (c, d) {
         return dayAgree(c, d); } }
@@ -1143,7 +1144,10 @@ var STRATEGIES = [
         if (p === null) return null;
         return p <= 15 ? 1 : (p <= 30 ? 0 : -1); } },
     { id: "expRatio", lbl: "قوّة التوسّع", w: 2.0, kind: "ind", v: function (c) {
-        var tf = c.bw["1h"] ? "1h" : "4h", w = c.bw[tf];
+        /* فريمُ الانضغاط نفسه (`sqTf`) لا ساعةٌ مرقونة: كان يقرأ `bw["1h"]`
+           فعمودُ «‎4‎ ساعات» في توجّه السوق يزن توسّعاً قِيس على الساعة — عائلة
+           `momo` الموثّقة. وبلا تثبيت `sqTf` = الساعة فلا تغيّر في الفرص. */
+        var tf = sqTf(c), w = tf && c.bw[tf];
         if (!w) return null;
         var cur = lastOf(w), pre = w.slice(-13, -1).filter(Number.isFinite);
         if (!Number.isFinite(cur) || pre.length < 6) return null;

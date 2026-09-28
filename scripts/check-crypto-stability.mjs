@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 import { analyzeRec, buildRow, regimeOf } from "./fetch-crypto.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CDIR = path.join(ROOT, "data", "crypto");
+const CDIR = path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "crypto");
 let pass = 0, fail = 0;
 const t = (n, fn) => { try { fn(); console.log(`  ✓ ${n}`); pass++; } catch (e) { console.log(`  ✗ ${n} — ${e.message}`); fail++; } };
 const ok = (c, m) => { if (!c) throw new Error(m); };

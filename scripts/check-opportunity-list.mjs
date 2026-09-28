@@ -50,7 +50,7 @@ const t = (name, fn) => {
 };
 const ok = (c, m) => { if (!c) throw new Error(m); };
 
-const DATA = path.join(ROOT, "data");
+const DATA = (process.env.WEBTRADE_DATA || path.join(ROOT, "data"));
 const rdj = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return d; } };
 const r2 = (v) => (Number.isFinite(v) ? Math.round(v * 100) / 100 : null);
 

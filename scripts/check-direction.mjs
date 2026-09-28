@@ -21,7 +21,7 @@ const { resolveOpp, baseDirOf, conflictOf, allTfDir, tfConflict } = require("../
 const { levelsFrom, planFrom, validatePlan } = require("../stocks/plan.js");
 const { TFS, TF_WEIGHT } = require("../stocks/score.js");
 
-const OUT = process.env.OUT_DIR || "data";
+const OUT = process.env.OUT_DIR || process.env.WEBTRADE_DATA || "data";
 const rd = (p, d = null) => {
   try { return JSON.parse(fs.readFileSync(path.join(OUT, p), "utf8")); } catch { return d; }
 };

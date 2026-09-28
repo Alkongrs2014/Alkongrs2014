@@ -24,7 +24,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = path.resolve(process.argv[2] || path.join(ROOT, "data"));
+const SRC = path.resolve(process.argv[2] || (process.env.WEBTRADE_DATA || path.join(ROOT, "data")));
 const FILES = ["summary.json", "strategies.json", "fundamentals.json", "strategy-edge.json", "signals.json"];
 
 function copyData(dst) {

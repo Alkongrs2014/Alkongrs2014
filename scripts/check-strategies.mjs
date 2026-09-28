@@ -43,8 +43,8 @@ const ok = (c, m) => { if (!c) throw new Error(m); };
    وجودها — لكنه يستعملها حين توجد لأن البيانات الحقيقية تكشف ما لا
    تكشفه سلسلةٌ مثالية مولَّدة. */
 function realCtx(sym = "AAPL") {
-  const f = path.join(ROOT, "data/sym", `${sym}.json`);
-  const g = path.join(ROOT, "data/summary.json");
+  const f = path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "", `${sym}.json`);
+  const g = path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "");
   if (!fs.existsSync(f) || !fs.existsSync(g)) return null;
   const rec = JSON.parse(fs.readFileSync(f, "utf8"));
   const row = JSON.parse(fs.readFileSync(g, "utf8")).rows.find(r => r.s === sym);
@@ -210,13 +210,13 @@ t("buildCtx يكشف الفترات التي تصف يوماً سابقاً", ()
    ٤) الخطط — البوابة بعد التقريب
    ===================================================================== */
 t("كل خطة مولَّدة تمرّ validatePlan — وبعد التقريب", () => {
-  const summary = path.join(ROOT, "data/summary.json");
+  const summary = path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "");
   if (!fs.existsSync(summary)) { console.log("      (لا بيانات محلية — تُخطّى)"); return; }
   const rows = JSON.parse(fs.readFileSync(summary, "utf8")).rows;
   const now = Date.now();
   let n = 0, bad = 0;
   for (const row of rows) {
-    const f = path.join(ROOT, "data/sym", `${row.s}.json`);
+    const f = path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "", `${row.s}.json`);
     if (!fs.existsSync(f)) continue;
     const rec = JSON.parse(fs.readFileSync(f, "utf8"));
     const c = S.buildCtx({ rec, row, now, sess: statusNow(rec.period, now).state });
@@ -340,12 +340,12 @@ t("والتثبيت يُطاع فعلاً حين تتوفّر بياناته", (
 });
 
 t("وما لا يقبل التثبيت يُعلَن `off` لا محايداً", () => {
-  const g = path.join(ROOT, "data/summary.json");
+  const g = path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "");
   if (!fs.existsSync(g)) { console.log("      (لا بيانات محلية — تُخطّى)"); return; }
   const rows = JSON.parse(fs.readFileSync(g, "utf8")).rows;
-  const row = rows.find(r => fs.existsSync(path.join(ROOT, "data/sym", `${r.s}.json`)));
+  const row = rows.find(r => fs.existsSync(path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "", `${r.s}.json`)));
   if (!row) return;
-  const rec = JSON.parse(fs.readFileSync(path.join(ROOT, "data/sym", `${row.s}.json`), "utf8"));
+  const rec = JSON.parse(fs.readFileSync(path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "", `${row.s}.json`), "utf8"));
   for (const o of Object.values(rec.tf || {})) if (o && o.c) o.c = P.unpackK(o.c);
   const now = Date.now(), sess = statusNow(rec.period, now).state;
   /* استراتيجيتا الجلسة والحكمُ العابر للفريمات لا تُقاس على فريمٍ
@@ -400,7 +400,7 @@ t("لا فريم دون ١٥د في تعريفٍ ولا في ملفٍّ مخزَ
      خروجها، ولا يقرؤها التطبيق. إسقاطُ الفحص بسببها يجعله ينهار على
      شيءٍ لا أثر له، وعدُّها في المقام يجعل الرقم يصف المجلّد لا
      النظام. فتُستثنى ويُعلَن عددُها. */
-  const dir = path.join(ROOT, "data/sym");
+  const dir = path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "");
   if (!fs.existsSync(dir)) { console.log("      (لا بيانات محلية — الشقّ الثاني يُخطّى)"); return; }
   const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
   const live = new Set([...(cfg.symbols || []), ...(cfg.crypto || []), ...(cfg.wide || [])].map(x => x.s));
@@ -435,10 +435,10 @@ t("كل استراتيجية تصمد أمام بياناتٍ ناقصة ولا 
 });
 
 t("الوضع المُصغَّر يسمّي ما سقط ولا يُخفيه", () => {
-  const summary = path.join(ROOT, "data/summary.json");
+  const summary = path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "");
   if (!fs.existsSync(summary)) { console.log("      (لا بيانات محلية — تُخطّى)"); return; }
   // رمزٌ واسع: الشمعة اليومية وحدها
-  const wideFile = path.join(ROOT, "data/wide.json");
+  const wideFile = path.join(process.env.WEBTRADE_DATA || path.join(ROOT, "data"), "");
   if (!fs.existsSync(wideFile)) { console.log("      (لا طبقة واسعة — تُخطّى)"); return; }
   const w = JSON.parse(fs.readFileSync(wideFile, "utf8"));
   const row = (w.rows || [])[0];

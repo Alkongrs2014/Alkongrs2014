@@ -230,7 +230,7 @@ t("evalAllConfirmed يعيد العشرة دائماً — لا استثناءٌ
    في كل دورة، فتشويهُ الشمعات بلا إعادة حساب المؤشّرات يقيس نصف
    المشكلة — وهو ما كان يُخفي التسرّب الأكبر (٤٧٤ انقلاب اتجاه).
    ===================================================================== */
-const DATA = path.join(ROOT, "data");
+const DATA = (process.env.WEBTRADE_DATA || path.join(ROOT, "data"));
 const rdj = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return d; } };
 
 /* مؤشّراتٌ معادةٌ من السلسلة — نفس ما يفعله `fetch-market` كل دورة،
@@ -316,7 +316,22 @@ function evalSym(rec, row, px, now, legacy) {
 function sweep(legacy) {
   const sum = rdj(path.join(DATA, "summary.json"));
   if (!sum || !Array.isArray(sum.rows)) return null;      // لا بيانات محليّة
-  const anchor = Number.isFinite(sum.updated) ? sum.updated : Date.now();
+  /* **والمرساة آخرُ شمعة ‎15د‎ في البيانات لا لحظةُ الكتابة.** لحظةُ الكتابة
+     في عطلة الأسبوع أو ليلاً لا تقع داخل شمعةٍ جارية أصلاً، فلا شيء
+     يتحرّك في المحاكاة، فيخرج الضابطُ السلبيّ بصفر ويسقط الفحص كلَّ عطلة —
+     فحصٌ يعتمد على أن يتحرّك السوق الحيّ ليس فحصاً حتمياً. آخرُ شمعةٍ
+     محفوظة كانت جاريةً في لحظةٍ ما حقاً، فمحاكاةُ دورتَي خادمٍ داخلها
+     تصف دورةً ممكنة في أيّ يومٍ وأيّ ساعة. */
+  const lastBar = (() => {
+    for (const row of sum.rows) {
+      const rec = rdj(path.join(DATA, "sym", row.s + ".json"));
+      const c = rec && rec.tf && rec.tf["15m"] && rec.tf["15m"].c;
+      if (Array.isArray(c) && c.length) return IND.barTime(c[c.length - 1]);
+    }
+    return null;
+  })();
+  const anchor = Number.isFinite(lastBar) ? lastBar
+               : Number.isFinite(sum.updated) ? sum.updated : Date.now();
   const q0 = Math.floor(anchor / 9e5) * 9e5;              // بداية ربع الساعة
   const now = q0 + 60e3;
   let syms = 0, diff = 0, dirs = 0, acts = 0;
