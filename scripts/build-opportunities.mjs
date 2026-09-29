@@ -417,7 +417,11 @@ function buildSnapshotImpl(now) {
        لا فوراً (وإلا صارت الإزاحة ارتعاشاً باسمٍ آخر) ولا أبداً. */
     let reK = null;                       // سببُ انتهاء السابقة إن وُلدت هذه تجديداً
     if (L && L.end && (L.end.k === "tgt" || L.end.k === "stop" ||
-        (CRYPTO && L.end.k === "out" && candleKey - L.end.at >= 3600)) && L.end.at < candleKey) {
+        (CRYPTO && L.end.k === "out" && candleKey - L.end.at >= 3600)) && L.end.at < candleKey &&
+        /* انتهت في بناءٍ سابق لا في هذه الشمعة: إعادةُ البناء داخل الشمعة نفسها
+           كانت ترى الانتهاء «سابقاً» فتجدّده، فيختلف بناءان للشمعة الواحدة
+           (INV-20 متقطّعاً، قِيس 2026-09-29). */
+        !(L.end.key >= candleKey)) {
       closedRe.push([key, L.end.k]);
       reK = L.end.k;
       L = null; delete life[key];
@@ -443,10 +447,11 @@ function buildSnapshotImpl(now) {
       life[key] = L;
     }
     walk(L, B.k[WALK_TF]);
+    if (L.end && L.end.key === undefined) L.end.key = candleKey;   // الشمعةُ التي سجّلت الانتهاء
     if (L.k < candleKey) { L.miss = 0; L.k = candleKey; }
     L.miss = 0;
     const fr = freshness((candleKey - L.since) * 1000, CRYPTO ? C_FRESH_TF : scanTF(scan.id));
-    if (!L.end && fr && fr.k === "stale") L.end = { k: "old", at: candleKey };
+    if (!L.end && fr && fr.k === "stale") L.end = { k: "old", at: candleKey, key: candleKey };
     if (L.end) {
       // فرصةٌ عُرضت ثم انتهت (هدفٌ أخير · وقف · قِدَم) — تُسجَّل مرّةً
       if (CRYPTO && L.shown && !L.logged) { L.logged = 1; ended.push({ key, ...L }); }
@@ -478,7 +483,10 @@ function buildSnapshotImpl(now) {
   /* البقاء: إعدادٌ عُرض في شمعةٍ سابقة ولم ينتهِ، وقلبُه (الفريمات الأعلى)
      ما زال على جهته — يُعدّ مُطلِقاً وإن نزل ‎5د‎. `prevLife` حالةُ اللقطة
      السابقة، فالقرار واحدٌ مهما أُعيد البناء داخل الشمعة. */
-  const alive = (s, id, d) => { const L = prevLife && prevLife[lifeKey(s, id, d)]; return !!(L && L.shown && !L.end); };
+  /* وانتهاءٌ سجّلته هذه الشمعة نفسُها (بناءٌ سابقٌ داخلها) لا يُحتسب: الحالةُ
+     «عند بدء الشمعة» — وإلا اختلفت العضوية بين بناءين للشمعة الواحدة. */
+  const alive = (s, id, d) => { const L = prevLife && prevLife[lifeKey(s, id, d)];
+    return !!(L && L.shown && !(L.end && !(L.end.key >= candleKey))); };
   const SC = !CRYPTO ? SCANS : SCANS.filter(s => C_SETUPS.includes(s.id)).map(s => {
     const core = C_CORE[s.id];
     if (!core) return s;
@@ -514,7 +522,10 @@ function buildSnapshotImpl(now) {
     /* الدرجة المعروضة تُعاد: وزنُ الإعداد × معامِل جودة الدخول (`cm` من
        دورة الحياة). ثم يُعاد الترتيب بها — والقديمة `q0` محفوظةٌ للتشخيص. */
     for (const id of Object.keys(scans)) {
-      for (const r of scans[id]) if (Number.isFinite(r.cm)) r.q = Math.round(setupWeight(r.q0) * r.cm * 1e4) / 1e4;
+      /* سقفُه ‎1‎: معامِلُ البيتكوين يرفع حتى ‎×1.25‎، ودرجةٌ فوق ‎100‎ تُسقط مخطّط
+         اللقطة (INV-19، قِيس 2026-09-29) فيُحجب دفترُ الكريبتو كلُّه من النشر.
+         والتعادل عند السقف يُفصل برتبة الإعداد كما هو. */
+      for (const r of scans[id]) if (Number.isFinite(r.cm)) r.q = Math.min(1, Math.round(setupWeight(r.q0) * r.cm * 1e4) / 1e4);
       scans[id].sort((a, b) => b.q - a.q);
     }
     const pool = [];
