@@ -146,7 +146,7 @@ export function referenceChecks(dir, { sample = Infinity } = {}) {
     let nA = 0, nP = 0; const exA = [], exP = [];
     for (const row of sum.rows.slice(0, sample)) {
       const rec = rd(dir, `sym/${row.s}.json`); if (!rec) continue;
-      const clock = C.candleClockRef(rec, sum.updated);
+      const clock = C.rowClock(rec, row, sum.updated);
       const a = C.compareAnalysis(rec, clock); nA += a.length; if (a.length && exA.length < 4) exA.push(row.s + ":" + a[0].tf + "." + a[0].field);
       const p = C.comparePublishedScore(rec, row, sum.updated); nP += p.length; if (p.length && exP.length < 4) exP.push(row.s + ":" + p[0].field + " " + p[0].published + "≠" + p[0].ref);
     }

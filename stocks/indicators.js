@@ -496,8 +496,23 @@ function foldBars(grp) {
   };
 }
 
-function aggregate(candles, factor) {
+function aggregate(candles, factor, keyOf) {
   if (!Array.isArray(candles) || !candles.length) return [];
+  /* `keyOf` مفتاحُ مجموعةٍ زمنيّ يمرّره المستهلك (الأسهم: مرساها افتتاح
+     نيويورك — `sessionBucket` في `session.js`). غيابُه = شبكةُ UTC كما
+     كانت، وهي الصحيحة للكريبتو الذي يومُه يبدأ ‎00:00Z‎. */
+  if (typeof keyOf === "function") {
+    var out2 = [], cur2 = null, key2 = null;
+    for (var m = 0; m < candles.length; m++) {
+      var y = candles[m];
+      if (!Number.isFinite(y.t)) continue;
+      var k2 = keyOf(y.t);
+      if (k2 !== key2) { if (cur2) out2.push(foldBars(cur2)); cur2 = [y]; key2 = k2; }
+      else cur2.push(y);
+    }
+    if (cur2) out2.push(foldBars(cur2));
+    return out2;
+  }
   var step = srcStep(candles), out = [];
   if (!step) {
     // سلسلةٌ أقصر من أن يُشتقّ طولُ شمعتها — التقسيم بالفهرس آخرُ ملاذ

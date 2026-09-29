@@ -21,7 +21,8 @@ import { analyze, overallScore, aggregate, TFS, TF_WEIGHT, bandStable,
          closedBars, isLiveBar, barTime, BAR_MS } from "./lib/indicators.mjs";
 import { createRequire as __cr } from "node:module";
 const IND_AN_WIN = __cr(import.meta.url)("../stocks/indicators.js").AN_WIN;
-import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar } from "./lib/session.mjs";
+import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar,
+         sessionBucket, sessionCloseAt } from "./lib/session.mjs";
 import * as PROV from "./providers/index.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -168,6 +169,14 @@ const NEED_BARS = 220;                  // EMA200 + هامش
    والترتيب مهمّ: `isRegularBar` أولاً ثم الحجم، فيبقى سلوك اليوم
    مطابقاً تماماً (شمعةُ ‎16:00‎ بحجمٍ صفر تسقط بالشرطين معاً). */
 function tradingOnly(candles, tf) {
+  /* الساعة: ياهو يُرفق بعد الإغلاق «شمعةً» بختم ‎16:00 ET‎ بحجمٍ صفر
+     (مطبعةُ الإغلاق) — ليست ساعةَ تداول، وكانت تدخل `1h` و‎4h‎ (قِيس
+     2026-09-28: الخمسون كلُّهم). تُسقَط بالجلسة وحدها، فالساعة الأخيرة
+     (‎15:30‎ بطول نصف ساعة) باقيةٌ لأنها تبدأ داخل الجلسة. */
+  if (tf === "1h") {
+    const reg = candles.filter(x => isRegularBar(x.t));
+    return reg.length >= NEED_BARS ? reg : candles;
+  }
   if (tf !== "15m") return candles;
   const live = candles.filter(x => isRegularBar(x.t) && (x.v || 0) > 0);
   return live.length >= NEED_BARS ? live : candles;
@@ -363,8 +372,11 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
     /* 4h يُشتقّ من الساعة الكاملة، فسلسلةٌ قصيرة محفوظة من قبل لا تُصلَح
        إلا بإعادة جلب الساعة. بلا هذا تبقى 65 شمعة حتى تنتهي صلاحية
        الساعة وحدها — إصلاحٌ يعتمد على التوقيت بدل أن يكون حتمياً. */
-    const shortDerived = tf === "1h" && (prev?.tf?.["4h"]?.c?.length || 0) < 200;
-    if (!shortDerived && !stale(prev, tf, now, tier === "core" && dailyIsLive(now, meta.mkt)) && prev?.tf?.[tf]?.c?.length) {
+    const shortDerived = tf === "1h" && ((prev?.tf?.["4h"]?.c?.length || 0) < 200 || stale4h(prev));
+    /* المفتاح النهائي: ما جُلب قبل الإغلاق + المهلة يُعاد جلبُه مرّةً */
+    const fcut = prev ? finalCut(prev, now) : null;
+    const preFinal = fcut !== null && (prev?.tf?.[tf]?.updated || 0) < fcut;
+    if (!shortDerived && !preFinal && !stale(prev, tf, now, tier === "core" && dailyIsLive(now, meta.mkt)) && prev?.tf?.[tf]?.c?.length) {
       rec.tf[tf] = prev.tf[tf];                       // ما زال حديثاً — أبقِه
       continue;
     }
@@ -483,7 +495,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
      المخزَّنة كما هي بدل إعادة اشتقاقها قصيرة — وإلا تذبذب طولها بين
      التشغيلات فتذبذبت معه النتيجة. */
   if (full1h?.length) {
-    rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(full1h, 4).slice(-KEEP)), derived: true };
+    rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(full1h, 4, K4H).slice(-KEEP)), derived: true };
   } else if (tier !== "wide" && prev?.tf?.["4h"]?.c?.length) {
     /* 4h ليس في `frames` فلا يمرّ بحلقة الجلب، ولا يُنقل من `prev`
        تلقائياً. وبلا نقله هنا يُعاد اشتقاقه من الساعة **المقصوصة** في كل
@@ -493,7 +505,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
     rec.tf["4h"] = prev.tf["4h"];
   } else if (rec.tf["1h"]?.c?.length) {
     // أول مرة ولا ساعةَ كاملة: مشتقٌّ قصير خيرٌ من فريمٍ غائب
-    rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(rec.tf["1h"].c, 4).slice(-KEEP)), derived: true };
+    rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(rec.tf["1h"].c, 4, K4H).slice(-KEEP)), derived: true };
   }
 
   /* =====================================================================
@@ -606,6 +618,56 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   return guardFrames(prev, rec, tier);
 }
 
+/* مفتاحُ شمعة ‎4h‎ — مرساه افتتاح نيويورك (انظر `sessionBucket`). */
+const K4H = (t) => sessionBucket(t, 4);
+/* ماتت الشبكة القديمة؟ ‎4h‎ مخزَّنةٌ بمفتاح UTC تبقى كما هي ما دامت الساعة
+   لا تُجدَّد (تُنقل من `prev`). فشمعةٌ مخزَّنة لا تقع على مرسى الجلسة
+   تفرض إعادة جلب الساعة مرّةً — هجرةٌ حتميّة لا تعتمد على الصلاحية. */
+const stale4h = (prev) => {
+  const c4 = prev?.tf?.["4h"]?.c, c1 = prev?.tf?.["1h"]?.c;
+  if (!c4 || !c4.length || !c1 || !c1.length) return false;
+  const starts = new Set(aggregate(tradingOnly(c1.map(x => (Array.isArray(x)
+    ? { t: x[0] * 1000, o: x[1], h: x[2], l: x[3], c: x[4], v: x[5] } : x)), "1h"), 4, K4H).map(b => b.t));
+  // ذيلُ المخزَّنة يجب أن يكون بدايات مجموعاتٍ على مرسى الجلسة
+  return c4.slice(-3).some(b => !starts.has(barTime(b)));
+};
+
+/* =====================================================================
+   **المفتاح النهائي بعد الإغلاق** — شمعةُ اليوم كاملةً مرّةً واحدة.
+
+   بساعة الشمعة وحدها كانت لقطةُ المساء تتجمّد على ‎19:45Z‎ حتى أوّل شمعة
+   الجلسة التالية: لا تدخلها ساعةُ ‎15:30 ET‎ الأخيرة (تُغلق بطولها عند
+   ‎20:30Z‎)، ولا شمعةُ ‎4h‎ بعد الظهر، **ولا شمعةُ اليوم نفسه** — والليلُ
+   ونهايةُ الأسبوع أغلبُ وقت الاستعمال من الرياض. ومعها علّةٌ ثانية: ياهو
+   يراجع آخر شمعات الجلسة بعد الجرس (مزادُ الإغلاق)، والبوّابة تمنع إعادة
+   الكتابة داخل المفتاح — فتبقى المنشورة على أرقامٍ ما قبل المراجعة،
+   ويفشل INV-20 ليلاً (قِيس 2026-09-29: TSM ‎452.86 → 452.88‎ تحت ‎19:45Z‎).
+
+   فبعد الإغلاق بـ`FINAL_DELAY` يصير المفتاحُ ‎23:45Z‎ من نفس يوم UTC
+   (خانةٌ على شبكة ‎15د‎ لا شمعةَ فيها، بعد إغلاق الشتاء ‎21:00Z‎ وقبل
+   افتتاح الغد)، وساعتُه منتصفُ الليل — فتُقرأ كلُّ شمعات اليوم مغلقةً
+   بقواعد `closedBars` نفسها بلا تغييرٍ فيها، ويُجلَب كلُّ فريمٍ مرّةً بعد
+   المراجعة. `track-strategies` و`build-opportunities` يشتقّان ساعتهما من
+   `cbar` فيتبعان بلا تعديل. */
+const FINAL_DELAY = 20 * 60000;
+function finalKeyMs(rec, now) {
+  const cc = rec?.tf?.["15m"]?.c;
+  if (!cc || cc.length < 2) return null;
+  const kk = closedBars(cc, "15m", now);
+  const t = kk.length ? barTime(kk[kk.length - 1]) : null;
+  if (!Number.isFinite(t)) return null;
+  const close = sessionCloseAt(t);
+  if (!close || t + BAR_MS["15m"] !== close || now < close + FINAL_DELAY) return null;
+  return (Math.floor(close / 86400000) + 1) * 86400000 - BAR_MS["15m"];
+}
+/* بدايةُ «ما بعد المراجعة»: ما جُلب قبلها يُعاد جلبُه عند المفتاح النهائي */
+function finalCut(rec, now) {
+  const k = finalKeyMs(rec, now);
+  if (k === null) return null;
+  const cc = rec.tf["15m"].c;
+  return sessionCloseAt(barTime(cc[cc.length - 1])) + FINAL_DELAY;
+}
+
 /* =====================================================================
    ساعةُ الشمعة — نهايةُ آخر شمعة ‎15د‎ مغلقة في الجلسة الرسمية.
 
@@ -634,6 +696,8 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
 function candleClock(rec, now) {
   const cc = rec?.tf?.["15m"]?.c;
   if (!cc || cc.length < 2) return now;
+  const fk = finalKeyMs(rec, now);
+  if (fk !== null) return fk + BAR_MS["15m"] + 1;
   const kk = closedBars(cc, "15m", now);
   const t = kk.length ? barTime(kk[kk.length - 1]) : null;
   return Number.isFinite(t) ? t + BAR_MS["15m"] + 1 : now;
@@ -922,7 +986,7 @@ async function main() {
          (بالثواني) كي تقول الشاشة على أيّ إغلاقٍ بُنيت القائمة. وعدٌ
          نصّيٌّ بالثبات لا يُقارَن، وختمٌ معروض يقارنه المستخدم بنفسه. */
       ...(confBar && Number.isFinite(confBar.b.c) ? { pc: rp(confBar.b.c) } : {}),
-      ...(confBar ? { cbar: Math.round(confBar.b.t / 1000), ctf: confBar.tf } : {}),
+      ...(confBar ? { cbar: Math.round((finalKeyMs(rec, now) ?? confBar.b.t) / 1000), ctf: confBar.tf } : {}),
       ...(Number.isFinite(volC) ? { volc: Math.round(volC) } : {}),
       score: rec.score,
       ...(Number.isFinite(rec.band) ? { band: rec.band } : {}),
@@ -1550,8 +1614,15 @@ function selfCheck() {
     const walls = ["2026-09-25T20:03:00Z", "2026-09-25T20:45:00Z",
                    "2026-09-26T00:30:00Z", "2026-09-27T22:00:00Z"].map(Date.parse);
     eq(candleClock(rec, walls[0]), Date.parse("2026-09-25T20:00:00Z") + 1, "الساعة = نهاية 19:45");
-    const ref = cut(walls[0]);
-    for (const w of walls) eq(cut(w), ref, "ما يدخل التحليل ثابتٌ طوال العطلة (" + new Date(w).toISOString() + ")");
+    /* قبل المفتاح النهائي (الإغلاق + ‎20‎ دقيقة): ما قبل الإغلاق وحده */
+    eq(cut(walls[0]), "6/1", "قبل النهائي: بلا الساعة الأخيرة ولا شمعة اليوم");
+    /* بعده: كلُّ شمعات اليوم — الساعة الأخيرة وشمعةُ اليوم — ثابتةً طوال العطلة */
+    eq(candleClock(rec, walls[1]), Date.parse("2026-09-26T00:00:00Z") + 1, "الساعة النهائية = منتصف ليل UTC");
+    const ref = cut(walls[1]);
+    eq(ref, "7/2", "النهائي يُدخل الساعة 19:30 وشمعة الجمعة");
+    for (const w of walls.slice(1)) eq(cut(w), ref, "ما يدخل التحليل ثابتٌ طوال العطلة (" + new Date(w).toISOString() + ")");
+    eq(finalKeyMs(rec, walls[1]), Date.parse("2026-09-25T23:45:00Z"), "مفتاحُ النهائي 23:45Z");
+    eq(finalKeyMs(rec, walls[0]), null, "لا نهائيَّ قبل المهلة");
     // الضابط السلبيّ: ساعة الحائط كانت تُدخل الساعة ‎19:30‎ واليومَ تحت المفتاح نفسه
     const wall = (w) => [closedBars(k1h, "1h", w).length, closedBars(k1d, "1d", w).length].join("/");
     if (wall(walls[0]) === wall(walls[3]))
@@ -1565,6 +1636,31 @@ function selfCheck() {
       eq(closedBars(k1d, "1d", c).length, closedBars(k1d, "1d", w).length, "يومي @" + m);
     }
     return `العطلة ${ref} ثابت على ${walls.length} ساعات حائط · الجلسة مطابقة`;
+  });
+
+  t("‎4h‎ للأسهم مرساها افتتاح نيويورك — شمعتان كل يوم صيفاً وشتاءً، والمطبعة بعد الإغلاق تسقط", () => {
+    const H = 3600000;
+    const day = (open) => [0, 1, 2, 3, 4, 5, 6].map(i => ({ t: open + i * H, o: 1, h: 1, l: 1, c: 1, v: 1 }));
+    for (const [lbl, open] of [["صيف", Date.parse("2026-09-28T13:30:00Z")], ["شتاء", Date.parse("2026-11-02T14:30:00Z")]]) {
+      const g = aggregate(day(open), 4, K4H);
+      eq(g.length, 2, lbl + ": شمعتان في اليوم");
+      eq(g[0].t, open, lbl + ": الأولى عند الافتتاح");
+      eq(g[1].t, open + 4 * H, lbl + ": الثانية بعد أربع ساعات");
+    }
+    // مطبعةُ ‎16:00 ET‎ (حجمٌ صفر) ليست ساعةَ تداول
+    const open = Date.parse("2026-09-28T13:30:00Z"), ks = [];
+    for (let d = 0; d < 60; d++) {
+      const o = open - d * 86400000, wd = new Date(o).getUTCDay();
+      if (wd === 0 || wd === 6) continue;                 // أيام التداول وحدها
+      for (let i = 0; i < 7; i++) ks.push({ t: o + i * H, o: 1, h: 1, l: 1, c: 1, v: 5 });
+    }
+    ks.sort((a, b) => a.t - b.t);
+    ks.push({ t: Date.parse("2026-09-28T20:00:00Z"), o: 1, h: 1, l: 1, c: 1, v: 0 });
+    const kept = tradingOnly(ks, "1h");
+    eq(kept.length >= 220, true, "سلسلةٌ تكفي");
+    eq(kept.some(b => b.v === 0), false, "المطبعة تُحذف");
+    eq(kept.length >= ks.length - 8, true, "ولا يُحذف غيرها إلا عطلة رسمية");
+    return "صيف/شتاء بشمعتين · المطبعة تسقط";
   });
 
   t("aggregate ثابتٌ أمام تدحرج النافذة — لا ينزاح بطول المصفوفة", () => {

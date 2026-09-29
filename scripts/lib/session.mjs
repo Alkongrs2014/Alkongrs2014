@@ -28,7 +28,7 @@ export const {
   sessionOf, sessionWindows, currentWindow, isExtendedOpen, scannerActive,
   isTradingDay, isHoliday, isHalfDay, etParts, tzParts, atEtMinutes,
   scanStartOf, nextScanStart, barSession, isExtendedBar, isRegularBar,
-  minuteOfSession, ksaTime, ksaDate, ksaDateTime, ksaParts,
+  minuteOfSession, etOffsetMs, sessionBucket, sessionCloseAt, ksaTime, ksaDate, ksaDateTime, ksaParts,
   SESSION_AR, SESSION_SHORT, SCAN_START_ET, SESSION_TZ, DISPLAY_TZ
 } = S;
 

@@ -30,7 +30,7 @@ import { analyze, overallScore, aggregate, bandStable, closedBars } from "./lib/
 import { buildSnapshot } from "./build-opportunities.mjs";
 const require = createRequire(import.meta.url);
 const { SCANS, scanRow } = require("../stocks/scans.js");
-const { sessionOf, etParts } = require("../stocks/session.js");
+const { sessionOf, etParts, sessionBucket, isRegularBar } = require("../stocks/session.js");
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arg = (k, d) => { const a = process.argv.find(x => x.startsWith(`--${k}=`)); return a ? a.split("=")[1] : d; };
@@ -55,6 +55,7 @@ async function load(sym) {
   const d = { m15: await get("60d", "15m"), h1, d1: await get("5y", "1d") };
   // الجلسة الرسمية وحدها بحجمٍ حقيقي — كما `tradingOnly` في fetch-market
   d.m15 = d.m15.filter(b => sessionOf(b.t + 1) === "REGULAR" && (b.v || 0) > 0);
+  d.h1 = d.h1.filter(b => isRegularBar(b.t));   // مطبعةُ الإغلاق ليست ساعة — كـ`tradingOnly`
   fs.writeFileSync(f, JSON.stringify(d));
   return d;
 }
@@ -65,7 +66,7 @@ function stepRow(meta, D, T, prevBand) {
   const s15 = closedBars(upto(D.m15, T, KEEP), "15m", T).slice(-AW);
   const all1h = upto(D.h1, T);
   const s1h = closedBars(all1h.slice(-KEEP), "1h", T).slice(-AW);
-  const s4h = closedBars(aggregate(all1h, 4).slice(-KEEP), "4h", T).slice(-AW);
+  const s4h = closedBars(aggregate(all1h, 4, (t) => sessionBucket(t, 4)).slice(-KEEP), "4h", T).slice(-AW);   // مرسى الجلسة كـfetch-market
   const s1d = closedBars(upto(D.d1, T, KEEP), "1d", T).slice(-AW);
   if (s15.length < 50 || s1d.length < 50) return null;
   const an = {};

@@ -302,6 +302,36 @@ function minuteOfSession(t, mkt) {
   return Math.floor((t - w.start) / 60000);
 }
 
+/* =====================================================================
+   شمعةُ ‎4h‎ للأسهم مرساها افتتاحُ نيويورك لا ساعةُ UTC.
+
+   `floor(t / 4h)` يقسم اليوم عند ‎12:00/16:00/20:00‎ UTC، والجلسة تبدأ
+   ‎13:30Z‎ صيفاً و‎14:30Z‎ شتاءً. فكانت شمعتا اليوم صيفاً ‎3‎ ساعات و‎3.5‎،
+   وتصير شتاءً ثلاثاً (‎2‎ و‎4‎ ونصف ساعة) — فيتبدّل معنى كل مؤشّرٍ على
+   ‎4h‎ (ووزنُه ‎30%‎ من النتيجة) يومَ تحويل الساعة بلا أن يتحرّك السوق.
+   بالمرسى المحلّي: شمعتان كل يوم (‎09:30–13:30‎ ثم ‎13:30–16:00‎ بتوقيت
+   نيويورك) في الصيف والشتاء. والإزاحة تُخزَّن بالساعة: لا تتغيّر إلا
+   عند ‎02:00‎ ليلة التحويل، وهي حدُّ ساعة. */
+var _etOff = {};
+function etOffsetMs(t) {
+  var h = Math.floor(t / 3600000);
+  if (h in _etOff) return _etOff[h];
+  var p = etParts(t);
+  var v = Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi) - Math.floor(t / 60000) * 60000;
+  _etOff[h] = v;
+  return v;
+}
+function sessionBucket(t, hours) {
+  return Math.floor((t + etOffsetMs(t) - REG_OPEN * 60000) / (hours * 3600000));
+}
+/* إغلاقُ الجلسة الرسمية ليوم هذه اللحظة (بتوقيت نيويورك) — أو `null`
+   حين لا يكون يومَ تداول. نصفُ اليوم يُغلق ‎13:00‎. */
+function sessionCloseAt(t) {
+  var p = etParts(t);
+  if (!isTradingDay(p)) return null;
+  return atEtMinutes(t, closeMins(p));
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     SESSION_TZ: SESSION_TZ, DISPLAY_TZ: DISPLAY_TZ,
@@ -317,6 +347,7 @@ if (typeof module !== "undefined" && module.exports) {
     statusAt: statusAt, barSession: barSession,
     isExtendedBar: isExtendedBar, isRegularBar: isRegularBar,
     minuteOfSession: minuteOfSession,
+    etOffsetMs: etOffsetMs, sessionBucket: sessionBucket, sessionCloseAt: sessionCloseAt,
     ksaTime: ksaTime, ksaDate: ksaDate, ksaDateTime: ksaDateTime, ksaParts: ksaParts
   };
 }

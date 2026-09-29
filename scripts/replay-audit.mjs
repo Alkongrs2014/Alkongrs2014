@@ -109,7 +109,7 @@ function snapInvariants(doc, book, label) {
           evals++;
           if (!a || !b) { if (!!a !== !!b) { diffs++; ex.length < 6 && ex.push(`${row.s}.${tf}@${clock}: analyze`); } continue; }
           byP[tf] = a; byR[tf] = b;
-          for (const f of C.AN_FIELDS) if (!C.near(a[f], b[f])) { diffs++; if (ex.length < 6) ex.push(`${row.s}.${tf}@${new Date(clock).toISOString()}: ${f} ${a[f]}≠${b[f]}`); break; }
+          for (const f of C.AN_FIELDS) if (!C.fieldNear(f, a[f], b[f])) { diffs++; if (ex.length < 6) ex.push(`${row.s}.${tf}@${new Date(clock).toISOString()}: ${f} ${a[f]}≠${b[f]}`); break; }
         }
         const oP = SC.overallScore(byP), oR = R.overallRef(byR);
         if (!C.near(oP, oR)) { diffs++; if (ex.length < 6) ex.push(`${row.s}@${clock}: overall ${oP}≠${oR}`); }

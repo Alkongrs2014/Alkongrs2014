@@ -31,7 +31,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
 import { fetchChart } from "./lib/yahoo.mjs";
-import { isRegularBar } from "./lib/session.mjs";
+import { isRegularBar, sessionBucket } from "./lib/session.mjs";
 import { simulatePlan, summarizePlans } from "./backtest.mjs";
 import { COSTS } from "./lib/costs.mjs";
 
@@ -343,7 +343,7 @@ async function main() {
         if (candles && candles.length) { series[tf] = candles; bars += candles.length; }
       }
       if (series["1h"] && series["1h"].length > 40)
-        series["4h"] = IND.aggregate(series["1h"], 4);
+        series["4h"] = IND.aggregate(series["1h"], 4, (t) => sessionBucket(t, 4));   // مرسى الجلسة كـfetch-market
       if (!series["15m"] && !series["1h"]) { failed++; continue; }
       const r = rowsBy[sym] || {};
       measureSymbol(series, { s: sym, w52h: r.w52h, w52l: r.w52l }, acc);

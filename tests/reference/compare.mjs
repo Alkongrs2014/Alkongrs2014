@@ -28,6 +28,16 @@ export const AN_FIELDS = ["px", "e20", "e50", "e200", "rsi", "hist", "histPrev",
   "bbMid", "adx", "pdi", "mdi", "bbw", "squeeze", "mfi", "stochK", "stochD", "obvSlope", "score"];
 
 /* تساوٍ عدديّ نسبيّ — `null` يساوي `null` وحده. */
+/* حقولُ الرتبة (`squeeze` = رتبةُ عرض بولنجر في نافذة ‎120‎) دالّةٌ متقطّعة:
+   قيمتان من عرض بولنجر متساويتان حتى الخانة الخامسة عشرة يقلب ترتيبَهما
+   ترتيبُ عمليات الفاصلة بين تنفيذين صحيحين، فتتحرّك الرتبة درجةً كاملة
+   (‎100/119‎). قِيس 2026-09-29: MRK ‎15.97 ≠ 16.81‎ — نفس الخوارزمية حرفياً.
+   فالتسامح درجةُ رتبةٍ واحدة لا أكثر، والحقول الأخرى على `near` كما هي. */
+const RANK_FIELDS = new Set(["squeeze"]);
+export function fieldNear(f, a, b) {
+  if (RANK_FIELDS.has(f) && isNum(a) && isNum(b)) return Math.abs(a - b) <= 100 / 119 + 1e-9;
+  return near(a, b, 1e-9, 1e-9);
+}
 export function near(a, b, rel = 1e-9, abs = 1e-9) {
   if (a === null || a === undefined || b === null || b === undefined) return (a ?? null) === (b ?? null);
   if (!isNum(a) || !isNum(b)) return Object.is(a, b);
@@ -57,7 +67,7 @@ export function compareAnalysis(rec, clock) {
     }
     const a = IND.analyze(P.unpackK(kP)), b = R.analyzeRef(R.unpack(kR));
     if (!a || !b) { if (!!a !== !!b) diffs.push({ tf, field: "analyze", prod: !!a, ref: !!b }); continue; }
-    for (const f of AN_FIELDS) if (!near(a[f], b[f], 1e-9, 1e-9)) diffs.push({ tf, field: f, prod: a[f], ref: b[f] });
+    for (const f of AN_FIELDS) if (!fieldNear(f, a[f], b[f])) diffs.push({ tf, field: f, prod: a[f], ref: b[f] });
     const dA = a.div ? a.div.dir + ":" + a.div.bars : null, dB = b.div ? b.div.dir + ":" + b.div.bars : null;
     if (dA !== dB) diffs.push({ tf, field: "div", prod: dA, ref: dB });
     if (a.histRising !== b.histRising) diffs.push({ tf, field: "histRising", prod: a.histRising, ref: b.histRising });
@@ -67,8 +77,15 @@ export function compareAnalysis(rec, clock) {
 
 /* ٢) ما نُشر في `summary.json` مقابل إعادة حسابه بالمرجع.
    `score` مقرَّبٌ لخانتين (r2) و`tfScore` لخانة (toFixed(1)) عند الكتابة. */
+/* الساعة من ختم الصفّ نفسه (`cbar`) لا من زمن الملفّ: `summary.updated` تحرّكه
+   مهمّة الأسعار كل دقيقتين، فشمعةُ ‎15د‎ جُلبت جاريةً ثم انقضى وقتُها تُقرأ
+   «مغلقة» بساعة الملفّ ولم يحسبها الكاتب قط — فرقٌ في القياس لا في الإنتاج
+   (قِيس 2026-09-29 ‎14:30Z‎: ‎95‎ «فرقاً» كلُّها هكذا). */
+export function rowClock(rec, row, fileTime) {
+  return isNum(row && row.cbar) ? (row.cbar + 900) * 1000 + 1 : candleClockRef(rec, fileTime);
+}
 export function comparePublishedScore(rec, row, fileTime) {
-  const clock = candleClockRef(rec, fileTime);
+  const clock = rowClock(rec, row, fileTime);
   const byTf = {};
   for (const tf of R.REF.TFS) {
     const raw = rec.tf && rec.tf[tf] && rec.tf[tf].c;
