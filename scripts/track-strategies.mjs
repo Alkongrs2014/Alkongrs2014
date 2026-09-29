@@ -492,7 +492,11 @@ export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes
   /* في دفتر الكريبتو ساعةُ التأكيد شمعةُ ‎5د‎ نفسها (`cbar`): الاستراتيجيات
      تُقيَّم على ما أُغلق عندها، فختمُها هو ختمُ اللقطة — لا ختمُ ‎15د‎ الذي
      يتأخّر عنها حتى عشر دقائق فيُبقي بوّابة «شمعةٍ واحدة» مغلقةً أبداً. */
-  if (BAR_SEC !== 900 && cbarMax) confBar = cbarMax;
+  /* وفي الأسهم: المفتاحُ النهائيّ بعد الإغلاق (‎23:45Z‎ — `finalKeyMs` في
+     `fetch-market`) خانةٌ بلا شمعة، فختمُ آخر ‎15د‎ مغلقة يبقى ‎19:45‎ وتبقى
+     البوّابة مغلقةً طوال الليل (قِيس أوّل إغلاقٍ حيّ 2026-09-29). الساعة
+     تُشتقّ من `cbar` أصلاً، فالختمُ يتبعه حين يسبق. */
+  if (cbarMax && (BAR_SEC !== 900 || cbarMax > confBar)) confBar = cbarMax;
   return { rows, trends, stillOpen, history, now,
            confBar, holdNext: holdKeep,
            stats: { symbols, skipped, rows: rows.length, added, closed,
