@@ -22,10 +22,13 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 const SES = createRequire(import.meta.url)("../stocks/session.js");
 
-const IN = process.argv[2];
+/* ملفٌّ واحد أو أكثر: الإعادة تُقسَّم مقاطع متتالية تُشغَّل بالتوازي، وكلُّ
+   مقطعٍ يبدأ بـ`--warm` جلساتٍ من آخر سابقه (إحماءُ الهيستريسس ودورة الحياة)
+   فلا يتداخل يومُ تقييمٍ بين مقطعين. */
+const INS = process.argv.slice(2).filter(a => !a.startsWith("--"));
 const arg = (k, d) => { const a = process.argv.find(x => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 const WARM = Number(arg("warm", "5"));
-const R = JSON.parse(fs.readFileSync(IN, "utf8"));
+const FILES = INS.map(f => JSON.parse(fs.readFileSync(f, "utf8")));
 const nyDate = (t) => SES.etParts(t).date;
 const pct = (x) => Number.isFinite(x) ? (x >= 0 ? "+" : "") + x.toFixed(2) : "—";
 const f1 = (x) => Number.isFinite(x) ? x.toFixed(2) : "—";
@@ -34,11 +37,40 @@ const med = (a) => { const v = a.filter(Number.isFinite).sort((x, y) => x - y); 
 const mean = (a) => { const v = a.filter(Number.isFinite); return v.length ? v.reduce((x, y) => x + y, 0) / v.length : NaN; };
 
 const bars = {};
-for (const [s, arr] of Object.entries(R.bars)) bars[s] = arr.map(b => ({ t: b[0], o: b[1], h: b[2], l: b[3], c: b[4], v: b[5] }));
+{
+  const byS = {};
+  for (const F of FILES) for (const [s, arr] of Object.entries(F.bars)) { const m = (byS[s] ||= new Map()); for (const b of arr) m.set(b[0], b); }
+  for (const [s, m] of Object.entries(byS))
+    bars[s] = [...m.values()].sort((a, b) => a[0] - b[0]).map(b => ({ t: b[0], o: b[1], h: b[2], l: b[3], c: b[4], v: b[5] }));
+}
 const allDays = [...new Set(Object.values(bars).flatMap(a => a.map(b => nyDate(b.t))))].sort();
 const dayIdx = Object.fromEntries(allDays.map((d, i) => [d, i]));
-const repDays = allDays.filter(d => d >= R.from && d <= R.to);
-const evalDays = new Set(repDays.slice(WARM));
+/* أيام التقييم لكل ملفّ = جلساتُه بعد إحمائه؛ والمجموع اتّحادها (بلا تداخل) */
+const evalOf = FILES.map(F => new Set(allDays.filter(d => d >= F.from && d <= F.to).slice(WARM)));
+const evalDays = new Set(evalOf.flatMap(e => [...e]).sort());
+const repDays = [...new Set(FILES.flatMap(F => allDays.filter(d => d >= F.from && d <= F.to)))].sort();
+const R = {
+  from: FILES.map(F => F.from).sort()[0], to: FILES.map(F => F.to).sort().at(-1),
+  engine: FILES[0].engine, limits: FILES[0].limits, symbols: FILES[0].symbols,
+  stepsRun: FILES.reduce((a, F) => a + F.stepsRun, 0), skips: FILES.reduce((a, F) => a + F.skips, 0),
+  atrDay: {}, fired: {}, stratEvents: [], opps: [], chunks: FILES.length,
+  versions: [...new Set(FILES.map(F => F.engine.strategyVersion + "/" + F.engine.pipelineVersion))]
+};
+FILES.forEach((F, i) => {
+  const E = evalOf[i];
+  for (const [s, m] of Object.entries(F.atrDay || {})) for (const [d, v] of Object.entries(m)) if (E.has(d)) (R.atrDay[s] ||= {})[d] = v;
+  for (const [k, v] of Object.entries(F.fired || {})) if (E.has(k.split("|")[1])) R.fired[k] = v;
+  for (const e of F.stratEvents) if (E.has(nyDate(e[0]))) R.stratEvents.push(e);
+  /* المحرّك **يحذف** دورة حياة الأسهم حين يزول سببها (وسمُ `gone` للكريبتو
+     وحده)، فآخرُ حالةٍ رُئيت قبل آخر خطوةٍ في ملفّها = انتهت بزوال السبب. */
+  const lastStep = Math.max(...Object.values(F.lifeFinal).map(L => L.at || 0));
+  for (const o of F.opps) {
+    if (!(E.has(nyDate(o.since)) && E.has(nyDate(o.T0)))) continue;
+    o.L = { ...(F.lifeFinal[`${o.s}|${o.scan}|${o.d}|${o.since / 1000}`] || {}) };
+    if (!o.L.end && o.L.at && o.L.at < lastStep) o.L.end = { k: "gone", at: o.L.at / 1000 };
+    R.opps.push(o);
+  }
+});
 const firstEval = [...evalDays][0], lastEval = repDays[repDays.length - 1];
 const H = 5;
 
@@ -80,14 +112,11 @@ for (const [s, a] of Object.entries(bars)) {
 const baseAll = summ([...base[1], ...base[-1]]), baseUp = summ(base[1]), baseDn = summ(base[-1]);
 
 /* ── الفرص ── */
-const list = R.opps.filter(o => evalDays.has(nyDate(o.since)) && evalDays.has(nyDate(o.T0)));
+const list = R.opps;
 /* المحرّك **يحذف** دورة حياة الأسهم حين يزول سببها (وسمُ `gone` للكريبتو وحده)،
    فآخرُ حالةٍ رُئيت قبل آخر خطوة = انتهت بزوال السبب عند تلك الخطوة. */
-const lastStep = Math.max(...Object.values(R.lifeFinal).map(L => L.at || 0));
 for (const o of list) {
   o.m = measure(o.s, o.T0, o.d, o.px, o.atr);
-  o.L = { ...(R.lifeFinal[`${o.s}|${o.scan}|${o.d}|${o.since / 1000}`] || {}) };
-  if (!o.L.end && o.L.at && o.L.at < lastStep) o.L.end = { k: "gone", at: o.L.at / 1000 };
 }
 const cls = (o) => { const L = o.L;
   if (!L.in) return "unfilled";
@@ -116,7 +145,7 @@ const row = (lbl, set) => {
 };
 
 out(`▶ التحقّق التاريخي — محرّك الإنتاج الحالي كما هو · البيانات alpaca_sip وحدها`);
-out(`  نسخة المحرّك: strategyVersion ${R.engine.strategyVersion} · pipelineVersion ${R.engine.pipelineVersion}`);
+out(`  نسخة المحرّك: ${R.versions.join(" · ")} · ${R.chunks} مقطعاً متوازياً`);
 out(`  الإعادة: ${R.from} → ${R.to} · ${repDays.length} جلسة (${WARM} إحماء) · التقييم ${firstEval} → ${lastEval} · ${evalDays.size} جلسة`);
 out(`  العيّنة: ${R.symbols.length} سهماً · ${R.stepsRun} خطوة (بعد كل إغلاق ‎15د‎ رسمي +3د) · تُخطّي ${R.skips}`);
 out(`  حدودٌ معلنة: ${R.limits.join(" · ")}`);
