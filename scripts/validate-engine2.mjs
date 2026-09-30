@@ -90,7 +90,8 @@ function run({ period, barsDir }) {
       busyTo[s] = tr && tr.end ? tr.end.t + 15 * 60000 - 1 : Infinity;
       const mi = idxAt(M, T), md1 = M.d1.slice(Math.max(0, mi.iD + 1 - 259), mi.iD + 1);
       const spyVol = md1.length ? E.e2atr(md1, 14) / md1[md1.length - 1].c : null;
-      trades.push({ key, s, i15: ix.i15, T, day: ix.day, sig: r.signal, tr, spyVol,
+      const gross = tr && tr.end ? ((tr.end.px - (tr.F - r.signal.d * E.E2.SLIP_ATR * r.signal.atrD)) * r.signal.d) / r.signal.risk : null;
+      trades.push({ key, s, i15: ix.i15, T, day: ix.day, sig: r.signal, tr, spyVol, gross,
                     R: tr && tr.end ? E.tradeR(tr) : null });
     }
   }
@@ -171,6 +172,12 @@ export function report(res, period, specHash) {
   add("الكل (≥3)", show);
   add("شراء (≥3)", show.filter(t => t.sig.d > 0));
   add("بيع (≥3)", show.filter(t => t.sig.d < 0));
+  const sd = show.filter(t => t.R !== null);
+  out.diag = { grossMeanR: mean(sd.map(t => t.gross)), grossMedR: median(sd.map(t => t.gross)),
+               riskAtrMed: median(sd.map(t => t.sig.risk / t.sig.atrD)), rr1Med: median(sd.map(t => t.sig.rr1)),
+               costRMed: median(sd.map(t => t.gross - t.R)) };
+  L.push(`  تشخيص (لا يغيّر الحكم): R قبل التكلفة متوسط ${f2(out.diag.grossMeanR)} وسيط ${f2(out.diag.grossMedR)} · ` +
+         `المخاطرة وسيطاً ${f2(out.diag.riskAtrMed)}×ATRd · كلفة الصفقة وسيطاً ${f2(out.diag.costRMed)}R · T1 وسيطاً ${f2(out.diag.rr1Med)}R`);
   L.push("٢) حسب العدد:");
   for (const c of [5, 4, 3, 2]) for (const d of [1, -1])
     add(`${c}/5 ${d > 0 ? "شراء" : "بيع"}${c === 2 ? " (ضابطة)" : ""}`, all.filter(t => t.sig.count === c && t.sig.d === d));
@@ -213,7 +220,7 @@ export function report(res, period, specHash) {
   }
   out.text = L;
   out.trades = all.map(t => ({ key: t.key, s: t.s, d: t.sig.d, count: t.sig.count, el: t.sig.el, trig: t.sig.trig,
-    cluster: t.sig.cluster, e: t.sig.e, st: t.sig.st, tg: t.sig.tg, rr1: t.sig.rr1, show: t.sig.show,
+    cluster: t.sig.cluster, atrD: t.sig.atrD, gross: t.gross, e: t.sig.e, st: t.sig.st, tg: t.sig.tg, rr1: t.sig.rr1, show: t.sig.show,
     end: t.tr && t.tr.end ? t.tr.end.k : null, hit: t.tr ? t.tr.hit : null, R: t.R,
     base: t.base ? { n: t.base.length, mean: mean(t.base), med: median(t.base) } : null }));
   return out;
