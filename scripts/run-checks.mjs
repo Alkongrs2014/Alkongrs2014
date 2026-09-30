@@ -37,7 +37,7 @@ const CHECKS = [
   { id: "opp-stability",  cmd: ["scripts/check-opportunity-stability.mjs"], data: true },
   { id: "crypto-stab",    cmd: ["scripts/check-crypto-stability.mjs"], data: true },
   { id: "snap-purity",    cmd: ["scripts/check-snapshot-purity.mjs"], data: true, argData: true },
-  ...["fetch-quotes", "fetch-market", "fetch-news", "fetch-daily", "fetch-options", "fetch-filings",
+  ...["fetch-quotes", "fetch-market", "fetch-calendar", "fetch-news", "fetch-daily", "fetch-options", "fetch-filings",
       "fetch-events", "fetch-crypto", "backtest", "backtest-strategies", "track-signals",
       "track-strategies", "build-opportunities", "build-universe", "analytics", "market-direction",
       "replay", "audit-missed", "learn", "scan-ma200-open"]

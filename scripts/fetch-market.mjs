@@ -24,6 +24,8 @@ const IND_AN_WIN = __cr(import.meta.url)("../stocks/indicators.js").AN_WIN;
 import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar,
          sessionBucket, sessionCloseAt } from "./lib/session.mjs";
 import * as PROV from "./providers/index.mjs";
+import { updateStore, storeDir, STORE_SRC, mergeBars, splitSuspect, validBar } from "./lib/bars-store.mjs";
+const SES = __cr(import.meta.url)("../stocks/session.js");
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -106,14 +108,28 @@ const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "
 const TD_PER_RUN = Number(process.env.TD_PER_RUN || 14);
 const tdBudget = { left: TD_PER_RUN };
 
-/* على شبكة منزلية Yahoo غير محظور ومجاني بلا سقف، فيُقدَّم على Twelve Data
-   وتسقط الحاجة لميزانية الطلبات. يُضبط PREFER_YAHOO=1 في التشغيل المحلي. */
-const PREFER_YAHOO = process.env.PREFER_YAHOO === "1";
+/* =====================================================================
+   **مصدر شموع الأسهم وأسعارها: Alpaca SIP وحدها** (2026-09-30).
 
-/* هل مزوّدُ الأسهم يعطي حجماً في الجلسة الممتدة؟ يُقرأ من القدرة لا
-   من الاسم، ويُمرَّر إلى `extendedCandles` فتقرّر: حجمٌ حقيقي أم
-   «لا نعرف». */
-const EXT_VOL = PROV.has("extendedVolume", "equity");
+   كان ياهو أولاً (`PREFER_YAHOO`) ثم Twelve Data ثم Stooq ثم Finnhub —
+   أربعة مصادر يُختار بينها **لكل فريمٍ على حدة**، فيمكن أن يُحلَّل سهمٌ
+   بساعةٍ من مصدرٍ ويوميٍّ من آخر بلا أن يقول ذلك شيء. الآن: مخزنٌ واحد
+   (`lib/bars-store.mjs`) يُحدَّث بطلب دفعة، وكلُّ فريمٍ يُبنى منه.
+
+   **والاحتياط صريحٌ ومعطَّلٌ افتراضياً**: `STOCK_FALLBACK=yahoo` يسمح
+   لرمزٍ لم تصله شموع SIP بأن يُبنى **كاملاً** من ياهو — كلُّ فريماته، لا
+   فريمٌ واحد — ويُطبع `FALLBACK_PROVIDER` ويُكتب في `meta.json`. وبدونه
+   رمزٌ بلا شموع SIP يبقى على ملفّه السابق **معلَناً قديماً** (إن كان
+   السابق من SIP)، أو يفشل (إن كان من مصدرٍ آخر): لقطةٌ مختلطة المصادر
+   لا تُكتب أبداً. */
+const STOCK_FALLBACK = process.env.STOCK_FALLBACK === "yahoo";
+const PREFER_YAHOO = STOCK_FALLBACK;
+const fallbacks = [];
+function noteFallback(symbol, frame, reason) {
+  const f = { provider: "yahoo", symbol, frame, reason: String(reason).slice(0, 160), at: new Date().toISOString() };
+  fallbacks.push(f);
+  console.warn(`  FALLBACK_PROVIDER=yahoo symbol=${symbol} frame=${frame} reason=${f.reason} at=${f.at}`);
+}
 
 /* تقريب — Yahoo يعيد 62.014999389648438 والتخزين بلا تقريب يضاعف حجم الملفات */
 const r4 = (v) => (v === null || v === undefined || !isFinite(v)) ? null : Math.round(v * 10000) / 10000;
@@ -345,7 +361,7 @@ function guardFrames(prev, rec, tier) {
   return rec;
 }
 
-async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15m"], tier = "core", extBatch = null) {
+async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15m"], tier = "core", store = null) {
   const sym = meta.s;
   const prev = readJSON(path.join(prevDir, "sym", `${sym}.json`));
   // نُعيد الشمعات المحفوظة إلى شكل الكائنات فور القراءة، فما بعدها من
@@ -366,17 +382,48 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   // شمعاتِ ما قبل الافتتاح. كانت تُرمى، وهي أنفع ما في الطلب.
   let extRaw = {};
 
+  /* =====================================================================
+     الأسهم: من مخزن SIP — كلُّ الفريمات في كلّ تشغيل، ومصدرٌ واحد.
+     ===================================================================== */
+  let fromStore = false;
+  if (meta.mkt !== "crypto" && store) {
+    const sb = store.bars?.[sym];
+    if (sb?.["15m"]?.length && sb?.["1d"]?.length) {
+      full1h = applyStore(rec, sb, now);
+      fromStore = true; touched = true;
+    } else if (prev?.src === STORE_SRC && Object.keys(prev.tf || {}).length) {
+      /* لم تصل شموعُه هذا التشغيل (موقوف، أو رفضه المزوّد): السابق كما
+         هو **ومعلَنٌ قديماً** (`touched = false` ⇒ `stale`). */
+      rec.tf = { ...prev.tf }; if (prev.tfx) rec.tfx = prev.tfx;
+      rec.src = STORE_SRC; rec.srcs = prev.srcs; rec.period = prev.period; rec.cur = prev.cur;
+      errors.push(`sip: ${store.stats?.missing?.[sym] || "لا شموع هذا التشغيل"}`);
+      fromStore = true;
+    } else if (!STOCK_FALLBACK) {
+      throw new Error(`لا شموع Alpaca SIP (${store.stats?.missing?.[sym] || "غائب من المخزن"}) — والسابق من مصدرٍ آخر فلا يُخلط`);
+    } else {
+      noteFallback(sym, "all", store.stats?.missing?.[sym] || "غائب من المخزن");
+    }
+  } else if (meta.mkt !== "crypto" && STOCK_FALLBACK) {
+    noteFallback(sym, "all", "مخزن SIP غير متاح هذا التشغيل");
+  } else if (meta.mkt !== "crypto") {
+    throw new Error("مخزن Alpaca SIP غير متاح — والاحتياط معطَّل");
+  }
+  if (!fromStore && meta.mkt !== "crypto") {
+    /* الاحتياط يبني الرمز كاملاً من ياهو: لا نقل لفريمٍ من SIP السابق */
+    rec.tf = {}; delete rec.tfx;
+  }
+
   // الترتيب مقصود: اليومي أولاً لأنه أساس الشارت والنتيجة الفنية، فحين
   // تنفد ميزانية الطلبات في تشغيل واحد تكون الفريمات الأهم قد امتلأت
-  for (const tf of frames) {
+  for (const tf of (fromStore ? [] : frames)) {
     /* 4h يُشتقّ من الساعة الكاملة، فسلسلةٌ قصيرة محفوظة من قبل لا تُصلَح
        إلا بإعادة جلب الساعة. بلا هذا تبقى 65 شمعة حتى تنتهي صلاحية
        الساعة وحدها — إصلاحٌ يعتمد على التوقيت بدل أن يكون حتمياً. */
-    const shortDerived = tf === "1h" && ((prev?.tf?.["4h"]?.c?.length || 0) < 200 || stale4h(prev));
+    const shortDerived = tf === "1h" && ((prev?.tf?.["4h"]?.c?.length || 0) < 200 || stale4h(prev) || prev?.src === STORE_SRC);
     /* المفتاح النهائي: ما جُلب قبل الإغلاق + المهلة يُعاد جلبُه مرّةً */
     const fcut = prev ? finalCut(prev, now) : null;
     const preFinal = fcut !== null && (prev?.tf?.[tf]?.updated || 0) < fcut;
-    if (!shortDerived && !preFinal && !stale(prev, tf, now, tier === "core" && dailyIsLive(now, meta.mkt)) && prev?.tf?.[tf]?.c?.length) {
+    if (prev?.src !== STORE_SRC && !shortDerived && !preFinal && !stale(prev, tf, now, tier === "core" && dailyIsLive(now, meta.mkt)) && prev?.tf?.[tf]?.c?.length) {
       rec.tf[tf] = prev.tf[tf];                       // ما زال حديثاً — أبقِه
       continue;
     }
@@ -458,11 +505,11 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
       await tryTD();
       if (!got) try { await tryYahoo(); } catch (e) { errors.push(`${tf}: ${e.message}`); }
     }
-    if (!got && prev?.tf?.[tf]?.c?.length) rec.tf[tf] = prev.tf[tf];  // أبقِ القديم بدل الحذف
+    if (!got && prev?.tf?.[tf]?.c?.length && prev?.src !== STORE_SRC) rec.tf[tf] = prev.tf[tf];  // أبقِ القديم بدل الحذف
   }
 
   // Yahoo سقط كلياً لهذا الرمز -> جرّب Stooq لليومي حتى لا ينقطع السهم
-  if (!rec.tf["1d"]?.c?.length) {
+  if (!fromStore && !rec.tf["1d"]?.c?.length) {
     try {
       const { candles } = await fetchStooqDaily(sym);
       rec.tf["1d"] = { updated: now, c: slimCandles(candles.slice(-KEEP)) };
@@ -494,7 +541,9 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
      وحين لا تتوفّر الكاملة (الساعة لم تُجدَّد هذا التشغيل) نُبقي 4h
      المخزَّنة كما هي بدل إعادة اشتقاقها قصيرة — وإلا تذبذب طولها بين
      التشغيلات فتذبذبت معه النتيجة. */
-  if (full1h?.length) {
+  if (fromStore && !touched) {
+    /* السابق منقولٌ كما هو، و‎4h‎ معه */
+  } else if (full1h?.length) {
     rec.tf["4h"] = { updated: rec.tf["1h"].updated, c: slimCandles(aggregate(full1h, 4, K4H).slice(-KEEP)), derived: true };
   } else if (tier !== "wide" && prev?.tf?.["4h"]?.c?.length) {
     /* 4h ليس في `frames` فلا يمرّ بحلقة الجلب، ولا يُنقل من `prev`
@@ -518,8 +567,13 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
      والطبقة الواسعة مستثناة كذلك: يوميُّها وحده يُجلب، ولا جلسة
      ممتدة في شمعةٍ يومية.
      ===================================================================== */
-  if (tier === "core" && meta.mkt !== "crypto") {
+  if (!fromStore && tier === "core" && meta.mkt !== "crypto") {
     /* =====================================================================
+       (مسار الاحتياط وحده) ‎15د‎ الممتد من ياهو. ما يلي سجلُّ التصميم
+       السابق: دمجُ حجمِ SIP المتأخّر ربعَ ساعة مع ذيلٍ لحظيّ من ياهو.
+       سقط الدمج مع الاشتراك اللحظي — السلسلة الممتدة تُبنى الآن في
+       `applyStore` من نفس مخزن SIP.
+
        ‎15د‎ الممتد: حجمٌ من المزوّد وذيلٌ لحظيّ من ياهو.
 
        لكلٍّ ما لا يملكه الآخر، والدمج يأخذ من كلٍّ أقواه:
@@ -536,21 +590,9 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
        عند أوّل شمعةٍ ناقصة — وهي علّة «زحف شبكة 4h» بعينها.
        ===================================================================== */
     const yh15 = extRaw["15m"]?.length ? extendedCandles(extRaw["15m"], false) : null;
-    const pv15 = extBatch && extBatch["15m"] && extBatch["15m"][sym];
-    if (pv15?.length) {
-      const byT = new Map(pv15.map(b => [b.t, b]));
-      /* ذيلُ ياهو: ما بعد آخر شمعةٍ عند المزوّد فقط */
-      const lastPv = pv15[pv15.length - 1].t;
-      for (const b of (yh15 || [])) if (b.t > lastPv && !byT.has(b.t)) byT.set(b.t, b);
-      const merged = [...byT.values()].sort((a, b) => a.t - b.t);
-      rec.tfx = rec.tfx || {};
-      rec.tfx["15m"] = { updated: now, src: extBatch.src, c: slimCandles(merged.slice(-KEEP_X)) };
-    } else if (yh15) {
+    if (yh15) {
       rec.tfx = rec.tfx || {};
       rec.tfx["15m"] = { updated: now, src: "yahoo", c: slimCandles(yh15.slice(-KEEP_X)) };
-    } else if (prev?.tfx?.["15m"]?.c?.length) {
-      rec.tfx = rec.tfx || {};
-      rec.tfx["15m"] = prev.tfx["15m"];              // لم تُجدَّد الساعة الربعية
     }
 
     /* `tfx` تُبنى من `EXT_TFS` وحدها. وحذفُ ‎5د‎ من القائمة يكفي لمحوه
@@ -615,7 +657,82 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   rec.band = bandStable(rec.score, prev?.band);
   rec.stale = !touched;
   if (errors.length) rec.errors = errors;
-  return guardFrames(prev, rec, tier);
+  if (meta.mkt !== "crypto" && !fromStore) {
+    rec.srcs = Object.fromEntries([...Object.keys(rec.tf), ...Object.keys(rec.tfx || {}).map(k => "x" + k)]
+      .map(k => [k, (k.startsWith("x") ? rec.tfx[k.slice(1)]?.src : null) || rec.src]));
+  }
+  return guardFrames(prev, guardProvider(rec), tier);
+}
+
+/* =====================================================================
+   **لقطةٌ مختلطة المصادر لا تُكتب.** كلُّ فريمٍ في ملفّ الرمز يحمل مصدره
+   (`srcs`)، والحارس يرمي إن اختلف أحدُها عن مصدر الرمز — فيُعدّ الرمز
+   فاشلاً ويبقى ملفّه السابق (INV-16). ‎15د‎ من SIP وساعةٌ من ياهو ويوميٌّ
+   من Stooq كانت حالةً ممكنة بلا أن يقولها شيء.
+   ===================================================================== */
+export function guardProvider(rec) {
+  if (rec.mkt === "crypto" || !rec.srcs) return rec;
+  const bad = Object.entries(rec.srcs).filter(([, v]) => v !== rec.src);
+  if (bad.length)
+    throw new Error(`لقطةٌ مختلطة المصادر: ${rec.src} مع ${bad.map(([k, v]) => k + "=" + v).join(",")} — لن تُكتب`);
+  return rec;
+}
+
+/* =====================================================================
+   الفريمات من مخزن SIP — دالّةٌ خالصة في الشموع الخام.
+
+   · ‎15د‎ الرسمية: الجلسة الرسمية بحجمٍ موجب — نفس شرط `tradingOnly`،
+     لكنه **صارم** هنا: لا رجوعَ إلى السلسلة كاملةً حين تقصر، فرجوعُه
+     كان يُدخل الجلسة الممتدة في `tf` (المخزن سنةٌ كاملة فلا يقصر إلا
+     لرمزٍ أُدرج للتوّ، وهذا أولى أن يبقى رسمياً وناقصاً).
+   · الساعة: **تجميعُ ‎15د‎ الرسمية على مرسى ‎09:30‎** (`sessionBucket`).
+     ساعةُ Alpaca الأصلية على رأس الساعة (قِيس: ‎04:00 · 05:00 …‎) وساعةُ
+     ياهو التي بُني عليها الأرشيف على ‎:30‎ — والتجميع يطابقها ‎189/189‎
+     ختماً على عشرة رموز × ‎40‎ يوماً.
+   · ‎4h‎: الدالّة القائمة نفسها على الساعة الكاملة (تُعاد للمستدعي).
+   · اليومي: ‎1Day‎ من SIP، **والختم مطبَّعٌ إلى افتتاح الجلسة** (‎09:30 ET‎
+     بـUTC) كما يعطيه ياهو. ختمُ Alpaca منتصفُ ليل نيويورك (‎04:00Z‎)؛
+     تاريخُ UTC واحد فلا يتغيّر `closedBars` ولا `pivotBar`، والتطبيع يُبقي
+     كلَّ مستهلكٍ على الختم الذي بُني عليه.
+   · الممتدة `tfx["15m"]`: الجلسات كلُّها بحجمها الحقيقي.
+   ===================================================================== */
+const K1H = (t) => sessionBucket(t, 1);
+export function applyStore(rec, sb, now) {
+  const all15 = sb["15m"];
+  const rth = all15.filter(x => isRegularBar(x.t) && (x.v || 0) > 0);
+  const full1h = aggregate(rth, 1, K1H);
+  const d1 = sb["1d"].map(b => ({ ...b, t: SES.atEtMinutes(b.t + 12 * 3600e3, SES.REG_OPEN) }));
+  rec.tf["15m"] = { updated: now, c: slimCandles(rth.slice(-KEEP)) };
+  rec.tf["1h"] = { updated: now, c: slimCandles(full1h.slice(-KEEP)) };
+  rec.tf["1d"] = { updated: now, c: slimCandles(d1.slice(-KEEP)) };
+  rec.tfx = { "15m": { updated: now, src: STORE_SRC, c: slimCandles(all15.slice(-KEEP_X)) } };
+  rec.src = STORE_SRC;
+  rec.srcs = { "15m": STORE_SRC, "1h": STORE_SRC, "4h": STORE_SRC, "1d": STORE_SRC, "x15m": STORE_SRC };
+  rec.period = periodFor(now);
+  rec.cur = rth.length ? rth[rth.length - 1].c : null;
+  return full1h;
+}
+
+/* فترات التداول بشكل `tradingPeriodFromMeta` — من تقويم نيويورك لا من
+   ميتاداتا ياهو. ويومُ العطلة يأخذ آخر يوم تداول (كما يفعل ياهو). */
+function periodFor(now) {
+  for (let d = 0; d < 10; d++) {
+    const w = SES.sessionWindows(now - d * 86400e3);
+    if (w.regular) return { pre: w.pre, regular: w.regular, post: w.post, tz: "America/New_York" };
+  }
+  return null;
+}
+
+/* لقطة SIP بحقول الصفّ التي كُتبت لياهو — كي لا يتغيّر شيءٌ في `buildRow`
+   ولا في معنى `p` و`chg` و`ext`. */
+export function asRowQuote(q) {
+  const pre = q.sess === "PRE", post = q.sess === "AFTER";
+  return {
+    regularMarketPrice: q.regular, regularMarketChangePercent: q.regularChangePct,
+    preMarketPrice: pre ? q.price : null, preMarketChangePercent: pre ? q.extChangePct : null,
+    postMarketPrice: post ? q.price : null, postMarketChangePercent: post ? q.extChangePct : null,
+    regularMarketVolume: q.dayVolume, at: q.at, src: STORE_SRC
+  };
 }
 
 /* مفتاحُ شمعة ‎4h‎ — مرساه افتتاح نيويورك (انظر `sessionBucket`). */
@@ -805,12 +922,18 @@ async function main() {
       console.log(`  ✓ أسعار ${label}: ${quotes ? Object.keys(quotes).length : 0} رمز`);
     } catch (e) { console.warn(`  ⚠ أسعار ${label} فشلت: ${e.message}`); }
   };
-  if (PREFER_YAHOO) {
-    await tryQuotes("Yahoo (دفعات)", fetchQuotes);
-    await tryQuotes("Finnhub (احتياط)", fetchQuotesFinnhub);
-  } else {
-    await tryQuotes("Finnhub", fetchQuotesFinnhub);
-    await tryQuotes("Yahoo (احتياط)", fetchQuotes);
+  /* الأسعار من لقطات SIP بشكل طبقة المزوّد، ثم تُترجم إلى حقول الصفّ
+     التي كُتبت لياهو (`asRowQuote`). رموز المؤشّرات (‎^GSPC‎) ليست أسهماً
+     عند Alpaca فلا تُطلب؛ مستواها المعروض يبقى من مخطّط ياهو أدناه
+     (عرضٌ لا يدخل التحليل). */
+  const AL = PROV.get("alpaca");
+  await tryQuotes("Alpaca SIP", async (syms) => {
+    const m = await AL.getQuotes(syms.filter(x => !x.startsWith("^") && !/-USD$/.test(x)), { feed: "sip", now });
+    return m ? Object.fromEntries(Object.entries(m).map(([k, q]) => [k, asRowQuote(q)])) : null;
+  });
+  if (!quotes && STOCK_FALLBACK) {
+    noteFallback("*", "quotes", "لقطات SIP فشلت");
+    await tryQuotes("Yahoo (احتياط صريح)", fetchQuotes);
   }
 
   /* =====================================================================
@@ -823,28 +946,26 @@ async function main() {
      والفشل هنا **لا يُسقط التشغيل**: تبقى أسعار ياهو الممتدة (بلا
      حجم) وتبقى السلسلة الرسمية كما هي. تدهورٌ هادئ لا انهيار.
      ===================================================================== */
-  let extBatch = null;
-  const extSyms = chosen.filter(m => m.mkt !== "crypto").map(m => m.s);
-  if (extSyms.length) {
+  /* مخزن SIP — **كلُّ شموع الأسهم** بطلبات دفعة (الكون + بدائل المؤشّرات).
+     كان هنا طلبُ ‎15د‎ الممتد وحده وبقيةُ الفريمات من ياهو رمزاً رمزاً.
+     وفشلُه يُرمى: ملفّات رموزٍ من مخزنٍ لم يُحدَّث تعرض أمسَ كأنه اليوم —
+     إلا بالاحتياط الصريح. */
+  let store = null;
+  const eqSyms = [...new Set([...chosen.filter(m => m.mkt !== "crypto").map(m => m.s),
+                              ...(cfg.indices || []).map(i => i.proxy).filter(Boolean)])];
+  if (eqSyms.length) {
     try {
-      const { provider, caps } = PROV.pick("equity", ["extendedVolume"]);
-      if (caps.extendedVolume && provider.getCandlesBatch) {
-        const from = now - 5 * 86400e3;
-        extBatch = { src: provider.id, delayMs: caps.extendedVolumeDelayMs || 0 };
-        for (const tf of EXT_TFS) {
-          const m = await provider.getCandlesBatch(extSyms, tf, { from });
-          const skipped = m.__skipped || []; delete m.__skipped;
-          extBatch[tf] = m;
-          console.log(`  ✓ الجلسة الممتدة ${tf}: ${Object.keys(m).length} رمزاً من ${extSyms.length}` +
-            (skipped.length ? ` · مستبعَد: ${skipped.join("، ")}` : "") +
-            (caps.extendedVolumeDelayMs ? ` · متأخّر ${Math.round(caps.extendedVolumeDelayMs / 60e3)}د` : ""));
-        }
-      } else {
-        console.log(`  ⓘ لا حجم للجلسة الممتدة (${provider.id}) — الأسعار الممتدة من ياهو والحجم يُعلَن غائباً`);
-      }
+      store = await updateStore({ dir: storeDir(OUT), symbols: eqSyms, provider: AL, now, log: console.log });
+      const st = store.stats;
+      console.log(`  ✓ مخزن SIP: ${eqSyms.length} رمزاً · ${st.requests} طلباً · ${st.bars} شمعة` +
+        (st.backfilled.length ? ` · تعبئة كاملة ${st.backfilled.length}` : "") +
+        (st.revised ? ` · مراجَعة ${st.revised}` : "") + (st.invalid ? ` · مشوَّهة ${st.invalid}` : "") +
+        (st.splits.length ? ` · تقسيم ${st.splits.join(",")}` : "") +
+        (Object.keys(st.missing).length ? ` · بلا شموع: ${Object.keys(st.missing).join(",")}` : ""));
     } catch (e) {
-      console.warn(`  ⚠ تعذّرت الجلسة الممتدة: ${e.message} — نكمل بالأسعار وحدها`);
-      extBatch = null;
+      if (!STOCK_FALLBACK) throw new Error(`مخزن SIP: ${e.message} — لن نكتب فوق البيانات السليمة`);
+      console.warn(`  ⚠ مخزن SIP: ${e.message}`);
+      store = null;
     }
   }
 
@@ -866,8 +987,8 @@ async function main() {
      ويُقاس معها **عددُ الأخطاء** لا الزمنُ وحده — فمسارٌ أسرع يجلب
      ‎429‎ أسوأ من مسارٍ أبطأ ينجح، وقاعدةُ المشروع أن الفشل السريع
      يُبقي آخر بياناتٍ سليمة ولا يعطي بيانات. */
-  const lanes = (hasTwelveData() && !PREFER_YAHOO) ? 1
-              : (FAST ? Number(process.env.FAST_LANES || 16) : 3);
+  /* البناء من المخزن حسابٌ محلّي بلا شبكة؛ المسارات للاحتياط وحده */
+  const lanes = STOCK_FALLBACK ? (FAST ? Number(process.env.FAST_LANES || 16) : 3) : 8;
 
   /* =====================================================================
      بدائل المؤشّرات — شمعاتٌ تُخزَّن، **وصفٌّ لا يُضاف إلى الملخّص**.
@@ -890,7 +1011,7 @@ async function main() {
 
   phase(`قبل الشموع (${jobs.length + benchJobs.length} وظيفة · ${lanes} مساراً)`);
   const results = await pool(jobs.concat(benchJobs), lanes,
-    (j) => buildSymbol(j.m, OUT, now, quotes, j.frames, j.tier === "bench" ? "core" : j.tier, extBatch));
+    (j) => buildSymbol(j.m, OUT, now, quotes, j.frames, j.tier === "bench" ? "core" : j.tier, store));
   phase("بعد الشموع");
   const allJobs = jobs.concat(benchJobs);
   const rows = [], wideRecs = [], benchRecs = [], failed = [], frozen = [];
@@ -1147,6 +1268,18 @@ async function main() {
       twelvedata: { requests: tdStats.requests, failures: tdStats.failures, budget: TD_PER_RUN },
       // الوزن لا العدد: حدّ Binance وزنيّ (‎6000‎/دقيقة) وطلب الشمعات ‎2‎
       binance: { requests: bnStats.requests, failures: bnStats.failures, weight: bnStats.weight }
+    },
+    /* المصدر **من الطلبات الفعلية** — يُنشر، فيُثبَت على الرابط المنشور
+       نفسه. `feeds.iex` صفرٌ شرطُ نشر (`validateStocks`). */
+    providers: {
+      primary: STORE_SRC, at: new Date(now).toISOString(),
+      feeds: { ...AL.alStats.feeds }, endpoints: { ...AL.alStats.endpoints },
+      srcCounts: summary.reduce((a, r) => (a[r.src] = (a[r.src] || 0) + 1, a), {}),
+      fallbacks,
+      ...(store ? { store: { requests: store.stats.requests, bars: store.stats.bars, revised: store.stats.revised,
+        invalid: store.stats.invalid, splits: store.stats.splits, missing: store.stats.missing,
+        backfilled: store.stats.backfilled.length,
+        lastBar: Object.fromEntries(Object.entries(store.stats.lastBar).map(([k, v]) => [k, v ? new Date(v).toISOString() : null])) } } : {})
     }
   });
 
@@ -1734,6 +1867,72 @@ function selfCheck() {
     eq([num(3), num({ raw: 4 }), num(null), num(undefined), num(NaN), num("5")], [3, 4, null, null, null, null], "num");
   });
 
+  /* =====================================================================
+     مخزن Alpaca SIP — بناءُ الفريمات، وحارسُ الخلط، ودمجُ المخزن.
+     مدخلاتٌ اصطناعية على أيامٍ حقيقية في التقويم (صيفٌ وشتاء).
+     ===================================================================== */
+  {
+    const mkDay = (noonUtc, base) => {
+      const out = [];
+      for (let m = SES.PRE_OPEN; m < SES.POST_CLOSE; m += 15) {
+        const t = SES.atEtMinutes(noonUtc, m), p = base + m / 1000;
+        out.push({ t, o: p, h: p + 0.5, l: p - 0.5, c: p + 0.1, v: 100 + m });
+      }
+      return out;
+    };
+    const days = [Date.UTC(2026, 8, 28, 16), Date.UTC(2026, 8, 29, 16), Date.UTC(2026, 11, 14, 17)];
+    const m15 = days.flatMap((d, i) => mkDay(d, 100 + i));
+    const d1 = days.map((d, i) => ({ t: SES.atEtMinutes(d, 0), o: 100 + i, h: 110 + i, l: 90 + i, c: 105 + i, v: 1e6 }));
+    const rec = { s: "TST", tf: {} };
+    const full1h = applyStore(rec, { "15m": m15, "1d": d1 }, days[2] + 86400e3);
+    const et = (t) => SES.etParts(t).mins;
+    t("مخزن SIP: ‎15د‎ الرسمية وحدها في `tf`، والممتدة في `tfx`", () => {
+      eq(rec.tf["15m"].c.every(x => isRegularBar(x.t)), true, "رسمية");
+      eq(rec.tf["15m"].c.length, 26 * 3, "26 شمعة للجلسة × 3 أيام");
+      eq(rec.tfx["15m"].c.some(x => !isRegularBar(x.t)), true, "الممتدة في tfx");
+      eq(rec.tfx["15m"].src, STORE_SRC, "مصدر tfx");
+    });
+    t("مخزن SIP: الساعة على مرسى ‎09:30‎ — سبع شمعات لليوم، آخرها نصف ساعة", () => {
+      eq(full1h.length, 21, "7 × 3");
+      eq([...new Set(full1h.map(b => et(b.t) % 60))], [30], "كلُّها على :30 — صيفاً وشتاءً");
+      const first = full1h[0], src = m15.filter(x => isRegularBar(x.t)).slice(0, 4);
+      eq(first.o, src[0].o, "فتح"); eq(first.c, src[3].c, "إغلاق");
+      eq(first.h, Math.max(...src.map(x => x.h)), "أعلى"); eq(first.v, src.reduce((a, x) => a + x.v, 0), "الحجم مجموع");
+    });
+    t("مخزن SIP: اليومي مطبَّعٌ إلى افتتاح الجلسة بتاريخ UTC نفسه", () => {
+      eq(rec.tf["1d"].c.map(b => et(b.t)), [SES.REG_OPEN, SES.REG_OPEN, SES.REG_OPEN], "09:30 ET");
+      eq(rec.tf["1d"].c.map(b => new Date(b.t).toISOString().slice(0, 10)),
+         d1.map(b => new Date(b.t + 12 * 3600e3).toISOString().slice(0, 10)), "نفس اليوم");
+    });
+    t("مخزن SIP: ‎4h‎ من الساعة الكاملة على مرسى الجلسة — شمعتان لليوم", () => {
+      const g = aggregate(full1h, 4, K4H);
+      eq(g.length, 6, "2 × 3");
+      eq([...new Set(g.map(b => et(b.t)))].sort((a, b) => a - b), [SES.REG_OPEN, SES.REG_OPEN + 240], "09:30 و13:30");
+    });
+    t("حارس الخلط: فريمٌ من مصدرٍ آخر يُسقط الرمز", () => {
+      eq(guardProvider({ src: STORE_SRC, srcs: { "15m": STORE_SRC, "1d": STORE_SRC } }).src, STORE_SRC, "متّسق");
+      let threw = false;
+      try { guardProvider({ src: STORE_SRC, srcs: { "15m": STORE_SRC, "1h": "yahoo" } }); } catch { threw = true; }
+      eq(threw, true, "مختلط يُرمى");
+      eq(guardProvider({ mkt: "crypto", src: "binance", srcs: { x: "y" } }).src, "binance", "الكريبتو خارجه");
+    });
+    t("دمج المخزن: الجديد يغلب، والمراجعة تُعدّ للمغلقة وحدها، والتقسيم يُكشف", () => {
+      const old = [1, 2, 3, 4].map(i => ({ t: i * 900e3, o: 10, h: 11, l: 9, c: 10, v: 5 }));
+      const fresh = [3, 4, 5].map(i => ({ t: i * 900e3, o: 10, h: 11, l: 9, c: i === 3 ? 10.5 : 10, v: 5 }));
+      const r = mergeBars(old, fresh, { barMs: 900e3, settledBefore: 4.5 * 900e3 });
+      eq(r.bars.map(b => b.t / 900e3), [1, 2, 3, 4, 5], "بلا تكرار ومرتّب");
+      eq(r.revised, 1, "الثالثة مغلقة ومراجَعة؛ الرابعة جارية لا تُعدّ");
+      eq(r.split, false, "لا تقسيم");
+      eq(splitSuspect([0.5, 0.5, 0.5001, 0.4999]), true, "نسبة ثابتة = تقسيم");
+      eq(splitSuspect([1, 1, 0.5, 1]), false, "شمعةٌ واحدة مراجعة لا تقسيم");
+      eq(validBar({ t: 1, o: 2, h: 1, l: 1, c: 1, v: 0 }), false, "مشوّهة");
+    });
+    t("لقطة SIP بحقول الصفّ: ما قبل الافتتاح سعرٌ ممتد والإغلاق الرسمي منفصل", () => {
+      const q = asRowQuote({ sess: "PRE", price: 101, regular: 100, regularChangePct: -1, extChangePct: 1, dayVolume: 5 });
+      eq([q.regularMarketPrice, q.preMarketPrice, q.preMarketChangePercent, q.postMarketPrice], [100, 101, 1, null], "PRE");
+    });
+  }
+
   console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل`);
   process.exit(fail ? 1 : 0);
 }
@@ -1749,7 +1948,7 @@ if (IS_MAIN) {
   if (CHECK) selfCheck();
   else main().catch(e => { console.error("✗ فشل التشغيل:", e.message); process.exit(1); });
 }
-export { carryFrames, guardFrames, keepFrames, stale };
+export { carryFrames, guardFrames, keepFrames, stale, candleClock, finalKeyMs, K4H };
 /* أعلى/أدنى 252 شمعةً يومية مغلقة — أو `null` إن قصرت السلسلة عن
    سنةٍ تقريباً (200)، فلا يُسمّى مدى شهرين «52 أسبوعاً». */
 function w52c(d1c, k) {

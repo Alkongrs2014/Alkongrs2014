@@ -29,7 +29,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const OUT = (() => { const i = args.indexOf("--out"); return i >= 0 ? path.resolve(args[i + 1]) : path.join(ROOT, "out"); })();
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
-const PREFER_YAHOO = process.env.PREFER_YAHOO === "1";
+/* الأسعار من Alpaca SIP وحدها (2026-09-30). والاحتياط صريحٌ لا سلسلةٌ
+   صامتة: `STOCK_FALLBACK=yahoo` وحده يفتح ياهو، ويُطبع `FALLBACK_PROVIDER`. */
+const STOCK_FALLBACK = process.env.STOCK_FALLBACK === "yahoo";
+const PREFER_YAHOO = STOCK_FALLBACK;
 
 const readJSON = (p, d = null) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return d; } };
 const writeJSON = (rel, o) => fs.writeFileSync(path.join(OUT, rel), JSON.stringify(o));
@@ -121,8 +124,6 @@ async function main() {
   const market = readJSON(path.join(OUT, "market.json"));
   if (!summary?.rows?.length || !market)
     throw new Error("لا يوجد ملخّص سابق — شغّل fetch-market.mjs أولاً");
-  if (!PREFER_YAHOO && !process.env.FINNHUB_API_KEY)
-    throw new Error("FINNHUB_API_KEY غير مضبوط — لا مصدر أسعار سريع بدونه");
 
   const syms = summary.rows.map(r => r.s);
   // رموز المؤشرات (‎^GSPC‎) يرفضها Finnhub المجاني دائماً، وكل طلب مرفوض
@@ -145,7 +146,9 @@ async function main() {
   const want = [...syms, ...wideSyms, ...extra];
   const sess = sessionOf(now);
   const needExt = (sess === "PRE" || sess === "AFTER");
-  const { provider, skipped, degraded } = PROV.pick("equity", needExt ? ["extendedHours"] : []);
+  const provider = PROV.get("alpaca");
+  if (!provider.available()) throw new Error("Alpaca غير متاح (مفتاح أو DISABLE_PROVIDERS) — لا أسعار بلا احتياطٍ صريح");
+  const skipped = [], degraded = [];
   console.log(`  الجلسة: ${sess}${needExt ? " (ممتدة)" : ""} · المزوّد: ${provider.id}` +
     (skipped.length ? ` · تُخطّي: ${skipped.map(x => x.id + "(" + x.why + ")").join("، ")}` : ""));
   if (degraded?.length)
@@ -153,18 +156,16 @@ async function main() {
 
   let quotes = null, src = "";
   try {
-    quotes = await provider.getQuotes(provider.caps.batch ? want : [...syms, ...extra], { pace: 1050 });
-    if (quotes) src = provider.id;
+    quotes = await provider.getQuotes(want.filter(x => !x.startsWith("^")), { feed: "sip", now });
+    if (quotes) src = "alpaca_sip";
   } catch (e) { console.warn(`  ⚠ ${provider.id}: ${e.message}`); }
-  /* احتياطٌ واحد لا سلسلة: المزوّد التالي في الترتيب المتاح */
-  if (!quotes) {
-    for (const alt of PROV.providers().filter(x => x.available && x.id !== provider.id && x.caps.markets.includes("equity"))) {
-      try {
-        const pv = PROV.get(alt.id);
-        quotes = await pv.getQuotes(pv.caps.batch ? want : [...syms, ...extra], { pace: 1050 });
-        if (quotes) { src = alt.id + " (احتياط)"; break; }
-      } catch (e) { console.warn(`  ⚠ ${alt.id}: ${e.message}`); }
-    }
+  /* الاحتياط صريحٌ فقط — لا سلسلةَ مزوّداتٍ صامتة */
+  if (!quotes && STOCK_FALLBACK) {
+    console.warn(`  FALLBACK_PROVIDER=yahoo symbol=* frame=quotes reason=لقطات SIP فشلت at=${new Date().toISOString()}`);
+    try {
+      quotes = await PROV.get("yahoo").getQuotes(want);
+      if (quotes) src = "yahoo (احتياط صريح)";
+    } catch (e) { console.warn(`  ⚠ yahoo: ${e.message}`); }
   }
   if (!quotes) throw new Error("لم يصل أي سعر — لن نكتب فوق بيانات سليمة");
   console.log(`  المصدر: ${src}`);
@@ -250,7 +251,8 @@ async function main() {
   writeJSON("meta.json", {
     ...prevMeta, marketUpdated: now,
     quotesRun: { at: new Date(now).toISOString(), ok: hit, of: syms.length, src,
-                 wide: wideHit, wideOf: wideSyms.length, requests: fhStats.requests }
+                 wide: wideHit, wideOf: wideSyms.length,
+                 feeds: { ...(PROV.get("alpaca").alStats.feeds || {}) } }
   });
 
   console.log(`✔ ${hit} / ${syms.length} سعراً${wideSyms.length ? ` · الواسعة ${wideHit} / ${wideSyms.length}` : ""}`);

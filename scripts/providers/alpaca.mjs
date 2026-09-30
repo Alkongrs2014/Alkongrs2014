@@ -25,16 +25,33 @@
    تناثر اسمُ المزوّد في عشرين شرطاً، وصار استبدالُه إعادةَ كتابة.
    ===================================================================== */
 
+import { createRequire } from "node:module";
+const SES = createRequire(import.meta.url)("../../stocks/session.js");
+
 const DATA = "https://data.alpaca.markets";
 const TRADE = "https://api.alpaca.markets";
 
-export const alStats = { requests: 0, retries: 0, failures: 0, bars: 0 };
+/* `feeds` يعدّ الطلبات **بتغذيتها الفعلية** كما أُرسلت في الرابط — لا
+   بالإعداد. فإثباتُ «المصدر SIP» سطرٌ في `meta.json` من الطلبات نفسها،
+   و`iex: 0` شرطُ نشرٍ لا وعد. */
+export const alStats = { requests: 0, retries: 0, failures: 0, bars: 0, feeds: {}, endpoints: {} };
 
 export const id = "alpaca";
 
-/* الخطة المجانية: تغذية IEX. من يملك اشتراكاً يضبط `ALPACA_FEED=sip`
-   فيتغيّر المدى والحجم بلا سطرٍ واحد في الماسح. */
-const FEED = process.env.ALPACA_FEED || "iex";
+/* =====================================================================
+   التغذية: **SIP وحدها** منذ 2026-09-30 (اشتراك Algo Trader Plus).
+
+   ما كُتب أدناه عن IEX والتأخير قياسُ الخطة المجانية ويبقى سجلّاً —
+   لكنه لم يعد يصف الحساب. قِيس بعد الاشتراك: آخر صفقة في لقطة `sip`
+   عمرها ‎8–10‎ ثوانٍ قبل الافتتاح، وطلبٌ نهايتُه «الآن ناقص خمس ثوانٍ»
+   يُقبل بـ‎200‎ لا ‎403‎، والبثّ على `v2/sip` يصادق ويبثّ صفقاتٍ بلا تأخّر.
+   فسقط `SIP_DELAY_MS` وقصُّ `end` معه، وصارت الأسعار والبثّ والتاريخ
+   من تغذيةٍ واحدة.
+
+   و`iex` لا تُرسل إلا إن طُلبت صراحةً، ويمنعها `DISABLE_PROVIDERS=iex`
+   (اختبار العزل) منعاً يرمي — فلا تعود مصدراً حيّاً افتراضياً بصمت.
+   ===================================================================== */
+const FEED = process.env.ALPACA_FEED || "sip";
 
 /* =====================================================================
    تغذيتان لا واحدة — وهذا **قياسٌ غيّر التصميم**.
@@ -62,22 +79,25 @@ const FEED = process.env.ALPACA_FEED || "iex";
    مبنيّة على حجمٍ عمرُه ربع ساعة يجب أن تقول ذلك، وإلا قرأها المستخدم
    لحظيةً وبنى عليها دخولاً.
    ===================================================================== */
-const HIST_FEED = process.env.ALPACA_HIST_FEED || "sip";
-const SIP_DELAY_MS = 15 * 60e3;
+const HIST_FEED = process.env.ALPACA_HIST_FEED || FEED;
+const disabled = () => new Set(String(process.env.DISABLE_PROVIDERS || "").toLowerCase().split(/[,\s]+/).filter(Boolean));
 
 export const caps = {
   id,
   markets: ["equity"],
   extendedHours: true,
   extendedVolume: true,
-  extendedVolumeDelayMs: HIST_FEED === "sip" ? SIP_DELAY_MS : 0,
-  realtimePrice: false,           // ← IEX وحدها لحظية، وتغطيتُها لا تكفي
+  extendedVolumeDelayMs: 0,       // SIP لحظيّ على الاشتراك الحالي (مقيس)
+  realtimePrice: FEED === "sip",
   historyFidelity: HIST_FEED,
   volumeScope: HIST_FEED === "sip" ? "consolidated" : "iex",
   websocket: true,
   batch: true,
   batchSize: 200,
-  timeframes: ["1m", "5m", "15m", "30m", "1h", "4h", "1d"],
+  /* بلا ‎4h‎: لا نطلبه (انظر `TF`)، وإعلانُه قدرةً يناقض الجدول. والساعة
+     هنا ساعةُ Alpaca **على رأس الساعة** — ساعتُنا تُجمَّع من ‎15د‎ على
+     مرسى ‎09:30‎ (`bars-store`)، فلا تُطلب لفريم التحليل. */
+  timeframes: ["1m", "5m", "15m", "30m", "1h", "1d"],
   vwap: true,
   tradeCount: true,
   corporateActions: true,
@@ -87,7 +107,7 @@ export const caps = {
 };
 
 export function available() {
-  return !!(process.env.ALPACA_KEY_ID && process.env.ALPACA_SECRET_KEY);
+  return !disabled().has("alpaca") && !!(process.env.ALPACA_KEY_ID && process.env.ALPACA_SECRET_KEY);
 }
 
 function headers() {
@@ -101,6 +121,13 @@ function headers() {
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function req(url, { tries = 3, timeout = 20000 } = {}) {
+  const u = new URL(url);
+  const feed = u.searchParams.get("feed") || (url.includes("/v2/sip") ? "sip" : "none");
+  if (disabled().has("alpaca")) throw new Error("PROVIDER_DISABLED alpaca");
+  if (feed !== "none" && disabled().has(feed)) throw new Error(`PROVIDER_DISABLED feed=${feed}`);
+  alStats.feeds[feed] = (alStats.feeds[feed] || 0) + 1;
+  const ep = u.pathname.replace(/\/v2\/stocks\/[^/]+\/trades$/, "/v2/stocks/:s/trades");
+  alStats.endpoints[ep] = (alStats.endpoints[ep] || 0) + 1;
   let lastErr;
   for (let i = 0; i < tries; i++) {
     if (i) { alStats.retries++; await sleep(700 * i + Math.random() * 400); }
@@ -114,6 +141,10 @@ async function req(url, { tries = 3, timeout = 20000 } = {}) {
       if (r.status === 429 || r.status >= 500) { lastErr = new Error(`HTTP ${r.status}`); continue; }
       if (!r.ok) {
         const body = await r.text().catch(() => "");
+        /* SIP مرفوضةٌ بالاشتراك: خطأٌ مسمّى لا «403» عامّ — يعني أن
+           الحساب فقد الاشتراك أو تغيّر المفتاح، وهو ما يجب أن يُقرأ في
+           السجلّ بلا تشخيص. */
+        if (r.status === 403 && /SIP/i.test(body)) throw new Error(`HTTP 403 SIP_NOT_ENTITLED ${body.slice(0, 120)}`);
         throw new Error(`HTTP ${r.status} ${body.slice(0, 160)}`);
       }
       return await r.json();
@@ -155,17 +186,12 @@ export async function getCandlesBatch(symbols, tf, opt = {}) {
   const out = {};
   const size = Math.min(opt.batchSize || caps.batchSize, caps.batchSize);
 
-  /* التغذية تتبع الغرض: التاريخ والحجم من `sip` (مجمَّع، متأخّر ‎15‎
-     دقيقة)، واللحظيّ من `iex`. و`opt.feed` تتجاوزهما عند الحاجة. */
+  /* التغذية: `opt.feed` صراحةً، وإلا `sip`. كان هنا قصٌّ لـ`end` بنافذة
+     تأخير ‎15‎ دقيقة (الخطة المجانية ترفض ما داخلها بـ‎403‎) — سقط مع
+     الاشتراك: `end` = «الآن ناقص خمس ثوانٍ» يُقبل (مقيس 2026-09-30). */
   const feed = opt.feed || (opt.realtime ? FEED : HIST_FEED);
-  /* `sip` ترفض أيّ طلبٍ نهايتُه داخل نافذة التأخير بـ
-     ‎403 subscription does not permit querying recent SIP data‎ —
-     **ولو كانت على الحدّ بثانية**. وحذفُ `end` أصلاً لا يُرفض: الخادم
-     يقتطع بنفسه عند حدّه (قِيس: طلبٌ بلا `end` أعاد شمعاتٍ حتى
-     ‎08:00‎ والساعة ‎08:15‎). فلا نرسلها إلا حين تكون أقدم من الحدّ
-     بهامشٍ واضح — وإلا تركنا الاقتطاع له. */
-  const cap = feed === "sip" ? Date.now() - SIP_DELAY_MS - 60e3 : null;
-  const end = (opt.to && (!cap || opt.to <= cap)) ? opt.to : null;
+  const end = opt.to || null;
+  const maxPages = opt.maxPages || 50;
 
   for (let i = 0; i < symbols.length; i += size) {
     const batch = symbols.slice(i, i + size);
@@ -208,7 +234,8 @@ export async function getCandlesBatch(symbols, tf, opt = {}) {
         alStats.bars += bars.length;
       }
       pageToken = j.next_page_token || null;
-    } while (pageToken && ++guard < 50);
+    } while (pageToken && ++guard < maxPages);
+    if (pageToken) throw new Error(`alpaca: تجاوز سقف الصفحات (${maxPages}) — دفعةٌ ناقصة لا تُقبل`);
   }
   /* الترتيب الزمني شرطٌ ضمنيّ في كل ما بعدُ (المؤشّرات والتجميع
      والمحاكاة). وصفحاتُ Alpaca مرتّبة، لكن دمجَ دفعاتٍ متعدّدة لا
@@ -234,46 +261,93 @@ export const getHistoricalCandles = getCandles;
    `dailyBar` لا يبدأ قبل ‎09:30‎، فقراءتُه في الجلسة الممتدة تعيد
    إغلاق أمس — وهي العلّة نفسها التي جمّدت التطبيق مع ياهو.
    ===================================================================== */
-export async function getQuotes(symbols) {
+export async function getQuotes(symbols, opt = {}) {
   const out = {};
   const size = caps.batchSize;
+  const feed = opt.feed || FEED;
+  const now = opt.now || Date.now();
   for (let i = 0; i < symbols.length; i += size) {
     const batch = symbols.slice(i, i + size);
     const u = new URL(`${DATA}/v2/stocks/snapshots`);
     u.searchParams.set("symbols", batch.map(toAlpaca).join(","));
-    u.searchParams.set("feed", FEED);          // اللحظيّ = IEX
+    u.searchParams.set("feed", feed);
     const j = await req(u.toString());
     const snaps = j.snapshots || j;
     for (const [rawSym, s] of Object.entries(snaps || {})) {
-      const sym = toApp(rawSym);
-      if (!s) continue;
-      const last = s.latestTrade || null;
-      const prev = s.prevDailyBar || null;
-      const day = s.dailyBar || null;
-      const px = last?.p ?? day?.c ?? null;
-      const prevClose = prev?.c ?? null;
-      const at = last?.t ? Date.parse(last.t) : null;
-      out[sym] = {
-        symbol: sym,
-        price: Number.isFinite(px) ? px : null,
-        at,
-        /* عمرُ آخر طبعة. تغطية IEX قبل الافتتاح شبه معدومة، فقد يكون
-           هذا «السعر اللحظي» من أمس — والمستدعي يجب أن يرى العمر
-           ليقرّر، لا أن يأخذ الرقم على أنه الآن. */
-        ageMs: at ? Date.now() - at : null,
-        prevClose,
-        changePct: (Number.isFinite(px) && prevClose > 0) ? (px / prevClose - 1) * 100 : null,
-        bid: s.latestQuote?.bp ?? null,
-        ask: s.latestQuote?.ap ?? null,
-        dayVolume: day?.v ?? null,
-        minuteBar: s.minuteBar ? {
-          t: Date.parse(s.minuteBar.t), o: s.minuteBar.o, h: s.minuteBar.h,
-          l: s.minuteBar.l, c: s.minuteBar.c, v: s.minuteBar.v
-        } : null
-      };
+      const q = normalizeSnapshot(s, now);
+      if (q) out[toApp(rawSym)] = { symbol: toApp(rawSym), ...q };
     }
   }
   return Object.keys(out).length ? out : null;
+}
+
+/* =====================================================================
+   اللقطة بشكل طبقة المزوّد الموحّد — نفس حقول محوّل ياهو
+   (`price · sess · regular · regularChangePct · extChangePct · at`).
+
+   **مصيدةٌ قِيست قبل الكتابة**: قبل الافتتاح `dailyBar` هو **الأمس** لا
+   اليوم، و`prevDailyBar` أوّلُ أمس (2026-09-30 ‎08:15 ET‎: AAPL dailyBar
+   ‎09-29‎ و prevDailyBar ‎09-28‎). وكانت النسخة السابقة تقيس التغيّر عن
+   `prevDailyBar` دائماً — فتغيّرُ ما قبل الافتتاح كان عن **أوّل أمس**.
+   فالمرجع هنا بالتاريخ: «آخرُ إغلاقٍ رسميّ قبل جلسة اليوم» هو الشمعة
+   اليومية التي تاريخُها (بتوقيت نيويورك) قبل تاريخ اليوم.
+
+   والجلسة من التقويم (`sessionOf`) لا من ساعةٍ مرقونة. وخارج الجلسة
+   الرسمية تتبع سلوك ياهو حرفياً: سعرٌ ممتدّ حين توجد صفقةٌ ممتدّة، وإلا
+   الإغلاق الرسمي بجلسةٍ رسمية — كي لا يتغيّر معنى `chg` بتغيّر المزوّد.
+   ===================================================================== */
+const etDate = (t) => SES.etParts(t).date;
+export function normalizeSnapshot(s, now = Date.now()) {
+  if (!s) return null;
+  const last = s.latestTrade || null;
+  const day = s.dailyBar || null, prev = s.prevDailyBar || null;
+  const at = last?.t ? Date.parse(last.t) : null;
+  const tp = Number.isFinite(last?.p) ? last.p : null;
+  const today = etDate(now);
+  const dayT = day?.t ? Date.parse(day.t) : null;
+  const dayIsToday = dayT !== null && etDate(dayT + 12 * 3600e3) === today;
+  const sess = SES.sessionOf(now);                   // PRE · REGULAR · AFTER · CLOSED
+  /* آخر إغلاقٍ رسميّ **مكتمل** قبل جلسة اليوم، والذي قبله */
+  const base = dayIsToday ? prev : day;
+  const baseC = Number.isFinite(base?.c) ? base.c : null;
+  const pct = (a, b) => (Number.isFinite(a) && b > 0) ? (a / b - 1) * 100 : null;
+  let price, qs, regular, regularChangePct, extChangePct = null;
+  if (sess === "REGULAR") {
+    price = tp ?? day?.c ?? null; qs = "REGULAR"; regular = price;
+    regularChangePct = pct(price, baseC);
+  } else if (sess === "PRE") {
+    /* صفقةٌ بعد بداية ما قبل الافتتاح اليوم = سعرٌ ممتد؛ وإلا فلا جديد */
+    const preTrade = at !== null && etDate(at) === today && SES.sessionOf(at) === "PRE";
+    regular = baseC;
+    regularChangePct = pct(baseC, dayIsToday ? null : prev?.c);
+    if (preTrade) { price = tp; qs = "PRE"; extChangePct = pct(tp, baseC); }
+    else { price = baseC; qs = "REGULAR"; }
+  } else {
+    /* بعد الإغلاق، والليل، والعطلة: المرجع آخر يومٍ رسميّ **كامل** —
+       `dailyBar` نفسه (قِيس: إغلاقُه هو الإغلاق الرسمي، ‎0.006%‎ من ياهو). */
+    const ref = day?.c ?? null;
+    regular = ref;
+    regularChangePct = pct(ref, prev?.c);
+    const closeAt = dayT !== null ? SES.sessionCloseAt(dayT + 12 * 3600e3) : null;
+    const postTrade = at !== null && closeAt !== null && at >= closeAt;
+    if (postTrade) { price = tp; qs = "AFTER"; extChangePct = pct(tp, ref); }
+    else { price = ref; qs = "REGULAR"; }
+  }
+  return {
+    price: Number.isFinite(price) ? price : null,
+    sess: qs, at,
+    ageMs: at ? now - at : null,
+    regular: Number.isFinite(regular) ? regular : null,
+    regularChangePct, extChangePct,
+    prevClose: baseC,
+    dayVolume: day?.v ?? null,
+    bid: s.latestQuote?.bp ?? null,
+    ask: s.latestQuote?.ap ?? null,
+    minuteBar: s.minuteBar ? {
+      t: Date.parse(s.minuteBar.t), o: s.minuteBar.o, h: s.minuteBar.h,
+      l: s.minuteBar.l, c: s.minuteBar.c, v: s.minuteBar.v
+    } : null
+  };
 }
 
 export async function getQuote(symbol) {
@@ -283,7 +357,7 @@ export async function getQuote(symbol) {
 
 export async function getTrades(symbol, opt = {}) {
   const u = new URL(`${DATA}/v2/stocks/${encodeURIComponent(toAlpaca(symbol))}/trades`);
-  u.searchParams.set("feed", FEED);
+  u.searchParams.set("feed", opt.feed || FEED);
   u.searchParams.set("limit", String(opt.limit || 1000));
   if (opt.from) u.searchParams.set("start", iso(opt.from));
   if (opt.to) u.searchParams.set("end", iso(opt.to));
@@ -333,7 +407,10 @@ export async function getCalendar(from, to) {
   u.searchParams.set("start", new Date(from).toISOString().slice(0, 10));
   u.searchParams.set("end", new Date(to).toISOString().slice(0, 10));
   const j = await req(u.toString());
-  return (j || []).map(d => ({ date: d.date, open: d.open, close: d.close }));
+  /* ساعاتُ الجلسة الممتدة لكل يوم (`session_open`/`session_close`) جزءٌ من
+     الردّ — وإسقاطُها كان يجعل حدود «ما قبل الافتتاح» و«ما بعد الإغلاق» NaN. */
+  return (j || []).map(d => ({ date: d.date, open: d.open, close: d.close,
+                               session_open: d.session_open, session_close: d.session_close }));
 }
 
 /* =====================================================================
@@ -343,8 +420,8 @@ export async function getCalendar(from, to) {
    الوثائق تتغيّر، والافتراضُ الخاطئ يجعل الاشتراك يُرفض كلّه فيسقط
    البثّ صامتاً. نشترك ونقرأ ردّ الخادم ونُبلغ المستدعي بما قُبل فعلاً.
    ===================================================================== */
-export function subscribe(symbols, handlers = {}) {
-  const url = `wss://stream.data.alpaca.markets/v2/${FEED}`;
+export function subscribe(symbols, handlers = {}, opt = {}) {
+  const url = `wss://stream.data.alpaca.markets/v2/${opt.feed || FEED}`;
   let ws = null, closed = false, tries = 0;
   let accepted = { trades: [], bars: [] };
 
@@ -396,7 +473,7 @@ export function subscribe(symbols, handlers = {}) {
   };
 }
 
-export { toAlpaca, toApp, HIST_FEED, SIP_DELAY_MS };
+export { toAlpaca, toApp, HIST_FEED, FEED };
 
 export const subscribeTrades = (syms, cb) => subscribe(syms, { onTrade: cb });
 export const subscribeBars = (syms, cb) => subscribe(syms, { onBar: cb });

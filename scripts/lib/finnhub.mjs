@@ -1,3 +1,4 @@
+import { assertEnabled } from "./provider-guard.mjs";
 /* =====================================================================
    عميل Finnhub — مصدر الأسعار الأساسي (بديل موثوق عن Yahoo المحظور
    أحياناً من عناوين GitHub Actions). الخطة المجانية تغطي الأسعار
@@ -19,6 +20,7 @@ async function fhReq(path, params, { timeout = 15000 } = {}) {
   const timer = setTimeout(() => ctl.abort(), timeout);
   try {
     fhStats.requests++;
+    assertEnabled("finnhub");
     const r = await fetch(u.toString(), { signal: ctl.signal });
     clearTimeout(timer);
     if (!r.ok) {

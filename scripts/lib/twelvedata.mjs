@@ -1,3 +1,4 @@
+import { assertEnabled } from "./provider-guard.mjs";
 /* =====================================================================
    عميل Twelve Data — مصدر الشموع.
    السبب: Yahoo يحظر عناوين رينرات GitHub (429 على كل طلب حتى عبر curl،
@@ -41,6 +42,7 @@ export async function fetchCandlesTD(symbol, tf, { outputsize = 260, timeout = 2
   const timer = setTimeout(() => ctl.abort(), timeout);
   try {
     tdStats.requests++;
+    assertEnabled("twelvedata");
     const r = await fetch(u.toString(), { signal: ctl.signal });
     if (!r.ok) throw new Error(`Twelve Data HTTP ${r.status}`);
     const j = await r.json();

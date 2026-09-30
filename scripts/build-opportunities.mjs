@@ -178,7 +178,11 @@ function logicVersion() {
    **واحدة** داخل الشمعة ويُسجَّل سببُه — نفس استثناء `strategyVersion`. */
 const PIPE = [["scripts", "fetch-market.mjs"], ["scripts", "fetch-crypto.mjs"], ["scripts", "track-strategies.mjs"],
               ["scripts", "build-opportunities.mjs"], ["stocks", "plan.js"], ["stocks", "indicators.js"],
-              ["stocks", "evaluate.js"], ["stocks", "session.js"], ["scripts/lib", "session.mjs"], ["scripts/lib", "round.mjs"]];
+              ["stocks", "evaluate.js"], ["stocks", "session.js"], ["scripts/lib", "session.mjs"], ["scripts/lib", "round.mjs"],
+              /* مصدرُ الشموع جزءٌ مما يشكّل المدخلات: تبديلُ المزوّد (ياهو ←
+                 Alpaca SIP في 2026-09-30) يسمح بإعادة بناءٍ واحدة داخل الشمعة
+                 بدل رفضٍ متكرّر حتى الإغلاق التالي. */
+              ["scripts/providers", "alpaca.mjs"], ["scripts/lib", "bars-store.mjs"]];
 function pipelineVersion() {
   return sha12(PIPE.map(([d, f]) => {
     try { return f + ":" + sha12(fs.readFileSync(path.join(ROOT, d, f), "utf8").replace(/\r\n/g, "\n")); }

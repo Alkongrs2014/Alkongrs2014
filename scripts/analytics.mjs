@@ -17,6 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchChart, stats } from "./lib/yahoo.mjs";
+import { readSeries, storeDir } from "./lib/bars-store.mjs";
 import { ema } from "./lib/indicators.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -163,7 +164,13 @@ async function main() {
   try {
     // سنتان لا سنة: المتوسط المئوي يحتاج تسخيناً، وقيمته على 252 شمعة
     // تحمل أثر أول قيمة فيها
-    const { candles } = await fetchChart(MARKET, { range: "2y", interval: "1d" });
+    /* من مخزن Alpaca SIP (المؤشّر البديل يُحدَّث مع الكون في كل دورة سوق)،
+       وياهو بالاحتياط الصريح وحده — نفس قاعدة شموع الأسهم (2026-09-30). */
+    const st = readSeries(storeDir(OUT), MARKET, "1d");
+    const candles = st?.bars?.length ? st.bars.slice(-504)
+      : (process.env.STOCK_FALLBACK === "yahoo" ? (await fetchChart(MARKET, { range: "2y", interval: "1d" })).candles : null);
+    if (!candles) throw new Error(`لا يومية ${MARKET} في مخزن SIP`);
+    console.log(`  سلسلة السوق ${MARKET}: ${st?.bars?.length ? "alpaca_sip" : "yahoo (احتياط صريح)"}`);
     if (Array.isArray(candles) && candles.length >= MIN_BARS) {
       mktCloses = candles.map(c => c.c).filter(Number.isFinite);
       // حالة السوق **الآن** — نفس تعريف `regimeMap` في الأرشيف، وبها

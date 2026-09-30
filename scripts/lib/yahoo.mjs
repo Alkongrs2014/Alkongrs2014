@@ -24,6 +24,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
    الترويسات بل في بصمة TLS للعميل. curl مثبّت أصلاً على رينرات GitHub.
    نعيد كائناً بواجهة مصغّرة تشبه Response لتبقى بقية الشيفرة كما هي. */
 import { execFile } from "node:child_process";
+import { assertEnabled } from "./provider-guard.mjs";
 const SEP = "\n<<<CURL_STATUS>>>";
 function curlGet(url, { headers = {}, timeout = 20000 } = {}) {
   const args = ["-sS", "--compressed", "--max-time", String(Math.ceil(timeout / 1000)),
@@ -64,6 +65,7 @@ export const breaker = { get tripped() { return consecutive429 >= BREAKER_LIMIT;
 
 /* ---------- جلب مع إعادة محاولة تصاعدية ---------- */
 async function req(url, { headers = {}, timeout = 20000, tries = 2, label = "yahoo" } = {}) {
+  assertEnabled(label === "stooq" ? "stooq" : "yahoo");
   if (breaker.tripped) throw new Error("Yahoo محظور لهذا التشغيل (قاطع الدورة)");
   let lastErr;
   for (let i = 0; i < tries; i++) {
@@ -116,6 +118,7 @@ export async function pool(items, limit, fn) {
 /* ---------- دورة الكوكي + الـ crumb (يحتاجها v7/quote و quoteSummary) ---------- */
 let session = null;
 export async function getSession() {
+  assertEnabled("yahoo");
   if (session) return session;
   try {
     // بلا مهلة كانت تُعلَّق إلى الأبد عند توقّف الشبكة — لا خطأ ولا سجلّ،

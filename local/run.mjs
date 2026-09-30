@@ -228,7 +228,9 @@ function runScript(name) {
   return new Promise((resolve) => {
     const p = spawn(process.execPath, [path.join(ROOT, "scripts", file), "--out", DATA, ...extra], {
       stdio: "inherit",
-      env: { ...process.env, PREFER_YAHOO: process.env.PREFER_YAHOO ?? "1" }
+      /* لا `PREFER_YAHOO` بعد اليوم: شموع الأسهم وأسعارها من Alpaca SIP،
+         والاحتياط صريحٌ بـ`STOCK_FALLBACK=yahoo` لا افتراضيّ (2026-09-30). */
+      env: { ...process.env }
     });
     p.on("close", (code) => resolve(code));
   });
@@ -303,7 +305,7 @@ function serve() {
 async function publish() {
   const { publishData } = await import("../scripts/lib/publish.mjs");
   const { quickDoctor } = await import("../scripts/lib/doctor-core.mjs");
-  const r = await publishData({ root: ROOT, dataDir: DATA, quick: quickDoctor });
+  const r = await publishData({ root: ROOT, dataDir: DATA, quick: quickDoctor, requireProvider: "alpaca_sip" });
   /* آخر نشرٍ يُسجَّل للصحّة — كلُّ محاولةٍ بنتيجتها، لا الناجحةُ وحدها */
   try { fs.mkdirSync(path.join(ROOT, "reports"), { recursive: true });
         fs.writeFileSync(path.join(ROOT, "reports", "publish-last.json"), JSON.stringify({ at: new Date().toISOString(), ok: r.ok, code: r.code, why: r.why, sha: r.sha || null, lkg: r.lkg || null })); } catch {}
@@ -339,9 +341,7 @@ else if (["health", "fortress", "torture", "mutation", "doctor", "verify"].inclu
   process.exit(code ?? 1);
 }
 else {
-  console.log(`▶ وضع محلي · Yahoo أولاً (بلا حظر ولا سقف) · ${loaded} متغيّراً من .env`);
-  if (!process.env.FINNHUB_API_KEY)
-    console.warn("  ⚠ FINNHUB_API_KEY غير مضبوط — ستُجلب الأسعار من الشموع بدل السعر اللحظي");
+  console.log(`▶ وضع محلي · الأسهم من Alpaca SIP${process.env.STOCK_FALLBACK === "yahoo" ? " (احتياط ياهو مفتوح صراحةً)" : ""} · ${loaded} متغيّراً من .env`);
 
   // الأخبار مع كل تحديث سوق: دورتها دقائق لا يوم، وهي أرخص جزء في
   // التشغيل (بضع خلاصات RSS) فلا تكلّف شيئاً أن تُرافق الأسعار
@@ -402,7 +402,8 @@ else {
              // الأرشيف مع الدورة اليومية: يجلب خمس سنوات لكل رمز (~500
              // طلب) فلا مكان له في دورة عشر دقائق، ونتيجته لا تتغيّر
              // بمعدّل أسرع من يوم على أي حال
-             : cmd === "daily"  ? ["fetch-daily.mjs", "fetch-events.mjs", "backtest.mjs", "backtest-strategies.mjs", "analytics.mjs", "learn.mjs"]
+             : cmd === "daily"  ? ["fetch-calendar.mjs", "fetch-daily.mjs", "fetch-events.mjs", "backtest.mjs", "backtest-strategies.mjs", "analytics.mjs", "learn.mjs"]
+             : cmd === "calendar" ? ["fetch-calendar.mjs"]
              : cmd === "events" ? ["fetch-events.mjs"]
              : cmd === "backtest" ? ["backtest.mjs"]
              : cmd === "learn"  ? ["learn.mjs"]
@@ -427,6 +428,24 @@ else {
      للقفل يجعل تحليلاً يدويّاً ينتظر دورةَ جلبٍ ثم **ينسحب** بعد
      انتهاء السقف، فيُقرأ ذلك فشلاً في التحليل وهو ازدحامٌ على قفل.
      وقع فعلاً عند أوّل تجربة: «market تعمل — ننتظر دورنا» ثم انسحاب. */
+  /* =====================================================================
+     جلسةُ البيانات (`MARKET_DATA_SESSION`) — تحكم **مهمّة الأسعار وحدها**.
+
+     من بدء ما قبل الافتتاح إلى نهاية ما بعد الإغلاق (+‎20‎ دقيقة) يُجلب
+     السعر كل دقيقتين؛ وخارجها لا صفقة تُطبع، فالسعر اللحظي «يهدأ» بدل أن
+     يُعاد كتابةُ الرقم نفسه ليلاً وفي العطلة. ومهمّتا التأكيد والسوق **لا
+     تُحجبان**: المفتاح النهائي بعد الإغلاق ولقطةُ عطلة الأسبوع يحتاجانهما،
+     وكلفتُهما من المخزن طلباتٌ معدودة. والحكم من التقويم الرسمي المخزَّن،
+     وغيابُه يُسقط إلى جداول `session.js` ويُقال في السطر. */
+  if (cmd === "quotes") {
+    const MS = await import("../scripts/lib/market-session.mjs");
+    const cal = MS.readCalendar(DATA);
+    if (!MS.dataSessionOpen(Date.now(), cal)) {
+      const m = MS.marketDataSession(Date.now(), cal);
+      console.log(`  skip: market closed (MARKET_DATA_SESSION=${m.state} · ${m.source}${m.holiday ? " · عطلة" : ""}) — لا أسعار تُجلب`);
+      process.exit(0);
+    }
+  }
   const READ_ONLY = ["replay", "audit", "cmon"];
   if (!READ_ONLY.includes(cmd) && !acquireLock(cmd)) process.exit(0);
   process.on("exit", releaseLock);

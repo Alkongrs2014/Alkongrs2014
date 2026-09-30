@@ -38,7 +38,7 @@ const git = (args, cwd, env) => execFileSync("git", args,
    `logs/` و`replay/` و`audit/` تُستبعد في اللقطة نفسها: تشخيصٌ محلّي لا
    تطلبه الواجهة (21 م.ب كانت تُنشر كل دقيقتين). */
 export const NO_PUBLISH = new Set([".run.lock", ".publish.lock", ".run.skips.json", "i18n.json", "cik.json",
-  "opportunities-log.json", ".opportunities.tmp.json", ".archive", ".monitor"]);
+  "opportunities-log.json", ".opportunities.tmp.json", ".archive", ".monitor", "bars", "market-calendar.json"]);
 
 /* =====================================================================
    بوّابتا الدفترين — كما كانتا في `run.mjs` حرفياً، على **مجلّدٍ مُمرَّر**.
@@ -50,9 +50,27 @@ export function dupSymbols(rows) {
   for (const r of rows || []) { if (seen.has(r.s)) dup.add(r.s); seen.add(r.s); }
   return [...dup];
 }
-export function validateStocks(dir) {
+export function validateStocks(dir, opt = {}) {
   const read = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
   const sum = read("summary.json"), mkt = read("market.json");
+  /* =====================================================================
+     المصدر — لقطةٌ مختلطة المصادر لا تُنشر، في كل نشر.
+     ومع `requireProvider` (يمرّره المجدول الحيّ): كلُّ صفٍّ من ذلك المصدر،
+     و`meta.providers` يشهد له **من الطلبات الفعلية** بلا طلبٍ واحد على
+     `iex`. الاحتياط الصريح (`STOCK_FALLBACK=yahoo`) لا يُنشر إلا إن فُتح
+     في مهمّة النشر نفسها — قرارٌ مقصود في موضعين لا انزلاقٌ صامت.
+     ===================================================================== */
+  const srcs = [...new Set((sum.rows || []).map((r) => r.src || "?"))];
+  if (srcs.length > 1) throw new Error(`لقطةٌ مختلطة المصادر: ${srcs.join(" + ")} — مرفوض`);
+  if (opt.requireProvider && process.env.STOCK_FALLBACK !== "yahoo") {
+    if (srcs[0] !== opt.requireProvider)
+      throw new Error(`مصدر الصفوف ${srcs[0]} لا ${opt.requireProvider} — مرفوض`);
+    const pv = (() => { try { return read("meta.json").providers; } catch { return null; } })();
+    if (!pv || pv.primary !== opt.requireProvider)
+      throw new Error(`meta.providers.primary = ${pv && pv.primary} — مرفوض`);
+    if ((pv.feeds && pv.feeds.iex) > 0) throw new Error(`طلبات iex في دورة السوق: ${pv.feeds.iex} — مرفوض`);
+    if ((pv.fallbacks || []).length) throw new Error(`احتياطٌ مستعمَل في دورة السوق (${pv.fallbacks.length}) — مرفوض`);
+  }
   if (!Array.isArray(sum.rows) || sum.rows.length < 40)
     throw new Error(`summary.json فيه ${(sum.rows || []).length} صفاً فقط — مرفوض`);
   const bad = sum.rows.filter((r) => !r.s || !Number.isFinite(r.p) || r.p <= 0);
@@ -192,7 +210,7 @@ export async function publishData(opts = {}) {
     /* ٢) لقطةٌ واحدة تحت قفل الكاتب — ما يُفحص هو ما يُنشر. */
     stage = await takeSnapshot({ src: dataDir, job: "publish" });
     let info;
-    try { info = validateStocks(stage); }
+    try { info = validateStocks(stage, { requireProvider: opts.requireProvider }); }
     catch (e) { return res(false, "invalid", "الأسهم لم تجتز البوّابة: " + e.message); }
 
     work = fs.mkdtempSync(path.join(os.tmpdir(), "webtrade-remote-"));

@@ -19,7 +19,9 @@ import { acquire, release } from "./lockfile.mjs";
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const LIVE_DATA = path.join(ROOT, "data");
 
-const SKIP = new Set(["logs", ".archive", "replay", ".monitor", "audit"]);
+/* `bars` مخزنُ شموع SIP الخام (~40 م.ب): الفاحص يقرأ ما بُني منه في `sym/`،
+   ونسخُه في كل لقطةٍ يُطيل القفل عشرات المرّات بلا قارئ. */
+const SKIP = new Set(["logs", ".archive", "replay", ".monitor", "audit", "bars"]);
 const SKIP_FILE = /^\.(run\.lock|publish\.lock)$|\.tmp(\.json)?$/;
 
 function copyTree(src, dst) {
