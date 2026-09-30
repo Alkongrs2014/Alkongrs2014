@@ -9,6 +9,9 @@ export default defineConfig({
     testTimeout: 180000,
     hookTimeout: 180000,
     pool: "forks",
-    reporters: ["default", ["json", { outputFile: "reports/vitest-report.json" }]]
+    /* في CI: مراسلُ GitHub يكتب اسم الاختبار الساقط وسببه في تعليقات التشغيل —
+       سجلّات Actions تحتاج مصادقة، والتعليقات عامّة (وقع فشلٌ لم يُعرف سببه) */
+    reporters: ["default", ["json", { outputFile: "reports/vitest-report.json" }],
+                ...(process.env.GITHUB_ACTIONS ? ["github-actions"] : [])]
   }
 });
