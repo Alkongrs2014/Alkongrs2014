@@ -7,6 +7,8 @@ export default {
   vitest: { configFile: "vitest.stryker.config.mjs", related: false },
   coverageAnalysis: "perTest",
   mutate: [
+    /* المحرّك V3 — مصدر الفرص (docs/ENGINE_V3_SPEC.md) */
+    "stocks/engine3.js",
     "stocks/score.js",
     "stocks/direction.js",
     "stocks/confluence.js:96-158",

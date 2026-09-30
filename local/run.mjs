@@ -369,53 +369,32 @@ else {
     process.env.OPP_OUT = CRYPTO_DIR;
     fs.mkdirSync(CRYPTO_DIR, { recursive: true });
   }
-  const jobs = cmd === "quotes" ? ["fetch-quotes.mjs", "track-strategies.mjs --only-price", "build-opportunities.mjs"]
-             // التتبّع بعد الشمعات مباشرة: يقرأ summary.json الذي كتبته
-             // للتوّ، بلا أي طلب شبكة — فتُثبَّت الإشارة لحظة ظهورها
-             : cmd === "market" ? ["fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "build-opportunities.mjs", "market-direction.mjs", "fetch-news.mjs"]
-             : cmd === "signals" ? ["track-signals.mjs"]
-             : cmd === "opps" ? ["build-opportunities.mjs"]
-             /* التأكيد السريع: ‎15د‎ للطبقة الحيّة ثم المحرّك ثم اللقطة.
-                يُجدول عند حدّ الشمعة بالضبط، فتصل الشمعةُ الجديدة
-                المستخدمَ في ثوانٍ بدل دقائق. ولا يمسّ السعر اللحظي أيَّ
-                حساب: هو نفسه `fetch-market` بفريمٍ واحد. */
-             : cmd === "confirm" ? ["fetch-market.mjs", "track-strategies.mjs", "build-opportunities.mjs"]
-             /* `scan-ma200-open` آخراً: قائمة مراقبة تقرأ ولا تكتب إلا ملفَّها،
-                وتقرأ درجةَ الفرصة من اللقطة التي كُتبت للتوّ — للعرض وحده. */
-             : cmd === "crypto" ? ["fetch-crypto.mjs", "track-strategies.mjs", "build-opportunities.mjs", "scan-ma200-open.mjs"]
-             // مراقبة الكريبتو المنشور — قراءةٌ وحدها، بلا قفل
-             : cmd === "cmon" ? ["crypto-monitor.mjs"]
-             : cmd === "strategies" ? ["track-strategies.mjs", "build-opportunities.mjs", "market-direction.mjs"]
-             /* توجّه السوق: بلا شبكة — يقرأ ملفات الرموز المكتوبة للتوّ.
-                يلي `track-strategies` لا يسبقه: كلاهما يقرأ نفس الملفات،
-                والترتيب يجعل السجلَّ يُثبَّت قبل أن يُقرأ للعرض. */
+  /* =====================================================================
+     **المحرّك V3 وحده مصدرُ الفرص** (docs/ENGINE_V3_SPEC.md). مهامّ المحرّك
+     القديم (track-signals · track-strategies · build-opportunities ·
+     backtest-strategies · learn · scan-ma200-open · crypto-monitor) لم تعد
+     تُشغَّل — نسختُها في legacy_strategy_engine/ أرشيفٌ لا يدخل أيّ قرار.
+     `build-trades` يلي `fetch-market` مباشرةً: يقرأ مخزن SIP الذي حدّثه للتوّ.
+     و`market-direction` باقٍ لشاشة «السوق» وحدها ولا يدخل قرار الفرص.
+     ===================================================================== */
+  const jobs = cmd === "quotes" ? ["fetch-quotes.mjs"]
+             : cmd === "market" ? ["fetch-market.mjs", "build-trades.mjs", "market-direction.mjs", "fetch-news.mjs"]
+             : (cmd === "opps" || cmd === "trades") ? ["build-trades.mjs"]
+             : cmd === "confirm" ? ["fetch-market.mjs", "build-trades.mjs"]
+             /* الكريبتو: بياناتٌ فقط حتى يُنقل إلى V3 بما يناسب سوقاً بلا جلسات —
+                لا فرص من المحرّك القديم */
+             : cmd === "crypto" ? ["fetch-crypto.mjs"]
+             : ["cmon", "signals", "strategies", "stratbt", "backtest", "learn", "replay", "audit"].includes(cmd) ? []
              : cmd === "mdir" ? ["market-direction.mjs"]
-             // الأرشيف اللحظي: 60 يوماً من 15د لكل رمزٍ مرصود (~220
-             // طلباً). نافذته أقصر بكثير من الأرشيف اليومي لأن ياهو لا
-             // يعطي فريماً لحظياً أبعد من ذلك — وهو حدٌّ معلن لا خيار.
-             : cmd === "stratbt" ? ["backtest-strategies.mjs"]
-             /* إعادةُ التشغيل والتدقيق يأخذان وسائطَهما كما هي:
-                `run.mjs replay --date=2026-09-14 --engine=new` */
-             : cmd === "replay" ? ["replay.mjs " + rest.join(" ")]
-             : cmd === "audit" ? ["audit-missed.mjs " + rest.join(" ")]
              : cmd === "news"   ? ["fetch-news.mjs"]
-             // الأرشيف مع الدورة اليومية: يجلب خمس سنوات لكل رمز (~500
-             // طلب) فلا مكان له في دورة عشر دقائق، ونتيجته لا تتغيّر
-             // بمعدّل أسرع من يوم على أي حال
-             : cmd === "daily"  ? ["fetch-calendar.mjs", "fetch-daily.mjs", "fetch-events.mjs", "backtest.mjs", "backtest-strategies.mjs", "analytics.mjs", "learn.mjs"]
+             : cmd === "daily"  ? ["fetch-calendar.mjs", "fetch-daily.mjs", "fetch-events.mjs", "analytics.mjs"]
              : cmd === "calendar" ? ["fetch-calendar.mjs"]
              : cmd === "events" ? ["fetch-events.mjs"]
-             : cmd === "backtest" ? ["backtest.mjs"]
-             : cmd === "learn"  ? ["learn.mjs"]
-            : cmd === "analytics" ? ["analytics.mjs"]
-             // الخيارات دورة نصف ساعة مستقلة: كل رمز يحتاج طلباً لكل
-             // استحقاق، وسلسلة العقود لا تتغيّر بمعدّل الشمعة
+             : cmd === "analytics" ? ["analytics.mjs"]
              : cmd === "options" ? ["fetch-options.mjs"]
-             // الإيداعات دورةٌ مستقلّة كذلك: تصل على مدار الساعة بوتيرةٍ لا
-             // علاقة لها بدورة الأسعار، ولا تحتاج مفتاحاً ولا حصّة — فدمجُها
-             // في دورة السوق يجعلها تتقاسم قفلاً وميزانيةً بلا سبب
              : cmd === "filings" ? ["fetch-filings.mjs"]
-             : ["fetch-daily.mjs", "fetch-events.mjs", "fetch-market.mjs", "track-signals.mjs", "track-strategies.mjs", "market-direction.mjs", "fetch-news.mjs", "fetch-filings.mjs", "fetch-options.mjs", "backtest.mjs", "backtest-strategies.mjs", "analytics.mjs", "learn.mjs"];
+             : ["fetch-daily.mjs", "fetch-events.mjs", "fetch-market.mjs", "build-trades.mjs", "market-direction.mjs", "fetch-news.mjs", "fetch-filings.mjs", "fetch-options.mjs", "analytics.mjs"];
+  if (!jobs.length) { console.log(`— ${cmd}: لا مهامّ (أُوقفت مع المحرّك القديم)`); process.exit(0); }
 
   // `acquireLock` تنتظر دورها أولاً، ولا تصل هنا إلا بعد استنفاد سقف
   // الانتظار. والانسحاب حينها ليس فشلاً — نخرج بصفر حتى لا تُعلَّم المهمة

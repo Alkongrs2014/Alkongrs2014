@@ -24,8 +24,7 @@ export function captureFailure({ source, check, dataDir = null, extra = null }) 
     fs.writeFileSync(path.join(out, "failure.json"), JSON.stringify({
       source, at: new Date().toISOString(), commit: commit(), check, extra }, null, 2));
     if (dataDir && fs.existsSync(dataDir)) {
-      for (const f of ["summary.json", "opportunities.json", "strategies.json", "meta.json", "market-dir.json",
-                       "crypto/summary.json", "crypto/opportunities.json"]) {
+      for (const f of ["summary.json", "trades.json", "meta.json", "market-dir.json", "crypto/summary.json"]) {
         const p = path.join(dataDir, f);
         if (fs.existsSync(p)) { fs.mkdirSync(path.dirname(path.join(out, "data", f)), { recursive: true }); fs.copyFileSync(p, path.join(out, "data", f)); }
       }

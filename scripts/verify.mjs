@@ -61,18 +61,19 @@ async function dataCheck() {
   } catch { /* يسقط إلى الفرع */ }
   const base = `https://raw.githubusercontent.com/${REPO}/${dsha || "data"}/`;
   const now = Date.now();
-  for (const [book, sub] of [["stocks", ""], ["crypto", "crypto/"]]) {
-    for (const f of ["summary.json", "opportunities.json", "strategies.json", "market.json"]) {
+  /* الأسهم: صفقات المحرّك V3 (trades.json). الكريبتو: بياناتٌ فقط حتى نقله إلى V3. */
+  for (const [book, sub, files] of [["stocks", "", ["summary.json", "trades.json", "market.json"]],
+                                    ["crypto", "crypto/", ["summary.json", "market.json"]]]) {
+    for (const f of files) {
       try {
         const doc = JSON.parse(await get(base + sub + f));
         const e = validateDoc(BOOK_SCHEMAS[book][f], doc);
         add(`data.schema.${book}.${f}`, !e.length, e.slice(0, 2).join(" · "));
-        if (f === "opportunities.json") {
-          const grid = book === "stocks" ? 900 : 300;
-          add(`data.grid.${book}`, doc.candleKey % grid === 0, "candleKey=" + doc.candleKey);
-          const age = Math.round((now - doc.generatedAt) / 60000);
+        if (f === "trades.json") {
+          add("data.grid.stocks", doc.candleKey % 900 === 0, "candleKey=" + doc.candleKey);
+          const age = Math.round((now - Date.parse(doc.generatedAt)) / 60000);
           /* الطزاجة تحذيرٌ لا حرج: توقّفُ الجهاز قيدُ بنيةٍ تحتية لا خللٌ في الحساب */
-          add(`data.fresh.${book}`, age <= (book === "crypto" ? 30 : 60 * 72), `عمر اللقطة ${age} دقيقة`, "WARNING");
+          add("data.fresh.stocks", age <= 60 * 72, `عمر اللقطة ${age} دقيقة`, "WARNING");
         }
       } catch (e) { add(`data.read.${book}.${f}`, false, e.message); }
     }

@@ -40,21 +40,18 @@ async function source() {
 }
 
 function determinism(dir) {
-  const out = [];
-  for (const [book, env] of [["stocks", { OPP_OUT: dir }],
-                             ["crypto", { BOOK: "crypto", OPP_BAR_SEC: "300", OPP_OUT: path.join(dir, "crypto") }]]) {
-    if (book === "crypto" && !fs.existsSync(path.join(dir, "crypto", "strategies.json"))) continue;
-    const r = spawnSync(process.execPath, [path.join(ROOT, "scripts/lib/determinism-child.mjs"), dir],
-      { encoding: "utf8", env: { ...process.env, ...env }, timeout: 300000, maxBuffer: 16 << 20 });
-    try {
-      const j = JSON.parse((r.stdout || "").trim().split("\n").pop());
-      for (const c of j.checks) out.push({ ...c, id: c.id + "." + book, sev: c.sev || "CRITICAL" });
-    } catch {
-      out.push({ id: "determinism." + book, inv: "INV-20", sev: "CRITICAL", ok: false,
-                 detail: "تعذّر التشغيل: " + (r.stderr || "").trim().split("\n").slice(-2).join(" ") });
-    }
+  /* INV-20/24 للمحرّك V3: بناءان مستقلّان من نفس مخزن SIP بنفس الساعة ⇒ نفس
+     البصمة حرفياً. المخزن خارج اللقطة (40 م.ب)، فيُقرأ من data/bars للقراءة
+     وحدها؛ وغيابُه (المثبّتات · المنشور) يُتخطّى ويُقال. */
+  const r = spawnSync(process.execPath, [path.join(ROOT, "scripts/lib/determinism-v3.mjs"), dir],
+    { encoding: "utf8", timeout: 300000, maxBuffer: 16 << 20 });
+  try {
+    const j = JSON.parse((r.stdout || "").trim().split("\n").pop());
+    return j.checks.map((c) => ({ ...c, sev: c.sev || "CRITICAL" }));
+  } catch {
+    return [{ id: "determinism.v3", inv: "INV-20", sev: "CRITICAL", ok: false,
+              detail: "تعذّر التشغيل: " + (r.stderr || "").trim().split("\n").slice(-2).join(" ") }];
   }
-  return out;
 }
 
 /* الطزاجة — WARNING: توقّفُ المجدول قيدُ بنيةٍ تحتية لا خللُ حساب */

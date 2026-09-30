@@ -642,6 +642,24 @@ body.sheet-open{overflow:hidden}
 .opp-hit span{font-size:11.5px;font-weight:700;color:var(--up);background:var(--upBg);
   border:1px solid rgba(43,217,138,.24);border-radius:var(--r-pill);padding:3px 10px}
 #cEnded .good{color:var(--up)} #cEnded .cold{color:var(--tx3)}
+/* المحرّك V3 — سببُ الدرجة ظاهرٌ في البطاقة: كلُّ استراتيجيةٍ بوزنها ✓/✗ */
+.v3sc{display:flex;gap:11px;align-items:stretch;padding:2px 14px 10px;position:relative;z-index:2}
+.v3q{flex:none;min-width:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--s2);border:1px solid var(--hair);border-radius:var(--r-sm);padding:8px}
+.v3q b{font-size:21px;font-weight:800;letter-spacing:-.5px;color:var(--acc)}
+.v3q i{font-style:normal;font-size:10.5px;color:var(--tx3);margin-top:2px;text-align:center}
+.v3els{flex:1;min-width:0;display:grid;gap:6px}
+.v3els .gh{font-size:10.5px;color:var(--tx3);font-weight:700;margin-bottom:2px}
+.v3els .it{font-size:12px;color:var(--tx3);display:flex;gap:6px;align-items:baseline;line-height:1.45;flex-wrap:wrap}
+.v3els .it.on{color:var(--tx)}
+.v3els .it .mk{flex:none;width:12px;font-weight:800}
+.v3els .it.on .mk{color:var(--up)}
+.v3els .it small{color:var(--tx2);font-size:10.5px}
+.v3plan{display:flex;flex-wrap:wrap;gap:6px 12px;padding:0 14px 11px;font-size:12px;position:relative;z-index:2}
+.v3plan span{white-space:nowrap}
+.v3plan .k{color:var(--tx3)}
+.v3plan .hit{color:var(--up);font-weight:700}
+.v3note{font-size:11.5px;color:var(--tx2);border-inline-start:2px solid var(--acc);padding:2px 9px;margin:0 0 10px}
 /* فاصلُ الفئتين في «الفرص الآن»: الجديدةُ أولاً ثم المستمرّة — عنوانٌ لا بطاقة،
    فلا تعدّه أدواتُ الإثبات صفّاً (`.srow`) */
 .opp-grp{font-size:11.5px;font-weight:700;color:var(--tx2);margin:14px 2px 8px;
@@ -1359,7 +1377,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   <div class="card" id="cardTopOpp">
     <div class="schead" style="margin-bottom:10px">
       <h2 style="margin:0">أبرز الفرص الآن</h2>
-      <button class="chip acc" id="topOppMore" style="cursor:pointer;font-family:inherit;border:1px solid rgba(34,211,197,.28)">كلُّ المسوح ‹</button>
+      <button class="chip acc" id="topOppMore" style="cursor:pointer;font-family:inherit;border:1px solid rgba(34,211,197,.28)">كلُّ الفرص ‹</button>
     </div>
     <div id="topOpp"><div class="skl" style="height:74px"></div>
       <div class="skl" style="height:74px;margin-top:9px"></div></div>
@@ -1536,29 +1554,10 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   </div>
 
   <div class="card" data-grp="plan" id="cardPlan">
-    <h2>خطة صفقة مقترحة</h2>
-    <p class="hint">مبنية على الدعم والمقاومة و ATR — نقطة بداية تُعدّلها، لا توصية</p>
+    <h2>صفقة المحرّك V3</h2>
+    <p class="hint">الدخول والوقف والأهداف تُثبَّت لحظة التأكيد على شمعةٍ مغلقة — ولا تُحذف الصفقة بعد الدخول</p>
     <div id="planOut"></div>
     <div id="planLevels"></div>
-    <details>
-      <summary>من أين جاءت هذه الأرقام؟</summary>
-      <p><b>اتجاه الخطة:</b> من النتيجة الفنية للسهم. تحت ‎−15‎ نقطة تُبنى الخطة هبوطاً،
-      وما فوقها صعوداً. الخطة الصاعدة والهابطة مرآة إحداهما للأخرى: كل ما يلي مقلوبٌ
-      في الهبوط — تُقرأ «الدعم» مقاومةً و«فوق» تحتَ.</p>
-      <p><b>منطقة الشراء:</b> أقرب دعم تحت السعر. الشراء عند الدعم يجعل وقف الخسارة قريباً،
-      فتكون الخسارة المحتملة أصغر مقابل نفس الهدف. وفي خطة الهبوط هي <b>منطقة البيع</b>:
-      أقرب مقاومة فوق السعر.</p>
-      <p><b>وقف الخسارة:</b> خلف الحاجز بمقدار نصف ATR — لا عنده بالضبط. الوقف الملاصق
-      للحاجز يُضرب بالتذبذب الطبيعي حتى لو كان التحليل صحيحاً. تحت الدعم في الصعود،
-      وفوق المقاومة في الهبوط.</p>
-      <p><b>الهدف:</b> أقرب مقاومة فوق الدخول في الصعود، وأقرب دعم تحته في الهبوط. لو كان
-      الحاجز قريباً جداً بحيث لا يستحق العائد المخاطرة، يُعرض ذلك صراحةً بدل تضخيم الهدف
-      ليبدو الرقم جميلاً.</p>
-      <p><b>العائد مقابل المخاطرة:</b> كم دولاراً تربح مقابل كل دولار تخاطر به. تحت 1.5
-      تعني أن الصفقة تحتاج نسبة نجاح عالية جداً كي تربح على المدى الطويل.</p>
-      <p>هذه أرقام محسوبة من حركة السعر وحدها. لا تعرف شيئاً عن أخبار الشركة ولا عن وضعك
-      المالي، وليست توصية بالشراء ولا بالبيع.</p>
-    </details>
   </div>
 
   <div class="card" data-grp="plan">
@@ -1627,7 +1626,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
        كذلك بجواره. والمعرّف المكرّر يعيد أوّلَ عنصرٍ في المستند لكل
        `$("#…")` — فتُرسم بطاقةٌ في شاشةٍ أخرى بلا أيّ خطأ ظاهر. -->
   <div class="card" data-grp="tech" id="cardScans" style="display:none">
-    <h2>الاستراتيجيات</h2>
+    <h2>الاستراتيجيات الخمس الآن</h2>
     <p class="hint" id="scansHint"></p>
     <div id="scansOut"></div>
   </div>
@@ -1867,8 +1866,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
     <h2>تنبيه</h2>
     <p class="hint">ينبّهك عند بلوغ سعرٍ تحدده أو تحقّق شرطٍ من شروط الماسح — يعمل ما دام التطبيق مفتوحاً</p>
     <div class="fld"><label>نوع التنبيه</label>
-      <select id="aKind"><option value="price">سعر يبلغه السهم</option>
-        <option value="scan">شرطٌ يتحقّق على السهم</option></select></div>
+      <select id="aKind"><option value="price">سعر يبلغه السهم</option></select></div>
     <div class="grid2" id="aPriceRow">
       <div class="fld"><label>السعر</label><input id="aPrice" type="number" inputmode="decimal"></div>
       <div class="fld"><label>الاتجاه</label>
@@ -1894,7 +1892,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
     <div class="sticky-hd">
       <div class="schead" style="margin-bottom:9px">
         <h2 style="margin:0">فرص الكريبتو</h2>
-        <span class="chip live">يعمل ٢٤/٧</span>
+        <span class="chip">قيد النقل إلى V3</span>
       </div>
       <div class="scans" id="cScanPicker"></div>
     </div>
@@ -1931,6 +1929,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
     <div class="sticky-hd">
       <div class="schead" style="margin-bottom:9px">
         <h2 style="margin:0">الفرص الآن</h2>
+        <span class="chip">المحرّك V3</span>
         <!-- نوعُ السوق مرشّحُ عرضٍ لا مدخلُ حساب: يصفّي صفوف اللقطة ولا
              يعيد ترتيبها. والقيمةُ تبقى في `<select>` مخفيّ كي يقرأها
              `renderScreen` كما كان بلا تفريعٍ ثانٍ لمصدر الحالة. -->
@@ -1953,17 +1952,23 @@ section[data-view="now"].on{display:flex;flex-direction:column}
     <!-- التصدير خارج الكاشف: زرٌّ داخل قسمٍ مطويّ زرٌّ لا يجده أحد -->
     <button class="btn gray" id="scanExport" style="display:none"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg>تصدير نتائج الماسح CSV</button>
     <details class="plain" id="scanAbout">
-      <summary>عن هذا الشرط وحافّته المقيسة</summary>
+      <summary>كيف تُحسب الفرصة وقوة التوافق؟</summary>
       <p class="scan-why" id="scanWhy" style="margin:0 0 9px;padding:0"></p>
+      <!-- المحرّك V3 (docs/ENGINE_V3_SPEC.md) — أوزانٌ ثابتة بقرار المالك -->
+      <p><b>الفرصة تتولّد من إحدى الاستراتيجيتين الأساسيتين:</b> عبورُ قمة أو قاع أمس بجسم شمعة
+      15 دقيقة مغلقة (افتتاحها في جهة وإغلاقها في الأخرى — لا لمسٌ بالذيل)، أو انقلابُ المتوسطات
+      (EMA 20/50/200 على فريم الساعة) إلى ترتيبٍ كامل شراءً أو بيعاً.</p>
+      <p><b>قوة التوافق</b> مجموعُ أوزان الاستراتيجيات المتوافقة مع جهة الصفقة:
+      قمة/قاع أمس ‎40%‎ · المتوسطات ‎40%‎ · الاتجاه ‎6.67%‎ · VWAP ‎6.67%‎ · قمة/قاع الأسبوع السابق ‎6.66%‎.
+      <b>ليست نسبة نجاح</b> — ‎100%‎ تعني أن الخمس متوافقة، لا أن الصفقة مضمونة.</p>
+      <p><b>الدخول</b> إغلاقُ شمعة التأكيد، و<b>الوقف</b> آخرُ قاعٍ مؤكَّد على فريم الساعة (قمّةٍ في البيع)،
+      و<b>الأهداف</b> المستويات الحقيقية أمام الصفقة بعائدٍ لا يقلّ عن مرّة المخاطرة، ويُكمَّل ما نقص
+      بمضاعفات المخاطرة ويُوسم بذلك.</p>
+      <p><b>بعد الدخول لا تُحذف الصفقة</b> لتغيّر أيّ استراتيجية — تُعرض تحذيراً فقط، وتنتهي بالوقف أو
+      آخر هدف أو خمس جلسات.</p>
+      <p class="srcline" style="text-align:start">كلُّ القرارات على شموعٍ مغلقة من Alpaca SIP.
+      المحرّكان السابقان محفوظان أرشيفاً ولا يدخلان في هذه الفرص.</p>
       <div id="scanHist"></div>
-      <!-- أهمّ ما يميّز هذه الشاشة أن حافّة كل شرط **مقيسة ومعروضة**،
-           بما فيها السالبة. ومن لا يقرأ ذلك يظنّها قائمة توصيات كأيّ قائمة. -->
-      <p class="srcline" style="border-inline-start:2px solid var(--acc);padding-inline-start:9px;
-        text-align:start;margin-top:10px">
-        كلُّ شرطٍ هنا مقيسٌ على أرشيف عشر سنوات، و<b>حافّتُه معروضة كما خرجت</b> —
-        موجبةً كانت أو سالبة. أكثرُ الشروط تحقّقاً هو أسوأُها حافّةً، وهذا مكتوبٌ
-        بجانبه لا مخفيّ.
-      </p>
     </details>
   </div>
 
@@ -2240,8 +2245,8 @@ section[data-view="now"].on{display:flex;flex-direction:column}
 <!-- ================= السجل ================= -->
 <section data-view="log">
   <div class="card">
-    <h2>سجل الصفقات</h2>
-    <p class="hint">كل إشارة كما صدرت لحظتها — لا كما تُحسب اليوم — ثم ما حدث لها بعد ذلك</p>
+    <h2>سجل المحرّك القديم (أرشيف)</h2>
+    <p class="hint">إشاراتُ المحرّك السابق كما صدرت لحظتها — أرشيفٌ مجمَّد لا يُضاف إليه. فرص المحرّك V3 وصفقاتُه المغلقة في شاشة «الفرص»</p>
     <div id="logStats"><div class="skl" style="height:120px"></div></div>
   </div>
 
@@ -3004,52 +3009,34 @@ function gaugeArc(sc, col) {
    والرمزُ الواحد قد يتحقّق فيه شرطان، فيُعرض مرّةً بأقواها. */
 function renderTopOpp() {
   const el = $("#topOpp"); if (!el) return;
-  const O = state.opps;
   const src = $("#topOppSrc");
-  if (!O || !O.scans) {
-    el.innerHTML = `<div class="skl" style="height:74px"></div>
-      <div class="skl" style="height:74px;margin-top:9px"></div>`;
-    if (src) src.textContent = "لقطة الفرص تُجلب…";
+  const T = TRADES;
+  if (!T) {
+    el.innerHTML = `<div class="skl" style="height:74px"></div><div class="skl" style="height:74px;margin-top:9px"></div>`;
+    if (src) src.textContent = "صفقات المحرّك V3 تُجلب…";
     return;
   }
-  const best = {};
-  for (const id of Object.keys(O.scans)) {
-    const sc = SCANS.find(x => x.id === id);
-    for (const r of O.scans[id] || []) {
-      if (!Number.isFinite(r.q)) continue;
-      /* الجديدةُ تغلب المستمرّة للرمز نفسه، ثم الدرجة */
-      const cur = best[r.s], fN = r.fr === 1 ? 1 : 0, fC = cur && cur.r.fr === 1 ? 1 : 0;
-      if (!cur || fN > fC || (fN === fC && r.q > cur.r.q)) best[r.s] = { r, lbl: sc ? sc.lbl : id };
-    }
-  }
-  /* «أبرز الفرص الآن»: الجديدةُ أولاً — مستمرّةٌ منذ أيام لا تُعرض كأنها رصدُ الآن */
-  const top = Object.values(best).sort((a, b) => ((b.r.fr === 1) - (a.r.fr === 1)) || (b.r.q - a.r.q)).slice(0, 3);
+  const top = (T.open || []).slice(0, 3);          // ترتيبُ الخادم نفسه — الأعلى توافقاً
   if (!top.length) {
-    el.innerHTML = `<div class="empty" style="padding:18px">لا فرصةٌ مطابقةٌ لأيّ شرط الآن — وهذا نتيجة صحيحة لا عطل</div>`;
+    el.innerHTML = `<div class="empty" style="padding:18px">لا صفقة مفتوحة من المحرّك V3 الآن — وهذه نتيجة صحيحة لا عطل</div>`;
     if (src) src.textContent = ""; return;
   }
-  const liveBy = {};
-  for (const r of (state.summary ? state.summary.rows : [])) liveBy[r.s] = r;
-  el.innerHTML = top.map(({ r, lbl }) => {
-    const lr = liveBy[r.s];
-    const px = lr && Number.isFinite(lr.p) ? lr.p : r.pc;
+  el.innerHTML = top.map(t => {
+    const lr = symRow(t.s), D = v3dir(t.d);
     const chg = lr && Number.isFinite(lr.chg) ? lr.chg : null;
-    const dc = r.sd === 1 ? "up" : r.sd === -1 ? "dn" : "neu";
     const ccol = chg === null ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
-    return `<div class="oppm d-${dc}" data-open="${esc(r.s)}">
-      ${monoTile(r.s, r.sec, "sm")}
+    return `<div class="oppm d-${D.c}" data-open="${esc(t.s)}">
+      ${monoTile(t.s, lr && lr.sec, "sm")}
       <div class="g">
-        <div class="t">${esc(nm(r))}<span class="tick">${esc(r.s)}</span></div>
-        <div class="s">${r.fr === 1 ? `<b style="color:var(--up)">جديدة</b> · ` : r.fr === 0 ? `<span style="color:var(--tx3)">مستمرّة</span> · ` : ""}${esc(lbl)} · <span class="num" style="color:${ccol}">${
-          chg === null ? "—" : pct(chg)}</span> · <span class="num">${money(px)}</span></div>
+        <div class="t">${esc(lr ? nm(lr) : t.s)}<span class="tick">${esc(t.s)}</span></div>
+        <div class="s"><b style="color:var(--${D.c})">${D.t}</b> · ${esc(t.evt ? V3_EVT[t.evt] : "انقلاب المتوسطات")} ·
+          دخول <span class="num">${money(t.e)}</span> · <span class="num" style="color:${ccol}">${chg === null ? "—" : pct(chg)}</span></div>
       </div>
-      <div class="q"><b class="num">${Math.round(r.q * 100)}</b><i>درجة</i></div>
+      <div class="q"><b class="num">${v3pct(t.score)}</b><i>توافق</i></div>
     </div>`;
   }).join("");
   $$("#topOpp [data-open]").forEach(x => x.onclick = () => openSymbol(x.dataset.open));
-  if (src) src.textContent = Number.isFinite(O.candleKey)
-    ? `الجديدة أولاً ثم أعلى الدرجات في لقطة ${stamp(O.candleKey * 1000)} — بترتيب الخادم نفسه، بلا إعادة حساب`
-    : "";
+  if (src) src.textContent = `الأعلى قوّة توافق من صفقات المحرّك V3 على إغلاق شمعة ${stamp(T.candleKey * 1000)} — قوة التوافق ليست نسبة نجاح`;
 }
 
 function renderNow() {
@@ -3514,7 +3501,7 @@ async function openSymbol(sym) {
   /* الاستراتيجيتان تُطلبان معاً ولا تُنتظران هنا: `renderStrategies`
      تُخفي بطاقتها حتى يجيب `consReady`، فلا تُرسم جهةٌ تُنقض —
      وبقيةُ الشاشة لا تنتظرهما. */
-  need("strategies.json"); need("strategy-edge.json");
+  need("trades.json");
   go("detail");
   // سهمٌ جديد يبدأ من «الخطة»: بقاءُ المجموعة السابقة يفتح شاشةَ سهمٍ
   // على «العقود» لرمزٍ بلا عقود، فتبدو الشاشة فارغة
@@ -5223,31 +5210,21 @@ function renderCryptoEnded() {
    إلا في دفتره باسمه. يعمل 24/7: لا بوّابة «السوق مغلق» هنا. */
 let cryptoBusy = false;
 async function refreshCrypto() {
+  /* الكريبتو: بياناتٌ فقط حتى يُنقل إلى المحرّك V3 — لا لقطة فرص ولا مراقبة
+     من المحرّك القديم (أرشيف). */
   if (cryptoBusy) return;
   cryptoBusy = true;
   try {
-    const [sum, mkt, opp] = await Promise.all(
-      ["summary.json", "market.json", "opportunities.json"].map(f => getJSON("crypto/" + f)));
+    const [sum, mkt] = await Promise.all(["summary.json", "market.json"].map(f => getJSON("crypto/" + f)));
     if (!sum || !Array.isArray(sum.rows) || !sum.rows.length) throw new Error("ملخّص الكريبتو فارغ");
     put("crypto", "summary", sum); put("crypto", "market", mkt); put("crypto", "symCache", {});
-    if (oppsNewer(bookGet("crypto", "opps"), opp)) put("crypto", "opps", opp);
     BOOKS.cryptoErr = null;
-    getJSON("crypto/opp-history.json").then(h => { BOOKS.cryptoHist = h; if (state.view === "crypto") renderCryptoEnded(); })
-      .catch(() => {});
-    /* قائمة مراقبة «افتتاح 5m عند خط 200» — ملفٌّ مستقلّ لا يمسّ اللقطة.
-       حارسُ رتابة كاللقطة: نسخةٌ أقدم من حافّةٍ أخرى لا تُرجع القائمة شمعة. */
-    getJSON("crypto/ma200-open.json").then(m => {
-      const cur = BOOKS.cryptoMa200;
-      if (!m || !Array.isArray(m.rows) || (cur && m.bar < cur.bar)) return;
-      BOOKS.cryptoMa200 = m;
-      if (state.view === "crypto" && state.scan === "ma200") renderScreen();
-    }).catch(e => diag("crypto", "تعذّر جلب قائمة خط 200", e && e.message));
   } catch (e) {
     BOOKS.cryptoErr = e.message;
     diag("crypto", "تعذّر جلب دفتر الكريبتو", e && e.message);
   } finally { cryptoBusy = false; }
   if (state.book !== "crypto") return;
-  if (state.view === "crypto") { renderScreen(); renderCryptoRegime(); renderCryptoEnded(); }
+  if (state.view === "crypto") renderScreen();
   else if (state.sym) { try { await getSymbol(state.sym); renderDetail(); } catch (e) {} }
 }
 
@@ -5274,6 +5251,16 @@ const LAZY = {
     if (state.view === "screen") renderScreen();
     // الرئيسية تعرض أبرزَ ثلاثٍ من نفس اللقطة، فتُحدَّث حين تصل
     if (state.view === "now") renderTopOpp();
+  },
+  /* صفقات المحرّك V3 — مصدرُ الفرص الوحيد. تُبنى على الخادم عند إغلاق كل
+     شمعة 15د، والمتصفّح يعرضها كما هي. حارسُ الرتابة: لا تُقبل لقطةٌ أقدم. */
+  "trades.json": (j) => {
+    if (!j || !Array.isArray(j.open)) return;
+    if (TRADES && j.candleKey < TRADES.candleKey) return;
+    TRADES = j;
+    if (state.view === "screen") renderScreen();
+    if (state.view === "now") renderTopOpp();
+    if (state.sym) { const r = state.symCache[state.sym] || { s: state.sym }; renderStrategies(r); renderPlan(r); }
   },
   "strategies.json": (j) => {
     if (!j || !Array.isArray(j.rows)) return;
@@ -5345,6 +5332,7 @@ const LAZY_TTL = {
      الإغلاق بدورة سوق. فالصلاحية قصيرة والملفّ لا يتغيّر إلا حين
      يتغيّر فعلاً — فإعادةُ الجلب رخيصة ونادرةُ الأثر. */
   "opportunities.json": 60e3,
+  "trades.json": 60e3,
   "strategies.json": 90e3,
   "strategy-edge.json": 6 * 3600e3, // يُبنى مع الدورة اليومية
   "market-dir.json": 5 * 60e3       // يُكتب مع دورة السوق (عشر دقائق)
@@ -5536,109 +5524,28 @@ function renderTfTable(rec) {
       تؤيّد هذه الطريقةُ الخطةَ المعروضة؟».
    ===================================================================== */
 function renderStrategies(rec) {
+  /* الاستراتيجيات الخمس للمحرّك V3 على هذا السهم **الآن** — لقطةُ الخادم عند
+     آخر شمعة مغلقة. توافقٌ حاليّ لا فرصة: الفرصة تحتاج حدثاً أساسياً. */
   const card = $("#cardScans"), el = $("#scansOut"), hint = $("#scansHint");
   if (!card || !el) return;
-  // الإفراغ عند الإخفاء: بطاقةٌ مخفيّة تحتفظ بأرقام السهم السابق، وأيُّ
-  // مسارٍ يُظهرها بلا إعادة رسم يعرض رمزاً على شاشة رمزٍ آخر
-  const hide = (why) => { el.innerHTML = ""; if (hint) hint.textContent = ""; card.style.display = "none"; card._why = why; };
-
-  const snap = consSnapshot(rec.s);
-  if (!snap) { hide("لم يصل strategies.json"); return; }
-  const { res, cons } = snap;
-  const S_ = scsFrom(cons);
-  const so = snapOpp(rec.s);
-  const od = so ? null : (state.opps ? null : oppDirOf(symRow(rec.s)));
-  const sd = so ? so.sd : (od ? od.dir : null);
-
-  const fam = (id) => (STRAT_BY_ID[id] && FAMS[STRAT_BY_ID[id].fam]) || "";
-  const now = Date.now();
-
-  /* =====================================================================
-     العشر كلُّها تُعرض، لا ما ظهر في اللقطة وحده.
-
-     `strategies.json` يحفظ صفّاً لِما له **جهة** فقط (`!r.dir` ⇒
-     `continue` في `track-strategies`) — فبناءُ البطاقة من صفوفه يعطي
-     أربعة صفوف من عشرة، ويُقرأ «الست الباقية غير موجودة» بدل «الست
-     الباقية لم تُطلق». وهو نفس خطأ «وسمُ ما لا يعمل يملأ القائمة بلا
-     شيء ويُقرأ عطلاً» مقلوباً: إخفاءُ ما يعمل يُقرأ نقصاً.
-
-     فالقائمة تُبنى من `STRATEGIES` ويُدمج فوقها المحفوظ. والغائب
-     يُسمّى «بلا إشارة» لا «متعذّر»: اللقطة لا تفرّق بين «قُيّم فلم
-     يُطلق» و«تعذّر تقييمه»، والادّعاء بأحدهما كذبٌ في الحالتين —
-     ويُقال ذلك في سطر المصدر صراحةً. */
-  const byId = {};
-  for (const r of res) if (!String(r.id).startsWith("_q")) byId[r.id] = r;
-  const rank = (r) => {
-    if (!r.seen) return 3;
-    if (!r.dir || !r.active) return 2;
-    return (sd && r.dir === sd) ? 0 : 1;
-  };
-  const rows = STRATEGIES.map(st => {
-    const r = byId[st.id];
-    return r ? { ...r, seen: true }
-             : { id: st.id, lbl: st.lbl, fam: st.fam, dir: 0, sc: null,
-                 active: false, at: null, seen: false };
-  }).sort((a, b) => rank(a) - rank(b) || (b.sc || 0) - (a.sc || 0));
-  if (!rows.length) { hide("لا صفوف"); return; }
-
-  const line = (r) => {
-    const meta = STRAT_BY_ID[r.id] || {};
-    let state_, col;
-    if (!r.seen) { state_ = "بلا إشارة"; col = "var(--mut)"; }
-    else if (!r.dir || !r.active) { state_ = "لم تتفعّل"; col = "var(--mut)"; }
-    else if (!sd) { state_ = r.dir > 0 ? "▲ صعود" : "▼ هبوط"; col = r.dir > 0 ? "var(--up)" : "var(--dn)"; }
-    else if (r.dir === sd) { state_ = "متوافقة"; col = "var(--up)"; }
-    else { state_ = "مخالِفة"; col = "var(--dn)"; }
-
-    const sc = Number.isFinite(r.sc) ? r.sc : null;
-    const w = sc === null ? 0 : sc;
-    const since = (r.active && r.at)
-      ? `<span style="color:var(--dim)">منذ ${esc(age(now - r.at * 1000))}</span>` : "";
-    return `<div class="tf">
-      <div class="tf-name">${esc(meta.lbl || r.id)}<small style="display:block;color:var(--dim);font-weight:400">${
-        esc(fam(r.id))}${meta.tf ? " · " + esc(TF_LABEL[meta.tf] || meta.tf) : ""}</small></div>
-      <div class="tf-bar"><div class="tf-fill" style="right:0;width:${w}%;background:${col}"></div></div>
-      <div class="tf-val" style="color:${col}">${state_}${
-        sc === null ? "" : ` <span class="num">${sc}</span>`}</div>
-    </div>${since ? `<div class="n" style="margin:-4px 0 8px;font-size:11.5px">${since}</div>` : ""}`;
-  };
-
-  /* السطر الختامي: الدرجة الموحّدة وأثرها **بالنقاط** لا بوصفٍ مبهم.
-     ومن يقرأ «‎+9‎ نقاط» يعرف ما جرى؛ ومن يقرأ «تعزيز» لا يعرف. */
-  const nOn = rows.filter(r => r.dir && r.active).length;
-  const nOff = rows.filter(r => !r.seen).length;
-  let foot;
-  if (S_.scs === null) {
-    foot = `<div class="note">لا استراتيجية متفعّلة على هذا الرمز الآن — وهذه نتيجة صحيحة لا عطل.</div>`;
-  } else if (S_.mixed) {
-    foot = `<div class="warn">الاستراتيجيات متعارضة (كتلةُ المخالفة فوق الحدّ) — لا جهة،
-      ولا تعديل على درجة الفرصة.</div>`;
-  } else {
-    const q = oppQualityOf(0.5, S_.scs, sd);
-    const pts = Math.round(q.adj * 100);
-    const lb = dirLabelOf(S_.dir, S_.pct);
-    /* الرقم نقاءُ توافقٍ مُطبَّعٌ (نقاء × اتساع)، لا احتمال نجاح — نفس
-       تعريف `scsFrom` في `confluence.js`. `title` توضيحٌ فوريّ بلا
-       إثقال السطر، والجملة الكاملة في `srcline` أسفل البطاقة. */
-    foot = `<div class="note">درجة التوافق:
-      <b style="color:${lb.c}" title="نقاء واتساع توافق الاستراتيجيات — ليست احتمال نجاح">${lb.t} ${S_.pct}%</b> · ${bd(nOn)} متفعّلة من ${bd(rows.length)}
-      ${nOff ? `· ${bd(nOff)} بلا إشارة` : ""} · الثقة ${esc(cons.confT || "—")}
-      ${sd ? `<br>الأثر على درجة الفرصة: <b class="num" style="color:${
-        pts > 0 ? "var(--up)" : pts < 0 ? "var(--dn)" : "var(--mut)"
-      }">${pts > 0 ? "+" : ""}${pts}</b> نقطة من مئة${
-        pts < 0 ? " — الاستراتيجيات تخالف جهة الخطة" : pts > 0 ? " — الاستراتيجيات تؤيّد جهة الخطة" : ""}`
-        : `<br>لا شرط فرصةٍ محقَّق على هذا الرمز، فلا جهةَ تُقارن بها — وهذه معلومة لا نقص.`}</div>`;
-  }
-
-  el.innerHTML = rows.map(line).join("") + foot +
-    `<p class="srcline">لقطةُ الخادم من آخر دورة مسح — لا حسابٌ لحظي.
-     ${state.strategies && state.strategies.updated ? "حُدّثت " + esc(ago(state.strategies.updated)) + ". " : ""}
-     واللقطة تحفظ ما له جهةٌ فقط، فـ«بلا إشارة» تشمل ما قُيّم فلم يُطلق
-     وما تعذّر تقييمه معاً — ولا تُنسب إلى أحدهما.
-     والنسبة أعلاه مقياسُ توافقٍ (نقاء اتفاق الاستراتيجيات × عددها) لا
-     احتمال نجاح إحصائي — سهمٌ بنسبة ٩٠٪ ليس أرجح ٩٠٪ مرّة من مئة
-     تحرّكاً في تلك الجهة.</p>`;
-  if (hint) hint.textContent = "عشرُ قراءاتٍ مستقلّة بجانب محرّك الفرص — تعزّز أو تُضعف، ولا تحلّ محلّه";
+  const b = TRADES && TRADES.bySym && TRADES.bySym[rec.s];
+  if (!b) { el.innerHTML = ""; card.style.display = "none"; if (!TRADES) need("trades.json"); return; }
+  const dirT = (d) => d === 1 ? `<span style="color:var(--up)">شراء</span>` : d === -1 ? `<span style="color:var(--dn)">بيع</span>` : `<span style="color:var(--mut)">محايد</span>`;
+  const lvl = (x) => Number.isFinite(x) ? `<span class="num">${money(x)}</span>` : "—";
+  const evt = (e) => e ? `${esc(V3_EVT[e.evt] || e.evt)} → ${dirT(e.d)}${e.holds ? "" : ` <small style="color:var(--mut)">(السعر عاد عبر المستوى — لا يُحتسب)</small>`}` : `<span style="color:var(--mut)">لا عبور في الفترة</span>`;
+  const tfs = b.trendTf ? ["1h", "4h", "1d"].map(k => `${TF_LABEL[k] || k}: ${dirT(b.trendTf[k])}`).join(" · ") : "";
+  const rows = [
+    ["قمة/قاع أمس — 40%", `قمة ${lvl(b.pdh)} · قاع ${lvl(b.pdl)}<br>آخر عبورٍ اليوم: ${evt(b.day)}`],
+    ["المتوسطات — 40%", `EMA 20/50/200 على الساعة: ${dirT(b.ma)}`],
+    ["الاتجاه — 6.67%", `${dirT(b.trend)}${tfs ? `<br><small>${tfs}</small>` : ""}`],
+    ["VWAP — 6.67%", Number.isFinite(b.vwap) ? `VWAP ${lvl(b.vwap)} · الإغلاق ${Number.isFinite(b.px) ? (b.px > b.vwap ? "فوقه" : b.px < b.vwap ? "تحته" : "عنده") : "—"}` : "—"],
+    ["قمة/قاع الأسبوع السابق — 6.66%", `قمة ${lvl(b.pwh)} · قاع ${lvl(b.pwl)}<br>آخر عبورٍ هذا الأسبوع: ${evt(b.week)}`]
+  ];
+  el.innerHTML = rows.map(([k, v]) => `<div class="row"><div class="l"><b>${k}</b><small>${v}</small></div></div>`).join("") +
+    `<div class="note">توافق الشراء الآن <b class="num">${v3pct(b.up)}</b> · توافق البيع الآن <b class="num">${v3pct(b.dn)}</b>
+     — حالةٌ حالية لا فرصة: الفرصة تتولّد فقط بعبور قمة/قاع أمس بجسم شمعة أو انقلاب المتوسطات.</div>
+     <p class="srcline">لقطةُ الخادم على إغلاق شمعة ${esc(stamp(TRADES.candleKey * 1000))} — شموعٌ مغلقة وحدها.</p>`;
+  if (hint) hint.textContent = "المحرّك V3 — خمس استراتيجيات بأوزانٍ ثابتة";
   card.style.display = "";
 }
 
@@ -6707,44 +6614,15 @@ function oppDirFor(sym) {
 }
 
 function tradePlan(rec, dir) {
-  const L = computeLevels(rec);
-  if (!L) return null;
-  const row = symRow(rec.s);
-  // ATR **اليومي** لا ATR الفريم المعروض: `computeLevels` تبني على 4 ساعات
-  // حين تتوفّر، و ATR أربع ساعات أصغر من اليومي بمرّتين تقريباً. استعماله
-  // أخرج وقفاً على بُعد 1.2% بينما مدى إنفيديا اليومي 3.3% — أي وقف داخل
-  // التذبذب الطبيعي، وهو الخطأ الذي تحذّر منه بطاقة المؤشرات نفسها.
-  const atr = (row && Number.isFinite(row.atr) && row.atr > 0) ? row.atr : L.atr;
-  /* الشرط الذي أظهر السهم قد يفرض اتجاه خطته (`planDir` في `scans.js`).
-     ويُقرأ من الإشارة المفتوحة لا من إعادة تقييم الشروط الآن: الخطة
-     المعروضة يجب أن تطابق المحفوظة في السجلّ، والسجلّ بُني لحظة ظهور
-     الإشارة لا الآن. */
-  const d = (dir === 1 || dir === -1) ? dir : oppDirFor(rec.s);
-  if (d !== 1 && d !== -1) return null;   // لا اتجاه ⇒ لا خطة ملفّقة
-
-  const p = planFrom({ px: L.px, atr, resAll: L.resAll, supAll: L.supAll }, d);
-  if (!p) return null;
-
-  /* خطةُ الفرصة المثبّتة لحظةَ ظهورها (اللقطة) تغلب المحسوبة الآن: البطاقة
-     في القائمة تعرضها، ودخولٌ وأهدافٌ مختلفة هنا تُقرأ تناقضاً. */
-  const so = snapOpp(rec.s);
-  if (so && so.sd === d && Number.isFinite(so.e) && Number.isFinite(so.st) && Array.isArray(so.t)) {
-    const risk = (so.e - so.st) * d;
-    if (risk > 0) {
-      p.entry = so.e; p.stop = so.st; p.risk = risk;
-      p.targets = so.t.map((tp, i) => ({ p: tp, rr: (tp - so.e) * d / risk, pct: (tp - so.e) * d / so.e * 100,
-                                          name: (p.targets[i] && p.targets[i].name) || (d > 0 ? "مقاومة" : "دعم") }));
-      p.primary = p.targets.find(t => t.rr >= 2) || p.targets[p.targets.length - 1] || null;
-      p.meets2 = !!(p.primary && p.primary.rr >= 2);
-      p.target = p.primary ? p.primary.p : null; p.rr = p.primary ? p.primary.rr : null;
-      p.targetPct = p.primary ? p.primary.pct : null; p.stopPct = risk / so.e * 100;
-      p.fromSnap = { since: so.since, hit: so.hit || 0, scan: so.scan };
-    }
-  }
-
-  const bad = validatePlan(p);
-  if (bad.length) { diag("plan", `خطة ${rec.s} مرفوضة`, bad); return null; }
-  return p;
+  /* خطةُ السهم = صفقته المفتوحة في المحرّك V3 وحدها — لا خطةٌ تُحسب هنا */
+  const t = TRADES && (TRADES.open || []).find(x => x.s === rec.s);
+  if (!t) return null;
+  const d = t.d, risk = (t.e - t.st) * d;
+  const targets = (t.tg || []).map(x => ({ p: x.p, rr: (x.p - t.e) * d / risk, pct: (x.p - t.e) * d / t.e * 100, name: v3src(x.src) }));
+  const primary = targets.find(x => x.rr >= 2) || targets[targets.length - 1] || null;
+  return { dir: d, px: t.e, entry: t.e, stop: t.stNow || t.st, risk, atr: t.atrD, targets, primary,
+           meets2: !!(primary && primary.rr >= 2), target: primary ? primary.p : null, rr: primary ? primary.rr : null,
+           targetPct: primary ? primary.pct : null, stopPct: risk / t.e * 100, v3: t };
 }
 
 /* =======================================================================
@@ -6907,178 +6785,16 @@ window.__planSelfTest = planSelfTest;
 
 function renderPlan(rec) {
   const card = $("#cardPlan"); if (!card) return;
-  const p = tradePlan(rec);
-  if (!p) { card.style.display = "none"; return; }
+  const out = $("#planOut"), lv = $("#planLevels");
+  if (lv) lv.innerHTML = "";
+  if (!TRADES) { need("trades.json"); out.innerHTML = `<div class="skl" style="height:120px"></div>`; card.style.display = ""; return; }
+  const open = (TRADES.open || []).find(x => x.s === rec.s);
+  const last = (TRADES.closed || []).find(x => x.s === rec.s);
   card.style.display = "";
-  const row = symRow(rec.s);      // نتيجةُ الفريمات للزمن المتوقّع
-
-  const cell = (lbl, val, sub, color) => `<div class="stat">
-    <div class="k">${lbl}</div>
-    <div class="v num" style="color:${color || "var(--tx)"}">${val}</div>
-    ${sub ? `<div class="k" style="margin-top:2px">${sub}</div>` : ""}</div>`;
-
-  // اتجاه الخطة يقود كل كلمة فيها: «شراء» في خطة هبوط ليس خطأ عرض بل
-  // وصفٌ لصفقة أخرى غير التي حُسبت أرقامها.
-  const up = p.dir > 0;
-  const barr = up ? "دعم" : "مقاومة";        // الحاجز الذي يُدخل عنده
-  const goal = up ? "مقاومة" : "دعم";        // الحاجز الذي يُخرج عنده
-
-  /* =====================================================================
-     تناقضٌ اتجاهيّ — شرطٌ يقول شيئاً وخطةٌ تقول نقيضه.
-
-     اتجاه الخطة يُشتقّ من **النتيجة الفنية** (`planDirOf`)، لا من الشرط
-     الذي أظهر السهم في الفرص. وسهمٌ قرب قاع 52 أسبوعاً نتيجتُه سالبة
-     بالضرورة — فالشرط يقول «ارتدادٌ يُشترى» والخطة تحته **بيع**.
-
-     وهذا ليس احتمالاً نظرياً: قياس 10 سنوات و‎1.08‎ مليون شمعة وجد
-     ‎21,610‎ من ‎23,233‎ إشارةً لهذا الشرط متناقضة (‎93%‎)، وتوقُّعها
-     ‎−1.01%‎ مقابل ‎−0.08%‎ للمتوافقة. ويتكرّر في «تباعد صاعد»
-     (‎−2.05%‎ مقابل ‎−0.34%‎) و«حجم غير معتاد» (‎−1.42%‎ مقابل ‎−0.39%‎).
-
-     ولا نغيّر الخطة تلقائياً: ذلك قرارُ سياسةٍ يخصّ الخادم والسجلّ معاً،
-     وتغييرُه في العرض وحده يجعل ما يُحفظ غير ما يُرى. فالتناقض **يُقال**
-     بالرقم، والقرار للقارئ. */
-  let clash = "";
-  /* الشروط المحقَّقة تُقيَّم هنا بـ`scans.js` نفسه لا بقائمةٍ محفوظة:
-     قائمةٌ في `state` تتقادم بين التحديثات فتنبّه على تناقضٍ انتهى. */
-  /* `!sc.dir` كانت تُسقط كل شرطٍ صاعد قبل أن يُختبر: `scans.js` تنصّ
-     أن **غياب `dir` يعني ‎+1‎**، فكل الشروط الصاعدة قيمتها `undefined`
-     وكانت تُقرأ «بلا اتجاه». والنتيجة أن الحارس لا يُطلق إلا حين تكون
-     الخطة صاعدة ويطابق شرطٌ هابط — أي أنه لم يكن يُطلق أبداً في الحالة
-     التي بُني لها: شرطٌ صاعد تحته خطةُ بيع. نفس مصيدة «الصفر صالح
-     فالفحص بـ`null` لا بالصدق»، وهنا `undefined` تعني ‎+1‎. */
-  /* والسياق سياقُ شاشة الفرص نفسه — لا `{ secMed: {} }`.
-
-     شرطٌ يقرأ وسيط قطاعه يعيد `false` **دائماً** على خريطةٍ فارغة: لا
-     خطأ ولا استثناء، فقط حارسٌ أعمى تجاه `cheap` وحده من بين أحد عشر
-     شرطاً. وهو شرطٌ يتناقض فعلاً — قِيس `AMAT`: «أرخص من قطاعه ▲»
-     وتحته خطةُ بيع، ولا تحذير. نفس عائلة «الحارس الميت»: موجودٌ
-     ويُنادى ولا يُطلق في الحالة التي بُني لها.
-
-     وتُبنى مرةً واحدة لا مرةً لكل شرط (`fundScores` مخزَّنة أصلاً)،
-     و`null` حين لم تصل الأساسيات بعد — فيبقى الحارس على ما يملك بدل
-     أن ينهار. */
-  const clashCtx = { secMed: (fundScores() || {}).secMed || {} };
-  const against = SCANS.filter(sc => {
-    const sd = sc.dir === -1 ? -1 : 1;
-    if (sd === p.dir) return false;
-    try { return !!sc.test(scanRow(row || {}), (state.fund && state.fund.f && state.fund.f[rec.s]) || {}, clashCtx); }
-    catch { return false; }
-  });
-  if (against.length) {
-    const lbls = against.map(x => x.lbl);
-    /* هل جاء اتجاه الخطة من فرضٍ أم من النتيجة؟ الجملة تختلف كلياً:
-       قولُ «اتجاهها من النتيجة» بينما الشرط هو الذي فرضه يصف عكس ما جرى. */
-    /* الفرض يُقرأ من القرار الموحَّد لا من السجلّ المفتوح: السجلّ قد
-       يكون بُني بسياسةٍ سابقة، فيصف الجملةُ سبباً لم يعد قائماً. */
-    const odc = oppDirOf(row || {});
-    const fd = odc ? odc.forced : null;
-    const fdLbl = (fd === p.dir)
-      ? (SCANS.find(x => forcedDir(x.id) === fd
-          && (odc.hits || []).some(h => h.id === x.id)) || {}).lbl || null
-      : null;
-    const arch = state.arch && state.arch.scans
-      && state.arch.scans.find(x => x.id === against[0].id && x.plan && x.plan.clash && x.plan.agree);
-    clash = `<div class="warn" style="margin-bottom:10px">
-      <b><svg class="ic-s" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-warn"/></svg>الشرط والخطة في اتجاهين مختلفين.</b><br>
-      ظهر هذا السهم في الفرص بشرط <b>${esc(lbls.join(" · "))}</b>، والخطة أدناه
-      ${up ? "شراء" : "بيع"} ${fdLbl
-        ? `لأن <b>${esc(fdLbl)}</b> يفرض اتجاه خطته — قِيس ذلك على الأرشيف فخرج
-           أفضل من اشتقاقه من النتيجة. والنتيجة الفنية نفسها تقول
-           <b>${esc(labelOf(row && row.score, row && row.band).t)}</b>`
-        : "لأن اتجاهها يُشتقّ من النتيجة الفنية لا من الشرط"}.
-      ${arch ? `وفي الأرشيف كان توقّع الخطة المتناقضة <span class="num">${bd(fmt(arch.plan.clash.exp, 2))}%</span>
-        مقابل <span class="num">${bd(fmt(arch.plan.agree.exp, 2))}%</span> للمتوافقة.` : ""}
-      اقرأ الاثنين ولا تأخذ أحدهما وحده.</div>`;
-  }
-
-  let html = clash + `<div style="margin-bottom:8px"><span class="chip ${up ? "up" : "dn"}">${
-    up ? "▲ خطة صعود" : "▼ خطة هبوط"}</span></div>
-  <div class="grid3">
-    ${cell(up ? "منطقة الشراء" : "منطقة البيع", money(p.entry),
-        p.entryIsNow ? `السعر الآن — لا ${barr} قريبة` : `${barr} · ${bd(pct((p.entry - p.px) / p.px * 100, 1))}`,
-        up ? "var(--up)" : "var(--dn)")}
-    ${cell("وقف الخسارة", money(p.stop), `${bd(fmt(p.stopPct, 1))}% ${
-        up ? "تحت" : "فوق"} الدخول · مدى اليوم ${bd(fmt(p.atrPct, 1))}%`,
-        up ? "var(--dn)" : "var(--up)")}
-    ${cell("الهدف", p.target === null ? "—" : money(p.target),
-        p.target === null ? `لا ${goal} أبعد من مدى اليوم` : `${bd(fmt(p.targetPct, 1))}% · ${bd(fmt(p.rr, 2))}:1`, "var(--neu)")}
-  </div>`;
-
-  /* ---------- جودة الدخول: الاتجاه شيء، وموضع السعر منه شيء آخر ---------- */
-  // المرجع سعرُ الإشارة المثبَّت لا سعرُ الآن: «تحرّك 2× المدى» جملةٌ بلا
-  // معنى إن لم يكن لها مبدأ. وبلا إشارة متتبَّعة لا تُعرض — ولا تُلفَّق.
-  const sig0 = sigsOf(rec.s)[0] || null;
-  const eq = sig0 ? entryQuality({
-    px: p.px, sigPx: sig0.entry, atr: p.atr, dir: p.dir,
-    target: p.targets.length ? p.targets[0].p : null, stop: p.stop,
-    fresh: freshness(Date.now() - sig0.at, scanTF(sig0.scan))
-  }) : null;
-  if (eq) {
-    html += `<div class="sep"></div>
-      <div class="row"><div class="l"><b>الدخول الآن: <span style="color:${eq.c}">${esc(eq.t)}</span></b>
-        <small>${esc(eq.act)}</small></div>
-        <div class="r" style="font-size:12px;color:var(--mut)">تحرّك ${bd(fmt(eq.moved, 2))}×
-          <span style="display:block">مدى اليوم</span></div></div>`;
-    if (eq.used !== null && eq.used > 0)
-      html += `<p class="srcline" style="text-align:right">استُهلك
-        <b class="num">${bd(fmt(Math.min(100, eq.used * 100), 0))}%</b> من المسافة إلى الهدف الأول
-        منذ ظهور الإشارة ${bd(ago(sig0.at))}.</p>`;
-  }
-
-  // الأهداف المتاحة كلها بنسبها: الهدف الواحد يخفي أن الثاني قد يستحق
-  if (p.targets.length > 1) {
-    html += `<div class="sep"></div>
-      <div style="font-size:12.5px;color:var(--mut);margin-bottom:6px">${
-        up ? "المقاومات فوق منطقة الشراء" : "الدعوم تحت منطقة البيع"}</div>
-      ${p.targets.map((t, i) => {
-        // الزمن المتوقّع: المسافة ÷ مدى الشمعة، معدَّلاً بتوافق الفريمات.
-        // ووحدة الزمن يومية لأن ATR يوميّ — خلطُهما أخرج 93 يوماً لهدف 26%.
-        const e = etaFor({ from: p.entry, target: t.p, atr: p.atr, dir: p.dir,
-                           atrTf: "1d", tfScore: row && row.tfScore });
-        return `<div class="row"><div class="l">الهدف ${i + 1}
-        <small>${esc(t.name)} · ${bd(fmt(t.pct, 1))}% ${up ? "فوق" : "تحت"} الدخول</small>
-        <small style="color:var(--dim)">⏳ ${e ? esc(spanText(e.lo, e.hi)) : "غير واضح"}</small></div>
-        <div class="r num" style="color:${t.rr >= 2 ? "var(--up)" : "var(--mut)"}">${money(t.p)}
-          <span style="font-size:11px"> · ${bd(fmt(t.rr, 2))}:1</span></div></div>`;
-      }).join("")}
-      <p class="srcline" style="text-align:right">⏳ تقديرٌ من المسافة ومدى اليوم وتوافق الفريمات،
-      وليس وعداً. حين لا تسمح البيانات بتقدير معقول يُقال «غير واضح» بدل اختراع مدة.</p>`;
-  }
-
-  if (p.skippedNear) html += `<p class="srcline">تُخطّي أقرب ${goal} لأنها داخل مدى اليوم
-    الواحد — هدفٌ لا يتجاوز التذبذب الطبيعي ليس هدفاً.</p>`;
-
-  if (!p.targets.length) {
-    html += `<div class="note" style="margin-top:10px">
-      لا ${goal} تبعد أكثر من مدى اليوم الواحد ${up ? "فوق منطقة الشراء" : "تحت منطقة البيع"}. السهم في
-      منطقة بلا مرجع سابق — وهذا ليس عيباً، لكنه يعني أن لا شيء يحدد أين تخرج.</div>`;
-  } else if (!p.meets2) {
-    html += `<div class="warn" style="margin-top:10px">
-      <b>لا هدف يبلغ 2:1</b> — أفضل المتاح ${bd(fmt(p.rr, 2))}:1. ${
-      up ? "المقاومات" : "الدعوم"} قريبة
-      والوقف يحتاج مساحة مدى اليوم. الأصدق أن تنتظر سعراً أقرب لل${barr} بدل
-      تحريك الهدف حتى تبدو النسبة جميلة.</div>`;
-  } else {
-    html += `<div class="note" style="margin-top:10px">
-      <b>العائد مقابل المخاطرة ${bd(fmt(p.rr, 2))} : 1</b> — تربح ${bd(fmt(p.rr, 1))} دولاراً
-      مقابل كل دولار تخاطر به لو بلغ السعر الهدف وضُرب الوقف في الحالة المقابلة.</div>`;
-  }
-
-  html += `<button class="btn gray" id="btnUsePlan" style="margin-top:10px">
-    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg>استخدم هذه الأرقام في حاسبة حجم الصفقة</button>`;
-  $("#planOut").innerHTML = html;
-
-  $("#btnUsePlan").onclick = () => {
-    const set = (id, v) => { const el = $(id); if (el && isFinite(v)) el.value = (+v).toFixed(2); };
-    // الحاسبة تعرف الاتجاهين أصلاً (`long = stop < entry`) وتتحقق من جهة
-    // الهدف بنفسها، فخطة الهبوط تمرّ إليها بلا تحويل
-    set("#iEntry", p.entry); set("#iStop", p.stop); set("#iTarget", p.target);
-    calc();
-    $("#cardSize").scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  renderTrackedLevels(rec, p);
+  if (open) { out.innerHTML = v3Card(open, -1); return; }
+  out.innerHTML = `<div class="empty">لا صفقة مفتوحة من المحرّك V3 على هذا السهم الآن.</div>` +
+    (last ? `<p class="hint" style="margin-top:8px">آخر صفقةٍ أُغلقت عليه: ${v3dir(last.d).t} بتوافق ${v3pct(last.score)} ·
+      ${esc(last.end ? V3_END[last.end.k] || last.end.k : "")}${last.hit ? ` · بلغ T${last.hit}` : ""}</p>` : "");
 }
 
 /* =======================================================================
@@ -7944,299 +7660,133 @@ function renderMa200(el, cnt) {
   }).join("");
 }
 
-function renderScreen() {
-  const CR = state.view === "crypto";
-  const U = CR ? SCR.crypto : SCR.us;
-  const pick = $(U.pick);
-  if (!pick) return;
-  const LIST = CR ? [CRYPTO_BEST, ...SCANS.filter(s => CRYPTO_SCAN_IDS.includes(s.id)), CRYPTO_MA200] : SCANS;
-  if (!pick.dataset.built) {
-    pick.innerHTML = LIST.map(s => `<button data-scan="${s.id}">${esc(s.lbl)}</button>`).join("");
-    pick.dataset.built = "1";
-    $$(U.pick + " button").forEach(b => b.onclick = () => { state.scan = b.dataset.scan; renderScreen(); });
-  }
-  const id = LIST.some(s => s.id === state.scan) ? state.scan : LIST[0].id;
-  $$(U.pick + " button").forEach(b => b.classList.toggle("on", b.dataset.scan === id));
-  const scan = LIST.find(s => s.id === id) || LIST[0];
-  $(U.why).textContent = scan.why;
-  // حافّةُ الشرط من أرشيف **الأسهم** — لا تُعرض على العملات كأنها لها
-  if (!CR) renderScanHistory(scan.id);
+/* =======================================================================
+   المحرّك V3 — العرض وحده (docs/ENGINE_V3_SPEC.md).
 
-  const el = $(U.list);
-  // قائمة المراقبة تُرسم من ملفّها وتعود قبل مسار اللقطة: لا تقرأ `OPP.scans`
-  // ولا تكتب `state.lastScanRows`
-  if (CR && scan.id === "ma200") { renderMa200(el, $(U.count)); return; }
-  if (!state.summary) {
-    el.innerHTML = CR && BOOKS.cryptoErr
-      ? `<div class="warn">تعذّر جلب دفتر الكريبتو — ${esc(BOOKS.cryptoErr)}</div>`
-      : `<div class="empty">جارِ التحميل…</div>`;
-    if (CR) refreshCrypto();
-    return;
-  }
+   الصفقات تُبنى على الخادم (`scripts/build-trades.mjs`) عند إغلاق كل شمعة
+   15د من شموعٍ مغلقة، والمتصفّح **يقرأ ويعرض**: لا يحسب درجةً ولا يعيد
+   ترتيباً ولا يقيّم استراتيجية. والترتيب ترتيبُ الخادم (الدرجة تنازلياً).
+   ======================================================================= */
+let TRADES = null;
+const V3_EL = [
+  { k: "day",   lbl: "قمة/قاع أمس",        w: 40,   core: 1 },
+  { k: "ma",    lbl: "المتوسطات",          w: 40,   core: 1 },
+  { k: "trend", lbl: "الاتجاه",            w: 6.67, core: 0 },
+  { k: "vwap",  lbl: "VWAP",               w: 6.67, core: 0 },
+  { k: "week",  lbl: "قمة/قاع الأسبوع السابق", w: 6.66, core: 0 }
+];
+const V3_EVT = { pdh_break: "كسر قمة أمس", pdl_reclaim: "استعادة قاع أمس", pdl_break: "كسر قاع أمس",
+  pdh_loss: "فقد قمة أمس", pwh_break: "كسر قمة الأسبوع", pwl_reclaim: "استعادة قاع الأسبوع",
+  pwl_break: "كسر قاع الأسبوع", pwh_loss: "فقد قمة الأسبوع" };
+const V3_END = { stop: "ضُرب الوقف", be: "خرجت عند الدخول بعد T1", tgt: "بلغت آخر هدف",
+  exp: "انقضت مدّتها (5 جلسات)", gap: "أُلغيت قبل الدخول — فجوةٌ خلف الوقف" };
+const v3pct = (x) => Number.isFinite(x) ? (Number.isInteger(x) ? String(x) : x.toFixed(2)) + "%" : "—";
+const v3dir = (d) => d === 1 ? { c: "up", t: "▲ شراء" } : { c: "dn", t: "▼ بيع" };
+/* الوسم الأساسيّ للمصدر: مستوى حقيقي أو مضاعف مخاطرة — يُقال لا يُخفى */
+const v3src = (src) => ({ PDH: "قمة أمس", PDL: "قاع أمس", PWH: "قمة الأسبوع", PWL: "قاع الأسبوع", "1h": "قمة/قاع ساعة" }[src]
+  || (/^R\d$/.test(src) ? "مضاعف مخاطرة " + src.slice(1) + "R" : src));
 
-  /* =====================================================================
-     **المصدر الوحيد لهذه القائمة لقطةٌ ذرّية من الخادم — لا حسابٌ هنا.**
-
-     كان الترتيب يُحسب في المتصفّح عند كل رسم من `summary.json` و
-     `strategies.json` و`fundamentals.json` و`wide.json`. وهي أربعة
-     ملفّات يكتبها جدولان بإيقاعين (‎10‎ دقائق و‎دقيقتان‎) والشمعة
-     ثالثةٌ (‎15‎ دقيقة)، فلا يقسم أحدها الآخر:
-
-       ٢٣:٤٥ أُغلقت الشمعة → ٢٣:٤٦ `confBar` يتقدّم → ٢٣:٥١ `cbar` يتقدّم
-
-     فخمسُ دقائق في كل ربع ساعة يصف فيها الملفّان شمعتين مختلفتين،
-     والقائمة مزجُهما. قِيس على الإنتاج ‎2026-09-20‎ بين ‎23:51‎ و
-     ‎23:57‎ — والشمعة لم تُغلق: `NEAR-USD` ‎82 → 85‎، و`ARB-USD` خرج،
-     و`BTC-USD` و`PENDLE-USD` دخلا.
-
-     وحارسُ التأجيل السابق لم يكن ليكفي: هو يؤخّر العرض ولا يثبّت
-     المحتوى. فما دام الحساب هنا على ملفّات متحرّكة، تتحرّك القائمة.
-
-     الآن: `data/opportunities.json` تُبنى على الخادم مرّةً لكل شمعة
-     (`scripts/build-opportunities.mjs`) ببوّابةٍ ترفض الكتابة إن لم
-     يتقدّم `candleKey`، والمتصفّح **يقرأ ويعرض**. والسعر اللحظي يُعرض
-     سعراً فقط ولا يدخل عضويةً ولا ترتيباً ولا درجة. */
-  const OPP = state.opps;
-  if (!OPP || !OPP.scans) {
-    if (CR) refreshCrypto(); else need("opportunities.json");
-    el.innerHTML = `<div class="skl" style="height:64px"></div><div class="skl" style="height:64px;margin-top:8px"></div><div class="skl" style="height:64px;margin-top:8px"></div>`;
-    const c0 = $(U.count); if (c0) c0.textContent = "لقطة الفرص تُجلب…";
-    const b0 = U.exp && $(U.exp); if (b0) b0.style.display = "none";
-    state.lastScanRows = [];
-    return;
-  }
-
-  /* السعر والتغيّر **للعرض وحدهما**، ويُؤخذان من الطبقتين إن توفّرا —
-     وإلا فسعرُ الإغلاق المثبَّت في اللقطة. لا يمسّان أيّ حساب. */
-  const liveBy = {};
-  for (const r of state.summary.rows) liveBy[r.s] = r;
-  for (const r of (state.wide && state.wide.rows) || []) if (!liveBy[r.s]) liveBy[r.s] = r;
-  /* نوع السوق فلترٌ مستقلٌّ عن شرط الفرصة، ويُطبَّق على المجمَّع الخام
-     قبل أي حساب — لا شكلياً بعد العرض. التصنيف من `r.mkt` نفسه الذي
-     يميّز الكريبتو في كل مكانٍ آخر بالتطبيق (الاتساع، القوائم، ترتيب
-     الكون)، لا تصنيفٌ جديد يتباعد عنها بأول تعديل. */
-  /* نوعُ السوق مرشّحُ **عرض** لا مدخلُ حساب: يُطبَّق على صفوف اللقطة
-     ولا يعيد ترتيبها. كان الترتيب يُعاد داخل كل نوع، فدرجةُ الرمز
-     تتغيّر بإخفاء رموزٍ أخرى — ودرجةٌ تتبدّل بتغيير مرشّحِ عرضٍ ليست
-     درجةَ الرمز. والتصنيف من `mkt` المحفوظ في اللقطة نفسها. */
-  const mktSel = CR ? "crypto" : (($("#scrMkt") && $("#scrMkt").value) || "all");
-  let hits = (OPP.scans[scan.id] || []).slice();
-  if (mktSel === "us") hits = hits.filter(r => r.mkt !== "crypto");
-  else if (mktSel === "crypto") hits = hits.filter(r => r.mkt === "crypto");
-
-  let nAdj = 0;
-  for (const r of hits) if (r.adj) nAdj++;
-
-  // نتائج المسح الأخير تُحفظ للتصدير: إعادةُ بنائها في زرّ التصدير
-  // تعني نسخةً ثانية من الشرط والترتيب تتباعد بأول تعديل
-  state.lastScanRows = hits;
-  { const b = U.exp && $(U.exp); if (b) b.style.display = hits.length ? "" : "none"; }
-
-  const unitWord = mktSel === "crypto" ? "عملة" : mktSel === "us" ? "سهم" : "رمز";
-  if (!hits.length) {
-    el.innerHTML = `<div class="empty">لا ${esc(unitWord)} ينطبق عليه هذا الشرط الآن — وهذا نتيجة صحيحة لا عطل</div>`;
-    $(U.count).textContent = "";
-    return;
-  }
-  // عمر الفرصة من سجلّ الإشارة نفسه: شرطٌ محقَّق اليوم قد يكون محقَّقاً
-  // منذ أسبوعين، ومن يراه في القائمة يحسبه ظهر الآن. والسعر المثبَّت
-  // لحظتها يقول كم تحرّك السهم قبل أن تراه.
-  const now = Date.now();
-  const openSig = {};
-  /* المرساة هي الفرصة **الحيّة** لا أيّ سجلٍّ مفتوح: سجلٌّ بلغ مستوياته
-     الثلاثة تحرّك سهمُه ‎5%‎ فأكثر منذ رأيناه، فتثبيتُ عمره وسعره يعرض
-     تحليلاً انتهى على أنه الفرصة الحالية (`NEAR-USD`: ‎8‎ أيام و‎+11.7%‎).
-     ويُؤخذ **الأحدث** من غير المستهلَكة لا الأقدم: بعد استهلاك القديم
-     يُنشأ سجلٌّ جديد بسعر يومه، وهو الذي يصف الفرصة الآن. */
-  for (const s of ((state.signals && state.signals.records) || [])) {
-    if (!s.open || s.scan !== scan.id || s.conv || oppSpent(s)) continue;
-    if (!openSig[s.sym] || s.at > openSig[s.sym].at) openSig[s.sym] = s;
-  }
-
-  /* =====================================================================
-     **جديدةٌ الآن غيرُ مستمرّةٍ منذ أيام** — والخادم يقرّر لا المتصفّح.
-
-     `fr` من اللقطة: إطلاقٌ أو تجديدٌ أو دخولٌ على إحدى آخر أربع شمعات
-     ‎15د‎ مغلقة. واللقطةُ ترتّب الجديدةَ أولاً، فالعرض يضع عنوانين فوق
-     الفئتين ولا يعيد ترتيب شيء. كان الوسم «جديدة» يُشتقّ من فريم الشرط
-     (اليوميّ: يومان)، فتظهر فرصةٌ عمرها ‎68‎ ساعة بجانب فرصةٍ أُطلقت على
-     آخر إغلاق وكأنهما رصدٌ واحد. والكريبتو خارج هذا: له دورةُ حياته.
-     ===================================================================== */
-  const FZ = !CR && hits.some(r => r.fr != null);
-  const nNew = FZ ? hits.filter(r => r.fr === 1).length : 0;
-  const minsAgo = (sec) => Math.max(0, Math.round((OPP.candleKey - sec) / 60));
-  const grpHd = (i) => {
-    if (!FZ) return "";
-    if (i === 0 && nNew) return `<div class="opp-grp new">جديدة الآن · ${bd(nNew)}<small>أُطلقت أو دخلت على إحدى آخر أربع شمعات ١٥ دقيقة مغلقة</small></div>`;
-    if (i === nNew) return (nNew ? "" : `<div class="empty" style="padding:14px">لا فرصةَ جديدة على هذا الشرط في آخر ساعة — والمستمرّة أدناه</div>`) +
-      `<div class="opp-grp">مستمرّة · ${bd(hits.length - nNew)}<small>رُصدت سابقاً وما زالت صالحة — ليست رصداً جديداً</small></div>`;
-    return "";
+/* كتلة «لماذا هذه الدرجة» — ✓/✗ لكل استراتيجية بوزنها */
+function v3Elements(t) {
+  const it = (e) => {
+    const on = !!(t.el && t.el[e.k]);
+    const why = e.k === "day" && on && t.evt ? ` <small>${esc(V3_EVT[t.evt] || t.evt)}</small>`
+              : e.k === "week" && on && t.weekEvt ? ` <small>${esc(V3_EVT[t.weekEvt] || t.weekEvt)}</small>` : "";
+    return `<div class="it${on ? " on" : ""}"><span class="mk">${on ? "✓" : "✗"}</span>${esc(e.lbl)} — <span class="num">${v3pct(on ? e.w : 0)}</span>${why}</div>`;
   };
+  return `<div class="v3els">
+    <div><div class="gh">الاستراتيجيات الأساسية</div>${V3_EL.filter(e => e.core).map(it).join("")}</div>
+    <div><div class="gh">تأكيدات إضافية</div>${V3_EL.filter(e => !e.core).map(it).join("")}</div>
+  </div>`;
+}
 
-  el.innerHTML = hits.map((r, i) => {
-    /* السعر والتغيّر من الطبقة الحيّة إن وُجدا — **عرضاً فقط**. وإلا
-       فإغلاقُ شمعة التأكيد المحفوظ في اللقطة: رقمٌ حقيقي لا ملفّق. */
-    const lr = liveBy[r.s];
-    const px = lr && Number.isFinite(lr.p) ? lr.p : r.pc;
-    const chg = lr && Number.isFinite(lr.chg) ? lr.chg : null;
-    const col = !isFinite(chg) ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
-    const v = r.v || "";           // قيمةُ المسح محسوبةٌ على الخادم عند إغلاق الشمعة
-    /* العمرُ وسعرُ الظهور والطزاجة **من اللقطة نفسها** (دورة حياة الفرصة
-       على الخادم بالشمعات المغلقة) — لا من `signals.json` الذي يُحدَّث
-       بالسعر اللحظي ويُستبدل سجلُّه، فكان العمر يقفز بلا شمعة. والعمر
-       يُقاس إلى ختم الشمعة لا إلى ساعة الحائط: رقمٌ يتغيّر كل دقيقة بلا
-       شمعةٍ هو بعينه ما لا يجب أن يحدث. */
-    const sg = Number.isFinite(r.since) ? { at: r.since * 1000, entry: r.px0 } : null;
-    const barSec = OPP.barSec || 900;
-    const tNow = Number.isFinite(OPP.candleKey) ? (OPP.candleKey + barSec) * 1000 : now;
-    const fr = sg ? freshness(Math.max(0, tNow - sg.at), CR ? "4h" : scanTF(scan.id)) : null;
-    /* العمرُ وسعرُ الظهور والطزاجة نزلت إلى شرائط الذيل: سطرٌ رابع تحت
-       الاسم كان يجعل كتلة الهويّة أطول من الرقم الذي جاء القارئ لأجله. */
-    /* سطرُ التوافق: الأثر **بالنقاط** لا بوصف. ويُقال في ثلاث حالات
-       مختلفة لا واحدة — مؤيّد، مخالف، متعارض — والرابعة (لا إشارة)
-       تُترك بلا سطر: صفٌّ يقول «لا شيء» عن كل رمزٍ يملأ القائمة ضجيجاً. */
-    const cf = r;                 // حقولُ التوافق في صفّ اللقطة نفسه
-    let conf = "";
-    if (cf.mixed) {
-      conf = `<div class="n conf" style="color:var(--mut)">الاستراتيجيات متعارضة — لا تعديل</div>`;
-    } else if (Number.isFinite(cf.adj) && cf.adj !== 0) {
-      const p = Math.round(cf.adj * 100);
-      /* **«منفردة» لا «توافق 1»**: استراتيجيةٌ واحدة تتّفق مع نفسها،
-         وتسميةُ ذلك توافقاً هي بعينها ما تمنعه قاعدة «الإشارة المنفردة
-         لا تُسمّى إجماعاً». والوسم يتبع العدد لا الإشارة. */
-      const w = cf.n === 1 ? "إشارة منفردة"
-              : `${p > 0 ? "توافق" : "تعارض"} ${bd(cf.n)} استراتيجيات`;
-      conf = `<div class="n conf" style="color:${p > 0 ? "var(--up)" : "var(--dn)"}">${w} ·
-        ${p > 0 ? "+" : ""}${p} نقطة</div>`;
-    }
-    /* =================================================================
-       بطاقةُ الفرصة — ثلاثةُ صفوف بترتيب سؤال القارئ:
-       «أيُّ سهم؟» ثم «بكم وإلى أين؟» ثم «منذ متى وبأيّ تأييد؟».
-
-       وكلُّ خطّافٍ تقرؤه أدواتُ الإثبات باقٍ في موضعه بالمعنى نفسه:
-       الحاوية `.srow` بـ`data-open`، و`.rank` رقمُ الرتبة، و`.id .n`
-       يحمل سطر التوافق، و`.hitv` **قيمةُ المسح ثم «درجة N»** بهذا
-       الترتيب — لأن `prove-live` يشتقّ القيمة بقصّ ما بعد «درجة».
-
-       ولا شيء هنا يُحسب: الرتبةُ موضعُ الصفّ في اللقطة، والدرجةُ `q`
-       كما كتبها الخادم، والاتجاه `sd`. التمييزُ البصريّ للثلاثة الأولى
-       يتبع الترتيب ولا يصنعه. */
-    const dirC = r.sd === 1 ? "up" : r.sd === -1 ? "dn" : "neu";
-    const dirT = r.sd === 1 ? "▲ صعود" : r.sd === -1 ? "▼ هبوط" : "⇄ بلا جهة";
-    const sp = lr && lr.spark;
-    const chips = [];
-    /* الطزاجة أربعُ حالاتٍ لا اثنتان، وتُقرأ من `k` لا من الإيموجي:
-       مقارنةُ محرفٍ رسوميّ تكسر بأوّل تبديلٍ له، وهي نفس قاعدة «حقلٌ
-       مجموعةُ قيمه مفتوحة لا يُفحص بواحدةٍ منها». وطيُّ «قديمة» مع
-       «قائمة» في لونٍ رماديّ واحد يُخفي أن المرجع خرج من النافذة. */
-    const FR = { fresh: "good", live: "", late: "hot", stale: "bad" };
-    if (FZ && sg) {
-      /* الأسهم: «جديدة منذ X دقيقة» بساعة الشمعة، أو «مستمرّة منذ …» — ولا
-         وسمَ «جديدة» بفريم الشرط بعد اليوم */
-      const m = r.fr === 1 ? minsAgo(r.fa) : null;
-      const when = m === 0 ? "على إغلاق آخر شمعة" : `منذ ${bd(m)} دقيقة`;
-      if (r.fr === 1 && r.fw === "fill") {
-        chips.push(`<span class="good">دخلت منطقة الدخول ${when}</span>`);
-        chips.push(`<span class="cold">الإعداد منذ ${esc(age(tNow - sg.at))}</span>`);
-      } else if (r.fr === 1) {
-        chips.push(`<span class="good">جديدة ${when}${r.fw === "renew" ? " · تجديد بعد انتهاء السابقة" : ""}</span>`);
-      } else {
-        chips.push(`<span class="cold">مستمرّة منذ ${esc(age(tNow - sg.at))}</span>`);
-      }
-    } else if (sg) chips.push(`<span class="${fr ? (FR[fr.k] || "") : "cold"}">${
-      tNow - sg.at <= barSec * 1000 ? "هذه الشمعة" : esc(age(tNow - sg.at))}${fr ? " · " + esc(fr.t) : ""}</span>`);
-    /* الخطة المثبّتة لحظةَ ظهور الفرصة: دخول ثم أهداف في جهة الفرصة
-       (الخادم يرفض أيّ هدفٍ في الجهة الخاطئة)، وما بُلغ منها بالشمعات
-       المغلقة. */
-    if (Number.isFinite(r.e)) chips.push(`<span>دخول <span class="num">${money(r.e)}</span></span>`);
-    if (Array.isArray(r.t) && r.t.length)
-      chips.push(`<span>${r.t.map((x, k) => `<span class="${k < (r.hit || 0) ? "good" : ""}">T${k + 1} <span class="num">${money(x)}</span></span>`).join(" · ")}</span>`);
-    if (r.hit > 0 && !CR) chips.push(`<span class="good">بلغ T${r.hit}</span>`);
-    /* الكريبتو: كلُّ هدفٍ تحقّق يُقال باسمه — بالشموع المغلقة بعد الظهور.
-       وبلوغُ الأخير يُنهي الفرصة فلا تبقى هنا (تنتقل إلى «انتهت مؤخراً»). */
-    const hitLine = CR && r.hit > 0
-      ? `<div class="opp-hit">${["الأول", "الثاني", "الثالث"].slice(0, r.hit)
-          .map(n => `<span class="good">تحقق الهدف ${n} ✓</span>`).join("")}</div>` : "";
-    const btcLine = CR && r.bk
-      ? `<div class="n conf" style="color:${r.bk === "counter" ? "var(--dn)" : r.bk === "flat" ? "var(--mut)" : "var(--up)"}">توافق مع BTC: ${BK_LABEL[r.bk] || "—"}${r.bk === "counter" ? " — تتحرّك عكس اتجاه البيتكوين" : ""}</div>` : "";
-    const setupTag = CR && scan.id === "best" && r.scan
-      ? `<span class="cold">${esc((SCANS.find(x => x.id === r.scan) || {}).lbl || r.scan)}</span>` : "";
-    if (setupTag) chips.unshift(setupTag);
-    /* جودة الدخول تُقال بأرقامها: التمدّد عن متوسّط ‎20‎ الساعة (بـATR) والمسافة
-       الباقية إلى الهدف التالي مقابل الوقف — منهما تُبنى الدرجة لا من قوّة
-       الصعود السابق. */
-    if (CR && Number.isFinite(r.ext))
-      chips.push(`<span class="${r.ext > 1.5 ? "hot" : ""}">تمدّد <span class="num">${r.ext.toFixed(1)}</span>×ATR</span>`);
-    if (CR && Number.isFinite(r.rr))
-      chips.push(`<span class="${r.rr < 1 ? "hot" : ""}">مسافة للهدف <span class="num">${r.rr.toFixed(1)}</span>× الوقف</span>`);
-    if (Number.isFinite(r.mv) && Math.abs(r.mv) >= 0.05)
-      chips.push(`<span class="${r.mv > 0 ? "good" : "bad"}">منذ الظهور <span class="num">${r.mv > 0 ? "+" : ""}${r.mv.toFixed(2)}%</span></span>`);
-    if (Number.isFinite(cf.n) && cf.n > 0)
-      chips.push(`<span>${cf.n === 1 ? "إشارة منفردة" : bd(cf.n) + " استراتيجيات"}</span>`);
-    /* سعرُ الظهور يُعرض حين يكون موجباً: لقطاتٌ قديمة قُرّبت بخاناتٍ
-       عشرية ثابتة خرجت بدخولٍ صفر على الأصول الرخيصة (موثَّقٌ في
-       `conv:"snap"`)، و«ظهرت عند ‎$0.00‎» رقمٌ ملفّق لا معلومةٌ ناقصة. */
-    if (sg && Number.isFinite(sg.entry) && sg.entry > 0)
-      chips.push(`<span class="cold">ظهرت عند <span class="num">${money(sg.entry)}</span></span>`);
-    if (r.wide) chips.push(`<span class="cold">يوميّ فقط</span>`);
-    if (r.ctf) chips.push(`<span class="cold">على ${esc(r.ctf)}</span>`);
-
-    /* التمييز البصريّ للثلاثة الأولى من **الجديدة** وحدها: مستمرّةٌ لا تتصدّر */
-    const topI = FZ ? (r.fr === 1 && i < 3) : i < 3;
-    return `${grpHd(i)}<div class="srow opp d-${dirC}${topI ? " top r" + (i + 1) : ""}" data-open="${esc(r.s)}">
-      <div class="opp-hd">
-        <div class="rank num">${i + 1}</div>
-        ${monoTile(r.s, r.sec)}
-        <div class="id">
-          <div class="t">${esc(nm(r))}<span class="tick">${esc(r.s)}</span></div>
-          <div class="n">${esc(r.sec || "—")}</div>
-          ${conf}${btcLine}
-        </div>
-        <div class="opp-dir ${dirC}">${dirT}</div>
+/* بطاقة صفقة V3 — نفس الخطّافات التي تقرؤها أدوات الإثبات (`.srow` و`data-open`) */
+function v3Card(t, i) {
+  const D = v3dir(t.d), lr = symRow(t.s);
+  const px = lr && Number.isFinite(lr.p) ? lr.p : null;
+  const chg = lr && Number.isFinite(lr.chg) ? lr.chg : null;
+  const col = chg === null ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
+  const tg = (t.tg || []).map((x, k) => `<span class="${k < (t.hit || 0) ? "hit" : ""}"><bdi><span class="k">T${k + 1}</span> <span class="num">${money(x.p)}</span></bdi> <small class="k"><bdi>${esc(v3src(x.src))}</bdi></small>${k < (t.hit || 0) ? " ✓" : ""}</span>`).join("");
+  const chips = [];
+  if (t.status === "confirmed") chips.push(`<span class="good">مؤكَّدة على إغلاق ${esc(stamp(t.t * 1000))} — الدخول مع افتتاح الشمعة التالية</span>`);
+  else if (t.status === "active") chips.push(`<span class="good">نشطة منذ ${esc(stamp(t.fill.t * 1000))} · نُفّذت عند <span class="num">${money(t.fill.px)}</span></span>`);
+  chips.push(`<span class="cold">الأساس: ${t.base === "day" ? "قمة/قاع أمس" : "انقلاب المتوسطات"}</span>`);
+  if (t.hit > 0) chips.push(`<span class="good">بلغ T${t.hit} — الوقف انتقل إلى سعر التنفيذ</span>`);
+  // تحذيراتٌ لا حذف: استراتيجيةٌ كانت متوافقة وانقلبت بعد الدخول
+  if (t.now && t.now.el && t.status === "active") {
+    const lost = V3_EL.filter(e => t.el[e.k] && !t.now.el[e.k]).map(e => e.lbl);
+    if (lost.length) chips.push(`<span class="hot">تحذير: ${esc(lost.join(" · "))} لم ${lost.length > 1 ? "تعد" : "يعد"} متوافقاً الآن — التوافق الحالي ${v3pct(t.now.score)}</span>`);
+  }
+  if (px !== null) chips.push(`<span>السعر الآن <span class="num">${money(px)}</span> <span class="num" style="color:${col}">${chg === null ? "" : pct(chg)}</span></span>`);
+  // `i < 0` بطاقةٌ خارج القائمة (شاشة السهم) — بلا رتبة
+  return `<div class="srow opp d-${D.c}${i >= 0 && i < 3 ? " top r" + (i + 1) : ""}" data-open="${esc(t.s)}">
+    <div class="opp-hd">
+      ${i >= 0 ? `<div class="rank num">${i + 1}</div>` : ""}
+      ${monoTile(t.s, lr && lr.sec)}
+      <div class="id">
+        <div class="t">${esc(lr ? nm(lr) : t.s)}<span class="tick">${esc(t.s)}</span></div>
+        <div class="n">${esc((lr && lr.sec) || "—")}${t.evt ? " · " + esc(V3_EVT[t.evt] || t.evt) : ""}</div>
       </div>
-      ${hitLine}
-      <div class="opp-bd">
-        <div class="opp-px">
-          <div class="p num">${money(px)}</div>
-          <div class="c num" style="color:${col}">${chg === null ? "—" : pct(chg)}</div>
-        </div>
-        ${sp ? sparkSVG(sp, Number.isFinite(chg) ? chg >= 0 : r.sd !== -1, { w: 120, h: 34, fill: 1 })
-             : `<div class="spark" style="flex:1"></div>`}
-        <div class="hitv">${esc(v)}${Number.isFinite(cf.q)
-          ? `<span class="hg">درجة <span class="num">${Math.round(cf.q * 100)}</span></span>` : ""}</div>
-      </div>
-      ${chips.length ? `<div class="opp-ft">${chips.join("")}</div>` : ""}
-    </div>`;
-  }).join("");
-  /* المقام هو ما مُسح فعلاً لا ما نملكه: «5 من 97» بينما مُسح 510
-     يصف نسبةً لم تُحسب. والعددُ من اللقطة نفسها لا من حالة المتصفّح. */
-  const unitWordN = mktSel === "crypto" ? "عملة" : mktSel === "us" ? "سهماً" : "رمزاً";
-  const mktNote = CR ? " (دفتر الكريبتو)" : mktSel === "us" ? " (الأسهم فقط)" : mktSel === "crypto" ? " (العملات فقط)" : "";
-  const src = OPP.sources || {};
-  const poolN = scan.wide ? (src.liveRows || 0) + (src.wideRows || 0) : (src.liveRows || 0);
-  const scope = `${bd(poolN)} ${unitWordN}${mktNote}${scan.wide ? " (الكون كاملاً)" : ""}`;
-  const confNote = nAdj ? ` · التوافق عدّل ${bd(nAdj)} صفّاً (±15 نقطة)`
-                        : " · لا توافق يعدّل الترتيب الآن";
-  /* =====================================================================
-     **الإثبات الذي يقرؤه المستخدم بنفسه.**
+      <div class="opp-dir ${D.c}">${D.t}</div>
+    </div>
+    <div class="v3sc">
+      <div class="v3q"><b class="num">${v3pct(t.score)}</b><i>قوة التوافق</i></div>
+      ${v3Elements(t)}
+    </div>
+    <div class="v3plan">
+      <span><span class="k">دخول</span> <b class="num">${money(t.e)}</b></span>
+      <span><span class="k">وقف</span> <b class="num">${money(t.stNow || t.st)}</b></span>
+      ${tg}
+    </div>
+    <div class="opp-ft">${chips.join("")}</div>
+  </div>`;
+}
 
-     ختمُ الشمعة وبصمةُ الصفوف معاً: من يرى قائمتين مختلفتين بفارق
-     دقائق يقارن الختمَين والبصمتين فيعرف أوقع إغلاقٌ بينهما أم لا.
-     وبصمةٌ ثابتة مع ختمٍ ثابت تعني أن **لا شيء تغيّر** — وهو وعدٌ
-     قابلٌ للتكذيب لا عبارةٌ مطمئنة.
+function renderTrades() {
+  const el = $("#scanList"), cnt = $("#scanCount");
+  if (!el) return;
+  const pick = $("#scanPicker"); if (pick) pick.style.display = "none";
+  const ex = $("#scanExport"); if (ex) ex.style.display = "none";
+  const T = TRADES;
+  if (!T) {
+    need("trades.json");
+    el.innerHTML = `<div class="skl" style="height:150px"></div><div class="skl" style="height:150px;margin-top:11px"></div>`;
+    if (cnt) cnt.textContent = "صفقات المحرّك V3 تُجلب…";
+    return;
+  }
+  const note = `<p class="v3note">قوة التوافق = نسبة توافق الاستراتيجيات الخمس حسب الأوزان المحدّدة
+    (أمس 40 · المتوسطات 40 · الاتجاه 6.67 · VWAP 6.67 · الأسبوع 6.66) — <b>ليست نسبة نجاح</b>.</p>`;
+  const open = T.open || [];
+  const closed = (T.closed || []).slice(0, 40);
+  const closedHtml = closed.length ? `<h3 style="margin:18px 0 8px;font-size:14px">أُغلقت مؤخراً</h3>
+    <div class="v3closed">${closed.map(t => {
+      const D = v3dir(t.d);
+      const good = t.end && (t.end.k === "tgt" || (t.hit > 0 && t.end.k !== "gap"));
+      return `<div class="row" data-open="${esc(t.s)}" style="cursor:pointer">
+        <div class="l"><b>${esc(t.s)}</b> <span style="color:var(--${D.c})">${D.t}</span> · <span class="num">${v3pct(t.score)}</span>
+          <small>${esc(t.evt ? V3_EVT[t.evt] : "انقلاب المتوسطات")} · دخول <span class="num">${money(t.fill ? t.fill.px : t.e)}</span> · خروج <span class="num">${t.end ? money(t.end.px) : "—"}</span></small></div>
+        <div class="r" style="color:${good ? "var(--up)" : t.end && t.end.k === "gap" ? "var(--mut)" : "var(--dn)"}">${esc(t.end ? V3_END[t.end.k] || t.end.k : "—")}${t.hit ? ` · بلغ T${t.hit}` : ""}</div>
+      </div>`;
+    }).join("")}</div>` : "";
+  el.innerHTML = note + (open.length ? open.map(v3Card).join("")
+    : `<div class="empty">لا صفقة مفتوحة من المحرّك V3 الآن — تتولّد الفرص عند عبور قمة/قاع أمس بجسم شمعةٍ مغلقة أو انقلاب المتوسطات، وهذه نتيجة صحيحة لا عطل</div>`) + closedHtml;
+  if (cnt) cnt.innerHTML = `${bd(open.length)} صفقة مفتوحة · ${bd((T.closed || []).length)} أُغلقت خلال آخر عشر جلسات · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُنيت ${ago(Date.parse(T.generatedAt))}`;
+}
 
-     والختمُ من `candleKey` في اللقطة وحدها: كان يُشتقّ من `max(cbar)`
-     مع `confBar`، وهما مصدران بإيقاعين — فيتقدّم أحدهما ويبقى الآخر،
-     فيتغيّر ترتيبٌ والختمُ ثابت. الآن مصدرٌ واحد لا يتحرّك إلا مع
-     الصفوف لأنه الذي يحكم كتابتها. */
-  const barNote = Number.isFinite(OPP.candleKey)
-    ? ` · على إغلاق شمعة ${esc(stamp(OPP.candleKey * 1000))} · بصمة ${esc(String(OPP.rowsHash || "").slice(0, 8))}` : "";
-  /* وفي الكريبتو: لا حوافّ مقيسة فالأوزان محايدة — يُقال ولا يُفترض. */
-  const edgeNote = CR ? " · أوزان الاستراتيجيات محايدة (لا أرشيف مقيس للعملات)" : "";
-  // `bd()` تعيد HTML — `textContent` كانت تطبع وسوم <bdi> حرفياً
-  const newNote = FZ ? ` (${bd(nNew)} جديدة · ${bd(hits.length - nNew)} مستمرّة)` : "";
-  $(U.count).innerHTML =
-    `${bd(hits.length)}${newNote} من ${scope}${confNote}${barNote}${edgeNote} · بُنيت ${ago(OPP.generatedAt)}`;
+/* الكريبتو: المحرّك القديم أُوقف، ونقلُه إلى V3 مرحلةٌ منفصلة */
+function renderCryptoV3() {
+  const el = $("#cScanList"); if (!el) return;
+  const pick = $("#cScanPicker"); if (pick) pick.style.display = "none";
+  const rg = $("#cRegime"); if (rg) rg.innerHTML = "";
+  el.innerHTML = `<div class="empty">فرص الكريبتو متوقّفة مؤقتاً: المحرّك القديم أُوقف، والمحرّك V3 يُطبَّق على الأسهم أولاً.
+    نقلُه إلى الكريبتو يحتاج تعريفاً مناسباً لـ«قمة/قاع أمس» في سوقٍ يعمل ٢٤/٧ — مرحلةٌ منفصلة.</div>`;
+  const c = $("#cScanCount"); if (c) c.textContent = "";
+  const ended = $("#cEnded"); if (ended) ended.closest(".card").style.display = "none";
+}
+
+function renderScreen() {
+  if (state.view === "crypto") { renderCryptoV3(); return; }
+  renderTrades();
 }
 
 function renderEarnings() {
@@ -8677,14 +8227,8 @@ function checkAlerts() {
   list.forEach(a => {
     const row = symRow(a.s);
     if (!row) { keep.push(a); return; }
-    if (a.kind === "scan") {
-      const scan = SCANS.find(s => s.id === a.scan);
-      if (!scan) { keep.push(a); return; }        // شرطٌ أُزيل — يبقى ولا يُطلق
-      let hit = false;
-      try { hit = !!scan.test(scanRow(row), F[a.s], context()); } catch (e) { hit = false; }
-      if (hit) fired.push({ a, px: row.p }); else keep.push(a);
-      return;
-    }
+    /* تنبيهات شروط المحرّك القديم لم تعد تُطلق — شروطُه أرشيف (V3 وحده مصدر الفرص) */
+    if (a.kind === "scan") { keep.push(a); return; }
     // `Number.isFinite` لا `isFinite` العالمية: هذه تقبل null كصفر
     if (!Number.isFinite(row.p)) { keep.push(a); return; }
     const hit = a.dir === "above" ? row.p >= a.p : row.p <= a.p;
@@ -8928,17 +8472,17 @@ function go(view) {
      ك.ب) فيُطلب **بعد** أوّل رسمٍ لا معه: البطاقة تبدأ هيكلاً ثم تمتلئ،
      فلا يتأخّر أوّل رسمٍ لأجلها. وأغلبُ من يفتح التطبيق يفتح «الفرص»
      بعدها، فالطلب تحضيرٌ لا إهدار. */
-  if (view === "now") { need("opportunities.json"); renderTopOpp(); }
+  if (view === "now") { need("trades.json"); renderTopOpp(); }
   if (view === "mdir") { need("market-dir.json"); renderMarketDir(); }
   if (view === "list") renderList();
   /* الفرص: الأساسيات لشروطها، ولقطةُ الاستراتيجيات وحوافُّها لدرجة
      التوافق التي تعدّل الترتيب. وغيابُ الأخيرتين تدهورٌ هادئ — القائمة
      تُعرض بترتيب المسح الخام ويُقال ذلك في سطر العدد. */
   if (view === "screen") {
-    need("fundamentals.json"); need("strategies.json"); need("strategy-edge.json");
-    renderScreen(); renderEarnings(); renderArchive();
+    need("fundamentals.json"); need("trades.json");
+    renderScreen(); renderEarnings();
   }
-  if (view === "crypto") { renderScreen(); renderCryptoRegime(); renderCryptoEnded(); }
+  if (view === "crypto") renderScreen();
   if (view === "news") { need("news.json"); need("filings.json"); }
   if (view === "analysis") {
     need("fundamentals.json"); need("analytics.json");
@@ -9497,7 +9041,7 @@ function boot() {
   /* الشاشةُ الأولى مُعلَّمةٌ في الهيكل فلا تمرّ بـ`go()`، فطلبُ لقطة
      الفرص لها يقع هنا — وهي نفس المصيدة التي جعلت ضبطَ ARIA داخل `go`
      وحدها يفوّت الإقلاع. وبعد `refresh` لا قبله: أوّل رسمٍ لا ينتظرها. */
-  if (state.view === "now") setTimeout(() => { need("opportunities.json"); }, 0);
+  if (state.view === "now") setTimeout(() => { need("trades.json"); }, 0);
   setInterval(renderTop, 1000);                                     // العدّ التنازلي
   setInterval(refresh, Math.max(30, +CFG.FILE_POLL_SECONDS || 60) * 1000);
   if (String(CFG.LIVE_ENDPOINT || "").trim()) {

@@ -42,19 +42,24 @@ if (!lkgSha) problem("WARNING", "لا data-lkg بعد — لا هدف رجوعٍ
 let technical = [];
 if (dataSha) {
   const base = `https://raw.githubusercontent.com/${REPO}/${dataSha}/`;
-  for (const [book, sub] of [["stocks", ""], ["crypto", "crypto/"]]) {
-    try {
-      const opp = await get(base + sub + "opportunities.json");
-      const sum = await get(base + sub + "summary.json");
-      const e = [...validateDoc(BOOK_SCHEMAS[book]["opportunities.json"], opp), ...validateDoc(BOOK_SCHEMAS[book]["summary.json"], sum)];
-      if (e.length) technical.push(`${book}: ${e.slice(0, 2).join(" · ")}`);
-      const age = Math.round((Date.now() - opp.generatedAt) / 60000);
-      h.published[book] = { candleKey: opp.candleKey, rowsHash: opp.rowsHash, ageMin: age, rows: sum.rows.length };
-      /* توقّفُ الكاتب المحلي: الكريبتو 24/7 فعمرُه مقياسُ حياة الجهاز */
-      if (book === "crypto" && age > 180) problem("CRITICAL", `المولِّد متوقّف: لقطة الكريبتو عمرها ${age} دقيقة (الجهاز مطفأ أو المجدول معطّل) — قيد بنيةٍ تحتية`);
-      else if (book === "crypto" && age > 30) problem("WARNING", `لقطة الكريبتو عمرها ${age} دقيقة`);
-    } catch (e) { technical.push(`${book}: تعذّرت القراءة — ${e.message}`); }
-  }
+  /* الأسهم: صفقات المحرّك V3. والكريبتو بياناتٌ فقط (بلا فرص حتى نقله إلى V3) —
+     وعمرُ ملخّصه مقياسُ حياة الجهاز لأنه يُكتب ‎24/7‎. */
+  try {
+    const tr = await get(base + "trades.json"), sum = await get(base + "summary.json");
+    const e = [...validateDoc(BOOK_SCHEMAS.stocks["trades.json"], tr), ...validateDoc(BOOK_SCHEMAS.stocks["summary.json"], sum)];
+    if (e.length) technical.push(`stocks: ${e.slice(0, 2).join(" · ")}`);
+    h.published.stocks = { candleKey: tr.candleKey, rowsHash: tr.rowsHash, open: tr.open.length,
+                           ageMin: Math.round((Date.now() - Date.parse(tr.generatedAt)) / 60000), rows: sum.rows.length };
+  } catch (e) { technical.push(`stocks: تعذّرت القراءة — ${e.message}`); }
+  try {
+    const cs = await get(base + "crypto/summary.json");
+    const e = validateDoc(BOOK_SCHEMAS.crypto["summary.json"], cs);
+    if (e.length) technical.push(`crypto: ${e.slice(0, 2).join(" · ")}`);
+    const age = Math.round((Date.now() - cs.updated) / 60000);
+    h.published.crypto = { ageMin: age, rows: cs.rows.length };
+    if (age > 180) problem("CRITICAL", `المولِّد متوقّف: ملخّص الكريبتو عمره ${age} دقيقة (الجهاز مطفأ أو المجدول معطّل) — قيد بنيةٍ تحتية`);
+    else if (age > 30) problem("WARNING", `ملخّص الكريبتو عمره ${age} دقيقة`);
+  } catch (e) { technical.push(`crypto: تعذّرت القراءة — ${e.message}`); }
 } else problem("CRITICAL", "لا فرع data منشور");
 
 /* عطبٌ تقنيّ في المنشور ⇒ تأكيدٌ بالطبيب الكامل ثم رجوع */

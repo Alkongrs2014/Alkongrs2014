@@ -78,12 +78,29 @@ test("الفرص: قائمةٌ حقيقية بختم شمعة، ولا عملة 
   expect(txt).toMatch(/شمعة/);
 });
 
-test("الكريبتو: دفترٌ منفصل — لا سهم في قائمته", async ({ page }) => {
+test("الكريبتو: لا فرص من المحرّك القديم — إشعارُ النقل إلى V3", async ({ page }) => {
   await open(page);
   await nav(page, "crypto");
-  const syms = await page.locator('section[data-view="crypto"] [data-open]').evaluateAll((a) => a.map((x) => x.getAttribute("data-open")));
-  expect(syms.length).toBeGreaterThan(0);
-  expect(syms.filter((s) => !/-USD$/.test(s)), "سهمٌ في دفتر الكريبتو").toEqual([]);
+  const n = await page.locator('section[data-view="crypto"] [data-open]').count();
+  expect(n, "فرصُ كريبتو من المحرّك القديم").toBe(0);
+  expect(await visibleText(page, "crypto")).toMatch(/V3/);
+});
+
+test("بطاقة الفرصة تشرح درجتها: الخمس بأوزانها ✓/✗ والدرجة مجموعُ المتوافقة", async ({ page }) => {
+  await open(page);
+  await nav(page, "screen");
+  const card = page.locator('section[data-view="screen"] .srow.opp').first();
+  await expect(card).toBeVisible({ timeout: 20000 });
+  const r = await card.evaluate((c) => ({
+    score: parseFloat(c.querySelector(".v3q b").textContent),
+    items: [...c.querySelectorAll(".v3els .it")].map((x) => ({ on: x.classList.contains("on"), t: x.textContent }))
+  }));
+  expect(r.items.length).toBe(5);
+  const W = [40, 40, 6.67, 6.67, 6.66];
+  const sum = Math.round(r.items.reduce((a, x, i) => a + (x.on ? W[i] : 0), 0) * 100) / 100;
+  expect(r.score).toBeCloseTo(sum, 6);
+  expect(r.score).toBeLessThanOrEqual(100);
+  expect(await card.innerText()).toMatch(/قوة التوافق/);
 });
 
 test("فتحُ سهمٍ من الفرص يعرض تفاصيله بلا خطأ، والعودة تعمل", async ({ page }) => {

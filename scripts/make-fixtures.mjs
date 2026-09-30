@@ -18,7 +18,7 @@ import { ROOT, takeSnapshot, dropSnapshot } from "./lib/snapshot.mjs";
 
 const OUT = path.join(ROOT, "tests", "fixtures", "data");
 const DROP = new Set(["i18n.json", "cik.json", "strat-history.json", "strat-signals.json", "ivhist.json",
-  "opportunities-log.json", ".run.skips.json"]);
+  "opportunities-log.json", ".run.skips.json", "trades-state.json"]);
 const CRYPTO_SYMS = 6;
 
 const snap = await takeSnapshot({ job: "fixtures" });
@@ -28,8 +28,9 @@ try {
   const cdir = path.join(OUT, "crypto");
   if (fs.existsSync(cdir)) {
     for (const n of ["strat-history.json", "strat-signals.json", "opportunities-log.json", "strat", "logs"]) fs.rmSync(path.join(cdir, n), { recursive: true, force: true });
-    const opp = JSON.parse(fs.readFileSync(path.join(cdir, "opportunities.json"), "utf8"));
-    const keep = new Set(Object.keys(opp.bySym || {}).slice(0, CRYPTO_SYMS));
+    /* الكريبتو بلا لقطة فرص منذ V3 — تُحفظ أوّل ستّ عملات من ملخّصه */
+    const sum = JSON.parse(fs.readFileSync(path.join(cdir, "summary.json"), "utf8"));
+    const keep = new Set((sum.rows || []).map((r) => r.s).slice(0, CRYPTO_SYMS));
     const sym = path.join(cdir, "sym");
     for (const f of fs.readdirSync(sym)) if (!keep.has(path.basename(f, ".json"))) fs.rmSync(path.join(sym, f));
   }

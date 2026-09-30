@@ -15,8 +15,8 @@ import * as C from "../../tests/reference/compare.mjs";
 import * as R from "../../tests/reference/engine.mjs";
 
 const require = createRequire(import.meta.url);
-const DIR = require("../../stocks/direction.js");
 const SESS = require("../../stocks/session.js");
+const E3 = require("../../stocks/engine3.js");
 
 const rd = (dir, f) => { try { return JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")); } catch { return null; } };
 const T = (id, inv, sev, ok, detail = "") => ({ id, inv, sev, ok: !!ok, detail });
@@ -26,16 +26,17 @@ const T = (id, inv, sev, ok, detail = "") => ({ id, inv, sev, ok: !!ok, detail }
    --------------------------------------------------------------------- */
 export function structuralChecks(dir) {
   const out = [];
-  const sum = rd(dir, "summary.json"), opp = rd(dir, "opportunities.json");
-  const strat = rd(dir, "strategies.json"), md = rd(dir, "market-dir.json");
-  const csum = rd(dir, "crypto/summary.json"), copp = rd(dir, "crypto/opportunities.json");
+  /* الفرص من المحرّك V3 وحده (trades.json). لقطات المحرّك القديم
+     (opportunities.json · strategies.json) أرشيفٌ لا يُفحص ولا يُنشر. */
+  const sum = rd(dir, "summary.json"), tr = rd(dir, "trades.json"), md = rd(dir, "market-dir.json");
+  const csum = rd(dir, "crypto/summary.json");
 
   /* INV-19 · INV-01..03 (المخطّطات تغلق مفاتيح الفريمات) */
   const sErr = validateBook(dir, "stocks");
   out.push(T("schema.stocks", "INV-19", "CRITICAL", !sErr.length,
     sErr.slice(0, 4).map((e) => e.file + ": " + e.errors[0]).join(" · ")));
   if (fs.existsSync(path.join(dir, "crypto"))) {
-    const cErr = validateBook(path.join(dir, "crypto"), "crypto", { symLimit: 0, optional: ["ma200-open.json"] });
+    const cErr = validateBook(path.join(dir, "crypto"), "crypto", { symLimit: 0 });
     out.push(T("schema.crypto", "INV-19", "CRITICAL", !cErr.length,
       cErr.slice(0, 4).map((e) => e.file + ": " + e.errors[0]).join(" · ")));
   }
@@ -74,15 +75,14 @@ export function structuralChecks(dir) {
   /* INV-40 · INV-41: الفصل بين الدفترين */
   if (sum) {
     const alien = sum.rows.filter((r) => r.mkt === "crypto" || /-USD$/.test(r.s)).map((r) => r.s);
-    const oppAlien = opp ? Object.values(opp.scans || {}).flat().filter((r) => r.mkt === "crypto").map((r) => r.s) : [];
+    const oppAlien = tr ? [...tr.open, ...tr.closed].filter((r) => /-USD$/.test(r.s)).map((r) => r.s) : [];
     out.push(T("books.stocks-clean", "INV-40", "CRITICAL", !alien.length && !oppAlien.length, [...alien, ...oppAlien].join(", ")));
   }
   if (csum) {
     const alien = csum.rows.filter((r) => r.mkt !== "crypto").map((r) => r.s);
     out.push(T("books.crypto-clean", "INV-40", "CRITICAL", !alien.length, alien.join(", ")));
   }
-  if (opp) out.push(T("grid.stocks", "INV-41", "CRITICAL", opp.candleKey % 900 === 0, "candleKey=" + opp.candleKey));
-  if (copp) out.push(T("grid.crypto", "INV-41", "CRITICAL", copp.candleKey % 300 === 0, "candleKey=" + copp.candleKey));
+  if (tr) out.push(T("grid.stocks", "INV-41", "CRITICAL", tr.candleKey % 900 === 0, "candleKey=" + tr.candleKey));
 
   /* INV-04: لا رمزٌ مكرّر في أيّ ملخّص (كشفه التعذيب) */
   for (const [book, s] of [["stocks", sum], ["crypto", csum]]) {
@@ -98,40 +98,31 @@ export function structuralChecks(dir) {
     out.push(T("depth.stocks", "INV-11", "CRITICAL", four >= sum.rows.length * 0.9, `${four}/${sum.rows.length}`));
   }
 
-  /* INV-35 · INV-36: اتجاه الفرصة وخطّتها */
-  for (const [book, o] of [["stocks", opp], ["crypto", copp]]) {
-    if (!o) continue;
-    const bad = [];
-    const sideBy = {};
-    for (const [scan, rows] of Object.entries(o.scans || {})) for (const r of rows) {
-      const sd = r.sd, t = r.t || [];
-      if (sd === 1 && !(t.every((x) => x > r.e) && r.e > r.st)) bad.push(`${r.s}/${scan} خطة صعود معكوسة`);
-      if (sd === -1 && !(t.every((x) => x < r.e) && r.e < r.st)) bad.push(`${r.s}/${scan} خطة هبوط معكوسة`);
-      const tf = o.bySym && o.bySym[r.s] && o.bySym[r.s].tf;
-      if (book === "stocks" && tf) { const u = DIR.allTfDir(tf); if (u !== 0 && u !== sd) bad.push(`${r.s}/${scan} يعاكس إجماع الفريمات`); }
-      if (book === "stocks") { (sideBy[r.s] = sideBy[r.s] || new Set()).add(sd); }
+  /* INV-60..63: صفقات المحرّك V3 — الهندسة والدرجة والأساس والتفرّد */
+  if (tr) {
+    const W = E3.E3.W, geo = [], score = [], base = [], seen = new Set(), dup = [];
+    for (const t of [...tr.open, ...tr.closed]) {
+      const tg = (t.tg || []).map((x) => x.p);
+      if (t.d === 1 && !(tg.every((x) => x > t.e) && t.e > t.st)) geo.push(`${t.id} شراء معكوس`);
+      if (t.d === -1 && !(tg.every((x) => x < t.e) && t.e < t.st)) geo.push(`${t.id} بيع معكوس`);
+      if (tg.length < 2) geo.push(`${t.id} أقلّ من هدفين`);
+      let sum = 0;
+      for (const k of Object.keys(W)) {
+        const want = t.el && t.el[k] ? W[k] : 0;
+        if (!t.pts || t.pts[k] !== want) score.push(`${t.id}.${k}`);
+        sum += want;
+      }
+      if (Math.abs(Math.round(sum * 100) / 100 - t.score) > 1e-9 || t.score > 100) score.push(`${t.id} score=${t.score}≠${sum}`);
+      if (t.base === "day" && !(t.evt && t.pts.day === 40)) base.push(`${t.id} أساس «أمس» بلا حدث`);
+      if (t.base !== "day" && t.base !== "ma") base.push(`${t.id} أساس ${t.base}`);
     }
-    for (const [s, set] of Object.entries(sideBy)) if (set.size > 1) bad.push(`${s} بجهتين في نفس اللقطة`);
-    out.push(T("direction." + book, "INV-35/36", "CRITICAL", !bad.length, bad.slice(0, 6).join(" · ")));
-  }
-
-  /* اتّساق الاستراتيجيات المنشورة: التفعيل = sc ≥ 55، والنتيجة في مداها */
-  for (const [book, s] of [["stocks", strat], ["crypto", rd(dir, "crypto/strategies.json")]]) {
-    if (!s) continue;
-    const bad = (s.rows || []).filter((r) => r.act !== (r.sc >= 55) || !(r.sc >= 0 && r.sc <= 100)).map((r) => r.s + "|" + r.st);
-    out.push(T("strategies.consistency." + book, "INV-31", "CRITICAL", !bad.length, bad.slice(0, 6).join(", ")));
-  }
-
-  /* bySym في اللقطة يطابق strategies.json حين يصفان الشمعة نفسها */
-  for (const [book, o, s] of [["stocks", opp, strat], ["crypto", copp, rd(dir, "crypto/strategies.json")]]) {
-    if (!o || !s || o.candleKey !== s.confBar) continue;
-    const idx = new Map((s.rows || []).map((r) => [r.s + "|" + r.st, r]));
-    const bad = [];
-    for (const [sym, b] of Object.entries(o.bySym || {})) for (const x of b.rows || []) {
-      const r = idx.get(sym + "|" + x.st);
-      if (!r || r.dir !== x.dir || r.sc !== x.sc || !!r.act !== !!x.act) bad.push(sym + "|" + x.st);
-    }
-    out.push(T("snapshot.vs-strategies." + book, "INV-20", "CRITICAL", !bad.length, bad.slice(0, 6).join(", ")));
+    for (const t of tr.open) { if (seen.has(t.s)) dup.push(t.s); seen.add(t.s); }
+    out.push(T("trades.geometry", "INV-60", "CRITICAL", !geo.length, geo.slice(0, 6).join(" · ")));
+    out.push(T("trades.score", "INV-61", "CRITICAL", !score.length, score.slice(0, 6).join(" · ")));
+    out.push(T("trades.base", "INV-62", "CRITICAL", !base.length, base.slice(0, 6).join(" · ")));
+    out.push(T("trades.one-per-symbol", "INV-63", "CRITICAL", !dup.length, dup.join(", ")));
+    const order = tr.open.every((t, i) => !i || tr.open[i - 1].score >= t.score);
+    out.push(T("trades.ranked", "INV-64", "CRITICAL", order, "الترتيب ليس تنازلياً بالدرجة"));
   }
   return out;
 }
@@ -152,27 +143,6 @@ export function referenceChecks(dir, { sample = Infinity } = {}) {
     }
     out.push(T("reference.analysis", "INV-30", "CRITICAL", !nA, nA ? `${nA} فرقاً — ${exA.join(" · ")}` : ""));
     out.push(T("reference.published-score", "INV-33", "CRITICAL", !nP, nP ? `${nP} فرقاً — ${exP.join(" · ")}` : ""));
-  }
-  for (const [book, sub, bar] of [["stocks", "", 900], ["crypto", "crypto/", 300]]) {
-    const s = rd(dir, sub + "summary.json"); if (!s) continue;
-    const edgeFile = book === "stocks" ? rd(dir, "strategy-edge.json") : null;
-    const edge = {}; for (const r of (edgeFile && edgeFile.rows) || []) edge[r.id] = r;
-    let cbarMax = 0; for (const r of s.rows) if (Number.isFinite(r.cbar)) cbarMax = Math.max(cbarMax, r.cbar);
-    if (!cbarMax) continue;
-    const cnow = (cbarMax + bar) * 1000 + 1;
-    const st = rd(dir, sub + "strategies.json") || {};
-    let n = 0, diffs = 0; const ex = [];
-    for (const row of s.rows.slice(0, sample)) {
-      const rec = rd(dir, `${sub}sym/${row.s}.json`); if (!rec) continue;
-      const mkt = rec.mkt || row.mkt || null;
-      const r = C.compareStrategies({ rec, row, now: st.updated || s.updated, cnow,
-        sess: SESS.sessionOf(cnow, mkt), win: SESS.currentWindow(cnow, mkt),
-        sessOf: (t) => SESS.sessionOf(t, mkt), holdBy: {}, edge });
-      n += r.prod.length; diffs += r.diffs.length;
-      if (r.diffs.length && ex.length < 4) ex.push(row.s + ":" + r.diffs[0].id + "." + r.diffs[0].field);
-    }
-    out.push(T("reference.strategies." + book, "INV-31/32", "CRITICAL", !diffs,
-      diffs ? `${diffs} فرقاً في ${n} تقييماً — ${ex.join(" · ")}` : `${n} تقييماً متطابقاً`));
   }
   return out;
 }

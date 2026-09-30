@@ -124,11 +124,49 @@ export const ma200Schema = {
 };
 
 /* ملفّات كل دفتر ومخطّطاتها — `sym` تُطبَّق على كلّ ملفّ في `sym/` */
+/* =====================================================================
+   صفقات المحرّك V3 (docs/ENGINE_V3_SPEC.md) — الفرص المعروضة على الموقع.
+   الدرجة مجموع أوزانٍ ثابتة (40 · 40 · 6.67 · 6.67 · 6.66) فلا تتجاوز 100،
+   وكلُّ صفقةٍ مكتملة: دخول ووقف وهدفان على الأقل، والجهة ±1 لا صفر.
+   ===================================================================== */
+const pos = { type: "number", exclusiveMinimum: 0 };
+const EVT3 = ["pdh_break", "pdl_reclaim", "pdl_break", "pdh_loss"];
+const WEVT3 = ["pwh_break", "pwl_reclaim", "pwl_break", "pwh_loss"];
+const pts3 = { type: "object", required: ["day", "ma", "trend", "vwap", "week"],
+  properties: { day: { enum: [0, 40] }, ma: { enum: [0, 40] }, trend: { enum: [0, 6.67] },
+                vwap: { enum: [0, 6.67] }, week: { enum: [0, 6.66] } }, additionalProperties: false };
+const trade3 = { type: "object",
+  required: ["id", "s", "d", "status", "t", "base", "evt", "el", "pts", "score", "e", "st", "risk", "tg", "hit"],
+  properties: {
+    id: str, s: str, d: { enum: [-1, 1] }, t: epochS,
+    status: { enum: ["confirmed", "active", "closed", "cancelled"] },
+    base: { enum: ["day", "ma"] }, evt: { enum: [...EVT3, null] }, weekEvt: { enum: [...WEVT3, null] },
+    pts: pts3, score: { type: "number", minimum: 40, maximum: 100 },
+    e: pos, st: pos, stNow: pos, risk: pos, hit: { type: "integer", minimum: 0, maximum: 3 },
+    tg: { type: "array", minItems: 2, maxItems: 3,
+          items: { type: "object", required: ["p", "src"], properties: { p: pos, src: str } } },
+    end: { anyOf: [{ type: "null" }, { type: "object", required: ["k", "t", "px"],
+           properties: { k: { enum: ["stop", "be", "tgt", "exp", "gap"] }, t: epochS, px: pos } }] }
+  } };
+export const tradesSchema = {
+  type: "object",
+  required: ["engine", "version", "generatedAt", "candleKey", "weights", "open", "closed", "bySym", "rowsHash"],
+  properties: {
+    engine: { const: "v3" },
+    version: { type: "string", pattern: "^[0-9a-f]{12}$" },
+    rowsHash: { type: "string", pattern: "^[0-9a-f]{12}$" },
+    generatedAt: str,
+    candleKey: { type: "integer", minimum: 1.6e9, maximum: 4e9, multipleOf: 900 },
+    weights: { type: "object", required: ["day", "ma", "trend", "vwap", "week"] },
+    open: { type: "array", items: trade3 },
+    closed: { type: "array", items: trade3 },
+    bySym: { type: "object" }
+  } };
+
 export const BOOK_SCHEMAS = {
   stocks: {
     "summary.json": summarySchema(STOCK_TFS, "stocks"),
-    "opportunities.json": oppSchema(STOCK_TFS),
-    "strategies.json": strategiesSchema,
+    "trades.json": tradesSchema,
     "market.json": marketSchema,
     "market-dir.json": marketDirSchema,
     "meta.json": metaSchema,
@@ -136,10 +174,7 @@ export const BOOK_SCHEMAS = {
   },
   crypto: {
     "summary.json": summarySchema(["5m", "15m", "1h", "4h"], "crypto"),
-    "opportunities.json": oppSchema(["5m", "15m", "1h", "4h"]),
-    "strategies.json": strategiesSchema,
     "market.json": marketSchema,
-    "ma200-open.json": ma200Schema,
     "sym/*": symSchema(CRYPTO_TFS)
   }
 };

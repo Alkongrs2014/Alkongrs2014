@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/golden/**/*.test.mjs", "tests/unit/libs.test.mjs", "tests/unit/boundaries.test.mjs", "tests/unit/consensus-direction.test.mjs", "tests/unit/strategy-boundaries.test.mjs", "tests/unit/publish-guards.test.mjs", "tests/regression/known.test.mjs",
-              "tests/regression/tfpin.test.mjs", "tests/property/**/*.test.mjs", "tests/metamorphic/**/*.test.mjs",
+              "tests/regression/tfpin.test.mjs", "tests/regression/engine3-isolation.test.mjs", "tests/property/**/*.test.mjs", "tests/metamorphic/**/*.test.mjs",
               "tests/reference/reference.test.mjs"],
     testTimeout: 120000, pool: "forks"
   }

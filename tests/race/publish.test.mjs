@@ -55,7 +55,7 @@ describe("النشر المعاملاتيّ", () => {
   it("INV-12: حالةٌ أقدم (candleKey ينزل) تُرفض والمنشور لا يُلمس", async () => {
     await pub();
     const h = head();
-    const o = rj("opportunities.json"); o.candleKey -= 900; wj("opportunities.json", o); bump();
+    const o = rj("trades.json"); o.candleKey -= 900; wj("trades.json", o); bump();
     const r = await pub();
     expect(r.code).toBe("regression");
     expect(head()).toBe(h);
@@ -69,7 +69,7 @@ describe("النشر المعاملاتيّ", () => {
 
   it("INV-25: بصمةٌ مختلفة في نفس الشمعة بلا تغيّر نسخة تُرفض", async () => {
     await pub();
-    const o = rj("opportunities.json"); o.rowsHash = "0".repeat(12); wj("opportunities.json", o); bump();
+    const o = rj("trades.json"); o.rowsHash = "0".repeat(12); wj("trades.json", o); bump();
     expect((await pub()).code).toBe("regression");
   });
 
@@ -169,23 +169,23 @@ describe("السباقات", () => {
 describe("الجزئي لا يستبدل الكامل — دفتر الكريبتو", () => {
   it("INV-10: دفترُ كريبتو ساقط يُحمَل من المنشور ولا يُحذف", async () => {
     await pub();
-    const before = remoteFile("crypto/opportunities.json");
+    const before = remoteFile("crypto/summary.json");
     const s = JSON.parse(fs.readFileSync(path.join(data, "crypto/summary.json"), "utf8"));
     s.rows[0].mkt = null;                                     // يسقط في بوّابته
     fs.writeFileSync(path.join(data, "crypto/summary.json"), JSON.stringify(s));
     bump();
     const r = await pub();
     expect(r.code).toBe("published");
-    expect(remoteFile("crypto/opportunities.json").rowsHash).toBe(before.rowsHash);
+    expect(remoteFile("crypto/summary.json").updated).toBe(before.updated);
   });
 
   it("INV-10: غيابُ مجلّد الكريبتو محلياً لا يحذف المنشور", async () => {
     await pub();
-    const before = remoteFile("crypto/opportunities.json");
+    const before = remoteFile("crypto/summary.json");
     fs.rmSync(path.join(data, "crypto"), { recursive: true, force: true });
     bump();
     expect((await pub()).code).toBe("published");
-    expect(remoteFile("crypto/opportunities.json").rowsHash).toBe(before.rowsHash);
+    expect(remoteFile("crypto/summary.json").updated).toBe(before.updated);
   });
 });
 

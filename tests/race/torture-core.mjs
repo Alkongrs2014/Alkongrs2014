@@ -27,18 +27,18 @@ const bumpSum = (d) => { const g = path.join(d, "summary.json"); const m = rjf(g
 
 export const CORRUPT = [
   ["ملخّص مقطوع", (d) => { const f = path.join(d, "summary.json"); const t = fs.readFileSync(f, "utf8"); fs.writeFileSync(f, t.slice(0, t.length >> 1)); }],
-  ["بايتٌ مقلوب في اللقطة", (d) => { const f = path.join(d, "opportunities.json"); const b = fs.readFileSync(f); b[b.length >> 1] ^= 0x5a; fs.writeFileSync(f, b); }],
+  ["بايتٌ مقلوب في اللقطة", (d) => { const f = path.join(d, "trades.json"); const b = fs.readFileSync(f); b[b.length >> 1] ^= 0x5a; fs.writeFileSync(f, b); }],
   ["NaN→null", (d) => { const f = path.join(d, "summary.json"); const s = rjf(f); s.rows[3].score = null; s.updated += 9; wjf(f, s); }],
   ["حقلٌ ناقص", (d) => { const f = path.join(d, "summary.json"); const s = rjf(f); delete s.rows[1].tfScore; s.updated += 9; wjf(f, s); }],
   ["فريم 5د في سهم", (d) => { const f = path.join(d, "sym", "NVDA.json"); const s = rjf(f); s.tf["5m"] = s.tf["15m"]; wjf(f, s); bumpSum(d); }],
   ["دفترٌ ملوّث", (d) => { const f = path.join(d, "summary.json"); const s = rjf(f); s.rows[0].mkt = "crypto"; s.updated += 9; wjf(f, s); }],
-  ["مفتاحٌ قديم", (d) => { const f = path.join(d, "opportunities.json"); const s = rjf(f); s.candleKey -= 900; wjf(f, s); bumpSum(d); }],
+  ["مفتاحٌ قديم", (d) => { const f = path.join(d, "trades.json"); const s = rjf(f); s.candleKey -= 900; wjf(f, s); bumpSum(d); }],
   ["جلبٌ فاشل (10 صفوف)", (d) => { const f = path.join(d, "summary.json"); const s = rjf(f); s.rows = s.rows.slice(0, 10); s.updated += 9; wjf(f, s); }],
   ["استجابةٌ فارغة", (d) => { const f = path.join(d, "summary.json"); const s = rjf(f); s.rows = []; s.updated += 9; wjf(f, s); }],
   ["رمزٌ مكرّر", (d) => { const f = path.join(d, "summary.json"); const s = rjf(f); s.rows.push(s.rows[0]); s.updated += 9; wjf(f, s); }],
   ["فريماتٌ مفقودة (جلبٌ جزئي)", (d) => { const f = path.join(d, "summary.json"); const s = rjf(f); for (const r of s.rows.slice(0, 20)) r.tfScore = { "15m": (r.tfScore || {})["15m"] ?? 0 }; s.updated += 9; wjf(f, s); }],
   ["ملفٌّ مفقود", (d) => { fs.rmSync(path.join(d, "market.json")); bumpSum(d); }],
-  ["بصمةٌ مختلفة بنفس المفتاح", (d) => { const f = path.join(d, "opportunities.json"); const s = rjf(f); s.rowsHash = "0".repeat(12); wjf(f, s); bumpSum(d); }]
+  ["بصمةٌ مختلفة بنفس المفتاح", (d) => { const f = path.join(d, "trades.json"); const s = rjf(f); s.rowsHash = "0".repeat(12); wjf(f, s); bumpSum(d); }]
 ];
 
 /* فسادٌ في الكريبتو وحده: الأسهم سليمةٌ ومحدّثة فيُنشر المرشَّح، لكن كريبتو المنشور يبقى كما هو */
@@ -81,7 +81,7 @@ export async function runTorture({ fixtures, N = 200, rounds = null, log = () =>
     if (rf("summary.json").updated !== goodUpd) V("تغيّر ملخّص المنشور");
 
     /* ٢) كريبتو فاسد مع أسهمٍ سليمةٍ أحدث — يُنشر، وكريبتو المنشور لا يُمسّ */
-    const cBefore = rf("crypto/opportunities.json").rowsHash, cRows = rf("crypto/summary.json").rows.length;
+    const cBefore = rf("crypto/summary.json").updated, cRows = rf("crypto/summary.json").rows.length;
     let cDone = 0;
     for (const [name, fn] of CORRUPT_CRYPTO) {
       const d = mk();
@@ -89,7 +89,7 @@ export async function runTorture({ fixtures, N = 200, rounds = null, log = () =>
       fn(d);
       const r = await pub(d);
       if (r.code !== "published") V(`«${name}»: الأسهم السليمة لم تُنشر (${r.code}: ${r.why})`);
-      if (rf("crypto/opportunities.json").rowsHash !== cBefore || rf("crypto/summary.json").rows.length !== cRows)
+      if (rf("crypto/summary.json").updated !== cBefore || rf("crypto/summary.json").rows.length !== cRows)
         V(`«${name}»: تغيّر كريبتو المنشور أو حُذف`);
       cDone++;
       fs.rmSync(d, { recursive: true, force: true });

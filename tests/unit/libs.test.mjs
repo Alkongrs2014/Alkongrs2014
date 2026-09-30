@@ -73,7 +73,7 @@ describe("المخطّطات — ترفض ما يجب رفضه", () => {
     expect(validateDoc(marketDirSchema, m).length).toBeGreaterThan(0);
   });
   it("المثبّتات السليمة تمرّ", () => {
-    for (const f of ["summary.json", "opportunities.json", "strategies.json", "market.json", "market-dir.json"])
+    for (const f of ["summary.json", "trades.json", "market.json", "market-dir.json"])
       expect(validateDoc(BOOK_SCHEMAS.stocks[f], rd(f)), f).toEqual([]);
   });
 });

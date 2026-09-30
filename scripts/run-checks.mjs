@@ -27,20 +27,17 @@ const only = (args.find(a => a.startsWith("--only=")) || "").slice(7).split(",")
 
 /* `data: true` — يقرأ بيانات الإنتاج فيحتاج اللقطة (ويُتخطّى في CI بلا
    بيانات إن لم تتوفّر مثبّتات). `live` — يحتاج الشبكة فلا مكان له هنا. */
+/* فحوص المحرّك القديم (check-strategies · check-direction · check-opportunity-* ·
+   check-books · check-crypto-stability · check-snapshot-purity · track-* ·
+   build-opportunities · backtest-* · replay · learn · scan-ma200-open) أُخرجت مع
+   المحرّك نفسه — نسختُها أرشيفٌ في legacy_strategy_engine/. فحصُ المحرّك V3
+   الذاتي هنا، ومقارنتُه بمرجعه المستقلّ وحتميّتُه في vitest والطبيب. */
 const CHECKS = [
   { id: "ui",             cmd: ["scripts/check-ui.mjs"] },
   { id: "session",        cmd: ["scripts/check-session.mjs"] },
-  { id: "strategies",     cmd: ["scripts/check-strategies.mjs"], data: true },
-  { id: "direction",      cmd: ["scripts/check-direction.mjs"], data: true },
-  { id: "books",          cmd: ["scripts/check-books.mjs"], data: true },
-  { id: "opp-list",       cmd: ["scripts/check-opportunity-list.mjs"], data: true },
-  { id: "opp-stability",  cmd: ["scripts/check-opportunity-stability.mjs"], data: true },
-  { id: "crypto-stab",    cmd: ["scripts/check-crypto-stability.mjs"], data: true },
-  { id: "snap-purity",    cmd: ["scripts/check-snapshot-purity.mjs"], data: true, argData: true },
+  { id: "build-trades",   cmd: ["scripts/build-trades.mjs", "--check"] },
   ...["fetch-quotes", "fetch-market", "fetch-calendar", "fetch-news", "fetch-daily", "fetch-options", "fetch-filings",
-      "fetch-events", "fetch-crypto", "backtest", "backtest-strategies", "track-signals",
-      "track-strategies", "build-opportunities", "build-universe", "analytics", "market-direction",
-      "replay", "audit-missed", "learn", "scan-ma200-open"]
+      "fetch-events", "fetch-crypto", "build-universe", "analytics", "market-direction"]
     .map(n => ({ id: n, cmd: [`scripts/${n}.mjs`, "--check"], data: true, out: true })),
 ];
 
