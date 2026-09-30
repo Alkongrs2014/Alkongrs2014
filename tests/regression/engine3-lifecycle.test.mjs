@@ -45,7 +45,7 @@ describe("engine3 — المسار الحيّ", () => {
 
   it("الصفقة النشطة لا تختفي، والبناء التزايديّ = البناء المتواصل", () => {
     const dir = tmp();
-    const steps = ends.slice(-120);          // ~5 جلسات شمعةً شمعة
+    const steps = ends.slice(-400);          // ~15 جلسة شمعةً شمعة
     let prev = null, seenActive = 0, vanished = [];
     for (const T of steps) {
       const r = run(dir, T + 60000);
@@ -62,7 +62,7 @@ describe("engine3 — المسار الحيّ", () => {
       }
       prev = doc;
     }
-    expect(seenActive).toBeGreaterThan(2);
+    expect(seenActive).toBeGreaterThan(5);
     expect(vanished).toEqual([]);
     // التزايديّ يطابق بناءً متواصلاً يبدأ من نفس نافذة الإحماء
     const inc = JSON.parse(fs.readFileSync(path.join(dir, "trades.json"), "utf8"));

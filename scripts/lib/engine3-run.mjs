@@ -35,21 +35,37 @@ function fold(arr, keyOf, endOf) {
   return out;
 }
 
+/* نوافذ الجلسة بذاكرةٍ لكل يوم: `sessionWindows` تمرّ بـIntl في كل نداء (~90µs)،
+   ومناداتُها لكل شمعة جعلت التحضير ثانيةً لكل رمز. اليوم يُعرف من إزاحة نيويورك
+   (مخزَّنة لكل ساعة في session.js) — نفس النتيجة بلا Intl لكل شمعة. */
+const winCache = new Map();
+function etDayKey(t) {
+  const x = new Date(t + SES.etOffsetMs(t));
+  return x.getUTCFullYear() * 10000 + (x.getUTCMonth() + 1) * 100 + x.getUTCDate();
+}
+function winOf(t) {
+  const k = etDayKey(t);
+  let w = winCache.get(k);
+  if (w === undefined) { w = SES.sessionWindows(t).regular || null; winCache.set(k, w); }
+  return w;
+}
+
 /* التحضير مرّةً لكل رمز من شموع المخزن (كل الجلسات) ويوميّه */
 export function prep(bars15, bars1d) {
   const r15 = [];
   for (const b of bars15 || []) {
-    if (!(b.v > 0 && SES.isRegularBar(b.t))) continue;
-    const w = SES.sessionWindows(b.t);
-    r15.push({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d: dayKeyOf(b.t),
-               last: !!(w.regular && b.t + M15 === w.regular.end), end: b.t + M15 });
+    if (!(b.v > 0)) continue;
+    const w = winOf(b.t);
+    if (!w || b.t < w.start || b.t >= w.end) continue;           // الجلسة الرسمية وحدها
+    r15.push({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d: etDayKey(b.t),
+               last: b.t + M15 === w.end, end: b.t + M15 });
   }
   const bucket = (H) => {
     const Hms = H * 3600000;
     return fold(r15, b => SES.sessionBucket(b.t, H), (b, k) => {
       const start = k * Hms + SES.REG_OPEN * 60000 - SES.etOffsetMs(b.t);
-      const w = SES.sessionWindows(b.t);
-      return Math.min(start + Hms, w.regular ? w.regular.end : start + Hms);
+      const w = winOf(b.t);
+      return Math.min(start + Hms, w ? w.end : start + Hms);
     });
   };
   const d1 = (bars1d || []).map(b => { const d = dayKeyOf(b.t + 12 * 3600000); return { t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d, w: isoWeek(d) }; });
