@@ -1,0 +1,674 @@
+#!/usr/bin/env node
+/* =====================================================================
+   تتبّع ماسح الاستراتيجيات — الحالة الآنية والتسلسل والنتائج.
+
+   ثلاثة مخرَجات لثلاثة أسئلة مختلفة:
+
+     `strategies.json`    ما حال كل رمز×استراتيجية **الآن**، ومتى بدأت
+                          هذه الحالة. الحقلان `at` و`px0` هما جوهر
+                          الميزة: المتصفح يحسب النتيجة بنفسه من السعر
+                          الحيّ، لكنه **لا يستطيع** أن يعرف متى بدأت
+                          الإشارة — تلك معلومةٌ تاريخية يملكها الخادم
+                          وحده لأنه رأى الدورة السابقة.
+
+     `strat/{SYM}.json`   تسلسلُ ما تغيّر ومتى. ملفٌّ لكل رمز لا ملفٌّ
+                          جامع: التسلسل يُقرأ للرمز المبحوث عنه وحده،
+                          وملفٌّ جامع يعني تحميل 97 تسلسلاً لقراءة واحد.
+
+     `strat-signals.json` / `strat-history.json`
+                          السجلّ الحيّ — ما ظهر فعلاً وما آل إليه، كي
+                          تُقاس موثوقية كل استراتيجية بالتراكم بدل أن
+                          تُفترض.
+
+   ---------------------------------------------------------------------
+   **سكّانان منفصلان في ملفّين منفصلين.**
+
+   إشارات الماسح لا تُكتب في `signals.json`. خلطُها بإشارات `SCANS`
+   يجعل «نسبة النجاح» في شاشة السجلّ تصف سكّانَين مختلفين ويُبطل مقارنة
+   الأرشيف — رقمٌ صحيحٌ حسابياً يجيب سؤالاً لم يُطرح.
+
+   والدوالُّ مع ذلك **مشتركة**: `updateOutcome` و`guard` و`guardTotal`
+   تُستورد من `track-signals.mjs` كما هي. نسختان من رياضيات النتيجة
+   تجعلان السجلَّين يُقاسان بمسطرتين — وهي نفس علّة `plan.js`.
+
+   ---------------------------------------------------------------------
+   الإيقاعان: `--only-price` يعيد حساب البوابات السعرية وحدها من سعرٍ
+   حيّ ومؤشّراتٍ مجمَّدة (دورة الدقيقتين)، وبدونه يُعاد كل شيء (دورة
+   العشر دقائق). ونفس الدالّة في الحالتين.
+
+   ---------------------------------------------------------------------
+   CONFIRMED مقابل LIVE — لا علاقة له بالإيقاعين أعلاه.
+
+   `dir`/`sc`/`band` المكتوبة في كل صفّ هي **CONFIRMED**: مُقيَّمة بسعر
+   إغلاق آخر شمعةٍ مغلقة لفريم الاستراتيجية (`S.confirmCtx`)، فلا تتغيّر
+   إلا حين تُغلَق شمعةٌ جديدة فعلاً — بصرف النظر عن كم دورة أسعارٍ مرّت
+   بينهما. هي ما يقرأه التوافق (`consFromRows`) والترتيب في الفرص.
+
+   `ldir`/`lsc`/`lband` **LIVE**: نفس التقييم بالسعر اللحظي كما كان
+   دائماً — بادجٌ تكميليّ يتحدّث كل دورة أسعار، ولا يدخل التوافق ولا
+   الترتيب ولا السجلّ الحيّ.
+
+   وكلاهما من `evalStrategy`/`evalGates` نفسهما بلا نسخ — سياقٌ مختلف
+   لا مسارٌ مختلف. راجع التعليق فوق `confirmCtx` في `strategies.js`.
+   ===================================================================== */
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { createRequire } from "module";
+import { statusNow, sessionOf, currentWindow } from "./lib/session.mjs";
+import { initLog, info, signal as logSignal } from "./lib/log.mjs";
+import { rp } from "./lib/round.mjs";
+import { auditStamp } from "./lib/audit-trail.mjs";
+import { updateOutcome, guard, guardTotal, stillLive } from "./track-signals.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const require = createRequire(import.meta.url);
+const S = require(path.join(ROOT, "stocks/strategies.js"));
+const C = require(path.join(ROOT, "stocks/consensus.js"));
+const P = require(path.join(ROOT, "stocks/plan.js"));
+const E = require(path.join(ROOT, "stocks/evaluate.js"));
+
+const args = process.argv.slice(2);
+const CHECK = args.includes("--check");
+const ONLY_PRICE = args.includes("--only-price");
+const OUT = (() => { const i = args.indexOf("--out"); return i >= 0 ? path.resolve(args[i + 1]) : path.join(ROOT, "data"); })();
+
+const DAY = 86400e3;
+/* التسلسل يُقصّ بالعمر لا بالعدد: سقفُ عددٍ يحذف أقدم نقطةٍ لرمزٍ هادئ
+   قبل أحدثِ نقطةٍ لرمزٍ ثرثار — نفس درس تنقيح `filings.json`. */
+const KEEP_DAYS = 7;
+const MAX_PTS = 120;
+/* عتبات تسجيل نقطةٍ في التسلسل. بلا هذه الشروط: 97 رمزاً × 10
+   استراتيجيات × 144 دورة ≈ 140 ألف نقطة يومياً تصف ضجيجاً لا حدثاً.
+   نفس مبدأ `trend.json` بالحرف. */
+const PT_STEP = 10;                    // حركةٌ في النتيجة تستحقّ التسجيل
+const HOLD_DAYS = 28;
+
+const readJSON = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return d; } };
+const num = (v) => (Number.isFinite(v) ? v : null);
+
+/* =====================================================================
+   مفتاح الحالة ولحظة بدايتها.
+
+   `at` تُعاد **فقط حين تتبدّل الجهة** (أو تظهر بعد غياب). النتيجة
+   تتحرّك في كل دورة، فإعادةُ التأريخ عند كل حركة تجعل كل إشارةٍ
+   «جديدة» أبداً — وهو عكس السؤال المطروح تماماً.
+
+   و`px0` السعر لحظتها، ولا يُلمس بعدها: `entryQuality` تقيس كم تحرّك
+   السعر **منذ الإشارة**، فتحديثُه يجعل الجواب صفراً دائماً.
+   ===================================================================== */
+export function stateKey(sym, id) { return sym + "|" + id; }
+
+/* =====================================================================
+   حالةُ هيستريسس الاتجاه — خريطةٌ مستقلّة عن `rows`، وسببُ استقلالها.
+
+   `rows` لا تحمل إلا ما تفعّل (`if (!rC.dir) continue`)، فالاستراتيجيةُ
+   الصامتة لا صفَّ لها — ولو حُفظت المرساة في الصفّ وحده لضاعت عند أوّل
+   سكون، فصار المسار ‎+1 → صمت → −1‎ يلتفّ على الهيستريسس كلّه. وهي
+   الحالة التي بُني لها أصلاً.
+
+   **وبمهلةٍ لا بالأبد**: استراتيجيةٌ صمتت ساعاتٍ ثم نطقت ليست منقلبة
+   بل مبتدئة، وإبقاءُ مرساتها يؤخّر إشارةً جديدةً بلا سبب. والمهلة
+   تُبقي الخريطة صغيرة أيضاً — بلا ذلك تحمل ‎10‎ استراتيجيات × ‎1155‎
+   رمزاً وأغلبُها صامتٌ أبداً.
+
+   وتُخزَّن مصفوفةً لا كائناً: أربعةُ أرقامٍ وختم، بمفتاحٍ واحد — نفس
+   سبب حزم الشمعات. */
+const HOLD_TTL = 60 * 60e3;
+const packHold = (h, ts) => [h.ld, h.pd || 0, h.pn || 0, h.pb || 0, Math.round(ts / 1000)];
+const unpackHold = (a) => (Array.isArray(a) && a.length >= 4)
+  ? { ld: a[0], pd: a[1], pn: a[2], pb: a[3] } : null;
+
+
+export function carryState(prev, r, now, px) {
+  const sameDir = prev && prev.dir === r.dir;
+  return {
+    at: sameDir && Number.isFinite(prev.at) ? prev.at : Math.round(now / 1000),
+    px0: sameDir && Number.isFinite(prev.px0) ? prev.px0 : rp(px),
+    /* الوسم المثبَّت يحتاج وسمَ الدورة السابقة — والخادم وحده يملكه.
+       نفس سبب حساب `band` في الخادم لا المتصفح في `score.js`. */
+    band: S.sBandStable(r.sc, sameDir ? prev.band : null)
+  };
+}
+
+/* =====================================================================
+   نقطةٌ في التسلسل — بثلاثة شروطٍ فقط.
+
+   تغيّرُ الجهة لا يُفقد أبداً مهما صغرت الحركة (انقلابُ الاتجاه هو
+   الحدث نفسه)، وعبورُ حدّ وسمٍ يُسجَّل، وما عدا ذلك يحتاج حركةً
+   تُذكر. ونفس منطق `pushTrend` في `track-signals`.
+   ===================================================================== */
+export function pushPoint(list, pt, prev) {
+  if (!prev) { list.push(pt); return true; }
+  const flip = prev.dir !== pt.dir;
+  const band = prev.band !== pt.band;
+  const step = Math.abs((pt.sc || 0) - (prev.sc || 0)) >= PT_STEP;
+  if (!flip && !band && !step) return false;
+  list.push(pt);
+  return true;
+}
+
+export function trimPoints(pts, now) {
+  const cut = now - KEEP_DAYS * DAY;
+  const live = (pts || []).filter(p => Array.isArray(p) && p[0] * 1000 >= cut);
+  return live.slice(-MAX_PTS);
+}
+
+/* =====================================================================
+   لقطة الإشارة — تُكتب مرّة ولا تُلمس.
+
+   الفصل بنيويّ لا اختياري: نظامٌ يعيد حساب توصيةٍ قديمة ببيانات اليوم
+   يخرج بأرقام أجمل دائماً لأنه يحسب وقد صار المستقبل معلوماً.
+
+   وشكلُها **نفس شكل `snap` في `track-signals`** بالضبط (`px` `e` `s`
+   `dir` `t`) كي تقبلها `updateOutcome` بلا أي تحويل — دالّةٌ واحدة
+   تقيس السجلَّين، فلا يُقاسان بمسطرتين.
+   ===================================================================== */
+export function snapFor(c, r, plan, at) {
+  if (!plan || plan.bad) return null;
+  const snap = {
+    px: rp(c.px), e: rp(plan.entry), s: rp(plan.stop),
+    atr: rp(plan.atr), dir: plan.dir,
+    rr: plan.rr === null ? null : +plan.rr.toFixed(2),
+    t: plan.targets.map(x => rp(x.p)),
+    tpct: plan.targets.map(x => +x.pct.toFixed(2)),
+    trr: plan.targets.map(x => +x.rr.toFixed(2)),
+    tf: plan.atrTf, sc: r.sc, band: r.band
+  };
+  /* ما يُفحص يجب أن يكون ما يُكتب: البوابة تُعاد على الحقول **المقرَّبة**
+     لا على الخطة قبل التقريب. وهي القاعدة التي كشفت لقطة `SHIB-USD`
+     بمخاطرةٍ صفر — فحصٌ على تمثيلٍ وسيط يشهد لشيءٍ لا يصل القرص. */
+  const bad = P.validatePlan({
+    dir: snap.dir, entry: snap.e, stop: snap.s, atr: snap.atr,
+    risk: (snap.e - snap.s) * snap.dir,
+    targets: snap.t.map((p, i) => ({ p, rr: snap.trr[i] })),
+    primary: snap.t.length ? { p: snap.t[snap.t.length - 1] } : null
+  });
+  if (bad.length) return { bad };
+  return snap;
+}
+
+/* =====================================================================
+   التشغيل
+   ===================================================================== */
+/* طولُ شمعة المفتاح بالثواني — ‎900‎ للأسهم (‎15د‎) و‎300‎ لدفتر الكريبتو
+   (‎5د‎). ساعةُ التأكيد `cnow` = نهايةُ شمعة `cbar`: بطولٍ خاطئ تُقرأ شمعةٌ
+   جاريةٌ مغلقةً (‎cbar+900‎ على شبكة ‎5د‎ تُدخل الجارية وما بعدها). */
+const BAR_SEC = Number(process.env.OPP_BAR_SEC || 900);
+
+/* `io` اختياري: قارئٌ بديل (`(rel, def) => json`) لإعادة التشغيل التاريخية —
+   تُمرَّر الشمعات مقصوصةً عند كل شمعةٍ ماضية في الذاكرة بدل كتابة مئات
+   الملفّات لكل شمعة. غيابُه = القراءة من `out` كما كانت بالحرف. */
+export function runOnce({ out = OUT, now = Date.now(), onlyPrice = false, quotes = null, io = null } = {}) {
+  const rj = io || ((rel, d = null) => readJSON(path.join(out, rel), d));
+  const summary = rj("summary.json");
+  if (!summary || !Array.isArray(summary.rows) || !summary.rows.length)
+    throw new Error("لا summary.json — لا يُكتب فوق بياناتٍ سليمة");
+
+  /* والطبقة الواسعة كذلك: كلُّ رمزٍ فيها له ملفٌّ بـ260 شمعة يومية،
+     فالاستراتيجيات اليومية تعمل عليه. وبدونها يبقى 414 رمزاً بلا
+     لحظةِ بدءٍ مسجَّلة — والواجهة تقول «منذ هذه الدورة» أبداً، وهو
+     أسوأ سؤالٍ يمكن أن يُترك بلا جواب في هذه الميزة.
+     وصفوفها تُقرأ للسعر و52 أسبوعاً وحدها؛ التحليل من ملف الرمز. */
+  const wide = rj("wide.json", { rows: [] });
+  const seen = new Set(summary.rows.map(r => r.s));
+  const all = summary.rows.concat((wide.rows || []).filter(r => r && !seen.has(r.s)));
+  /* ساعةُ الشمعة — تُحسب هنا مرّةً قبل كل ما يقيس زمناً (انظر شرحها عند
+     الحلقة). وكلُّ ما يدخل CONFIRMED يقرؤها لا ساعةَ الحائط: الجلسة
+     والنافذة ومهلةُ الإمساك. بلا ذلك يتغيّر «عدد الاستراتيجيات» عند حدّ
+     جلسةٍ أو بانقضاء ستّين دقيقة حائطٍ دون أن تُغلق شمعة. */
+  let cbarMax = 0;
+  for (const r of all) if (Number.isFinite(r.cbar)) cbarMax = Math.max(cbarMax, r.cbar);
+  const cnow = cbarMax ? (cbarMax + BAR_SEC) * 1000 + 1 : null;
+  const tnow = cnow || now;
+
+  const prevFile = rj("strategies.json", { rows: [] });
+  const prevBy = {};
+  for (const r of prevFile.rows || []) prevBy[stateKey(r.s, r.st)] = r;
+  /* مرساةُ الهيستريسس من الخريطة المستقلّة، وبمهلة. والصفُّ القائم
+     مرساةٌ بنفسه (`ld === row.dir` دائماً) فيُغني عن تخزينه. */
+  const holdPrev = {}, holdNext = {};
+  for (const [k, v] of Object.entries(prevFile.hold || {})) {
+    const h = unpackHold(v);
+    if (h && (tnow - v[4] * 1000) < HOLD_TTL) holdPrev[k] = h;
+  }
+
+  const edgeFile = rj("strategy-edge.json");
+  const edge = {};
+  for (const r of (edgeFile && edgeFile.rows) || []) edge[r.id] = r;
+
+  const openPrev = rj("strat-signals.json", { records: [] });
+  const histPrev = rj("strat-history.json", { records: [] });
+  const prevTotal = (openPrev.records || []).length + (histPrev.records || []).length;
+
+  const rows = [], trends = {}, live = (openPrev.records || []).slice();
+  const liveBy = {};
+  for (const s of live) liveBy[stateKey(s.sym, s.strat)] = s;
+
+  /* =====================================================================
+     سجلٌّ بُني بتعريفٍ تغيّر يُغلق ولا يُحوَّل — `conv`.
+
+     نفس مسار `conv: "dir"`/`"gone"`/`"snap"` في `track-signals.mjs`،
+     ولنفس السبب: `snap` تُكتب مرّةً ولا تُلمس، وإعادةُ بنائها بمعطيات
+     اليوم تجعل السجلَّ يدّعي أنه رأى ما لم يره. و`mfe`/`mae` مسارٌ
+     تراكميّ لا يُعاد حسابه من سعرٍ واحد أصلاً.
+
+     والحالتان هنا:
+
+       `"gone"` — استراتيجيةٌ حُذف معرّفُها من `STRATEGIES`، فلا وسم
+                  لها ولا حافّة ولا شيءٌ يُقارن به.
+       `"tf"`   — استراتيجيةٌ تغيّر **فريمُها** المعلن. وهذا أخطر من
+                  الحذف لأنه لا يبدو تغييراً: الاسم نفسه والمعرّف
+                  نفسه، والسجلّ يبقى مفتوحاً — فتُخلط صفقاتُ `orb`
+                  على ‎5د‎ بصفقاته على ‎15د‎ في مقامٍ واحد، ويُنسب إلى
+                  «نسبة نجاح كسر نطاق الافتتاح» رقمٌ يصف تعريفين.
+
+     و`conv` يُفحص **بالصدق** لا بمساواة قيمة — مجموعة قيمه مفتوحة،
+     وهي القاعدة التي كلّف نسيانُها ثلثَي مقام نسبة النجاح مرّة.
+
+     ---------------------------------------------------------------
+     وكشفُ «تغيّر الفريم» يحتاج حقلاً صريحاً، و`snap.tf` **لا يصلح**:
+     هو فريمُ ATR الصفقة لا فريمُ المشغِّل، وهما مختلفان عمداً — خطةُ
+     `orb` كانت تُقاس بـ‎15د‎ بينما مشغِّلُه ‎5د‎، فالحقلان متساويان
+     قبل التغيير وبعده ولا يكشفان شيئاً.
+
+     فيُكتب `stf` (فريم الاستراتيجية المعلن) في كل سجلٍّ جديد، ويصير
+     الكشفُ بعدها آلياً ودقيقاً. أما السجلات المكتوبة **قبل** وجود
+     الحقل فتُعرف بغيابه: وغيابُه على استراتيجيةٍ `intraday` يعني
+     `orb` أو `vwapRec` — وهما بالضبط المنقولتان من ‎5د‎ إلى ‎15د‎.
+     قاعدةٌ تنطفئ بنفسها: بعد أوّل تشغيل يحمل كلُّ سجلٍّ `stf`. */
+  {
+    const known = new Map(S.STRATEGIES.map(s => [s.id, s.tf]));
+    let convGone = 0, convTf = 0;
+    for (const sig of live) {
+      if (sig.conv || !sig.open) continue;
+      const tfNow = known.get(sig.strat);
+      const st = S.STRAT_BY_ID[sig.strat];
+      if (tfNow === undefined) { sig.conv = "gone"; convGone++; }
+      else if (sig.stf ? sig.stf !== tfNow : (st && st.src === "intraday")) {
+        sig.conv = "tf"; convTf++;
+      }
+      if (sig.conv) { sig.open = false; sig.closed = now; }
+    }
+    if (convGone || convTf)
+      info("scanner", `هجرة سجلات: ${convGone} لاستراتيجيةٍ محذوفة · ${convTf} لفريمٍ تغيّر`);
+
+    /* `"pegged"` — مستقرّةٌ كُشفت بسلوكها فخرجت من كون الكريبتو. لا صفَّ لها
+       بعد اليوم فلا سعر يُحدّث سجلَّها، فيبقى «مفتوحاً» إلى الأبد. وقع مع
+       `U-USD`: تسعة سجلّات بقيت مفتوحة بعد خروجها — وسجلُّ مستقرّةٍ ليس
+       صفقةً أصلاً. والمرجعُ قائمةُ `pegged` في الكون المكتوب لا غيابُ الصفّ:
+       صفٌّ غاب لفشل جلبٍ عابر ليس خروجاً.
+       **ولا يعمّ الخارجين بالسيولة** عمداً: قِيس 2026-09-28 ‎218‎ سجلاً مفتوحاً
+       لـ‎35‎ عملةً نزلت تحت العتبة في أيامٍ سابقة، لكنها تعود فوقها أحياناً في
+       اليوم التالي — وإغلاقُها قرارُ سياسةٍ لم يُتّخذ بعد. */
+    const uni = process.env.BOOK === "crypto" ? rj("universe.json") : null;
+    if (uni && Array.isArray(uni.pegged) && uni.pegged.length) {
+      const peg = new Set(uni.pegged.map(x => x.s));
+      let convU = 0;
+      for (const sig of live) {
+        if (sig.conv || !sig.open || !peg.has(sig.sym)) continue;
+        sig.conv = "pegged"; sig.open = false; sig.closed = now; convU++;
+      }
+      if (convU) info("scanner", `هجرة سجلات: ${convU} لمستقرّةٍ خرجت من الكون`);
+    }
+  }
+
+  initLog(out);
+  info("scanner", `بدء المسح · ${all.length} رمزاً · الجلسة ${sessionOf(now)}`);
+
+  let added = 0, symbols = 0, skipped = 0, unconfirmed = 0, confBar = 0;
+  const unconfirmedSyms = new Set();
+
+  /* =====================================================================
+     **ساعةُ التأكيد تُشتقّ من `cbar` لا من ساعة الحائط.**
+
+     `cbar` يكتبه `fetch-market` مرّةً كل دورة سوق، وهذا الملفّ يُكتب
+     كل دورة أسعار. فبساعة الحائط يتقدّم التأكيد هنا بمجرّد أن تُغلق
+     شمعةٌ، ويبقى `cbar` على شمعتها حتى دورة السوق التالية — فيصف
+     الملفّان شمعتين، وبوّابةُ لقطة الفرص تشترط تساويهما فتُجاع.
+
+     وقع فعلاً: تجمّدت لقطة الفرص **ساعةً و‎46‎ دقيقة** (‎07:30Z‎ حتى
+     ‎09:16Z‎) وكلُّ محاولةٍ تُسجَّل «المصدران على شمعتين».
+
+     فالساعة هنا = لحظةٌ بعد إغلاق شمعة `cbar` بقليل. فيختار
+     `closedBars` تلك الشمعة بالضبط، ويتساوى `confBar` و`max(cbar)`
+     **بالبناء**. و`now` نفسها لا تُمسّ: الجلسة والنوافذ والطزاجة كلُّها
+     تُقاس بساعة الحائط كما كانت — المتغيّر هو اختيارُ الشمعة وحده.
+
+     وبلا `cbar` في الملخّص (أوّل تشغيل) تبقى ساعة الحائط — سلوكٌ سابقٌ
+     لا ينكسر. */
+  if (cnow) info("scanner", `ساعة التأكيد مثبَّتة على شمعة ${new Date(cbarMax * 1000).toISOString().slice(11, 16)}Z (من cbar)`);
+  for (const row of all) {
+    const rec = rj(`sym/${row.s}.json`);
+    if (!rec) { skipped++; continue; }
+    const px = num(quotes && quotes[row.s]) ?? num(row.p);
+    if (!(px > 0)) { skipped++; continue; }
+    symbols++;
+
+    /* الحالة والنافذة من التقويم لا من `rec.period` المحفوظ: المحفوظة
+       تصف يوم جلبها. و`sessOf` تُمرَّر دالّةً كي يبقى `strategies.js`
+       رياضياتٍ خالصة — وهي التي تجعل خطّ أساس الحجم يقارن ما قبل
+       الافتتاح بما قبل الافتتاح. */
+    const mkt = rec.mkt || row.mkt || null;
+    const sess = sessionOf(tnow, mkt);
+    const win = currentWindow(tnow, mkt);
+    const c = S.buildCtx({ rec, row, now, px, sess, win, cnow,
+                           sessOf: (t) => sessionOf(t, mkt) });
+    const opt = onlyPrice ? { only: "price" } : {};
+
+    /* =====================================================================
+       ختمُ الشمعة التي حُسب عليها CONFIRMED — **يُكتب لأنه لا يُشتقّ من
+       مكانٍ آخر.**
+
+       `cbar` في صفّ الملخّص يكتبه `fetch-market` في دورة العشر دقائق،
+       وهذا الملفّ يُكتب في دورة الدقيقتين كذلك ويحسب شمعته **بساعته
+       هو**. فالشمعة تُغلق بمرور الوقت لا بوصول بيانات: عند ‎09:00‎ صارت
+       شمعة ‎08:45‎ مغلقةً وتقدّم المحرّك إليها، بينما `cbar` بقي على
+       ‎08:30‎ حتى تأتي دورة السوق التالية.
+
+       والأثر ليس تجميلياً: المستخدم يرى **الترتيب يتغيّر والختم ثابتاً**
+       — وهو بالضبط شكلُ العلّة التي أُصلحت، فيُقرأ خللاً وهو إغلاق شمعةٍ
+       مشروع. قِيس فارقاً قدرُه ‎15‎ دقيقة كاملة.
+
+       فيُكتب هنا ويُعرض الأحدث من الاثنين، فلا يتقدّم رقمٌ بلا ختمٍ
+       يشرحه. */
+    const cb = S.confirmBase(c);
+    if (cb) {
+      const kk = (cb.ik && cb.ik["15m"]) || cb.k["15m"] || cb.k["1h"] || cb.k["4h"] || cb.k["1d"];
+      const b = (kk && kk.length) ? kk[kk.length - 1] : null;
+      if (b && Number.isFinite(b.t)) confBar = Math.max(confBar, Math.round(b.t / 1000));
+    }
+
+    for (const st of S.STRATEGIES) {
+      const key = stateKey(row.s, st.id);
+      const prev = prevBy[key];
+
+      /* CONFIRMED — بسعر إغلاق آخر شمعة مغلقة لفريم الاستراتيجية، لا
+         السعر اللحظي. تُحسب دائماً كاملة (بلا `only`/`prev`): مدخلُها
+         الوحيد لا يتغيّر بين دورتي أسعار ما لم تُغلَق شمعةٌ جديدة،
+         فهي ثابتةٌ تلقائياً بلا حاجة لتجميدٍ يدويّ. هذا ما يقرأه
+         التوافق والترتيب والثقة — لا يتحرّك بتذبذب السعر اللحظي. */
+      /* الهيستريسس على CONFIRMED وحده — وهو ما يقرأه التوافق والترتيب.
+         وLIVE أدناه بادجٌ خام يبقى بلا إمساك كما كان. */
+      const hPrev = holdPrev[key] || (prev && prev.dir ? { ld: prev.dir } : null);
+      const rC = S.evalStrategy(st, S.confirmCtx(st, c), { hold: hPrev || {} });
+      /* تُلتقط الحالة **قبل** شرط التفعيل أدناه: الصامتةُ لا صفَّ لها
+         ومرساتُها هي بالضبط ما يجب ألّا يضيع. */
+      if (rC.hold && rC.hold.ld) holdNext[key] = packHold(rC.hold, tnow);
+      else if (hPrev && hPrev.ld) holdNext[key] = packHold(hPrev, tnow);
+      if (rC.off === S.UNCONFIRMED) { unconfirmed++; unconfirmedSyms.add(row.s); }
+      if (!rC.dir || !Number.isFinite(rC.sc)) continue;     // لم يتفعّل أو متعذّر
+
+      /* LIVE — كما كانت الدالة دائماً: بادجٌ تكميلي يتحدّث كل دورة، ولا
+         يُنشئ صفّاً بمفرده ولا يُغيّر التوافق أو الترتيب. */
+      const rL = S.evalStrategy(st, c, Object.assign({ prev }, opt));
+      const lBandPrev = (prev && prev.ldir === rL.dir) ? prev.lband : null;
+      const lband = Number.isFinite(rL.sc) ? S.sBandStable(rL.sc, lBandPrev) : null;
+
+      const carried = carryState(prev, rC, now, px);
+      const plan = S.planFor(c, rC);
+      const lv = (plan && !plan.bad) ? {
+        e: rp(plan.entry), s: rp(plan.stop), atr: rp(plan.atr),
+        t: plan.targets.map(x => rp(x.p)),
+        rr: plan.rr === null ? null : +plan.rr.toFixed(2), tf: plan.atrTf
+      } : null;
+
+      rows.push({
+        s: row.s, st: st.id, dir: rC.dir, sc: rC.sc, band: carried.band,
+        at: carried.at, px0: carried.px0, act: !!rC.active,
+        // LIVE — تكميليٌّ لا يُستهلَك في التوافق ولا الترتيب
+        ldir: rL.dir || 0, lsc: Number.isFinite(rL.sc) ? rL.sc : null, lband,
+        g: rC.g, lv, pAt: Math.round(now / 1000),
+        // انقلابٌ قيد التثبّت — يُقال ولا يُكتم، ولا يُكتب حين لا وجود له
+        ...(rC.pend ? { pend: [rC.pend.d, rC.pend.n, rC.pend.of] } : {})
+      });
+
+      // ----- التسلسل — CONFIRMED وحده -----
+      const pt = [Math.round(now / 1000), st.id, rC.dir, rC.sc, rp(px)];
+      const tl = (trends[row.s] ||= []);
+      pushPoint(tl, { t: pt[0], id: st.id, dir: rC.dir, sc: rC.sc, band: carried.band, raw: pt },
+                prev ? { dir: prev.dir, sc: prev.sc, band: prev.band } : null);
+
+      // ----- السجلّ الحيّ: تُسجَّل الإشارة حين **تبدأ** وهي نشطة، بجهةٍ CONFIRMED -----
+      const isNew = !prev || prev.dir !== rC.dir;
+      if (isNew && rC.active && !liveBy[key]) {
+        const snap = snapFor(c, rC, plan, carried.at);
+        if (snap && !snap.bad) {
+          logSignal(row.s, st.id, rC.dir, rC.sc,
+            `${rC.tfUsed || st.tf}${c.extSess ? " · جلسة ممتدة" : ""}`);
+          const sig = { sym: row.s, strat: st.id, at: now, dir: rC.dir,
+                        sc: rC.sc, band: carried.band, mkt: rec.mkt || null,
+                        // فريمُ المشغِّل المعلن — يكشف تغيّر التعريف لاحقاً
+                        stf: st.tf,
+                        regime: C.marketRegime(c.an), snap, open: true,
+                        // إعادة التشغيل (io) لا تكتب أرشيفاً: مدخلاتُها ماضٍ مقصوص لا إصدارٌ حيّ
+                        aud: io ? null : auditStamp({ sym: row.s, symRec: rec, row, ck: cbarMax || null, barSec: BAR_SEC, outDir: out }),
+                        out: { st: "wait", hit: snap.t.map(() => null), stopAt: null, enterAt: null } };
+          live.push(sig); liveBy[key] = sig; added++;
+        }
+      }
+    }
+  }
+
+  if (!symbols) throw new Error("لم يُقرأ رمزٌ واحد — لا يُكتب فوق بياناتٍ سليمة");
+
+  // ----- تحديث النتائج لكل ما هو مفتوح -----
+  const pxBy = {};
+  for (const row of all) pxBy[row.s] = num(quotes && quotes[row.s]) ?? num(row.p);
+  let closed = 0;
+  for (const sig of live) {
+    const p = pxBy[sig.sym];
+    if (!(p > 0)) continue;
+    updateOutcome(sig, p, now, "a");
+    sig.last = rp(p);
+  }
+  const stillOpen = live.filter(s => s.open);
+  const newlyClosed = live.filter(s => !s.open);
+  closed = newlyClosed.length;
+  const history = (histPrev.records || []).concat(newlyClosed);
+
+  /* البوابة على **المجموع** لا على أحد الملفّين: نقلُ سجلٍّ من المفتوح
+     إلى التاريخ تقلّصٌ مشروع في الأول، وضياعُه تقلّصٌ في المجموع —
+     والثاني وحده خلل. */
+  const nextTotal = stillOpen.length + history.length;
+  const g = guardTotal(prevTotal, nextTotal, { pruning: false });
+  if (g && g.stop) throw new Error(`بوابة السلامة: المجموع ${prevTotal} ← ${nextTotal}`);
+
+  /* بوابةٌ على عدد الرموز لا النقاط — النقاط تتقلّص بالتشذيب كل تشغيل
+     فلا تصلح مقياساً (درسٌ موثّق من `trend.json`). */
+  const prevSyms = fs.existsSync(path.join(out, "strat"))
+    ? fs.readdirSync(path.join(out, "strat")).filter(f => f.endsWith(".json")).length : 0;
+  const nextSyms = Object.keys(trends).length;
+
+  /* لا يُخزَّن من الحالة إلا ما لا يُشتقّ من الصفّ: الصفُّ القائم
+     مرساةٌ بنفسه (`ld === row.dir`)، فتخزينُه تكرارٌ يُثقل ملفّاً
+     يُقرأ عند فتح التبويب. يبقى المتربّص — وهو نادرٌ بطبيعته — والصامتُ
+     الذي لا صفَّ له، وهو وحده سببُ وجود الخريطة أصلاً. */
+  const rowKeys = new Set(rows.map(r => stateKey(r.s, r.st)));
+  const holdKeep = {};
+  for (const [k, v] of Object.entries(holdNext))
+    if (v[1] !== 0 || !rowKeys.has(k)) holdKeep[k] = v;
+
+  /* في دفتر الكريبتو ساعةُ التأكيد شمعةُ ‎5د‎ نفسها (`cbar`): الاستراتيجيات
+     تُقيَّم على ما أُغلق عندها، فختمُها هو ختمُ اللقطة — لا ختمُ ‎15د‎ الذي
+     يتأخّر عنها حتى عشر دقائق فيُبقي بوّابة «شمعةٍ واحدة» مغلقةً أبداً. */
+  /* وفي الأسهم: المفتاحُ النهائيّ بعد الإغلاق (‎23:45Z‎ — `finalKeyMs` في
+     `fetch-market`) خانةٌ بلا شمعة، فختمُ آخر ‎15د‎ مغلقة يبقى ‎19:45‎ وتبقى
+     البوّابة مغلقةً طوال الليل (قِيس أوّل إغلاقٍ حيّ 2026-09-29). الساعة
+     تُشتقّ من `cbar` أصلاً، فالختمُ يتبعه حين يسبق. */
+  if (cbarMax && (BAR_SEC !== 900 || cbarMax > confBar)) confBar = cbarMax;
+  return { rows, trends, stillOpen, history, now,
+           confBar, holdNext: holdKeep,
+           stats: { symbols, skipped, rows: rows.length, added, closed,
+                    trendSyms: nextSyms, prevSyms, onlyPrice,
+                    unconfirmed, unconfirmedSyms: unconfirmedSyms.size } };
+}
+
+export function writeOut(res, out = OUT) {
+  const { rows, trends, stillOpen, history, now, stats, confBar, holdNext } = res;
+  fs.mkdirSync(path.join(out, "strat"), { recursive: true });
+
+  fs.writeFileSync(path.join(out, "strategies.json"), JSON.stringify({
+    updated: now, priceAt: now, count: rows.length,
+    // ختمُ الشمعة التي حُسب عليها CONFIRMED (بالثواني) — تعرضه الواجهة
+    ...(confBar ? { confBar } : {}),
+    ...(holdNext && Object.keys(holdNext).length ? { hold: holdNext } : {}),
+    dirHold: S.DIR_HOLD,
+    actMin: S.ACT_MIN, bands: S.S_BANDS, labels: S.S_LABEL,
+    strategies: S.STRATEGIES.map(s => ({ id: s.id, lbl: s.lbl, fam: s.fam, tf: s.tf, why: s.why, src: s.src })),
+    fams: C.REGIMES ? S.FAMS : S.FAMS,
+    rows
+  }));
+
+  for (const [sym, pts] of Object.entries(trends)) {
+    const f = path.join(out, "strat", `${sym}.json`);
+    const prev = readJSON(f, { tl: [] });
+    const tl = trimPoints((prev.tl || []).concat(pts.map(p => p.raw)), now);
+    fs.writeFileSync(f, JSON.stringify({ s: sym, updated: now, keepDays: KEEP_DAYS, tl }));
+  }
+
+  fs.writeFileSync(path.join(out, "strat-signals.json"), JSON.stringify({
+    updated: now, holdDays: HOLD_DAYS, count: stillOpen.length, records: stillOpen }));
+  fs.writeFileSync(path.join(out, "strat-history.json"), JSON.stringify({
+    updated: now, count: history.length, records: history }));
+  return stats;
+}
+
+/* =====================================================================
+   الفحص الذاتي
+   ===================================================================== */
+function selfTest() {
+  let pass = 0, fail = 0;
+  const t = (n, fn) => { try { fn(); console.log(`  ✓ ${n}`); pass++; }
+                         catch (e) { console.log(`  ✗ ${n} — ${e.message}`); fail++; } };
+  const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b))
+    throw new Error(`${m}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`); };
+  const ok = (c, m) => { if (!c) throw new Error(m); };
+
+  console.log("\n▶ فحص تتبّع الاستراتيجيات (بلا شبكة)\n");
+
+  t("لحظة البدء تُعاد عند تبدّل الجهة وحده", () => {
+    const now = 1789400000000;
+    const first = carryState(null, { dir: 1, sc: 70 }, now, 100);
+    eq(first.at, Math.round(now / 1000), "أول ظهور يؤرَّخ الآن");
+    eq(first.px0, 100, "والسعر يُثبَّت");
+    // نفس الجهة بنتيجةٍ أخرى: التأريخ والسعر لا يُلمسان
+    const same = carryState({ dir: 1, at: 1000, px0: 100, band: 1 }, { dir: 1, sc: 95 }, now, 130);
+    eq(same.at, 1000, "الاستمرار لا يُعيد التأريخ");
+    eq(same.px0, 100, "ولا يُحدّث سعر الإشارة");
+    // تبدّل الجهة: كلاهما يُعاد
+    const flip = carryState({ dir: 1, at: 1000, px0: 100, band: 1 }, { dir: -1, sc: 70 }, now, 130);
+    eq(flip.at, Math.round(now / 1000), "الانقلاب يؤرَّخ من جديد");
+    eq(flip.px0, 130, "والسعر يُعاد تثبيته");
+  });
+
+  t("نقطة التسلسل تُسجَّل بثلاثة شروطٍ لا بكل دورة", () => {
+    const L = [];
+    ok(pushPoint(L, { dir: 1, sc: 60, band: 1 }, null), "أول نقطة تُسجَّل");
+    ok(!pushPoint(L, { dir: 1, sc: 63, band: 1 }, { dir: 1, sc: 60, band: 1 }), "حركةٌ صغيرة تُهمَل");
+    ok(pushPoint(L, { dir: 1, sc: 75, band: 1 }, { dir: 1, sc: 60, band: 1 }), "حركةٌ تُذكر تُسجَّل");
+    ok(pushPoint(L, { dir: 1, sc: 61, band: 2 }, { dir: 1, sc: 60, band: 1 }), "عبور وسمٍ يُسجَّل ولو بنقطة");
+    // انقلابُ الجهة لا يُفقد أبداً مهما صغرت الحركة
+    ok(pushPoint(L, { dir: -1, sc: 60, band: 1 }, { dir: 1, sc: 60, band: 1 }), "الانقلاب لا يُفقد");
+  });
+
+  t("التشذيب بالعمر لا بالعدد", () => {
+    const now = 1789400000000;
+    const old = [Math.round((now - 9 * DAY) / 1000), "orb", 1, 70, 100];
+    const fresh = [Math.round((now - 1 * DAY) / 1000), "orb", 1, 70, 100];
+    eq(trimPoints([old, fresh], now).length, 1, "القديمة تُقصّ");
+    eq(trimPoints([old, fresh], now)[0][0], fresh[0], "والباقية هي الحديثة");
+    const many = Array.from({ length: 300 }, (_, i) => [Math.round((now - 3600e3) / 1000) + i, "orb", 1, 70, 100]);
+    eq(trimPoints(many, now).length, MAX_PTS, "والسقف يحدّ العدد");
+  });
+
+  t("اللقطة تُرفض حين ينكسر معناها بعد التقريب", () => {
+    const c = { px: 0.00000529 };
+    const r = { sc: 80, band: 2 };
+    // خطةٌ فرقُها أصغر من دقّة التقريب -> يجب أن تُرفض لا أن تُكتب صفراً
+    const flat = { dir: 1, entry: 0.00000529, stop: 0.000005289999, atr: 1e-12,
+                   rr: 2, targets: [{ p: 0.0000053, pct: 1, rr: 2 }], atrTf: "15m" };
+    const snap = snapFor(c, r, flat);
+    ok(!snap || snap.bad, "لقطةٌ بمخاطرةٍ منعدمة يجب أن تُرفض");
+    // وخطةٌ سليمة على سعرٍ رخيص تمرّ بمعناها محفوظاً
+    const good = { dir: 1, entry: 0.0000053, stop: 0.0000049, atr: 0.0000004,
+                   rr: 2, targets: [{ p: 0.0000061, pct: 15, rr: 2 }], atrTf: "15m" };
+    const s2 = snapFor(c, r, good);
+    ok(s2 && !s2.bad, "الخطة السليمة تمرّ");
+    ok(s2.e - s2.s > 0, "والفرق يبقى موجباً بعد التقريب");
+  });
+
+  t("السجلّ الذي تغيّر تعريفُه يُغلق ولا يُحوَّل", () => {
+    /* المحاكاة تستنسخ منطق الهجرة لا تستدعيه (هو داخل `run` التي تحتاج
+       القرص). والفحص يحرس الحالات الأربع التي تفترق فيها القاعدة. */
+    const known = new Map(S.STRATEGIES.map(s => [s.id, s.tf]));
+    const migrate = (sig) => {
+      if (sig.conv || !sig.open) return sig;
+      const tfNow = known.get(sig.strat);
+      const st = S.STRAT_BY_ID[sig.strat];
+      if (tfNow === undefined) sig.conv = "gone";
+      else if (sig.stf ? sig.stf !== tfNow : (st && st.src === "intraday")) sig.conv = "tf";
+      if (sig.conv) { sig.open = false; sig.closed = 1; }
+      return sig;
+    };
+    const mk = (o) => Object.assign({ sym: "X", open: true, snap: { tf: "15m" } }, o);
+
+    // ١) استراتيجيةٌ اختفى معرّفُها
+    eq(migrate(mk({ strat: "squeeze" })).conv, "gone", "المحذوفة تُغلق");
+    // ٢) سجلٌّ قديم بلا `stf` لاستراتيجيةٍ لحظية = ما قبل نقل الفريم
+    eq(migrate(mk({ strat: "orb" })).conv, "tf", "القديم اللحظي يُهاجَر");
+    // ٣) وسجلٌّ قديم لاستراتيجيةٍ لم يتغيّر فريمُها يبقى مفتوحاً
+    eq(migrate(mk({ strat: "brk" })).open, true, "غيرُ اللحظية لا تُمسّ");
+    // ٤) والجديد الحامل `stf` المطابق يبقى — فالقاعدة تنطفئ بنفسها
+    eq(migrate(mk({ strat: "orb", stf: "15m" })).open, true, "الجديد المطابق يبقى");
+    eq(migrate(mk({ strat: "orb", stf: "5m" })).conv, "tf", "والمخالف يُهاجَر");
+    // ٥) و`conv` يُفحص بالصدق: قيمةٌ رابعة لا تتسرّب إلى الإحصاء
+    const already = mk({ strat: "orb", conv: "snap", open: false });
+    eq(migrate(already).conv, "snap", "الموسوم سابقاً لا يُعاد وسمُه");
+  });
+
+  t("اللقطة بشكلٍ تقبله updateOutcome بلا تحويل", () => {
+    const plan = { dir: 1, entry: 100, stop: 98, atr: 2, rr: 2,
+                   targets: [{ p: 104, pct: 4, rr: 2 }, { p: 106, pct: 6, rr: 3 }], atrTf: "1h" };
+    const snap = snapFor({ px: 100 }, { sc: 80, band: 2 }, plan);
+    ok(snap && !snap.bad, "لقطة سليمة");
+    const sig = { sym: "X", strat: "orb", at: Date.now(), snap, open: true,
+                  out: { st: "wait", hit: [null, null], stopAt: null, enterAt: null } };
+    updateOutcome(sig, 100, Date.now(), "a");
+    eq(sig.out.st, "open", "الدخول عند السعر يفتحها");
+    updateOutcome(sig, 104, Date.now(), "a");
+    eq(sig.out.st, "t1", "الهدف الأول يُسجَّل");
+    updateOutcome(sig, 97, Date.now(), "a");
+    eq(sig.out.st, "stop", "والوقف يغلقها");
+    eq(sig.open, false, "وتخرج من المفتوحات");
+    // والمنتهية لا تُحدَّث بعدها
+    updateOutcome(sig, 106, Date.now(), "a");
+    eq(sig.out.st, "stop", "المنتهية لا تعود رابحة");
+  });
+
+  t("السكّانان منفصلان — لا يُكتب في signals.json", () => {
+    const src = fs.readFileSync(fileURLToPath(import.meta.url), "utf8");
+    ok(!/writeFileSync\([^)]*"signals\.json"/.test(src), "لا كتابة في signals.json");
+    ok(!/writeFileSync\([^)]*"history\.json"/.test(src), "لا كتابة في history.json");
+    ok(/strat-signals\.json/.test(src) && /strat-history\.json/.test(src), "ملفّان خاصّان");
+  });
+
+  console.log(`\n${fail ? "✗" : "✔"} ${pass} نجح · ${fail} فشل\n`);
+  process.exit(fail ? 1 : 0);
+}
+
+/* حارس الاستيراد: إعادة التشغيل تستورد `runOnce` — واستيرادٌ يشغّل الملفّ
+   كان سيكتب في `data/` (مصيدة `IS_MAIN` الموثّقة في track-signals). */
+const IS_MAIN = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+if (!IS_MAIN) { /* مستورَد */ }
+else if (CHECK) selfTest();
+else {
+  const now = Date.now();
+  const res = runOnce({ out: OUT, now, onlyPrice: ONLY_PRICE });
+  const stats = writeOut(res, OUT);
+  console.log(`▶ الاستراتيجيات${ONLY_PRICE ? " (سعرية فقط)" : ""}: ` +
+    `${stats.rows} صفّاً على ${stats.symbols} رمزاً · ` +
+    `${stats.added} إشارة جديدة · ${stats.closed} أُغلقت · ` +
+    `${stats.trendSyms} تسلسلاً` + (stats.skipped ? ` · ${stats.skipped} تُخطّي` : "") +
+    (stats.unconfirmed ? ` · ${stats.unconfirmed} تقييماً متعذّر التأكيد على ${stats.unconfirmedSyms} رمزاً` : ""));
+}

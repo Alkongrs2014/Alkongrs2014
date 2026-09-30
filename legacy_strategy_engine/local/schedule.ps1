@@ -1,0 +1,144 @@
+﻿# =====================================================================
+#  جدولة مهام المرصد في Task Scheduler.
+#
+#  لماذا PowerShell لا ملف .bat؟
+#  cmd.exe يتتبّع موضعه في ملف الدفعة بالبايتات، ويعيد قراءة الموضع بعد
+#  كل أمر. مع `chcp 65001` وملف UTF-8 فيه نص عربي طويل يختلّ هذا التتبّع
+#  فتُقرأ الأوامر مقطّعة: جرّبناه فخرجت أخطاء مثل «'te' is not recognized»
+#  و«'/SC' is not recognized» — نصفُ سطر schtasks يُنفَّذ كأمر مستقل.
+#  الأسوأ أنه لا يفشل بوضوح: بعض المهام تُنشأ وبعضها لا، بلا رسالة تقول ذلك.
+#  PowerShell يقرأ UTF-8 أصلاً فلا يعاني منه، وكنّا نحتاجه أصلاً لضبط
+#  السقوف الزمنية. فصار مصدراً واحداً بدل ملفَّين يتباعدان.
+#
+#  الاستعمال:
+#    powershell -ExecutionPolicy Bypass -File schedule.ps1            # بلا نشر
+#    powershell -ExecutionPolicy Bypass -File schedule.ps1 -Publish   # مع النشر
+#    (أو ببساطة: schedule.bat  /  schedule-publish.bat)
+# =====================================================================
+param([switch]$Publish)
+
+$ErrorActionPreference = 'Stop'
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$vbs  = Join-Path $root 'local\run-hidden.vbs'
+if (-not (Test-Path $vbs)) { throw "لم يُعثر على $vbs" }
+
+# الدورات الأربع. كل واحدة تجيب سؤالاً مختلفاً عن «كم يتغيّر هذا فعلاً»:
+#   السعر يتغيّر كل لحظة · الشمعة المكتملة لا · سلسلة العقود أبطأ ·
+#   أرقام الشركة تتغيّر مرة كل ربع سنة.
+#
+# ‎`Start` ليست تجميلاً — بدونها تُنشأ المهام كلها بنقطة بداية واحدة هي
+# لحظة تشغيل هذا السكربت، فيتصادف إطلاقها كل مرة. والأسعار تأخذ القفل
+# أولاً (تنتهي في ~13 ثانية)، فالسوق والعقود **تنسحبان** — وتخرجان
+# بـ‎rc=0‎ فيسجّل المجدول «نجح» وهما لم تعملا. قياس 2026-09-11: الثلاث
+# مهام تُطلق في الثانية نفسها (‎16:47:00‎ + 2/10/30 دقيقة، وكلها فردية)،
+# فبلغت فجوة السوق 41 دقيقة على دورة عشر دقائق، والعقود 91 دقيقة على
+# دورة نصف ساعة. لا شيء في السجل يقول ذلك.
+#
+# الفصل بالدقيقة يكفي لأن أطول مهمة أقصر من دقيقتين:
+#   الأسعار الدقائق **الزوجية** · وكل ما عداها **فردية** بإزاحات مختلفة
+#   السوق  :01 :11 :21 :31 :41 :51      العقود :05 :35      اليومي 09:27
+# فلا تشترك مهمتان في دقيقة واحدة أبداً. والقفل يبقى شبكة أمان للحالة
+# النادرة (مهمة طالت) بدل أن يكون هو القاعدة.
+$tasks = @(
+  @{ Name='WebTrade-Quotes';  Job='quotes';  Every=2;  Start='00:00'; LimitMin=5;   Desc='أسعار فقط' }
+  @{ Name='WebTrade-Market';  Job='market';  Every=10; Start='00:01'; LimitMin=20;  Desc='شمعات ومؤشرات وإشارات وأخبار' }
+  @{ Name='WebTrade-Options'; Job='options'; Every=30; Start='00:05'; LimitMin=25;  Desc='عقود الخيارات والجريكس' }
+  # الإيداعات على :07 — دقيقةٌ فردية لا تصادف الأسعار (زوجية) ولا السوق
+  # (:01) ولا العقود (:05). وسقفُها خمس دقائق: طلبان للتيار وطلبان لكل
+  # إيداعٍ يُفصَّل، وأقصى ما رُصد عشرة طلبات في التشغيل.
+  @{ Name='WebTrade-Filings'; Job='filings'; Every=10; Start='00:07'; LimitMin=5;   Desc='إيداعات SEC — 8-K وتداول المطّلعين' }
+  # الأرشيف يجلب خمس سنوات لخمسمئة رمز، فسقفه ساعة لا نصف. ووقته 09:27
+  # لا 09:30: الدقيقة الزوجية دقيقةُ أسعار، وانسحابُ مهمةٍ يومية يعني
+  # ضياع يوم كامل لا عشر دقائق.
+  @{ Name='WebTrade-Daily';   Job='daily';   At='09:27'; LimitMin=60;  Desc='أساسيات وترتيب وأحداث وأرشيف' }
+  # دفتر الكريبتو — 24/7 بعد إغلاق كل شمعة 5 دقائق بدقيقة. قفلُه وملفّاته
+  # في data\crypto وحده، فلا ينتظر مهمّةَ أسهم ولا تنتظره. وبلا --publish:
+  # مهمّةُ النشر المستقلّة تنشر المجلّد كل دقيقتين. الدورة ~5 ثوانٍ.
+  @{ Name='WebTrade-Crypto';  Job='crypto';  Every=5;  Start='00:01'; LimitMin=4;   Desc='دفتر الكريبتو — شموع ومحرّك ولقطة فرص' }
+  # مراقبة الكريبتو المنشور — تسجّل كل لقطةٍ منشورة وتقارن الأسهم (للتقرير)
+  @{ Name='WebTrade-CryptoMon'; Job='cmon';  Every=5;  Start='00:04'; LimitMin=4;   Desc='مراقبة ثبات الكريبتو وعزل الأسهم على المنشور' }
+  # الحراسة — بلا قفلٍ ولا شبكةٍ للجلب ولا أيّ نموذج لغوي (scripts/health · fortress · torture · mutation)
+  @{ Name='WebTrade-Health';   Job='health';   Every=10; Start='00:09'; LimitMin=8;   Desc='صحّة المنشور ورجوعٌ آليّ عند عطبٍ تقنيّ' }
+  @{ Name='WebTrade-Fortress'; Job='fortress'; At='04:13'; LimitMin=90;  Desc='الفحص الشامل الليلي — الطبيب والاختبارات والإعادة والواجهة' }
+  @{ Name='WebTrade-Torture';  Job='torture';  At='05:43'; Day='FRI'; LimitMin=120; Desc='تعذيبٌ أسبوعي — آلاف الحالات والسباقات' }
+  @{ Name='WebTrade-Mutation'; Job='mutation'; At='02:43'; Day='SAT'; LimitMin=240; Desc='اختبار الطفرات الأسبوعي' }
+)
+
+# بلا نشر: لا حاجة لدورة الأسعار السريعة، فهي موجودة أصلاً كي يبقى
+# الموقع المنشور حديثاً. محلياً يكفي تحديث كل عشر دقائق.
+if (-not $Publish) { $tasks = $tasks | Where-Object { $_.Name -ne 'WebTrade-Quotes' } }
+
+Write-Host ""
+Write-Host "  جدولة المرصد$(if ($Publish) {' — مع النشر التلقائي على GitHub'})" -ForegroundColor Cyan
+Write-Host "  المجلد: $root"
+Write-Host ""
+foreach ($t in $tasks) {
+  $when = if ($t.At) { "يومياً $($t.At)" } else { "كل $($t.Every) دقيقة من $($t.Start)" }
+  Write-Host ("    {0,-18} {1,-16} {2}" -f $t.Name, $when, $t.Desc)
+}
+Write-Host ""
+Write-Host "  المهام لا تتداخل: إزاحاتها تمنع اشتراك مهمتين في دقيقة واحدة،"
+Write-Host "  والقفل في data شبكة أمان لو طالت إحداها — لأن دورتين معاً"
+Write-Host "  تتجاوزان حصّة الطلبات فيبدأ المزوّد بالرفض."
+if ($Publish) {
+  Write-Host ""
+  Write-Host "  يتطلب أن يكون المجلد مربوطاً بـ GitHub (local\link-github.bat)."
+}
+Write-Host ""
+Read-Host "  اضغط Enter للمتابعة (أو Ctrl+C للإلغاء)" | Out-Null
+
+# الإنشاء بـ schtasks.exe لا بـ Register-ScheduledTask: الأخيرة تحتاج
+# RepetitionDuration للتكرار اللانهائي، و[TimeSpan]::MaxValue يخرج منها
+# P99999999DT23H59M59S فيرفضه المجدول («قيمة خارج المدى»). schtasks
+# تفهم /SC MINUTE /MO n مباشرة. ثم نضبط ما لا تعرفه schtasks عبر
+# Set-ScheduledTask: السقف الزمني ومنع التداخل.
+$failed = @()
+foreach ($t in $tasks) {
+  $jobArgs = if ($Publish) { "$($t.Job) --publish" } else { $t.Job }
+  # wscript لا node مباشرة: node تطبيق كونسول، فيفتح Windows نافذة طرفية
+  # مرئية مع كل تشغيل — أي كل دقيقتين مع دورة الأسعار.
+  $tr = 'wscript.exe "' + $vbs + '" ' + $jobArgs
+  $a = @('/Create', '/TN', $t.Name, '/TR', $tr, '/F')
+  $a += if ($t.Day) { @('/SC', 'WEEKLY', '/D', $t.Day, '/ST', $t.At) }
+        elseif ($t.At) { @('/SC', 'DAILY', '/ST', $t.At) }
+        else       { @('/SC', 'MINUTE', '/MO', "$($t.Every)", '/ST', $t.Start) }
+
+  $out = & schtasks.exe @a 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    $failed += $t.Name
+    Write-Host "    ✗ $($t.Name) — $out" -ForegroundColor Red
+    continue
+  }
+
+  # IgnoreNew يعمل الآن فعلاً: run-hidden.vbs صار ينتظر node بدل أن
+  # يخرج فوراً، فيرى المجدول التشغيل جارياً ويعرف أن يتخطّى الجديد.
+  try {
+    $task = Get-ScheduledTask -TaskName $t.Name
+    $task.Settings.ExecutionTimeLimit = "PT$($t.LimitMin)M"
+    $task.Settings.MultipleInstances  = 'IgnoreNew'
+    $task.Settings.StartWhenAvailable = $true
+    $task.Settings.DisallowStartIfOnBatteries = $false
+    $task.Settings.StopIfGoingOnBatteries     = $false
+    Set-ScheduledTask -TaskName $t.Name -Settings $task.Settings | Out-Null
+    Write-Host "    ✓ $($t.Name)" -ForegroundColor Green
+  } catch {
+    # المهمة أُنشئت لكن إعداداتها لم تُضبط — ليست فشلاً تاماً، وقولها
+    # أصدق من علامة ✓ تخفي نصف الحقيقة
+    Write-Host "    ~ $($t.Name) — أُنشئت بلا ضبط السقف الزمني: $($_.Exception.Message)" -ForegroundColor Yellow
+  }
+}
+
+Write-Host ""
+if ($failed.Count) {
+  Write-Host "  ✗ فشل إنشاء: $($failed -join '، ')" -ForegroundColor Red
+  Write-Host "    جرّب فتح نافذة الأوامر كمسؤول وأعد التشغيل."
+  Write-Host ""
+}
+Write-Host "  تم. للتحقّق:" -ForegroundColor Cyan
+Write-Host "    Get-ScheduledTask -TaskName WebTrade-*"
+Write-Host "  للإلغاء:"
+foreach ($t in $tasks) { Write-Host "    schtasks /Delete /TN `"$($t.Name)`" /F" }
+Write-Host ""
+Read-Host "  اضغط Enter للإغلاق" | Out-Null
