@@ -2885,8 +2885,8 @@ function renderTop() {
     const now = Date.now();
     const start = scanStartOf(now);
     sb.textContent = working || st.state === "REGULAR"
-      ? `الماسح يعمل منذ ${ksaTime(start)}`
-      : `يبدأ الماسح ${ksaTime(nextScanStart(now) || start)}`;
+      ? `الماسح يعمل منذ ${ksaTime(start)} ${TZ_NOTE}`
+      : `يبدأ الماسح ${ksaTime(nextScanStart(now) || start)} ${TZ_NOTE}`;
   }
 
   /* عددُ الكون من البيانات لا من النصّ */
