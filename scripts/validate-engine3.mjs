@@ -86,8 +86,8 @@ export function run({ from, to, barsDir }) {
           const bt = simFrom(S, j, t.d, row.riskA, tgA, atrAt.get(j));
           if (bt && bt.status === "closed") base.push(E.tradeR({ ...bt, risk: row.riskA * atrAt.get(j) }, true));
         }
-        row.base = base.length ? mean(base) : null;
-        row.baseMed = base.length ? median(base) : null;
+        row.rb = base.length ? mean(base) : null;          // خطّ الأساس العشوائي (لا يُخلط بحقل «الأساس»)
+        row.rbMed = base.length ? median(base) : null;
       }
       trades.push(row);
     }
@@ -100,14 +100,14 @@ export function run({ from, to, barsDir }) {
 function stats(ts, label) {
   const c = ts.filter(t => t.R !== null);
   const R = c.map(t => t.R), pos = R.filter(x => x > 0).reduce((a, x) => a + x, 0), neg = -R.filter(x => x < 0).reduce((a, x) => a + x, 0);
-  const wb = c.filter(t => t.base !== null), diff = wb.map(t => t.R - t.base);
+  const wb = c.filter(t => t.rb !== null && t.rb !== undefined), diff = wb.map(t => t.R - t.rb);
   return { label, n: c.length, cancelled: ts.filter(t => t.status === "cancelled").length,
     t1: c.length ? c.filter(t => t.hit >= 1).length / c.length : null,
     stop: c.length ? c.filter(t => t.end === "stop").length / c.length : null,
     meanR: mean(R), medR: median(R), grossR: mean(c.map(t => t.Rg)), pf: neg > 0 ? pos / neg : null,
     bars: median(c.map(t => t.bars).filter(Number.isFinite)),
-    base: mean(wb.map(t => t.base)), edge: mean(diff), ci: bootCI(diff, "ci|" + label),
-    notBeat: wb.filter(t => t.R <= t.baseMed).length, nBase: wb.length };
+    base: mean(wb.map(t => t.rb)), edge: mean(diff), ci: bootCI(diff, "ci|" + label),
+    notBeat: wb.filter(t => t.R <= t.rbMed).length, nBase: wb.length };
 }
 const f2 = x => x == null ? "—" : x.toFixed(2), pc = x => x == null ? "—" : (x * 100).toFixed(1) + "%";
 const line = s => `${s.label.padEnd(28)} n=${String(s.n).padStart(5)} · T1 قبل الوقف ${pc(s.t1)} · وقف ${pc(s.stop)} · R ${f2(s.meanR)} (وسيط ${f2(s.medR)} · قبل التكلفة ${f2(s.grossR)}) · PF ${f2(s.pf)} · مدّة ${s.bars ?? "—"} شمعة · عشوائي ${f2(s.base)} · الفرق ${f2(s.edge)} [${f2(s.ci[0])}, ${f2(s.ci[1])}] · لم يتفوّق ${s.notBeat}/${s.nBase}`;
