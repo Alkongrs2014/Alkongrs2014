@@ -138,3 +138,66 @@ export function manageRef(sig, bars) {
   }
   return null;
 }
+
+/* =====================================================================
+   §4ب لقطة الساعة (قرار 2026-10-01) — مرجعياً من المواصفة:
+   الجهة من عبور أمس القائم اليوم، وإلا من ترتيب المتوسطات؛ ثم نفس الدرجة
+   والوقف والأهداف، والدخول إغلاق آخر شمعة مغلقة.
+   ===================================================================== */
+export function evaluateHourRef(inp, wkOf) {
+  const b15 = inp.b15, d1 = inp.d1;
+  if (b15.length < 16 || d1.length < 16) return { reject: "data" };
+  const b = b15[b15.length - 1];
+  const pd = d1[d1.length - 1];
+  const today = b15.filter((x) => x.d === b.d);
+  const day = lastCrossRef(today, pd.h, pd.l, "pd");
+  const ma = maRef(inp.h1);
+  let d = 0, base = null;
+  if (day && day.holds) { d = day.d; base = "day"; }
+  else if (ma !== 0) { d = ma; base = "ma"; }
+  if (!d) return { reject: "nobase" };
+  // بقية القرار كالحدث: نفس الدرجة والوقف والأهداف بجهة d — يُعاد استعمال المرجع
+  // بفرض حدثٍ مكافئ: لا يوجد في المرجع إلا حسابٌ واحد للدرجة والخطة
+  return planRef(inp, wkOf, d, base);
+}
+function planRef(inp, wkOf, d, base) {
+  const b15 = inp.b15, d1 = inp.d1, b = b15[b15.length - 1], pd = d1[d1.length - 1];
+  let pw = null;
+  for (const x of d1) if (x.w < inp.wk) {
+    if (!pw || x.w > pw.w) pw = { w: x.w, h: x.h, l: x.l };
+    else if (x.w === pw.w) { pw.h = Math.max(pw.h, x.h); pw.l = Math.min(pw.l, x.l); }
+  }
+  const today = b15.filter((x) => x.d === b.d), weekB = b15.filter((x) => wkOf(x.d) === wkOf(b.d));
+  const day = lastCrossRef(today, pd.h, pd.l, "pd"), week = pw ? lastCrossRef(weekB, pw.h, pw.l, "pw") : null;
+  const ma = maRef(inp.h1);
+  const ts = [swingRef(inp.h1), swingRef(inp.h4), swingRef(d1)];
+  const up = ts.filter((x) => x === 1).length, dn = ts.filter((x) => x === -1).length;
+  const trend = up >= 2 && !dn ? 1 : (dn >= 2 && !up ? -1 : 0);
+  let pv = 0, vv = 0;
+  for (const x of today) if (x.v > 0) { pv += x.v * (x.h + x.l + x.c) / 3; vv += x.v; }
+  const vwap = vv > 0 ? pv / vv : null;
+  const atrD = atrRef(last(d1, 259)), atr15 = atrRef(last(b15, 259));
+  if (!(atrD > 0 && atr15 > 0)) return { reject: "atr" };
+  const el = { day: !!(day && day.d === d && day.holds), ma: ma === d, trend: trend === d,
+               vwap: vwap !== null && d * (b.c - vwap) > 0, week: !!(week && week.d === d && week.holds) };
+  const score = Math.round(Object.keys(W).reduce((a, k) => a + (el[k] ? W[k] : 0), 0) * 100) / 100;
+  const hw = last(inp.h1, WIN), pv2 = pivRef(hw), list = d > 0 ? pv2.lo : pv2.hi;
+  let stop = null;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const p = d > 0 ? hw[list[i]].l : hw[list[i]].h;
+    if (d * (b.c - p) > 0) { stop = p - d * atr15 / 10; break; }
+  }
+  if (stop === null) return { reject: "nostop" };
+  const risk = d * (b.c - stop);
+  if (!(risk > 0) || risk > atrD) return { reject: "risk" };
+  const cand = [pd.h, pd.l, ...(pw ? [pw.h, pw.l] : []), ...pv2.hi.map((i) => hw[i].h), ...pv2.lo.map((i) => hw[i].l)]
+    .filter((x) => d * (x - b.c) > 0).sort((x, y) => d * (x - y));
+  const merged = [];
+  for (const x of cand) { if (merged.length && Math.abs(x - merged[merged.length - 1]) < atrD / 10) continue; merged.push(x); }
+  const tg = merged.filter((x) => d * (x - b.c) / risk >= 1).slice(0, 3);
+  while (tg.length < 2) {
+    const lr = tg.length ? d * (tg[tg.length - 1] - b.c) / risk : 0;
+    tg.push(b.c + d * (Math.floor(lr + 1e-9) + 1) * risk);
+  }
+  return { reject: null, d, base, el, score, e: b.c, st: stop, tg };
+}

@@ -250,6 +250,43 @@ function evaluate(inp, wkOf, maPrev) {
 }
 
 /* =====================================================================
+   **لقطة الساعة** — قرار المالك 2026-10-01 (§4ب في المواصفة).
+
+   كلُّ ساعة بدايةٌ جديدة بالكامل: لا فرصة ولا خطة ولا هدف يُحمَل من الساعة
+   السابقة. يُحلَّل الرمز من الصفر على آخر الشموع المغلقة، فإن تحقّق شرطُ فرصةٍ
+   الآن أُنشئت فرصةٌ جديدة مستقلّة بجهتها ودرجتها ودخولها ووقفها وأهدافها.
+
+   شرطُ الفرصة الآن = إحدى الأساسيتين **قائمةٌ الآن**:
+     · قمة/قاع أمس: آخر عبورٍ بالجسم خلال جلسة اليوم ما زال قائماً ⇒ جهتُه، أو
+     · المتوسطات: ترتيبٌ كامل شراءً أو بيعاً ⇒ جهتُه.
+   و«أمس» يسبق عند اختلافهما (الأساس الأوّل). الدخول = إغلاق آخر شمعة مغلقة.
+   ===================================================================== */
+function evaluateHour(inp, wkOf) {
+  var st = stateAt(inp, wkOf);
+  if (!st) return { reject: "data" };
+  var d = 0, base = null;
+  if (st.day && st.day.holds) { d = st.day.d; base = "day"; }
+  else if (st.ma.dir !== 0) { d = st.ma.dir; base = "ma"; }
+  if (!d) return { reject: "nobase", st: st };
+  if (!(st.atrD > 0 && st.atr15 > 0)) return { reject: "atr", st: st };
+  var sc = scoreFor(st, d);
+  var e = st.px, stop = stopOf(e, d, inp.h1, st.atr15);
+  if (!stop) return { reject: "nostop", st: st };
+  var risk = (e - stop.p) * d;
+  if (!(risk > 0) || risk > E3.MAX_RISK_ATR * st.atrD) return { reject: "risk", st: st };
+  var tg = targetsOf(e, d, risk, st, inp.h1);
+  return { reject: null, st: st, sig: {
+    d: d, base: base, evt: st.day && st.day.d === d && st.day.holds ? st.day.evt : null,
+    weekEvt: st.week && st.week.d === d && st.week.holds ? st.week.evt : null,
+    t: st.t, e: e, st: stop.p, stopPivot: stop.pivot, risk: risk, tg: tg,
+    rr1: (tg[0].p - e) * d / risk, atrD: st.atrD, atr15: st.atr15,
+    el: sc.el, pts: sc.pts, score: sc.score,
+    ma: st.ma.dir, trend: st.trend.dir, trendTf: st.trend.tf, vwap: st.vwap,
+    pdh: st.pd && st.pd.h, pdl: st.pd && st.pd.l, pwh: st.pw && st.pw.h, pwl: st.pw && st.pw.l
+  } };
+}
+
+/* =====================================================================
    إدارة الصفقة على شموع 15د الرسمية المغلقة.
    ===================================================================== */
 function fillTrade(tr, bar) {
@@ -295,6 +332,6 @@ function tradeR(tr, costs) {
 var ENGINE3 = { E3: E3, E3_EVT: E3_EVT, e3ema: e3ema, e3atr: e3atr, crossEvents: crossEvents,
   lastCross: lastCross, e3pivots: e3pivots, swingTrend: swingTrend, trendOf: trendOf, maOf: maOf,
   prevDay: prevDay, prevWeek: prevWeek, vwapOf: vwapOf, stateAt: stateAt, scoreFor: scoreFor,
-  stopOf: stopOf, targetsOf: targetsOf, evaluate: evaluate, fillTrade: fillTrade,
+  stopOf: stopOf, targetsOf: targetsOf, evaluate: evaluate, evaluateHour: evaluateHour, fillTrade: fillTrade,
   stepTrade: stepTrade, tradeR: tradeR };
 if (typeof module !== "undefined" && module.exports) module.exports = ENGINE3;

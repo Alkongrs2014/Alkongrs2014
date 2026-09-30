@@ -89,12 +89,15 @@ try {
   const first = await read();
 
   /* ══ ٢) المعروض = trades.json المنشور، والدرجة = مجموع ✓ بأوزانها ══ */
-  const pub = await page.evaluate(() => TRADES && { key: TRADES.candleKey, open: TRADES.open.map(t => t.s) });
+  const pub = await page.evaluate(() => TRADES && { key: TRADES.candleKey, hour: TRADES.hour, open: TRADES.open.map(t => t.s),
+    carried: TRADES.open.filter(t => t.h !== TRADES.hour).length });
   if (!pub) no("صفقات trades.json وصلت الصفحة");
   else {
     JSON.stringify(first.map(x => x.s)) === JSON.stringify(pub.open)
       ? ok("المعروض = صفقات trades.json بترتيبها", `${first.length} صفقة مفتوحة · شمعة ${new Date(pub.key * 1000).toISOString()}`)
       : no("المعروض = صفقات trades.json بترتيبها", `معروض ${first.length} · منشور ${pub.open.length}`);
+    pub.carried === 0 ? ok("لا وراثة: كلُّ فرصةٍ مبنيّةٌ في لقطة ساعتها", new Date(pub.hour * 1000).toISOString())
+                      : no("لا وراثة: كلُّ فرصةٍ مبنيّةٌ في لقطة ساعتها", pub.carried + " من ساعةٍ أخرى");
     const keys = ["day", "ma", "trend", "vwap", "week"];
     const bad = first.filter(x => {
       const sum = Math.round(keys.reduce((a, k, i) => a + (x.on[i] ? W[k] : 0), 0) * 100) / 100;
@@ -130,8 +133,12 @@ try {
   /* ══ ٤) لا شيء من المحرّك القديم ══ */
   await page.evaluate(() => go("crypto"));
   await page.waitForTimeout(1500);
-  const cr = await page.evaluate(() => document.querySelectorAll('section[data-view="crypto"] [data-open]').length);
-  cr === 0 ? ok("الكريبتو بلا فرص من المحرّك القديم") : no("الكريبتو بلا فرص من المحرّك القديم", cr + " صفّاً");
+  const cr = await page.evaluate(() => ({ rows: [...document.querySelectorAll('section[data-view="crypto"] .srow.opp')].map(c => c.dataset.open),
+    pub: TRADES_C && TRADES_C.open.map(t => t.s), hour: TRADES_C && TRADES_C.hour,
+    carried: TRADES_C ? TRADES_C.open.filter(t => t.h !== TRADES_C.hour).length : -1 }));
+  (cr.pub && JSON.stringify(cr.rows) === JSON.stringify(cr.pub) && !cr.rows.some(s => !/-USD$/.test(s)) && cr.carried === 0)
+    ? ok("الكريبتو = لقطة ساعته من V3", `${cr.rows.length} فرصة · ساعة ${new Date(cr.hour * 1000).toISOString()}`)
+    : no("الكريبتو = لقطة ساعته من V3", JSON.stringify({ rows: cr.rows.length, pub: cr.pub && cr.pub.length, carried: cr.carried }));
   await page.evaluate(() => go("screen"));
   const old = reqs.filter(u => /(opportunities|strategies|strategy-edge|ma200-open|opp-history)\.json/.test(u));
   old.length ? no("لا تُطلب لقطات المحرّك القديم", old.slice(0, 3).join(" · ")) : ok("لا تُطلب لقطات المحرّك القديم");

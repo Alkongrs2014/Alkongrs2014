@@ -3,7 +3,7 @@
 import { describe, it, expect } from "vitest";
 import { createRequire } from "node:module";
 import { prep, inputAt, isoWeek } from "../../scripts/lib/engine3-run.mjs";
-import { evaluateRef, manageRef } from "../reference/engine3-ref.mjs";
+import { evaluateRef, manageRef, evaluateHourRef } from "../reference/engine3-ref.mjs";
 import { synth } from "./synth3.mjs";
 
 const require = createRequire(import.meta.url);
@@ -44,6 +44,30 @@ describe("engine3 مقابل المرجع المستقلّ", () => {
     expect(sig).toBeGreaterThan(10);                 // يمرّ بإشاراتٍ فعلاً لا بالرفض وحده
     expect(byBase.day).toBeGreaterThan(0);
     expect(managed).toBeGreaterThan(10);
+  });
+});
+
+describe("لقطة الساعة (قرار 2026-10-01) مقابل المرجع المستقلّ", () => {
+  it("نفس الجهة والأساس والدرجة والدخول والوقف والأهداف عند كل حدّ ساعة", () => {
+    const bad = [];
+    let n = 0, sig = 0, bases = { day: 0, ma: 0 };
+    for (let i = from; i < S.r15.length; i++) {
+      if ((S.r15[i].t - Date.parse("2025-01-02T14:30:00Z")) % 3600000 !== 0) continue;   // حدود :30
+      const inp = inputAt(S, i);
+      const a = E.evaluateHour(inp, wkOf), b = evaluateHourRef(inp, wkOf);
+      n++;
+      if ((a.reject || null) !== b.reject) { bad.push([i, "reject", a.reject, b.reject]); continue; }
+      if (a.reject) continue;
+      sig++; bases[a.sig.base]++;
+      const s = a.sig;
+      if (s.d !== b.d || s.base !== b.base || JSON.stringify(s.el) !== JSON.stringify(b.el) || s.score !== b.score ||
+          !near(s.e, b.e) || !near(s.st, b.st) || s.tg.length !== b.tg.length || s.tg.some((x, k) => !near(x.p, b.tg[k]))) bad.push([i, "sig"]);
+    }
+    expect(bad.slice(0, 5)).toEqual([]);
+    expect(n).toBeGreaterThan(300);
+    expect(sig).toBeGreaterThan(20);
+    expect(bases.day).toBeGreaterThan(0);
+    expect(bases.ma).toBeGreaterThan(0);
   });
 });
 

@@ -381,9 +381,10 @@ else {
              : cmd === "market" ? ["fetch-market.mjs", "build-trades.mjs", "market-direction.mjs", "fetch-news.mjs"]
              : (cmd === "opps" || cmd === "trades") ? ["build-trades.mjs"]
              : cmd === "confirm" ? ["fetch-market.mjs", "build-trades.mjs"]
-             /* الكريبتو: بياناتٌ فقط حتى يُنقل إلى V3 بما يناسب سوقاً بلا جلسات —
-                لا فرص من المحرّك القديم */
-             : cmd === "crypto" ? ["fetch-crypto.mjs"]
+             /* الكريبتو على V3 بلقطة الساعة: يومُه 03:00→03:00 الرياض (= يوم UTC)، وكلُّ
+                ساعة تُصفَّر فرصُه وتُبنى من الصفر. المهمّة كل 5 دقائق تجلب الشموع وتبني
+                اللقطة مرّةً عند عبور حدّ الساعة وحده. */
+             : cmd === "crypto" ? ["fetch-crypto.mjs", "build-trades.mjs"]
              : ["cmon", "signals", "strategies", "stratbt", "backtest", "learn", "replay", "audit"].includes(cmd) ? []
              : cmd === "mdir" ? ["market-direction.mjs"]
              : cmd === "news"   ? ["fetch-news.mjs"]

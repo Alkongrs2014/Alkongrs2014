@@ -78,12 +78,12 @@ test("الفرص: قائمةٌ حقيقية بختم شمعة، ولا عملة 
   expect(txt).toMatch(/شمعة/);
 });
 
-test("الكريبتو: لا فرص من المحرّك القديم — إشعارُ النقل إلى V3", async ({ page }) => {
+test("الكريبتو: لقطة ساعة V3 — عملاتٌ فقط وبطاقاتٌ بدرجتها", async ({ page }) => {
   await open(page);
   await nav(page, "crypto");
-  const n = await page.locator('section[data-view="crypto"] [data-open]').count();
-  expect(n, "فرصُ كريبتو من المحرّك القديم").toBe(0);
-  expect(await visibleText(page, "crypto")).toMatch(/V3/);
+  const syms = await page.locator('section[data-view="crypto"] [data-open]').evaluateAll((a) => a.map((x) => x.getAttribute("data-open")));
+  expect(syms.filter((s) => !/-USD$/.test(s)), "سهمٌ في دفتر الكريبتو").toEqual([]);
+  expect(await visibleText(page, "crypto")).toMatch(/لقطة الساعة/);
 });
 
 test("بطاقة الفرصة تشرح درجتها: الخمس بأوزانها ✓/✗ والدرجة مجموعُ المتوافقة", async ({ page }) => {

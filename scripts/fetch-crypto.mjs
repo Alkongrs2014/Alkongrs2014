@@ -63,6 +63,10 @@ export const REGIME_W = { "1h": 1, "4h": 1.5, "1d": 2 };      // TF_WEIGHT نف�
 const FRAMES = ["5m", "15m", "1h", "4h", "1d"];
 const BAR = { "5m": 3e5, "15m": 9e5, "1h": 36e5, "4h": 144e5, "1d": 864e5 };
 const KEEP = 300;                  // EMA200 + نافذة التحليل (259) بهامش
+/* ‎15د‎ أطول: المحرّك V3 يقرأ عبورَ قمة/قاع الأسبوع السابق على شموع الأسبوع الجاري
+   كلّها (حتى 7 × 96 = 672 شمعة) — 300 كانت تنتهي منتصف الأسبوع. */
+const KEEP_TF = { "15m": 700 };
+const keepOf = (tf) => KEEP_TF[tf] || KEEP;
 /* الفريم «الأمّ» لحقول الصفّ (rsi · atr · e200 · div …): في الأسهم اليومي،
    وفي الكريبتو أعلى فريمات الفرص — 4س. */
 const PRIMARY = "4h";
@@ -216,19 +220,21 @@ const pack = (c) => c.map(x => [Math.round(x.t / 1000), rp(x.o), rp(x.h), rp(x.l
 
 /* كم شمعةً أُغلقت منذ آخر جلب؟ صفرٌ ⇒ لا طلب. */
 function dueCount(stored, tf, now) {
-  if (!stored || !stored.c || stored.c.length < 50) return KEEP;           // تعبئةٌ أولى
+  if (!stored || !stored.c || stored.c.length < 50) return keepOf(tf);     // تعبئةٌ أولى
+  // عمقٌ مخزَّن أقصر من المطلوب (رُفع KEEP_TF) ⇒ تعبئةٌ كاملة مرّةً واحدة
+  if (stored.c.length < keepOf(tf) - 5 && keepOf(tf) > KEEP) return keepOf(tf);
   const last = stored.c[stored.c.length - 1].t;
   const closedUpTo = Math.floor(now / BAR[tf]) * BAR[tf];                   // بدايةُ الجارية
   if (closedUpTo <= last) return 0;                                         // لم يُغلق جديد
   const n = Math.ceil((closedUpTo - last) / BAR[tf]) + 2;                   // + الجارية + هامش
-  return n > KEEP ? KEEP : n;
+  return n > keepOf(tf) ? keepOf(tf) : n;
 }
 /* دمجٌ بالختم: الشمعة التي كانت جاريةً في الجلب السابق تُستبدل بنسختها
    المغلقة. ثم القصّ إلى KEEP. */
-function merge(old, fresh) {
+function merge(old, fresh, tf) {
   const m = new Map(old.map(x => [x.t, x]));
   for (const x of fresh) m.set(x.t, x);
-  return [...m.values()].sort((a, b) => a.t - b.t).slice(-KEEP);
+  return [...m.values()].sort((a, b) => a.t - b.t).slice(-keepOf(tf));
 }
 
 async function pool(items, n, fn) {
@@ -335,7 +341,7 @@ async function main() {
         try {
           reqs++;
           const { candles } = await fetchCandles(u.s, { interval: tf, limit: n });
-          c = merge(c, candles);
+          c = merge(c, candles, tf);
           touched = true;
         } catch (e) { fails.push(`${u.s}/${tf}: ${e.message}`); }
       }

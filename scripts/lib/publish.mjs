@@ -99,8 +99,8 @@ export function validateStocks(dir, opt = {}) {
 
 export function validateCryptoBook(dir) {
   const read = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
-  /* الكريبتو بلا فرص حتى يُنقل إلى V3 — المحرّك القديم لا يُنشر منه شيء */
-  const sum = read("summary.json");
+  /* الكريبتو على V3 بلقطة الساعة (trades.json)، والمحرّك القديم لا يُنشر منه شيء */
+  const sum = read("summary.json"), tr = read("trades.json");
   const rows = sum.rows || [];
   if (rows.length < 10) throw new Error(`${rows.length} صفّاً فقط`);
   const alien = rows.filter((r) => r.mkt !== "crypto");
@@ -111,7 +111,9 @@ export function validateCryptoBook(dir) {
   if (four < rows.length * 0.70) throw new Error(`${four} من ${rows.length} بأربعة فريمات`);
   const errs = validateBook(dir, "crypto", { symLimit: 0 });
   if (errs.length) throw new Error("مخالفة مخطّط: " + errs.slice(0, 3).map((e) => e.file + " " + e.errors[0]).join(" · "));
-  return { rows: rows.length, four, candleKey: null, show: new Set() };
+  if (!Number.isFinite(tr.hour)) throw new Error("لقطة الساعة بلا hour");
+  // ملفّات الشموع المنشورة: عملاتُ الفرص وحدها (شاشة التفاصيل) — الكون ~21 م.ب
+  return { rows: rows.length, four, candleKey: tr.candleKey, show: new Set(tr.open.map((t) => t.s)) };
 }
 
 /* ---------------------------------------------------------------------
@@ -121,11 +123,11 @@ function stateOf(readFile) {
   const j = (f) => { try { const t = readFile(f); return t === null ? null : JSON.parse(t); } catch { return null; } };
   /* الأسهم: لقطة صفقات V3. والكريبتو بلا لقطة فرص (بيانات فقط) — فحارسه على
      `updated` وحده. المنشور القديم (opportunities.json) لا يُقرأ: نسخةُ محرّكٍ آخر. */
-  const sum = j("summary.json"), tr = j("trades.json"), csum = j("crypto/summary.json");
+  const sum = j("summary.json"), tr = j("trades.json"), csum = j("crypto/summary.json"), ctr = j("crypto/trades.json");
   return {
     stocks: { updated: sum && sum.updated, candleKey: tr && tr.candleKey, rowsHash: tr && tr.rowsHash,
               version: tr && tr.version },
-    crypto: { updated: csum && csum.updated, candleKey: null, rowsHash: csum && csum.updated, version: null }
+    crypto: { updated: csum && csum.updated, candleKey: ctr && ctr.candleKey, rowsHash: ctr && ctr.rowsHash, version: ctr && ctr.version }
   };
 }
 
@@ -145,17 +147,6 @@ export function monotonicGuard(cand, remote) {
       why.push(`${book}: البصمة تغيّرت داخل نفس الشمعة ${c.candleKey} بلا تغيّر نسخة`);
   }
   return why;
-}
-
-/* =====================================================================
-   حارس الاستمرار (INV-65): صفقةٌ نشطة في المنشور لا تختفي من المرشَّح — تبقى
-   مفتوحةً أو تظهر مغلقةً بسببها (وقف/هدف/انقضاء). ما لم يغيّر المحرّك نسخته
-   (إعادة بناءٍ من نافذة الإحماء). يعيد قائمة المختفيات.
-   ===================================================================== */
-export function persistGuard(candTrades, remoteTrades) {
-  if (!candTrades || !remoteTrades || candTrades.version !== remoteTrades.version) return [];
-  const ids = new Set([...(candTrades.open || []), ...(candTrades.closed || [])].map((t) => t.id));
-  return (remoteTrades.open || []).filter((t) => t.status === "active" && !ids.has(t.id)).map((t) => t.id);
 }
 
 /* قارئُ ملفّ من التزامٍ بعينه على البعيد: GitHub ⇒ raw بالـSHA (ثابتٌ لا
@@ -230,7 +221,7 @@ export async function publishData(opts = {}) {
     work = fs.mkdtempSync(path.join(os.tmpdir(), "webtrade-remote-"));
     const readRemote = prevSha ? await remoteReader(url, prevSha, work) : null;
     const remoteFiles = {};
-    if (readRemote) for (const f of ["summary.json", "trades.json", "crypto/summary.json"])
+    if (readRemote) for (const f of ["summary.json", "trades.json", "crypto/summary.json", "crypto/trades.json"])
       remoteFiles[f] = await readRemote(f);
     const remoteState = stateOf((f) => remoteFiles[f] ?? null);
 
@@ -239,7 +230,7 @@ export async function publishData(opts = {}) {
     const cdir = path.join(stage, "crypto");
     let carry = false;
     if (fs.existsSync(cdir)) {
-      try { const c = validateCryptoBook(cdir); cryptoShow = c.show; cryptoNote = `${c.rows} صفّاً (بلا فرص)`; }
+      try { const c = validateCryptoBook(cdir); cryptoShow = c.show; cryptoNote = `${c.rows} صفّاً · ${c.show.size} فرصة`; }
       catch (e) { carry = true; cryptoNote = "ساقطٌ في بوّابته (" + e.message + ") — يُحمَل المنشور"; }
     } else if (remoteFiles["crypto/summary.json"]) { carry = true; cryptoNote = "غائبٌ محلياً — يُحمَل المنشور"; }
     if (carry) {
@@ -261,10 +252,13 @@ export async function publishData(opts = {}) {
     const candState = stateOf((f) => { try { return fs.readFileSync(path.join(stage, f), "utf8"); } catch { return null; } });
     const mono = monotonicGuard(candState, remoteState);
     if (mono.length) return res(false, "regression", "حالةٌ أقدم من المنشور: " + mono.join(" · "));
-    const pj = (t) => { try { return t ? JSON.parse(t) : null; } catch { return null; } };
-    const gone = persistGuard(pj((() => { try { return fs.readFileSync(path.join(stage, "trades.json"), "utf8"); } catch { return null; } })()),
-                              pj(remoteFiles["trades.json"]));
-    if (gone.length) return res(false, "vanished", "صفقاتٌ نشطة اختفت بعد الدخول: " + gone.slice(0, 5).join(", "));
+    /* INV-65 (قرار 2026-10-01): لا وراثة بين الساعات — كلُّ فرصةٍ في اللقطة
+       مبنيّةٌ في ساعتها. فرصةٌ بساعةٍ أخرى داخل لقطة ساعةٍ = حملٌ ممنوع. */
+    for (const f of ["trades.json", "crypto/trades.json"]) {
+      let d = null; try { d = JSON.parse(fs.readFileSync(path.join(stage, f), "utf8")); } catch { continue; }
+      const carried = (d.open || []).filter((t) => t.h !== d.hour).map((t) => t.id);
+      if (carried.length) return res(false, "carry", `${f}: فرصٌ من ساعةٍ أخرى: ${carried.slice(0, 5).join(", ")}`);
+    }
     const same = ["stocks", "crypto"].every((b) => candState[b].rowsHash === remoteState[b].rowsHash
       && candState[b].updated === remoteState[b].updated);
     if (prevSha && same) return res(true, "unchanged", "لا جديد — المنشور مطابق", { sha: prevSha, prev: prevSha });

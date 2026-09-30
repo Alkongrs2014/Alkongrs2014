@@ -139,7 +139,8 @@ const trade3 = { type: "object",
   required: ["id", "s", "d", "status", "t", "base", "evt", "el", "pts", "score", "e", "st", "risk", "tg", "hit"],
   properties: {
     id: str, s: str, d: { enum: [-1, 1] }, t: epochS,
-    status: { enum: ["confirmed", "active", "closed", "cancelled"] },
+    status: { enum: ["open", "confirmed", "active", "closed", "cancelled"] },
+    h: epochS,
     base: { enum: ["day", "ma"] }, evt: { enum: [...EVT3, null] }, weekEvt: { enum: [...WEVT3, null] },
     pts: pts3, score: { type: "number", minimum: 40, maximum: 100 },
     e: pos, st: pos, stNow: pos, risk: pos, hit: { type: "integer", minimum: 0, maximum: 3 },
@@ -150,9 +151,12 @@ const trade3 = { type: "object",
   } };
 export const tradesSchema = {
   type: "object",
-  required: ["engine", "version", "generatedAt", "candleKey", "weights", "open", "closed", "bySym", "rowsHash"],
+  required: ["engine", "mode", "hour", "version", "generatedAt", "candleKey", "weights", "open", "closed", "bySym", "rowsHash"],
   properties: {
     engine: { const: "v3" },
+    mode: { const: "hourly" },
+    book: { enum: ["stocks", "crypto"] },
+    hour: { type: "integer", minimum: 1.6e9, maximum: 4e9, multipleOf: 900 },
     version: { type: "string", pattern: "^[0-9a-f]{12}$" },
     rowsHash: { type: "string", pattern: "^[0-9a-f]{12}$" },
     generatedAt: str,
@@ -174,6 +178,7 @@ export const BOOK_SCHEMAS = {
   },
   crypto: {
     "summary.json": summarySchema(["5m", "15m", "1h", "4h"], "crypto"),
+    "trades.json": tradesSchema,
     "market.json": marketSchema,
     "sym/*": symSchema(CRYPTO_TFS)
   }

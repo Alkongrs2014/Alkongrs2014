@@ -28,7 +28,7 @@ export function structuralChecks(dir) {
   const out = [];
   /* الفرص من المحرّك V3 وحده (trades.json). لقطات المحرّك القديم
      (opportunities.json · strategies.json) أرشيفٌ لا يُفحص ولا يُنشر. */
-  const sum = rd(dir, "summary.json"), tr = rd(dir, "trades.json"), md = rd(dir, "market-dir.json");
+  const sum = rd(dir, "summary.json"), tr0 = rd(dir, "trades.json"), md = rd(dir, "market-dir.json");
   const csum = rd(dir, "crypto/summary.json");
 
   /* INV-19 · INV-01..03 (المخطّطات تغلق مفاتيح الفريمات) */
@@ -75,14 +75,14 @@ export function structuralChecks(dir) {
   /* INV-40 · INV-41: الفصل بين الدفترين */
   if (sum) {
     const alien = sum.rows.filter((r) => r.mkt === "crypto" || /-USD$/.test(r.s)).map((r) => r.s);
-    const oppAlien = tr ? [...tr.open, ...tr.closed].filter((r) => /-USD$/.test(r.s)).map((r) => r.s) : [];
+    const oppAlien = tr0 ? [...tr0.open, ...tr0.closed].filter((r) => /-USD$/.test(r.s)).map((r) => r.s) : [];
     out.push(T("books.stocks-clean", "INV-40", "CRITICAL", !alien.length && !oppAlien.length, [...alien, ...oppAlien].join(", ")));
   }
   if (csum) {
     const alien = csum.rows.filter((r) => r.mkt !== "crypto").map((r) => r.s);
     out.push(T("books.crypto-clean", "INV-40", "CRITICAL", !alien.length, alien.join(", ")));
   }
-  if (tr) out.push(T("grid.stocks", "INV-41", "CRITICAL", tr.candleKey % 900 === 0, "candleKey=" + tr.candleKey));
+  if (tr0) out.push(T("grid.stocks", "INV-41", "CRITICAL", tr0.candleKey % 900 === 0, "candleKey=" + tr0.candleKey));
 
   /* INV-04: لا رمزٌ مكرّر في أيّ ملخّص (كشفه التعذيب) */
   for (const [book, s] of [["stocks", sum], ["crypto", csum]]) {
@@ -98,8 +98,9 @@ export function structuralChecks(dir) {
     out.push(T("depth.stocks", "INV-11", "CRITICAL", four >= sum.rows.length * 0.9, `${four}/${sum.rows.length}`));
   }
 
-  /* INV-60..63: صفقات المحرّك V3 — الهندسة والدرجة والأساس والتفرّد */
-  if (tr) {
+  /* INV-60..65: لقطة ساعة V3 — الهندسة والدرجة والأساس والتفرّد وعدم الوراثة */
+  for (const [book, tr] of [["stocks", tr0], ["crypto", rd(dir, "crypto/trades.json")]]) {
+    if (!tr) continue;
     const W = E3.E3.W, geo = [], score = [], base = [], seen = new Set(), dup = [];
     for (const t of [...tr.open, ...tr.closed]) {
       const tg = (t.tg || []).map((x) => x.p);
@@ -117,12 +118,14 @@ export function structuralChecks(dir) {
       if (t.base !== "day" && t.base !== "ma") base.push(`${t.id} أساس ${t.base}`);
     }
     for (const t of tr.open) { if (seen.has(t.s)) dup.push(t.s); seen.add(t.s); }
-    out.push(T("trades.geometry", "INV-60", "CRITICAL", !geo.length, geo.slice(0, 6).join(" · ")));
-    out.push(T("trades.score", "INV-61", "CRITICAL", !score.length, score.slice(0, 6).join(" · ")));
-    out.push(T("trades.base", "INV-62", "CRITICAL", !base.length, base.slice(0, 6).join(" · ")));
-    out.push(T("trades.one-per-symbol", "INV-63", "CRITICAL", !dup.length, dup.join(", ")));
+    out.push(T("trades.geometry." + book, "INV-60", "CRITICAL", !geo.length, geo.slice(0, 6).join(" · ")));
+    out.push(T("trades.score." + book, "INV-61", "CRITICAL", !score.length, score.slice(0, 6).join(" · ")));
+    out.push(T("trades.base." + book, "INV-62", "CRITICAL", !base.length, base.slice(0, 6).join(" · ")));
+    out.push(T("trades.one-per-symbol." + book, "INV-63", "CRITICAL", !dup.length, dup.join(", ")));
     const order = tr.open.every((t, i) => !i || tr.open[i - 1].score >= t.score);
-    out.push(T("trades.ranked", "INV-64", "CRITICAL", order, "الترتيب ليس تنازلياً بالدرجة"));
+    out.push(T("trades.ranked." + book, "INV-64", "CRITICAL", order, "الترتيب ليس تنازلياً بالدرجة"));
+    const carried = tr.open.filter((t) => t.h !== tr.hour || !String(t.id).endsWith("|" + tr.hour)).map((t) => t.id);
+    out.push(T("trades.no-carry." + book, "INV-65", "CRITICAL", !carried.length && !(tr.closed || []).length, carried.slice(0, 6).join(", ")));
   }
   return out;
 }
