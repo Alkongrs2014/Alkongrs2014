@@ -146,6 +146,37 @@ export function pickTop(rankTop, cikMap, nameOf, n = TOP_N) {
    التأكيد `cnow` من `cbar` نفسه كما في `track-strategies`. فلا يتغيّر
    التوجّه إلا بإغلاق شمعة. تغييرُ **مُدخلٍ** لا قاعدة. `cnow` اختياري:
    غيابُه يُبقي ساعة الحائط لمستدعي الفحص الذاتي. */
+/* =====================================================================
+   **ساقُ التوافق في توجّه السوق على ‎1h/4h/1d‎ وحدها** (2026-09-30، قرار
+   المالك: «لا أريد ‎15m‎ يدخل في توجّه السوق بأيّ شكل»).
+
+   `tfAlign` في `strategies.js` رباعيّةٌ تقرأ ‎15m‎ في مشغِّلها وفي بوّابة
+   `f15` — وهي مشتركةٌ مع محرّك الفرص فلا تُمسّ هناك. فهنا نسخةٌ محلّية من
+   **نفس الكائن**: نفس المعرّف (فنفس وزنها المقيس)، ونفس قاعدة المشغِّل
+   (كلُّ الفريمات فوق ‎+15‎ أو تحت ‎−15‎) على الثلاثة، ونفس البوّابات
+   بأوزانها **ناقصَ `f15`** وحدها. لا وزن جديد ولا عتبة جديدة.
+   قِيس قبلها: شمعة ‎15m‎ واحدة مغلقة كانت تحرّك الساق عند TSM وWMT وأعمدةُ
+   ‎1h/4h/1d‎ ثابتة.
+   ===================================================================== */
+const MD_TFS = ["1h", "4h", "1d"];
+const TF_ALIGN_BASE = S.STRAT_BY_ID.tfAlign;
+export const TF_ALIGN_MD = {
+  ...TF_ALIGN_BASE,
+  lbl: "توافق الفريمات الثلاثة (ساعة · ٤ ساعات · يومي)",
+  ready(c) {
+    if (c.tfPin) return "حكمٌ عابرٌ للفريمات — لا يُثبَّت على فريم واحد";
+    const miss = MD_TFS.filter(t => !(c.an[t] && Number.isFinite(c.an[t].score)));
+    return miss.length ? "فريماتٌ غائبة: " + miss.join("، ") : null;
+  },
+  side(c) {
+    const v = MD_TFS.map(t => c.an[t].score);
+    if (v.every(x => x > 15)) return 1;
+    if (v.every(x => x < -15)) return -1;
+    return 0;
+  },
+  gates: TF_ALIGN_BASE.gates.filter(g => g.id !== "f15")
+};
+
 export function legsFor(rec, row, tf, now, sess, win, mkt, cnow = null) {
   const c = S.buildCtx({ rec, row, now, px: row && row.p, sess, win, tfPin: tf,
                          ...(Number.isFinite(cnow) ? { cnow } : {}),
@@ -335,7 +366,7 @@ export function run(out = OUT, nowArg = Date.now()) {
       const c = S.buildCtx({ rec, row, now, px: row.p, sess, win,
                              ...(cnow ? { cnow } : {}),
                              sessOf: (t) => sessionOf(t, mkt) });
-      const r = S.evalStrategy(S.STRAT_BY_ID.tfAlign, S.confirmCtx(S.STRAT_BY_ID.tfAlign, c));
+      const r = S.evalStrategy(TF_ALIGN_MD, S.confirmCtx(TF_ALIGN_MD, c));
       alignLeg = (r && r.dir && r.active) ? { dir: r.dir, sc: r.sc } : null;
     }
 
@@ -598,6 +629,22 @@ function selftest() {
     const base = key(row);
     for (const m of [0.97, 0.994, 1.006, 1.03])
       ok(key({ ...row, p: row.p * m }) === base, `السعر ×${m} غيّر سيقان التوجّه`);
+  });
+
+  t("‎15m‎ لا يدخل توجّه السوق — ساقُ التوافق على ‎1h/4h/1d‎ وحدها", () => {
+    ok(!TF_ALIGN_MD.gates.some(g => g.id === "f15"), "بوّابة f15 باقية");
+    const base = S.STRAT_BY_ID.tfAlign;
+    ok(JSON.stringify(TF_ALIGN_MD.gates.map(g => [g.id, g.w])) ===
+       JSON.stringify(base.gates.filter(g => g.id !== "f15").map(g => [g.id, g.w])), "الأوزان تغيّرت");
+    const mk = (s15) => ({ tfPin: null, px: 100,
+      an: { "15m": { score: s15, atr: 1, e20: 100 }, "1h": { score: 60, atr: 1, e20: 99.5 },
+            "4h": { score: 55, atr: 2 }, "1d": { score: 70, adx: 30 } } });
+    const md = [-90, 0, 90].map(v => JSON.stringify([TF_ALIGN_MD.side(mk(v)), S.evalGates ? null : null,
+      TF_ALIGN_MD.gates.map(g => g.v(mk(v), 1))]));
+    ok(new Set(md).size === 1, "تغيّر ‎15m‎ حرّك ساق التوجّه");
+    /* ضابطٌ سلبيّ: الساقُ الرباعية المشتركة **تتحرّك** بنفس التغيير —
+       فالفحص يرى ‎15m‎ لو تسرّب، ولا ينجح لأنه أعمى. */
+    ok(base.side(mk(-90)) !== base.side(mk(90)), "الضابط السلبيّ لم يتحرّك — الفحص أعمى");
   });
 
   t("التثبيت يغيّر الفريم المقروء فعلاً — على بياناتٍ حقيقية", () => {
