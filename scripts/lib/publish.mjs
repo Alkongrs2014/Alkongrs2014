@@ -306,7 +306,7 @@ export async function publishData(opts = {}) {
   } finally {
     release(lock);
     if (stage) dropSnapshot(stage);
-    if (work) fs.rmSync(work, { recursive: true, force: true });
+    if (work) dropSnapshot(work);                    // حذفٌ بإعادة محاولة (ENOTEMPTY من git)
   }
 }
 
@@ -327,5 +327,5 @@ export async function rollbackData({ root, remote, branch = "data", lkgBranch = 
     return { ok: true, from: cur, to: lkg, reason };
   } catch (e) {
     return { ok: false, why: "فشل الرجوع: " + String(e.stderr || e.message).trim().slice(0, 300) };
-  } finally { fs.rmSync(work, { recursive: true, force: true }); }
+  } finally { dropSnapshot(work); }
 }

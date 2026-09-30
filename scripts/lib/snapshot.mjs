@@ -55,8 +55,14 @@ export async function takeSnapshot({ src = LIVE_DATA, dest, capMs = 180000, job 
   return out;
 }
 
+/* الحذف بإعادة محاولة: `git` قد يترك عمليةً خلفية تكتب في `.git` لحظة الحذف
+   (صيانةٌ تلقائية بعد الالتزام) فيردّ `rmdir` بـ ENOTEMPTY — كان يُسقط اختبار
+   النشر في CI مرّةً ويمرّ مرّة. وفشلُ تنظيف مجلّدٍ مؤقّت لا يُفشل ما قبله: نشرٌ
+   تمّ فعلاً لا يُقرأ فاشلاً لأن مجلّد /tmp بقي. */
 export function dropSnapshot(dir) {
-  if (dir && dir.startsWith(os.tmpdir())) fs.rmSync(dir, { recursive: true, force: true });
+  if (!(dir && dir.startsWith(os.tmpdir()))) return;
+  try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 150 }); }
+  catch (e) { console.warn(`  ⚠ تعذّر حذف المجلّد المؤقّت ${dir}: ${e.code || e.message}`); }
 }
 
 /* مجلّد البيانات لأيّ فاحص: متغيّر البيئة أوّلاً (اللقطة)، ثم الحيّ. */
