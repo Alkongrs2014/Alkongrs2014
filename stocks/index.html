@@ -1964,7 +1964,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
       <p><b>الدخول</b> إغلاقُ شمعة التأكيد، و<b>الوقف</b> آخرُ قاعٍ مؤكَّد على فريم الساعة (قمّةٍ في البيع)،
       و<b>الأهداف</b> المستويات الحقيقية أمام الصفقة بعائدٍ لا يقلّ عن مرّة المخاطرة، ويُكمَّل ما نقص
       بمضاعفات المخاطرة ويُوسم بذلك.</p>
-      <p><b>كلُّ ساعة بدايةٌ جديدة بالكامل</b> (09:30 · 10:30 … 15:30 بتوقيت نيويورك): تُصفَّر الفرص كلُّها
+      <p><b>كلُّ ساعة بدايةٌ جديدة بالكامل</b> (كل ساعة من افتتاح السوق الأمريكي — المواعيد بتوقيت الرياض في سطر اللقطة أعلاه): تُصفَّر الفرص كلُّها
       ويُحلَّل كلُّ سهمٍ من الصفر، فإن بقي فرصةً ظهر بدرجته ودخوله ووقفه وأهدافه الجديدة — ولا يرث شيئاً
       من الساعة السابقة.</p>
       <p class="srcline" style="text-align:start">كلُّ القرارات على شموعٍ مغلقة من Alpaca SIP.
@@ -2479,6 +2479,26 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 /* أسماء الشهور بالعربية وأرقامها لاتينية — بقية أرقام التطبيق لاتينية،
    وخلط النظامين في سطر واحد يجعل القراءة متعثّرة */
 const AR = "ar-EG-u-nu-latn";
+/* =======================================================================
+   **كلُّ وقتٍ يراه المستخدم بتوقيت الرياض** — قرار المالك 2026-10-01.
+   الحساب في الكواليس بتوقيت نيويورك أو UTC كما يحتاج (session.js · المحرّك)،
+   والعرض وحده يمرّ من هنا: لا `getHours` ولا `toLocale*` بلا `timeZone`، وإلا
+   عُرض الوقت بمنطقة الجهاز فاختلف بين مستخدمَين.
+   ======================================================================= */
+const UI_TZ = "Asia/Riyadh";
+const TZ_NOTE = "بتوقيت الرياض";
+const _rParts = new Intl.DateTimeFormat("en-GB", { timeZone: UI_TZ, year: "numeric", month: "2-digit",
+  day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+/* أجزاءُ لحظةٍ بتوقيت الرياض: { y, mo, d, h, mi } أرقاماً */
+function riyadhParts(ts) {
+  const o = {};
+  for (const p of _rParts.formatToParts(new Date(ts))) if (p.type !== "literal") o[p.type] = +p.value;
+  return { y: o.year, mo: o.month, d: o.day, h: o.hour, mi: o.minute };
+}
+const rDayKey = (ts) => { const p = riyadhParts(ts); return p.y * 10000 + p.mo * 100 + p.d; };
+/* «2026-10-01» و«2026-10-01 17:30» بتوقيت الرياض — للتصدير وأسماء الملفّات */
+const rISODate = (ts) => { const p = riyadhParts(ts); return `${p.y}-${String(p.mo).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`; };
+const rISOMin = (ts) => { const p = riyadhParts(ts); return `${rISODate(ts)} ${String(p.h).padStart(2, "0")}:${String(p.mi).padStart(2, "0")}`; };
 
 /* TFS و TF_LABEL و TF_WEIGHT و labelOf و scoreFrom في score.js */
 
@@ -2631,12 +2651,12 @@ function ageShort(ms) {
   return rh ? `${d}ي ${rh}س` : `${d}ي`;
 }
 
-const clock = (ts) => new Date(ts).toLocaleTimeString(AR, { hour: "2-digit", minute: "2-digit" });
-const dayOf = (ts) => new Date(ts).toLocaleDateString(AR, { month: "short", day: "numeric" });
+const clock = (ts) => new Date(ts).toLocaleTimeString(AR, { timeZone: UI_TZ, hour: "2-digit", minute: "2-digit" });
+const dayOf = (ts) => new Date(ts).toLocaleDateString(AR, { timeZone: UI_TZ, month: "short", day: "numeric" });
 
 /* اليوم يُقال باسمه، وما قبله بتاريخه: «10:35» وحدها تكذب على من يقرأها
    بعد يومين. */
-const isToday = (ts) => new Date(ts).toDateString() === new Date().toDateString();
+const isToday = (ts) => rDayKey(ts) === rDayKey(Date.now());
 const stamp = (ts) => isToday(ts) ? clock(ts) : `${dayOf(ts)} ${clock(ts)}`;
 
 /* =======================================================================
@@ -3542,17 +3562,17 @@ function renderEvents() {
     const days = Math.round((e.at - now) / 86400000);
     // الوزن 3 = قرار فائدة أو مؤتمر صحفي: يستحق تمييزاً بصرياً
     const hot = e.w >= 3;
-    const when = new Date(e.at).toLocaleDateString(AR, { weekday: "long", month: "long", day: "numeric" });
-    const time = new Date(e.at).toLocaleTimeString(AR, { hour: "2-digit", minute: "2-digit" });
+    const when = new Date(e.at).toLocaleDateString(AR, { timeZone: UI_TZ, weekday: "long", month: "long", day: "numeric" });
+    const time = new Date(e.at).toLocaleTimeString(AR, { timeZone: UI_TZ, hour: "2-digit", minute: "2-digit" });
     return `<div class="row"${hot ? ' style="border-right:3px solid var(--neu);padding-right:8px"' : ""}>
       <div class="l">${hot ? hotMark() : ""}${esc(e.ar)}
-        <small>${esc(when)} · ${esc(time)} بتوقيتك${e.note ? " · " + esc(e.note) : ""}</small></div>
+        <small>${esc(when)} · ${esc(time)} ${TZ_NOTE}${e.note ? " · " + esc(e.note) : ""}</small></div>
       <div class="r" style="color:${days <= 3 ? "var(--neu)" : "var(--mut)"}">${
         days <= 0 ? "اليوم" : `بعد ${bd(days)} يوم`}</div></div>`;
   }).join("");
   const src = (j.sources || [j.source]).filter(Boolean).join(" و");
   $("#eventNote").textContent =
-    `المصدر: ${src} · المواعيد بتوقيت جهازك، والأصل بتوقيت نيويورك`;
+    `المصدر: ${src} · المواعيد ${TZ_NOTE}`;
 }
 
 /* =======================================================================
@@ -3848,7 +3868,7 @@ function renderArchive() {
       '<p class="hint" style="margin:16px 0 4px">هل ثبتت الحافة على فترةٍ لم تُرَ؟</p>' +
       '<div class="otwrap"><table class="otbl"><thead><tr>' +
         '<th style="text-align:right">الشرط</th><th>الحافة كلّها</th>' +
-        '<th>إشارات بعد ' + esc(new Date(O.from).toISOString().slice(0, 7)) + "</th>" +
+        '<th>إشارات بعد ' + esc(rISODate(O.from).slice(0, 7)) + "</th>" +
         "<th>حافتها</th><th></th></tr></thead><tbody>" + rows2 + "</tbody></table></div>" +
       '<p class="srcline">الاكتشاف على أقدم ' + Math.round((1 - O.frac) * 100) + "% من التاريخ، " +
       "والتحقّق على أحدث " + Math.round(O.frac * 100) + "% (" + bd(fmt(O.bars, 0)) +
@@ -5037,9 +5057,9 @@ function portExport() {
     return [h.s, r ? nm(r) : "", r ? r.sec : "", h.q, h.p, px, val,
             val === null ? "" : (val - cost).toFixed(2),
             val === null || !cost ? "" : ((val - cost) / cost * 100).toFixed(2),
-            h.at ? new Date(h.at).toISOString().slice(0, 10) : ""];
+            h.at ? rISODate(h.at) : ""];
   });
-  download("portfolio-" + new Date().toISOString().slice(0, 10) + ".csv",
+  download("portfolio-" + rISODate(Date.now()) + ".csv",
     toCSV(["الرمز", "الاسم", "القطاع", "الكمية", "سعر الدخول", "السعر الآن",
            "القيمة", "الربح", "الربح %", "تاريخ الإضافة"], rows));
 }
@@ -5053,11 +5073,11 @@ function logExport() {
   const out = rows.map(r => {
     const o = r.out || {}, sn = r.snap || {};
     return [r.sym, r.scan || "", (r.dir === -1 || (sn.dir === -1)) ? "هبوط" : "صعود",
-      r.at ? new Date(r.at).toISOString().slice(0, 16).replace("T", " ") : "",
+      r.at ? rISOMin(r.at) : "",
       o.st || (r.open ? "مفتوحة" : ""), fx(r.entry), fx(r.last), fx(r.ret), fx(r.mfe), fx(r.mae),
       fx(sn.e), fx(sn.s), (sn.t || []).map(fx).join(" / "), fx(sn.rr), sn.tf || "", fx(r.sc)];
   });
-  download("signals-" + new Date().toISOString().slice(0, 10) + ".csv",
+  download("signals-" + rISODate(Date.now()) + ".csv",
     toCSV(["الرمز", "الشرط", "الاتجاه", "ظهرت", "الحالة", "الدخول", "آخر سعر",
            "العائد %", "أقصى ربح عائم %", "أقصى تراجع عائم %", "دخول الخطة", "الوقف",
            "الأهداف", "عائد/مخاطرة", "الفريم", "النتيجة الفنية"], out));
@@ -5076,7 +5096,7 @@ function scanExport() {
       fx(r.atr), fx(r.mc), fx(r.w52h), fx(r.w52l), x ? fx(x.sc) : "", x ? fx(x.rk) : "",
       x ? fx(x.beta) : ""];
   });
-  download("scan-" + (state.scan || "all") + "-" + new Date().toISOString().slice(0, 10) + ".csv",
+  download("scan-" + (state.scan || "all") + "-" + rISODate(Date.now()) + ".csv",
     toCSV(["الرمز", "الاسم", "القطاع", "السعر", "تغيّر %", "النتيجة الفنية", "RSI",
            "ATR", "القيمة السوقية", "قمة 52", "قاع 52", "فائض القوة %", "رتبة القوة",
            "بيتا"], out));
@@ -5843,7 +5863,7 @@ function renderFund() {
   // إعلان الأرباح
   if (f.earnings && f.earnings.at) {
     const days = Math.ceil((f.earnings.at - Date.now()) / 86400000);
-    const d = new Date(f.earnings.at).toLocaleDateString(AR, { year: "numeric", month: "long", day: "numeric" });
+    const d = new Date(f.earnings.at).toLocaleDateString(AR, { timeZone: UI_TZ, year: "numeric", month: "long", day: "numeric" });
     if (days >= 0) {
       const soon = days <= 7;
       html += `<div class="${soon ? "warn" : "note"}" style="margin-top:12px">
@@ -7200,10 +7220,10 @@ function drawChart() {
   g.fillStyle = "#5f6c7e"; g.font = "9px monospace"; g.textAlign = "center"; g.textBaseline = "top";
   [0, Math.floor(N / 2), N - 1].forEach(i => {
     if (!view[i]) return;
-    const d = new Date(view[i].t);
+    const d = riyadhParts(view[i].t);             // محورُ الزمن بتوقيت الرياض
     const lbl = state.activeTF === "1d"
-      ? (d.getMonth() + 1) + "/" + d.getDate()
-      : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+      ? d.mo + "/" + d.d
+      : String(d.h).padStart(2, "0") + ":" + String(d.mi).padStart(2, "0");
     g.fillText(lbl, X(i), padT + ch + vh + 7);
   });
 
@@ -7230,8 +7250,8 @@ function paintOHLC() {
   const up = c.c >= c.o, col = up ? "var(--up)" : "var(--dn)";
   const d = new Date(c.t);
   const when = state.activeTF === "1d"
-    ? d.toLocaleDateString(AR, { month: "short", day: "numeric", year: "numeric" })
-    : d.toLocaleString(AR, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    ? d.toLocaleDateString(AR, { timeZone: UI_TZ, month: "short", day: "numeric", year: "numeric" })
+    : d.toLocaleString(AR, { timeZone: UI_TZ, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + " " + TZ_NOTE;
   const cell = (k, v) => `<span>${k} <b class="num" style="color:${col}">${fmt(v)}</b></span>`;
   box.className = "ohlc on";
   box.innerHTML = `<span style="color:var(--tx)">${when}</span>`
@@ -7671,12 +7691,23 @@ function renderMa200(el, cnt) {
 let TRADES = null, TRADES_C = null;
 /* لقطةُ الدفتر النشط: الأسهم أو الكريبتو — كلاهما لقطةُ ساعةٍ من V3 */
 const tradesOf = (book) => (book || state.book) === "crypto" ? TRADES_C : TRADES;
-/* حدُّ الساعة بتوقيت سوقه: الأسهم بتوقيت نيويورك، والكريبتو بتوقيت الرياض (يومُه 03:00→03:00) */
+/* حدُّ الساعة **بتوقيت الرياض** للدفترين. حساب الحدود نفسه في الكواليس بتقويم
+   نيويورك للأسهم (session.js) وبـUTC للكريبتو — والعرض وحده بتوقيت الرياض. */
 function v3Hour(T) {
   if (!T || !Number.isFinite(T.hour)) return "—";
-  const tz = T.book === "crypto" ? "Asia/Riyadh" : "America/New_York";
-  const hm = new Date(T.hour * 1000).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" });
-  return `${hm} ${T.book === "crypto" ? "الرياض" : "نيويورك"}`;
+  return `${stamp(T.hour * 1000)} ${TZ_NOTE}`;
+}
+/* حدودُ ساعات الأسهم اليوم (أو يوم التداول التالي) بتوقيت الرياض: 09:30 … 15:30
+   نيويورك تُحسب من التقويم فتتبع التوقيت الصيفي تلقائياً — رقمٌ مكتوبٌ يكذب نصف السنة */
+function stockHoursRiyadh() {
+  for (let k = 0; k < 10; k++) {
+    const w = sessionWindows(Date.now() + k * 86400000);
+    if (!w || !w.regular) continue;
+    const out = [];
+    for (let h = w.regular.start; h < w.regular.end; h += 3600000) out.push(clock(h));
+    return out;
+  }
+  return [];
 }
 const V3_EL = [
   { k: "day",   lbl: "قمة/قاع أمس",        w: 40,   core: 1 },
@@ -7760,8 +7791,9 @@ function renderTrades(book) {
     if (cnt) cnt.textContent = "لقطة الساعة تُجلب…";
     return;
   }
+  const hrs = CR ? null : stockHoursRiyadh();
   const cycle = CR ? "كل ساعة من 03:00 إلى 02:00 بتوقيت الرياض (يوم الكريبتو 03:00→03:00)"
-                   : "كل ساعة من الافتتاح: 09:30 · 10:30 … 15:30 بتوقيت نيويورك";
+                   : `كل ساعة من افتتاح السوق الأمريكي: ${hrs.length ? hrs[0] + " · " + (hrs[1] || "") + " … " + hrs[hrs.length - 1] : "—"} ${TZ_NOTE}`;
   const note = `<p class="v3note"><b>لقطة الساعة ${esc(v3Hour(T))}</b> — تُصفَّر الفرص كلُّها وتُبنى من الصفر ${cycle}،
     ولا يُحمَل دخولٌ ولا وقفٌ ولا هدف من الساعة السابقة.<br>
     قوة التوافق = نسبة توافق الاستراتيجيات الخمس حسب الأوزان المحدّدة
@@ -7815,7 +7847,7 @@ function renderEarnings() {
     const em = or && or.er && or.er.em;
     return `<div class="row" style="cursor:pointer" data-open="${esc(r.s)}">
       <div class="l"><span class="tick">${esc(r.s)}</span> ${esc(nm(r))}
-        <small>${new Date(f.earnings.at).toLocaleDateString(AR, { weekday: "long", month: "long", day: "numeric" })}${
+        <small>${new Date(f.earnings.at).toLocaleDateString(AR, { timeZone: UI_TZ, weekday: "long", month: "long", day: "numeric" })}${
           f.earnings.estimated ? " · تاريخ تقديري" : ""}${
           em ? ` · يسعّر السوق حركة ‎±${fmt(em.pct, 1)}%‎ (${money(em.abs)})` : ""}</small></div>
       <div class="r" style="color:${soon ? "var(--neu)" : "var(--mut)"}">${
@@ -8539,12 +8571,12 @@ function renderAbout() {
       ? "لحظي عبر وسيط خاص، مع رجوع تلقائي للملفات عند أي انقطاع"
       : "مجاني — الأسعار من ملفات تُكتب دورياً، والصفحة تقرأها كل دقيقة"}</small></div>
       <div class="r">${live ? "لحظي" : "مجاني"}</div></div>
-    <div class="row"><div class="l">آخر تحديث للأسعار<small>${m ? new Date(m.updated).toLocaleString(AR) : "—"}</small></div>
+    <div class="row"><div class="l">آخر تحديث للأسعار<small>${m ? new Date(m.updated).toLocaleString(AR, { timeZone: UI_TZ }) + " " + TZ_NOTE : "—"}</small></div>
       <div class="r">${m ? ago(m.updated) : "—"}</div></div>
     <div class="row"><div class="l">عدد الشركات المرصودة<small>أكبر الشركات الأمريكية بالقيمة السوقية، يُعاد ترتيبها يومياً</small></div>
       <div class="r num">${m ? m.count : "—"}</div></div>
     <div class="row"><div class="l">حالة السوق<small>${mk && mk.period
-      ? "تُحسب من فترات تداول بورصة نيويورك" : "غير متاحة"}</small></div>
+      ? "تُحسب من فترات تداول البورصة الأمريكية — وكلُّ المواعيد المعروضة بتوقيت الرياض" : "غير متاحة"}</small></div>
       <div class="r">${marketStatus(mk && mk.period).ar}</div></div>
     <details><summary>لماذا لا تتحدّث الأسعار كل ثانية؟</summary>
       <p>لا يوجد مصدر مجاني للأسهم الأمريكية يسمح للمتصفح بالاتصال به مباشرة —

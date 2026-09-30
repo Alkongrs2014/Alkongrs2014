@@ -119,3 +119,24 @@ test("فتحُ سهمٍ من الفرص يعرض تفاصيله بلا خطأ، 
   await expect(page.locator('section[data-view="detail"]')).not.toHaveClass(/\bon\b/);
   expect(errors).toEqual([]);
 });
+
+test("كلُّ الأوقات المعروضة بتوقيت الرياض مهما كانت منطقة الجهاز", async ({ browser, baseURL }) => {
+  const ctx = await browser.newContext({ timezoneId: "America/Los_Angeles", baseURL });
+  const page = await ctx.newPage();
+  await open(page);
+  for (const view of ["now", "screen", "crypto"]) {
+    await nav(page, view);
+    expect(await visibleText(page, view), `«نيويورك» ظاهرة في ${view}`).not.toMatch(/نيويورك/);
+  }
+  await nav(page, "screen");
+  const r = await page.evaluate(() => {
+    const h = TRADES.hour * 1000;
+    const want = new Date(h).toLocaleTimeString("ar-EG-u-nu-latn", { timeZone: "Asia/Riyadh", hour: "2-digit", minute: "2-digit" });
+    const dev = new Date(h).toLocaleTimeString("ar-EG-u-nu-latn", { hour: "2-digit", minute: "2-digit" });
+    return { txt: document.querySelector("#scanCount").textContent, want, dev };
+  });
+  expect(r.txt).toContain(r.want);
+  expect(r.txt).toContain("بتوقيت الرياض");
+  expect(r.want).not.toBe(r.dev);             // الفحص يميّز فعلاً: منطقة الجهاز مختلفة
+  await ctx.close();
+});
