@@ -140,7 +140,9 @@ export function monotonicGuard(cand, remote) {
     const c = cand[book], r = remote[book];
     if (!r || !Number.isFinite(r.candleKey)) continue;          // لا منشورٌ سابق لهذا الدفتر
     if (!c || !Number.isFinite(c.candleKey)) { why.push(`${book}: المرشَّح بلا candleKey والمنشور يحمل ${r.candleKey}`); continue; }
-    if (c.candleKey < r.candleKey) why.push(`${book}: candleKey ينزل ${r.candleKey} → ${c.candleKey}`);
+    /* النزول مرفوضٌ داخل النسخة الواحدة. وتغيّرُ نسخة المحرّك قرارٌ صريح قد يغيّر
+       معنى المفتاح (كالانتقال إلى لقطة الساعة: مفتاحُها شمعةُ الحدّ لا آخرُ شمعة) */
+    if (c.candleKey < r.candleKey && c.version === r.version) why.push(`${book}: candleKey ينزل ${r.candleKey} → ${c.candleKey}`);
     if (Number.isFinite(r.updated) && Number.isFinite(c.updated) && c.updated < r.updated)
       why.push(`${book}: updated ينزل ${r.updated} → ${c.updated}`);
     if (c.candleKey === r.candleKey && c.rowsHash !== r.rowsHash && c.version === r.version)
