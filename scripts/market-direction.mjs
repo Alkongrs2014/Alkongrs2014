@@ -132,10 +132,25 @@ export function pickTop(rankTop, cikMap, nameOf, n = TOP_N) {
 /* =====================================================================
    سيقانُ فريمٍ واحد — العشر مثبَّتةً عليه، ومحرّك الفرص معها.
    ===================================================================== */
-export function legsFor(rec, row, tf, now, sess, win, mkt) {
+/* =====================================================================
+   **التوجّه مؤكَّدٌ لا لحظيّ** (2026-09-30).
+
+   كانت السيقانُ العشر تُقيَّم بـ`evalAll` — بالسعر اللحظي وعلى السجلّ
+   الخام بشمعته الجارية — فيتغيّر التوجّه داخل شمعةٍ لم تُغلق. قِيس على
+   الإنتاج: نفس الشموع وسعرٌ لحظيّ مُزاحٌ ‎+0.6%‎ ⇒ ‎9‎ من ‎16‎ صفّاً تغيّر
+   (BRK-B ‎5 → 48‎، AVGO ‎43 → 21‎). والساق الحادية عشرة وحدها (`rec.an`)
+   كانت على ساعة الشمعة.
+
+   الآن: نفس الاستراتيجيات بنفس قواعدها، عبر `evalAllConfirmed` ←
+   `confirmCtx` — شموعٌ مغلقة وإغلاقُ آخر شمعةٍ مغلقة بدل السعر — وساعةُ
+   التأكيد `cnow` من `cbar` نفسه كما في `track-strategies`. فلا يتغيّر
+   التوجّه إلا بإغلاق شمعة. تغييرُ **مُدخلٍ** لا قاعدة. `cnow` اختياري:
+   غيابُه يُبقي ساعة الحائط لمستدعي الفحص الذاتي. */
+export function legsFor(rec, row, tf, now, sess, win, mkt, cnow = null) {
   const c = S.buildCtx({ rec, row, now, px: row && row.p, sess, win, tfPin: tf,
+                         ...(Number.isFinite(cnow) ? { cnow } : {}),
                          sessOf: (t) => sessionOf(t, mkt) });
-  const legs = S.evalAll(c).map(r => ({
+  const legs = S.evalAllConfirmed(c).map(r => ({
     id: r.id, lbl: r.lbl, fam: r.fam, dir: r.dir, sc: r.sc,
     active: !!r.active, off: r.off || null, at: r.at || null
   }));
@@ -268,6 +283,14 @@ export function run(out = OUT, nowArg = Date.now()) {
         .map(i => ({ s: i.proxy, idx: i.s, ar: i.ar, en: i.en }));
   const bench = benchList.find(b => b.idx === "^GSPC") || benchList[0] || null;
 
+  /* ساعةُ الشمعة — نفس `track-strategies`: نهايةُ آخر شمعة ‎15د‎ مؤكَّدة في
+     الملخّص. الجلسةُ والنافذة منها كذلك، فلا يتغيّر شيءٌ بعبور ساعة الحائط
+     حدَّ جلسةٍ دون أن تُغلق شمعة. */
+  let cbarMax = 0;
+  for (const r of summary.rows) if (Number.isFinite(r.cbar)) cbarMax = Math.max(cbarMax, r.cbar);
+  const cnow = cbarMax ? (cbarMax + 900) * 1000 + 1 : null;
+  const tnow = cnow || now;
+
   const jobs = [];
   if (bench) jobs.push({ s: bench.s, bench: true, meta: bench });
   for (const s of syms) jobs.push({ s, bench: false, meta: null });
@@ -282,8 +305,8 @@ export function run(out = OUT, nowArg = Date.now()) {
     for (const o of Object.values(rec.tf || {})) if (o && o.c) o.c = require(path.join(ROOT, "stocks/plan.js")).unpackK(o.c);
 
     const mkt = rec.mkt || null;
-    const sess = sessionOf(now, mkt);
-    const win = currentWindow(now, mkt);
+    const sess = sessionOf(tnow, mkt);
+    const win = currentWindow(tnow, mkt);
     /* الصفّ للبديل غيرُ موجود في الملخّص عمداً، فيُركَّب من المؤشّر
        نفسه: السعر والتغيّر من `market.indices` حيث يعيش `^GSPC`. */
     const idxRow = j.bench
@@ -300,7 +323,7 @@ export function run(out = OUT, nowArg = Date.now()) {
     const byTf = {};
     let alignLeg = null, at = null;
     for (const tf of TFS) {
-      const { legs } = legsFor(rec, row, tf, now, sess, win, mkt);
+      const { legs } = legsFor(rec, row, tf, now, sess, win, mkt, cnow);
       const regime = C.marketRegime(rec.an);
       byTf[tf] = tfDir(legs, edge, regime);
       for (const l of legs) if (l.active && l.at && (at === null || l.at < at)) at = l.at;
@@ -310,8 +333,9 @@ export function run(out = OUT, nowArg = Date.now()) {
        في الثلاثة. */
     {
       const c = S.buildCtx({ rec, row, now, px: row.p, sess, win,
+                             ...(cnow ? { cnow } : {}),
                              sessOf: (t) => sessionOf(t, mkt) });
-      const r = S.evalStrategy(S.STRAT_BY_ID.tfAlign, c);
+      const r = S.evalStrategy(S.STRAT_BY_ID.tfAlign, S.confirmCtx(S.STRAT_BY_ID.tfAlign, c));
       alignLeg = (r && r.dir && r.active) ? { dir: r.dir, sc: r.sc } : null;
     }
 
@@ -557,6 +581,23 @@ function selftest() {
     eq(F.dirLabelOf(1, 40).t, "محايد", "نسبةٌ ضعيفة ⇒ محايد مهما كانت الجهة");
     eq(F.dirLabelOf(0, 90).t, "محايد", "وبلا جهة ⇒ محايد مهما كانت النسبة");
     eq(F.dirLabelOf(-1, 90).t, "هابط قوي", "");
+  });
+
+  t("السعر اللحظي لا يحرّك التوجّه — مؤكَّدٌ على شموعٍ مغلقة (بياناتٌ حقيقية)", () => {
+    const f = path.join(ROOT, "data/sym/NVDA.json");
+    const g = path.join(ROOT, "data/summary.json");
+    if (!fs.existsSync(f) || !fs.existsSync(g)) { console.log("      (لا بيانات محلية — تُخطّى)"); return; }
+    const rec = JSON.parse(fs.readFileSync(f, "utf8"));
+    for (const o of Object.values(rec.tf || {})) if (o && o.c)
+      o.c = require(path.join(ROOT, "stocks/plan.js")).unpackK(o.c);
+    const row = JSON.parse(fs.readFileSync(g, "utf8")).rows.find(r => r.s === "NVDA");
+    if (!row || !Number.isFinite(row.cbar)) { console.log("      (لا cbar — تُخطّى)"); return; }
+    const cnow = (row.cbar + 900) * 1000 + 1;
+    const key = (r) => JSON.stringify(TFS.map(tf => legsFor(rec, r, tf, Date.now(), "REGULAR", null, null, cnow)
+      .legs.map(l => [l.id, l.dir, l.sc, l.active])));
+    const base = key(row);
+    for (const m of [0.97, 0.994, 1.006, 1.03])
+      ok(key({ ...row, p: row.p * m }) === base, `السعر ×${m} غيّر سيقان التوجّه`);
   });
 
   t("التثبيت يغيّر الفريم المقروء فعلاً — على بياناتٍ حقيقية", () => {
