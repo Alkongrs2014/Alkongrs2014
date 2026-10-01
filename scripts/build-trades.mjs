@@ -8,7 +8,8 @@
    ودرجتها ودخولها ووقفها وأهدافها. **لا يُقرأ شيءٌ من لقطة الساعة السابقة** —
    لا حالة ولا ملفّ: البناء دالّةٌ في (الشموع المغلقة، حدّ الساعة) وحدهما.
 
-   الأسهم: 09:30 · 10:30 … 15:30 بتوقيت نيويورك (مخزن Alpaca SIP).
+   الأسهم: 05:15 نيويورك ثم كلَّ 30 دقيقة حتى نهاية نافذة SIP (20:00) — قرار المالك
+   2026-10-01؛ الشموع المغلقة من ما قبل الافتتاح والرسمية وما بعد الإغلاق (مخزن Alpaca SIP).
    الكريبتو: كلُّ ساعة UTC، ويومُه 03:00→03:00 الرياض = يوم UTC (ملفّات Binance).
    وداخل الساعة الواحدة لا يُعاد البناء: اللقطة ثابتةٌ حتى الحدّ التالي.
 
@@ -22,7 +23,7 @@ import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { readSeries, storeDir } from "./lib/bars-store.mjs";
-import { prep, prepCrypto, evalHour, stockHourAt, cryptoHourAt } from "./lib/engine3-run.mjs";
+import { prep, prepCrypto, evalHour, stockSlotAt, cryptoHourAt } from "./lib/engine3-run.mjs";
 import { rp } from "./lib/round.mjs";
 
 const require = createRequire(import.meta.url);
@@ -93,8 +94,8 @@ export function build({ now = Date.now(), out = OUT, barsDir, book, fresh = fals
   book = book || (path.basename(out) === "crypto" ? "crypto" : "stocks");
   barsDir = barsDir || storeDir(out);
   const ver = engineVersion();
-  const H = book === "crypto" ? cryptoHourAt(now) : stockHourAt(now);
-  if (!H) return { ok: false, why: "لا حدّ ساعة" };
+  const H = book === "crypto" ? cryptoHourAt(now) : stockSlotAt(now);
+  if (!H) return { ok: false, why: "لا حدّ لقطة" };
   const prev = fresh ? null : readJ(path.join(out, "trades.json"));
   if (prev && prev.mode === "hourly" && prev.version === ver && prev.hour === Math.round(H / 1000))
     return { ok: true, same: true, doc: prev, why: "نفس الساعة — اللقطة ثابتة حتى الحدّ التالي" };

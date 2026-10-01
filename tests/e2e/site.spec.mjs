@@ -78,12 +78,12 @@ test("الفرص: قائمةٌ حقيقية بختم شمعة، ولا عملة 
   expect(txt).toMatch(/شمعة/);
 });
 
-test("الكريبتو: لقطة ساعة V3 — عملاتٌ فقط وبطاقاتٌ بدرجتها", async ({ page }) => {
+test("الكريبتو: لقطة V3 كل ساعة — عملاتٌ فقط وبطاقاتٌ بدرجتها", async ({ page }) => {
   await open(page);
   await nav(page, "crypto");
   const syms = await page.locator('section[data-view="crypto"] [data-open]').evaluateAll((a) => a.map((x) => x.getAttribute("data-open")));
   expect(syms.filter((s) => !/-USD$/.test(s)), "سهمٌ في دفتر الكريبتو").toEqual([]);
-  expect(await visibleText(page, "crypto")).toMatch(/لقطة الساعة/);
+  expect(await visibleText(page, "crypto")).toMatch(/لقطة .*كل ساعة/s);
 });
 
 test("بطاقة الفرصة تشرح درجتها: الخمس بأوزانها ✓/✗ والدرجة مجموعُ المتوافقة", async ({ page }) => {

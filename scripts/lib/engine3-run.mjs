@@ -35,9 +35,14 @@ function fold(arr, keyOf, endOf) {
   return out;
 }
 
-/* نوافذ الجلسة بذاكرةٍ لكل يوم: `sessionWindows` تمرّ بـIntl في كل نداء (~90µs)،
+/* نافذة بيانات SIP لكل يوم بذاكرة: `sessionWindows` تمرّ بـIntl في كل نداء (~90µs)،
    ومناداتُها لكل شمعة جعلت التحضير ثانيةً لكل رمز. اليوم يُعرف من إزاحة نيويورك
-   (مخزَّنة لكل ساعة في session.js) — نفس النتيجة بلا Intl لكل شمعة. */
+   (مخزَّنة لكل ساعة في session.js) — نفس النتيجة بلا Intl لكل شمعة.
+
+   **النافذة كاملةُ SIP** (قرار المالك 2026-10-01): من بداية ما قبل الافتتاح (04:00)
+   إلى نهاية ما بعد الإغلاق (20:00، أو 17:00 في نصف اليوم). الشموع المغلقة في
+   الجلسات الثلاث تدخل القرار؛ وقمة/قاع أمس تبقى من اليومي الرسمي (`d1` — Alpaca
+   تبني 1Day من الجلسة الرسمية وحدها، مقيسٌ: 120/120 يوماً). */
 const winCache = new Map();
 function etDayKey(t) {
   const x = new Date(t + SES.etOffsetMs(t));
@@ -46,26 +51,31 @@ function etDayKey(t) {
 function winOf(t) {
   const k = etDayKey(t);
   let w = winCache.get(k);
-  if (w === undefined) { w = SES.sessionWindows(t).regular || null; winCache.set(k, w); }
+  if (w === undefined) {
+    const s = SES.sessionWindows(t);
+    w = s.pre ? { start: s.pre.start, end: s.post.end } : null;
+    winCache.set(k, w);
+  }
   return w;
 }
 
-/* التحضير مرّةً لكل رمز من شموع المخزن (كل الجلسات) ويوميّه */
+/* التحضير مرّةً لكل رمز من شموع المخزن (كل الجلسات) ويوميّه.
+   الساعة و4س دلاءٌ بمرسى بداية نافذة اليوم (04:00): 04:00–05:00 … و04/08/12/16 —
+   فأوّلُ ساعةٍ كاملة تُغلق 05:00، والدلوُ الأخير يُقصّ عند نهاية النافذة. */
 export function prep(bars15, bars1d) {
   const r15 = [];
   for (const b of bars15 || []) {
     if (!(b.v > 0)) continue;
     const w = winOf(b.t);
-    if (!w || b.t < w.start || b.t >= w.end) continue;           // الجلسة الرسمية وحدها
+    if (!w || b.t < w.start || b.t >= w.end) continue;           // نافذة SIP وحدها
     r15.push({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d: etDayKey(b.t),
                last: b.t + M15 === w.end, end: b.t + M15 });
   }
   const bucket = (H) => {
     const Hms = H * 3600000;
-    return fold(r15, b => SES.sessionBucket(b.t, H), (b, k) => {
-      const start = k * Hms + SES.REG_OPEN * 60000 - SES.etOffsetMs(b.t);
-      const w = winOf(b.t);
-      return Math.min(start + Hms, w ? w.end : start + Hms);
+    return fold(r15, b => b.d * 100 + Math.floor((b.t - winOf(b.t).start) / Hms), (b) => {
+      const w = winOf(b.t), start = w.start + Math.floor((b.t - w.start) / Hms) * Hms;
+      return Math.min(start + Hms, w.end);
     });
   };
   const d1 = (bars1d || []).map(b => { const d = dayKeyOf(b.t + 12 * 3600000); return { t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d, w: isoWeek(d) }; });
@@ -144,18 +154,10 @@ export { E as ENGINE };
    ===================================================================== */
 const HOUR = 3600000;
 
-/* حدُّ الساعة للأسهم: 09:30 · 10:30 … 15:30 بتوقيت نيويورك (ونصفُ اليوم حتى
-   12:30). أحدثُ حدٍّ ≤ now؛ وقبل افتتاح اليوم فآخرُ حدٍّ في آخر يوم تداول. */
-export function stockHourAt(now) {
-  for (let back = 0; back < 10; back++) {
-    const w = SES.sessionWindows(now - back * DAY);
-    if (!w.regular) continue;
-    let best = null;
-    for (let h = w.regular.start; h < w.regular.end; h += HOUR) if (h <= now) best = h;
-    if (best !== null) return best;
-  }
-  return null;
-}
+/* حدُّ لقطة الأسهم: 05:15 نيويورك ثم كلَّ 30 دقيقة حتى نهاية نافذة SIP — الجدول في
+   session.js (`scanSlotAt`) مصدرٌ واحد للخادم والواجهة. أحدثُ لقطةٍ ≤ now؛ وقبل أوّل
+   لقطةٍ اليوم فآخرُ لقطةٍ في آخر يوم تداول. */
+export const stockSlotAt = (now) => SES.scanSlotAt(now);
 /* الكريبتو: يومُه 03:00 بتوقيت الرياض = 00:00 UTC (الرياض UTC+3 بلا توقيتٍ صيفي)،
    وكلُّ ساعةٍ UTC حدٌّ جديد. */
 export const cryptoHourAt = (now) => Math.floor(now / HOUR) * HOUR;

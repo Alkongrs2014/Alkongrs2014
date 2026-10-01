@@ -10,6 +10,8 @@ import os from "node:os";
 import path from "node:path";
 import { build } from "../../scripts/build-trades.mjs";
 import { synth, writeStore } from "../property/synth3.mjs";
+import { createRequire } from "node:module";
+const SES = createRequire(import.meta.url)("../../stocks/session.js");
 
 const SYMS = ["AAPL", "NVDA", "MSFT", "AMD", "META"];
 const DATA = SYMS.map((s, i) => [s, synth(11 + i, 200)]);
@@ -21,24 +23,22 @@ function storeAt(dir, now) {
   return bars;
 }
 const put = (dir, doc) => fs.writeFileSync(path.join(dir, "trades.json"), JSON.stringify(doc));
-// حدود الساعة (09:30 + k) في آخر عشرين جلسة
-const hours = all15.map((b) => b.t).filter((t, i, a) => {
-  const ny = new Date(t).toLocaleTimeString("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
-  return /^(09|1[0-5]):30$/.test(ny);
-}).slice(-140);
+// حدود اللقطة (05:15 ثم كلَّ 30 دقيقة — `scanSlotsOf`) التي تقع على نهاية شمعةٍ في البيانات
+const ends = new Set(all15.map((b) => b.t + 15 * 60000));
+const hours = [...new Set(all15.map((b) => SES.scanSlotsOf(b.t)).flat())].filter((h) => ends.has(h)).sort((a, b) => a - b).slice(-140);
 
 describe("لقطة الساعة — المسار الحيّ", () => {
-  it("داخل الساعة الواحدة: نفس اللقطة", () => {
+  it("داخل اللقطة الواحدة (30 دقيقة): نفس اللقطة", () => {
     const H = hours[70];
     const d1 = tmp(), d2 = tmp();
     const a = build({ now: H + 3 * 60000, out: d1, barsDir: storeAt(d1, H + 3 * 60000) });
-    const b = build({ now: H + 52 * 60000, out: d2, barsDir: storeAt(d2, H + 52 * 60000) });
+    const b = build({ now: H + 28 * 60000, out: d2, barsDir: storeAt(d2, H + 28 * 60000) });
     expect(a.ok && b.ok).toBe(true);
     expect(a.doc.hour).toBe(b.doc.hour);
     expect(a.doc.rowsHash).toBe(b.doc.rowsHash);
     // والبناء الثاني داخل نفس الساعة فوق لقطتها لا يغيّر شيئاً
     put(d1, a.doc);
-    const c = build({ now: H + 40 * 60000, out: d1, barsDir: storeAt(d1, H + 40 * 60000) });
+    const c = build({ now: H + 20 * 60000, out: d1, barsDir: storeAt(d1, H + 20 * 60000) });
     expect(c.same).toBe(true);
   });
 

@@ -51,6 +51,14 @@ var HALF_POST  = 17 * 60;
    هذه ولا يكتب رقماً. */
 var SCAN_START_ET = PRE_OPEN;
 
+/* جدولُ لقطات V3 للأسهم — قرار المالك 2026-10-01: **قاعدةٌ واحدة طوال نافذة SIP**.
+   أوّلُ لقطة بعد اكتمال شمعة ساعةٍ من بداية ما قبل الافتتاح ثم شمعة ‎15د‎ بعدها
+   (‎04:00 + 1س + 15د = 05:15‎ نيويورك)، ثم كلَّ ‎30‎ دقيقة حتى نهاية ما بعد الإغلاق.
+   فتصادف الدورةُ نفسها ‎09:45‎ (أوّل ‎15د‎ بعد الافتتاح) و‎16:15‎ (أوّل ‎15د‎ بعد
+   الإغلاق) بلا أيّ استثناء — والرياض تُشتقّ عرضاً فقط فتتبع التوقيت الصيفي وحدها. */
+var SCAN_FIRST_ET = PRE_OPEN + 75;   /* 05:15 */
+var SCAN_STEP_MIN = 30;
+
 /* =====================================================================
    عطلات بورصة نيويورك. جدولٌ صريح لا اشتقاق: قواعدها ليست منتظمة
    (الجمعة العظيمة تتبع تقويماً قمرياً، وما يقع في السبت يُعطَّل الجمعة
@@ -232,6 +240,33 @@ function nextScanStart(t) {
   return null;
 }
 
+/* لقطاتُ يوم التداول الذي تقع فيه `t`: ‎05:15‎ ثم كلَّ ‎30‎ دقيقة ما دامت ≤ نهاية
+   ما بعد الإغلاق (‎20:00‎، أو ‎17:00‎ في نصف اليوم). يومٌ غير تداول ⇒ قائمةٌ فارغة. */
+function scanSlotsOf(t) {
+  var w = sessionWindows(t);
+  if (!w.pre) return [];
+  var out = [], step = SCAN_STEP_MIN * 60000;
+  for (var h = atEtMinutes(t, SCAN_FIRST_ET); h <= w.post.end; h += step) out.push(h);
+  return out;
+}
+/* أحدثُ لقطةٍ ≤ `t` (وقبل أوّل لقطةٍ اليوم فآخرُ لقطةٍ في آخر يوم تداول) */
+function scanSlotAt(t) {
+  for (var i = 0; i < 10; i++) {
+    var s = scanSlotsOf(t - i * 86400000), best = null;
+    for (var k = 0; k < s.length; k++) if (s[k] <= t) best = s[k];
+    if (best !== null) return best;
+  }
+  return null;
+}
+/* أقربُ لقطةٍ قادمة > `t` */
+function nextScanSlot(t) {
+  for (var i = 0; i < 10; i++) {
+    var s = scanSlotsOf(t + i * 86400000);
+    for (var k = 0; k < s.length; k++) if (s[k] > t) return s[k];
+  }
+  return null;
+}
+
 /* =====================================================================
    العرض — بتوقيت الرياض دائماً.
 
@@ -344,6 +379,8 @@ if (typeof module !== "undefined" && module.exports) {
     sessionOf: sessionOf, isExtendedOpen: isExtendedOpen, scannerActive: scannerActive,
     sessionWindows: sessionWindows, currentWindow: currentWindow,
     scanStartOf: scanStartOf, nextScanStart: nextScanStart, atEtMinutes: atEtMinutes,
+    SCAN_FIRST_ET: SCAN_FIRST_ET, SCAN_STEP_MIN: SCAN_STEP_MIN,
+    scanSlotsOf: scanSlotsOf, scanSlotAt: scanSlotAt, nextScanSlot: nextScanSlot,
     statusAt: statusAt, barSession: barSession,
     isExtendedBar: isExtendedBar, isRegularBar: isRegularBar,
     minuteOfSession: minuteOfSession,

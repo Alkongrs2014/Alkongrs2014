@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { build } from "../build-trades.mjs";
+import { build, engineVersion } from "../build-trades.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const dir = process.argv[2];
@@ -20,7 +20,11 @@ if (!fs.existsSync(bars) || !tr) {
   const b = build({ now, out: dir, barsDir: bars, fresh: true });
   add("determinism.v3", "INV-20", a.ok && b.ok && a.doc.rowsHash === b.doc.rowsHash,
       a.ok ? `${a.doc.open.length} مفتوحة · ${a.doc.rowsHash}` : a.why);
-  add("determinism.v3-key", "INV-24", a.ok && a.doc.candleKey === tr.candleKey,
+  /* المفتاح يُقارَن داخل نسخة المحرّك الواحدة: لقطةٌ بنسخةٍ سابقة قد تختلف حدودُها
+     مشروعاً (كالانتقال من لقطة الساعة إلى لقطة نصف الساعة) — نفس مبدأ حارس الرتابة */
+  if (tr.version && tr.version !== engineVersion())
+    add("determinism.v3-key", "INV-24", true, `اللقطة بنسخة محرّكٍ سابقة (${tr.version}) — يُتخطّى`, "INFO");
+  else add("determinism.v3-key", "INV-24", a.ok && a.doc.candleKey === tr.candleKey,
       a.ok ? `${a.doc.candleKey} مقابل ${tr.candleKey}` : "");
 }
 console.log(JSON.stringify(out));

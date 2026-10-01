@@ -1,5 +1,5 @@
-/* سوقٌ اصطناعي بتقويم نيويورك الحقيقي لاختبارات المحرّك V3 — شموع 15د الرسمية
-   ويوميّها، بأنظمة ميلٍ متبدّلة كي تقع أحداث قمة/قاع أمس وانقلابات المتوسطات. */
+/* سوقٌ اصطناعي بتقويم نيويورك الحقيقي لاختبارات المحرّك V3 — شموع 15د لنافذة SIP
+   كاملةً (ما قبل · الرسمية · ما بعد) ويوميّها الرسمي، بأنظمة ميلٍ متبدّلة كي تقع أحداث قمة/قاع أمس وانقلابات المتوسطات. */
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const SES = require("../../stocks/session.js");
@@ -9,20 +9,29 @@ export function rngOf(seed) {
   return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-export function synth(seed, days = 240, start = "2025-01-02T12:00:00Z") {
+export function synth(seed, days = 240, start = "2025-01-02T12:00:00Z", ext = true) {
   const r = rngOf(seed), b15 = [], b1d = [];
   let px = 100, drift = 0;
+  /* شمعة 15د. `reg` = من الجلسة الرسمية (تدخل اليومي)؛ الممتدة أهدأ وحجمها أقلّ */
+  const bar = (s, k) => {
+    const bo = px * (1 + (r() - 0.5) * 0.002 * k), bc = bo * (1 + ((r() - 0.5) * 0.008 + drift) * k);
+    const bh = Math.max(bo, bc) * (1 + r() * 0.002 * k), bl = Math.min(bo, bc) * (1 - r() * 0.002 * k);
+    const b = { t: s, o: bo, h: bh, l: bl, c: bc, v: Math.floor((1000 + r() * 5000) * k) || 1 };
+    b15.push(b); px = bc; return b;
+  };
   for (let t = Date.parse(start); b1d.length < days; t += 86400000) {
     const w = SES.sessionWindows(t);
     if (!w.regular) continue;
     if (r() < 0.12) drift = (r() - 0.5) * 0.004;
+    /* ما قبل الافتتاح وما بعد الإغلاق (نافذة SIP) — لا تدخل اليومي: Alpaca تبني 1Day
+       من الجلسة الرسمية وحدها (مقيس) */
+    if (ext) for (let s = w.pre.start; s < w.pre.end; s += 900000) bar(s, 0.5);
     let o = null, h = -Infinity, l = Infinity, c = null;
     for (let s = w.regular.start; s < w.regular.end; s += 900000) {
-      const bo = px * (1 + (r() - 0.5) * 0.002), bc = bo * (1 + (r() - 0.5) * 0.008 + drift);
-      const bh = Math.max(bo, bc) * (1 + r() * 0.002), bl = Math.min(bo, bc) * (1 - r() * 0.002);
-      b15.push({ t: s, o: bo, h: bh, l: bl, c: bc, v: 1000 + Math.floor(r() * 5000) });
-      o ??= bo; h = Math.max(h, bh); l = Math.min(l, bl); c = bc; px = bc;
+      const b = bar(s, 1);
+      o ??= b.o; h = Math.max(h, b.h); l = Math.min(l, b.l); c = b.c;
     }
+    if (ext) for (let s = w.post.start; s < w.post.end; s += 900000) bar(s, 0.5);
     b1d.push({ t: w.regular.start, o, h, l, c, v: 1 });
   }
   return { b15, b1d };

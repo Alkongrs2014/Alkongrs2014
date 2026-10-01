@@ -1555,7 +1555,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
 
   <div class="card" data-grp="plan" id="cardPlan">
     <h2>صفقة المحرّك V3</h2>
-    <p class="hint">الدخول والوقف والأهداف تُحسب من الصفر في كل ساعة على آخر الشموع المغلقة — لا يُورَث شيءٌ من الساعة السابقة</p>
+    <p class="hint">الدخول والوقف والأهداف تُحسب من الصفر في كل لقطة (الأسهم كل 30 دقيقة · الكريبتو كل ساعة) على آخر الشموع المغلقة — لا يُورَث شيءٌ من اللقطة السابقة</p>
     <div id="planOut"></div>
     <div id="planLevels"></div>
   </div>
@@ -1964,9 +1964,9 @@ section[data-view="now"].on{display:flex;flex-direction:column}
       <p><b>الدخول</b> إغلاقُ شمعة التأكيد، و<b>الوقف</b> آخرُ قاعٍ مؤكَّد على فريم الساعة (قمّةٍ في البيع)،
       و<b>الأهداف</b> المستويات الحقيقية أمام الصفقة بعائدٍ لا يقلّ عن مرّة المخاطرة، ويُكمَّل ما نقص
       بمضاعفات المخاطرة ويُوسم بذلك.</p>
-      <p><b>كلُّ ساعة بدايةٌ جديدة بالكامل</b> (كل ساعة من افتتاح السوق الأمريكي — المواعيد بتوقيت الرياض في سطر اللقطة أعلاه): تُصفَّر الفرص كلُّها
+      <p><b>كلُّ لقطة بدايةٌ جديدة بالكامل</b> (كل 30 دقيقة طوال نافذة بيانات SIP: ما قبل الافتتاح والجلسة الرسمية وما بعد الإغلاق — المواعيد بتوقيت الرياض في سطر اللقطة أعلاه): تُصفَّر الفرص كلُّها
       ويُحلَّل كلُّ سهمٍ من الصفر، فإن بقي فرصةً ظهر بدرجته ودخوله ووقفه وأهدافه الجديدة — ولا يرث شيئاً
-      من الساعة السابقة.</p>
+      من اللقطة السابقة. وقمة/قاع أمس من الجلسة الرسمية المكتملة وحدها، ثابتتان طوال اليوم.</p>
       <p class="srcline" style="text-align:start">كلُّ القرارات على شموعٍ مغلقة من Alpaca SIP.
       المحرّكان السابقان محفوظان أرشيفاً ولا يدخلان في هذه الفرص.</p>
       <div id="scanHist"></div>
@@ -2867,26 +2867,37 @@ async function pollLive() {
    5) العرض — الشريط العلوي
    ======================================================================= */
 function renderTop() {
-  const st = marketStatus(state.market && state.market.period);
-  const el = $("#mkState");
-  el.className = "chip " + st.cls + (st.state === "REGULAR" ? " live" : "");
-  /* الجلسة الممتدة صارت حالةَ عملٍ لا حالةَ انتظار: الماسح يعمل فيها،
-     فالشارة تقول ذلك بدل أن تُقرأ «السوق مغلق فانتظر». */
-  const working = st.state === "PRE" || st.state === "POST";
-  el.textContent = st.ar + (working ? " · الماسح يعمل" : "");
-  if (working) el.classList.add("live");
-  $("#mkCountdown").textContent = st.next ? `${st.nextAr} ${dur(st.next - Date.now())}` : "";
-
-  /* «يبدأ ‎11:00‎ صباحاً» — بتوقيت الرياض دائماً، ومحسوبةً من
-     ‎04:00‎ نيويورك فتتبع التوقيت الصيفي وحدها: ‎11:00‎ صيفاً
-     و‎12:00‎ شتاءً. رقمٌ مكتوب في النصّ يكذب نصف السنة. */
-  const sb = $("#scanStart");
-  if (sb) {
-    const now = Date.now();
-    const start = scanStartOf(now);
-    sb.textContent = working || st.state === "REGULAR"
-      ? `الماسح يعمل منذ ${ksaTime(start)} ${TZ_NOTE}`
-      : `يبدأ الماسح ${ksaTime(nextScanStart(now) || start)} ${TZ_NOTE}`;
+  const el = $("#mkState"), sb = $("#scanStart"), now = Date.now();
+  /* الكريبتو مستقلٌّ تماماً عن السوق الأمريكي (‎24/7‎): لا شارةَ جلسةٍ أمريكية ولا
+     عدّادَ افتتاح على خانته — وإلا قرأ المستخدم «السوق مغلق» فوق سوقٍ يعمل. */
+  if (state.book === "crypto") {
+    el.className = "chip up live";
+    el.textContent = "الكريبتو · ‎24/7‎ · الماسح يعمل";
+    $("#mkCountdown").textContent = "";
+    if (sb) {
+      const H = Math.floor(now / 3600000) * 3600000;
+      sb.textContent = `لقطة كل ساعة · آخرها ${ksaTime(H)} · التالية ${ksaTime(H + 3600000)} ${TZ_NOTE}`;
+    }
+  } else {
+    const st = marketStatus(state.market && state.market.period);
+    /* أربع حالات لا حالتان: ما قبل الافتتاح والرسمية وما بعد الإغلاق كلُّها نافذةُ SIP
+       يعمل فيها الماسح؛ و«مغلق» وحدها تعني لا بيانات SIP (‎20:00–04:00‎ نيويورك وعطلة). */
+    const working = st.state === "PRE" || st.state === "REGULAR" || st.state === "POST";
+    el.className = "chip " + st.cls + (working ? " live" : "");
+    el.textContent = working ? st.ar + " · الماسح يعمل" : "مغلق · لا بيانات SIP";
+    $("#mkCountdown").textContent = st.next ? `${st.nextAr} ${dur(st.next - now)}` : "";
+    /* الجدول من `session.js` (05:15 نيويورك ثم كلَّ 30 دقيقة) ويُعرض بتوقيت الرياض وحده —
+       فيتبع التوقيت الصيفي تلقائياً: أوّلُ مسح ‎12:15‎ صيفاً و‎13:15‎ شتاءً. */
+    if (sb) {
+      const last = scanSlotAt(now), next = nextScanSlot(now);
+      const todays = scanSlotsOf(now), inDay = todays.length > 0 && last >= todays[0];
+      /* أوّلُ مسحٍ بعد ساعةٍ وربع من بداية البيانات: شمعة ساعةٍ كاملة ثم ‎15د‎ */
+      sb.textContent = working && inDay
+        ? `آخر مسح ${ksaTime(last)} · التالي ${next ? ksaTime(next) : "—"} ${TZ_NOTE}`
+        : working
+          ? `بيانات SIP بدأت ${ksaTime(next - 75 * 60000)} · أوّل مسح ${ksaTime(next)} ${TZ_NOTE}`
+          : `بيانات SIP تبدأ ${ksaTime(next - 75 * 60000)} · أوّل مسح ${ksaTime(next)} ${TZ_NOTE}`;
+    }
   }
 
   /* عددُ الكون من البيانات لا من النصّ */
@@ -2922,12 +2933,24 @@ const FRESH = [
 function renderStale() {
   const bar = $("#staleBar");
   if (!bar) return;
+  const now = Date.now();
+  const rows = [];
+  /* الكريبتو يُقاس بطزاجته هو وحده (دورته خمس دقائق، ‎24/7‎) — لا بمهامّ الأسهم ولا
+     بحالة السوق الأمريكي: إغلاقُ نيويورك ليس توقّفاً للكريبتو. */
+  if (state.book === "crypto") {
+    const at = state.summary && Number(state.summary.updated);
+    if (Number.isFinite(at)) { const r = (now - at) / 60000 / 5; if (r >= 3) rows.push({ ar: "الكريبتو", at, dead: r >= 6 }); }
+    return showStale(bar, rows, now);
+  }
   const m = state.meta;
   if (!m) { bar.hidden = true; return; }
-  const now = Date.now();
-
-  const rows = [];
+  /* الأسعار لا تُجلب خارج نافذة SIP (‎20:00–04:00‎ نيويورك والعطلة) — فعمرُها حينها
+     حالةُ سوقٍ لا توقّف، والشارة تقول «مغلق · لا بيانات SIP». ومهلة عشر دقائق بعد
+     بداية النافذة: أوّلُ دورة أسعارٍ لم تصل بعد ليس عطلاً. */
+  const ss = statusAt(now), win = sessionWindows(now);
+  const sipQuiet = ss.state === "CLOSED" || (ss.state === "PRE" && win.pre && now - win.pre.start < 10 * 60000);
   for (const f of FRESH) {
+    if (f.k === "quotesRun" && sipQuiet) continue;
     const v = m[f.k];
     // `quotesRun` كائنٌ بحقل `at`، وبقيتُها أرقامٌ مباشرة
     const at = typeof v === "object" && v ? Date.parse(v.at) : v;
@@ -2938,6 +2961,9 @@ function renderStale() {
     const r = mins / f.cyc;
     if (r >= 2.5) rows.push({ ar: f.ar, at, dead: r >= 6 });
   }
+  return showStale(bar, rows, now);
+}
+function showStale(bar, rows, now) {
   if (!rows.length) { bar.hidden = true; return; }
 
   const dead = rows.some(r => r.dead);
@@ -3057,7 +3083,7 @@ function renderTopOpp() {
     </div>`;
   }).join("");
   $$("#topOpp [data-open]").forEach(x => x.onclick = () => openSymbol(x.dataset.open));
-  if (src) src.textContent = `الأعلى قوّة توافق في لقطة الساعة ${v3Hour(T)} — تُعاد من الصفر كل ساعة، وقوة التوافق ليست نسبة نجاح`;
+  if (src) src.textContent = `الأعلى قوّة توافق في لقطة ${v3Hour(T)} — تُعاد من الصفر ${v3Cycle()}، وقوة التوافق ليست نسبة نجاح`;
 }
 
 function renderNow() {
@@ -5245,6 +5271,7 @@ async function refreshCrypto() {
     diag("crypto", "تعذّر جلب دفتر الكريبتو", e && e.message);
   } finally { cryptoBusy = false; }
   if (state.book !== "crypto") return;
+  renderTop();
   if (state.view === "crypto") renderScreen();
   else if (state.sym) { try { await getSymbol(state.sym); renderDetail(); } catch (e) {} }
 }
@@ -5566,7 +5593,7 @@ function renderStrategies(rec) {
   el.innerHTML = rows.map(([k, v]) => `<div class="row"><div class="l"><b>${k}</b><small>${v}</small></div></div>`).join("") +
     `<div class="note">توافق الشراء الآن <b class="num">${v3pct(b.up)}</b> · توافق البيع الآن <b class="num">${v3pct(b.dn)}</b>
      — حالةٌ حالية لا فرصة: الفرصة تتولّد فقط بعبور قمة/قاع أمس بجسم شمعة أو انقلاب المتوسطات.</div>
-     <p class="srcline">لقطة الساعة ${esc(v3Hour(TT))} — شموعٌ مغلقة وحدها، وتُعاد من الصفر كل ساعة.</p>`;
+     <p class="srcline">لقطة ${esc(v3Hour(TT))} — شموعٌ مغلقة وحدها، وتُعاد من الصفر ${v3Cycle()}.</p>`;
   if (hint) hint.textContent = "المحرّك V3 — خمس استراتيجيات بأوزانٍ ثابتة";
   card.style.display = "";
 }
@@ -6815,7 +6842,7 @@ function renderPlan(rec) {
   const open = (TT.open || []).find(x => x.s === rec.s);
   card.style.display = "";
   out.innerHTML = open ? v3Card(open, -1)
-    : `<div class="empty">لا فرصة لهذا الرمز في لقطة الساعة ${esc(v3Hour(TT))} — تُعاد اللقطة من الصفر مع الساعة التالية.</div>`;
+    : `<div class="empty">لا فرصة لهذا الرمز في لقطة ${esc(v3Hour(TT))} — تُعاد اللقطة من الصفر ${v3Cycle()}.</div>`;
 }
 
 /* =======================================================================
@@ -7697,15 +7724,15 @@ function v3Hour(T) {
   if (!T || !Number.isFinite(T.hour)) return "—";
   return `${stamp(T.hour * 1000)} ${TZ_NOTE}`;
 }
-/* حدودُ ساعات الأسهم اليوم (أو يوم التداول التالي) بتوقيت الرياض: 09:30 … 15:30
-   نيويورك تُحسب من التقويم فتتبع التوقيت الصيفي تلقائياً — رقمٌ مكتوبٌ يكذب نصف السنة */
-function stockHoursRiyadh() {
+/* دورةُ التجديد للدفتر: الأسهم كلَّ 30 دقيقة (05:15 نيويورك فصاعداً) والكريبتو كلَّ ساعة */
+const v3Cycle = (book) => (book || state.book) === "crypto" ? "كل ساعة" : "كل 30 دقيقة";
+/* لقطاتُ الأسهم اليوم (أو يوم التداول التالي) بتوقيت الرياض — من `scanSlotsOf` في
+   session.js (05:15 ثم كلَّ 30 دقيقة حتى نهاية ما بعد الإغلاق) فتتبع التوقيت الصيفي
+   تلقائياً: رقمٌ مكتوبٌ يكذب نصف السنة */
+function stockSlotsRiyadh() {
   for (let k = 0; k < 10; k++) {
-    const w = sessionWindows(Date.now() + k * 86400000);
-    if (!w || !w.regular) continue;
-    const out = [];
-    for (let h = w.regular.start; h < w.regular.end; h += 3600000) out.push(clock(h));
-    return out;
+    const s = scanSlotsOf(Date.now() + k * 86400000);
+    if (s.length && s[s.length - 1] > Date.now() - 86400000) return s.map(clock);
   }
   return [];
 }
@@ -7749,9 +7776,9 @@ function v3Card(t, i) {
   const col = chg === null ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
   const tg = (t.tg || []).map((x, k) => `<span class="${k < (t.hit || 0) ? "hit" : ""}"><bdi><span class="k">T${k + 1}</span> <span class="num">${money(x.p)}</span></bdi> <small class="k"><bdi>${esc(v3src(x.src))}</bdi></small>${k < (t.hit || 0) ? " ✓" : ""}</span>`).join("");
   const chips = [];
-  /* لقطة الساعة: الفرصة مبنيّةٌ في هذه الساعة من الصفر ولا ترث شيئاً ممّا قبلها */
+  /* اللقطة: الفرصة مبنيّةٌ فيها من الصفر ولا ترث شيئاً ممّا قبلها */
   const T0 = tradesOf();
-  chips.push(`<span class="good">لقطة الساعة ${esc(v3Hour(T0))} — دخولٌ ووقفٌ وأهدافٌ محسوبة الآن</span>`);
+  chips.push(`<span class="good">لقطة ${esc(v3Hour(T0))} — دخولٌ ووقفٌ وأهدافٌ محسوبة الآن</span>`);
   chips.push(`<span class="cold">الأساس: ${t.base === "day" ? "قمة/قاع أمس" : "المتوسطات"}</span>`);
   if (px !== null) chips.push(`<span>السعر الآن <span class="num">${money(px)}</span> <span class="num" style="color:${col}">${chg === null ? "" : pct(chg)}</span></span>`);
   // `i < 0` بطاقةٌ خارج القائمة (شاشة السهم) — بلا رتبة
@@ -7788,20 +7815,20 @@ function renderTrades(book) {
   if (!T) {
     if (CR) refreshCrypto(); else need("trades.json");
     el.innerHTML = `<div class="skl" style="height:150px"></div><div class="skl" style="height:150px;margin-top:11px"></div>`;
-    if (cnt) cnt.textContent = "لقطة الساعة تُجلب…";
+    if (cnt) cnt.textContent = "اللقطة تُجلب…";
     return;
   }
-  const hrs = CR ? null : stockHoursRiyadh();
-  const cycle = CR ? "كل ساعة من 03:00 إلى 02:00 بتوقيت الرياض (يوم الكريبتو 03:00→03:00)"
-                   : `كل ساعة من افتتاح السوق الأمريكي: ${hrs.length ? hrs[0] + " · " + (hrs[1] || "") + " … " + hrs[hrs.length - 1] : "—"} ${TZ_NOTE}`;
-  const note = `<p class="v3note"><b>لقطة الساعة ${esc(v3Hour(T))}</b> — تُصفَّر الفرص كلُّها وتُبنى من الصفر ${cycle}،
-    ولا يُحمَل دخولٌ ولا وقفٌ ولا هدف من الساعة السابقة.<br>
+  const hrs = CR ? null : stockSlotsRiyadh();
+  const cycle = CR ? "كل ساعة على مدار اليوم ‎24/7‎ (يوم الكريبتو 03:00→03:00 بتوقيت الرياض)"
+                   : `كل 30 دقيقة طوال بيانات SIP (ما قبل الافتتاح · الرسمية · ما بعد الإغلاق): ${hrs.length ? hrs[0] + " · " + (hrs[1] || "") + " … " + hrs[hrs.length - 1] : "—"} ${TZ_NOTE}`;
+  const note = `<p class="v3note"><b>لقطة ${esc(v3Hour(T))}</b> — تُصفَّر الفرص كلُّها وتُبنى من الصفر ${cycle}،
+    ولا يُحمَل دخولٌ ولا وقفٌ ولا هدف من اللقطة السابقة.<br>
     قوة التوافق = نسبة توافق الاستراتيجيات الخمس حسب الأوزان المحدّدة
     (أمس 40 · المتوسطات 40 · الاتجاه 6.67 · VWAP 6.67 · الأسبوع 6.66) — <b>ليست نسبة نجاح</b>.</p>`;
   const open = T.open || [];
   el.innerHTML = note + (open.length ? open.map(v3Card).join("")
     : `<div class="empty">لا فرصة في لقطة هذه الساعة — تتولّد الفرصة حين يكون عبورُ قمة/قاع أمس قائماً أو المتوسطات مرتّبة، وهذه نتيجة صحيحة لا عطل</div>`);
-  if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة في لقطة الساعة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُنيت ${ago(Date.parse(T.generatedAt))}`;
+  if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُنيت ${ago(Date.parse(T.generatedAt))}`;
 }
 
 /* الكريبتو: المحرّك القديم أُوقف، ونقلُه إلى V3 مرحلةٌ منفصلة */
@@ -8485,7 +8512,7 @@ function go(view) {
   const bk = view === "crypto" ? "crypto" : view === "detail" ? state.book : "us";
   const was = state.book;
   setBook(bk);
-  if (was !== bk) setTimeout(() => refresh(bk === "us"), 0);
+  if (was !== bk) { setTimeout(() => refresh(bk === "us"), 0); renderTop(); }
   state.view = view;
   $$("section[data-view]").forEach(s => s.classList.toggle("on", s.dataset.view === view));
   const isDetail = view === "detail";
