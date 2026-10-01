@@ -90,7 +90,8 @@ try {
 
   /* ══ ٢) المعروض = trades.json المنشور، والدرجة = مجموع ✓ بأوزانها ══ */
   const pub = await page.evaluate(() => TRADES && { key: TRADES.candleKey, hour: TRADES.hour, open: TRADES.open.map(t => t.s),
-    carried: TRADES.open.filter(t => t.h !== TRADES.hour).length });
+    carried: TRADES.open.filter(t => t.h !== TRADES.hour).length,
+    oldEntry: TRADES.open.filter(t => t.t !== TRADES.candleKey).map(t => t.s) });
   if (!pub) no("صفقات trades.json وصلت الصفحة");
   else {
     JSON.stringify(first.map(x => x.s)) === JSON.stringify(pub.open)
@@ -98,6 +99,8 @@ try {
       : no("المعروض = صفقات trades.json بترتيبها", `معروض ${first.length} · منشور ${pub.open.length}`);
     pub.carried === 0 ? ok("لا وراثة: كلُّ فرصةٍ مبنيّةٌ في لقطة ساعتها", new Date(pub.hour * 1000).toISOString())
                       : no("لا وراثة: كلُّ فرصةٍ مبنيّةٌ في لقطة ساعتها", pub.carried + " من ساعةٍ أخرى");
+    !pub.oldEntry.length ? ok("لا دخولٌ قديم: كلُّ فرصةٍ على شمعة اللقطة نفسها (تداولٌ في آخر 15 دقيقة)")
+                         : no("لا دخولٌ قديم: كلُّ فرصةٍ على شمعة اللقطة نفسها", pub.oldEntry.join(", "));
     const keys = ["day", "ma", "trend", "vwap", "week"];
     const bad = first.filter(x => {
       const sum = Math.round(keys.reduce((a, k, i) => a + (x.on[i] ? W[k] : 0), 0) * 100) / 100;
@@ -135,10 +138,11 @@ try {
   await page.waitForTimeout(1500);
   const cr = await page.evaluate(() => ({ rows: [...document.querySelectorAll('section[data-view="crypto"] .srow.opp')].map(c => c.dataset.open),
     pub: TRADES_C && TRADES_C.open.map(t => t.s), hour: TRADES_C && TRADES_C.hour,
-    carried: TRADES_C ? TRADES_C.open.filter(t => t.h !== TRADES_C.hour).length : -1 }));
-  (cr.pub && JSON.stringify(cr.rows) === JSON.stringify(cr.pub) && !cr.rows.some(s => !/-USD$/.test(s)) && cr.carried === 0)
+    carried: TRADES_C ? TRADES_C.open.filter(t => t.h !== TRADES_C.hour).length : -1,
+    oldEntry: TRADES_C ? TRADES_C.open.filter(t => t.t !== TRADES_C.candleKey).length : -1 }));
+  (cr.pub && JSON.stringify(cr.rows) === JSON.stringify(cr.pub) && !cr.rows.some(s => !/-USD$/.test(s)) && cr.carried === 0 && cr.oldEntry === 0)
     ? ok("الكريبتو = لقطة ساعته من V3", `${cr.rows.length} فرصة · ساعة ${new Date(cr.hour * 1000).toISOString()}`)
-    : no("الكريبتو = لقطة ساعته من V3", JSON.stringify({ rows: cr.rows.length, pub: cr.pub && cr.pub.length, carried: cr.carried }));
+    : no("الكريبتو = لقطة ساعته من V3", JSON.stringify({ rows: cr.rows.length, pub: cr.pub && cr.pub.length, carried: cr.carried, oldEntry: cr.oldEntry }));
   await page.evaluate(() => go("screen"));
   const old = reqs.filter(u => /(opportunities|strategies|strategy-edge|ma200-open|opp-history)\.json/.test(u));
   old.length ? no("لا تُطلب لقطات المحرّك القديم", old.slice(0, 3).join(" · ")) : ok("لا تُطلب لقطات المحرّك القديم");

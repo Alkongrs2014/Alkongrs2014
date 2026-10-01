@@ -126,6 +126,9 @@ export function structuralChecks(dir) {
     out.push(T("trades.ranked." + book, "INV-64", "CRITICAL", order, "الترتيب ليس تنازلياً بالدرجة"));
     const carried = tr.open.filter((t) => t.h !== tr.hour || !String(t.id).endsWith("|" + tr.hour)).map((t) => t.id);
     out.push(T("trades.no-carry." + book, "INV-65", "CRITICAL", !carried.length && !(tr.closed || []).length, carried.slice(0, 6).join(", ")));
+    // INV-67: لا دخولٌ من شمعةٍ أقدم من شمعة اللقطة — لا فرصة بلا تداولٍ في آخر 15 دقيقة
+    const oldEntry = tr.open.filter((t) => t.t !== tr.candleKey).map((t) => `${t.s}:${(tr.candleKey - t.t) / 60}د`);
+    out.push(T("trades.fresh-entry." + book, "INV-67", "CRITICAL", !oldEntry.length, oldEntry.slice(0, 6).join(", ")));
   }
   return out;
 }

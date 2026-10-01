@@ -119,6 +119,12 @@ export function build({ now = Date.now(), out = OUT, barsDir, book, fresh = fals
     const fresh1 = book === "crypto" ? bar.end > H - 3600000 : bar.d === refDay;
     if (!fresh1) { rej.stale = (rej.stale || 0) + 1; continue; }
     if (r.st) bySym[s] = stateRow(r.st);
+    /* قرار المالك 2026-10-01: لا فرصة بلا تداولٍ في آخر 15 دقيقة. في التداول الممتد قد
+       لا يُتداول السهم ساعتين، فتكون آخر شمعةٍ مغلقة أقدم من شمعة اللقطة ويُعرض دخولٌ عمره
+       ساعتان على أنه «الآن» (قِيس: CDNS دخول 321.22 من 06:30 في لقطة 08:45، والصفقة التالية
+       327). تُستبعد الفرصة وحدها — التحليل في bySym باقٍ — وتعود من تلقاء نفسها في أوّل
+       لقطةٍ شمعتُها الأخيرة فيها تداول، لأن كلَّ لقطةٍ تُبنى من الصفر. المحرّك لم يُمسّ. */
+    if (!r.reject && bar.t !== H - M15) { rej.notrade = (rej.notrade || 0) + 1; continue; }
     rej[r.reject || "ok"] = (rej[r.reject || "ok"] || 0) + 1;
     if (!r.reject) open.push(pubOpp(s, H, r.sig, bar));
   }

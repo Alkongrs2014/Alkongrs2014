@@ -1,0 +1,62 @@
+/* لا فرصة بلا تداولٍ في آخر 15 دقيقة (قرار المالك 2026-10-01، INV-67) — على مخزن SIP اصطناعي:
+   ١) كلُّ فرصةٍ منشورة دخولُها من شمعة اللقطة نفسها (t = candleKey) في كل لقطات يومٍ كامل،
+      ممتدّاً ورسمياً.
+   ٢) رمزٌ بلا شمعةٍ في آخر ربع ساعة يُستبعد وحده: بقية الفرص كما هي حرفياً، والسبب في stats.
+   ٣) الاستبعاد مؤقّت: حين تأتي شمعةٌ فيها تداول تعود الفرصة بنفس أرقام البناء من الصفر.
+   لا يكتب في المثبّتات: كلُّ شيءٍ في مجلّدٍ مؤقّت. */
+import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { createRequire } from "node:module";
+import { build } from "../../scripts/build-trades.mjs";
+import { synth, writeStore } from "../property/synth3.mjs";
+
+const SES = createRequire(import.meta.url)("../../stocks/session.js");
+const M15 = 15 * 60000;
+const SYMS = ["AAPL", "NVDA", "MSFT", "AMD", "META", "CRM", "PANW", "COST"];
+const DATA = SYMS.map((s, i) => [s, synth(31 + i, 200)]);
+const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "v3-fresh-"));
+function storeAt(dir, now, drop = null) {
+  const bars = path.join(dir, "bars", "alpaca_sip");
+  for (const [s, d] of DATA) {
+    const b15 = drop && drop.s === s ? d.b15.filter((b) => b.t !== drop.t) : d.b15;
+    writeStore(fs, path, bars, s, { b15, b1d: d.b1d }, now);
+  }
+  return bars;
+}
+const run = (H, drop) => { const dir = tmp(); const now = H + 4 * 60000;
+  return build({ now, out: dir, barsDir: storeAt(dir, now, drop), fresh: true }); };
+// لقطات آخر يومٍ في البيانات (ممتدّ + رسمي)
+const lastT = DATA[0][1].b15[DATA[0][1].b15.length - 1].t;
+const slots = SES.scanSlotsOf(lastT - 6 * 3600000).filter((t) => t <= lastT);
+
+describe("INV-67 — لا دخولٌ من شمعةٍ أقدم من شمعة اللقطة", () => {
+  it("كلُّ فرصةٍ في كل لقطةٍ على شمعة اللقطة", () => {
+    let n = 0;
+    for (const H of slots) {
+      const r = run(H);
+      expect(r.ok).toBe(true);
+      for (const t of r.doc.open) { expect(t.t).toBe(r.doc.candleKey); n++; }
+    }
+    expect(n).toBeGreaterThan(20);
+  });
+
+  it("الاستبعاد للرمز بلا تداول وحده، ومؤقّت", () => {
+    let tested = 0;
+    for (const H of slots) {
+      const base = run(H);
+      const victim = base.doc.open[0];
+      if (!victim) continue;
+      const cut = run(H, { s: victim.s, t: H - M15 });          // لا تداول للرمز في آخر ربع ساعة
+      expect(cut.doc.open.some((t) => t.s === victim.s)).toBe(false);
+      expect(cut.doc.stats.notrade).toBeGreaterThanOrEqual(1);
+      expect(JSON.stringify(cut.doc.open)).toBe(JSON.stringify(base.doc.open.filter((t) => t.s !== victim.s)));
+      // تعود حين تأتي شمعةٌ فيها تداول: لقطةُ الحدّ نفسه بلا حذفٍ = الأصل حرفياً
+      const back = run(H);
+      expect(back.doc.open.find((t) => t.s === victim.s)).toEqual(victim);
+      tested++;
+    }
+    expect(tested).toBeGreaterThan(3);
+  });
+});

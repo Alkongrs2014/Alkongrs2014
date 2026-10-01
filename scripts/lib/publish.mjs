@@ -262,6 +262,9 @@ export async function publishData(opts = {}) {
       let d = null; try { d = JSON.parse(fs.readFileSync(path.join(stage, f), "utf8")); } catch { continue; }
       const carried = (d.open || []).filter((t) => t.h !== d.hour).map((t) => t.id);
       if (carried.length) return res(false, "carry", `${f}: فرصٌ من ساعةٍ أخرى: ${carried.slice(0, 5).join(", ")}`);
+      // INV-67: لا دخولٌ من شمعةٍ أقدم من شمعة اللقطة (لا تداول في آخر 15 دقيقة)
+      const oldEntry = (d.open || []).filter((t) => t.t !== d.candleKey).map((t) => t.id);
+      if (oldEntry.length) return res(false, "stale-entry", `${f}: دخولٌ من شمعةٍ أقدم: ${oldEntry.slice(0, 5).join(", ")}`);
     }
     const same = ["stocks", "crypto"].every((b) => candState[b].rowsHash === remoteState[b].rowsHash
       && candState[b].updated === remoteState[b].updated);
