@@ -86,6 +86,29 @@ test("الكريبتو: لقطة V3 كل ساعة — عملاتٌ فقط وبط
   expect(await visibleText(page, "crypto")).toMatch(/لقطة .*كل ساعة/s);
 });
 
+test("بحث الكريبتو: على كون الكريبتو كلِّه بالرمز والاسم العربي والإنجليزي، ولا يمسّ بحث الأسهم", async ({ page }) => {
+  await open(page);
+  await nav(page, "crypto");
+  const hits = async (q) => {
+    await page.fill("#cSearch", q);
+    return page.locator("#cSearchOut [data-csearch]").evaluateAll((a) => a.map((x) => x.getAttribute("data-csearch")));
+  };
+  expect((await hits("BTC"))[0]).toBe("BTC-USD");
+  expect((await hits("Bitcoin"))[0]).toBe("BTC-USD");
+  expect((await hits("بيتكوين"))[0]).toBe("BTC-USD");
+  expect((await hits("ETH"))[0]).toBe("ETH-USD");
+  expect((await hits("Ethereum"))[0]).toBe("ETH-USD");
+  expect((await hits("btcusdt"))[0]).toBe("BTC-USD");
+  expect(await hits("zzzzqq")).toEqual([]);
+  // البحث يعمّ الكون لا الفرص وحدها
+  const universe = await page.evaluate(() => bookGet("crypto", "summary").rows.length);
+  expect(universe).toBeGreaterThan(await page.locator('section[data-view="crypto"] [data-open]').count());
+  // وبحثُ الأسهم كما هو
+  await nav(page, "list");
+  await page.fill("#qSearch", "NVDA");
+  expect(await page.locator("#stockList [data-open]").first().getAttribute("data-open")).toBe("NVDA");
+});
+
 test("بطاقة الفرصة تشرح درجتها: الخمس بأوزانها ✓/✗ والدرجة مجموعُ المتوافقة", async ({ page }) => {
   await open(page);
   await nav(page, "screen");

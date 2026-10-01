@@ -1894,8 +1894,13 @@ section[data-view="now"].on{display:flex;flex-direction:column}
         <h2 style="margin:0">فرص الكريبتو</h2>
         <span class="chip">المحرّك V3 · كل ساعة</span>
       </div>
+      <!-- البحث يعمّ كون الكريبتو كلَّه (ملخّصه) لا عملاتِ الفرص وحدها -->
+      <div class="toolbar" style="margin-bottom:9px">
+        <input id="cSearch" type="search" placeholder="ابحث عن عملة: BTC · بيتكوين · Bitcoin…" autocomplete="off" aria-label="بحث عن عملة">
+      </div>
       <div class="scans" id="cScanPicker"></div>
     </div>
+    <div id="cSearchOut"></div>
     <div id="cRegime"></div>
     <div id="cScanList"><div class="skl" style="height:150px"></div></div>
     <p class="srcline" id="cScanCount"></p>
@@ -3550,6 +3555,75 @@ function renderList() {
     ? ` · خارج المرصودة: شمعات يومية فقط` : "";
   $("#listCount").textContent =
     `${rows.length} ${unit}${state.favOnly ? " من المتابَعة" : ""} · ${priceFreshText(priceFresh()) || "حُدّثت " + ago(state.summary.updated)}${depth}`;
+}
+
+/* ---------- بحث الكريبتو — على كون الكريبتو كلِّه لا الفرص وحدها ----------
+   بالرمز (BTC · btcusdt · BTC-USD) أو بالاسم العربي (بيتكوين) أو الإنجليزي (Bitcoin). والأسماء
+   الإنجليزية الكاملة ليست في البيانات (`en` فيها الرمز)، فهذه الخريطة **للبحث وحده** ولا تدخل
+   أيّ حساب. ودفترُ الأسهم وبحثُه (`#qSearch`) لا يمرّان بها. */
+const CRYPTO_EN = {
+  BTC: "Bitcoin", ETH: "Ethereum", XRP: "Ripple XRP", BNB: "BNB Binance Coin", SOL: "Solana",
+  DOGE: "Dogecoin", ADA: "Cardano", TRX: "Tron", AVAX: "Avalanche", LINK: "Chainlink",
+  DOT: "Polkadot", LTC: "Litecoin", BCH: "Bitcoin Cash", XLM: "Stellar", UNI: "Uniswap",
+  ATOM: "Cosmos", ETC: "Ethereum Classic", HBAR: "Hedera", NEAR: "Near Protocol", APT: "Aptos",
+  ICP: "Internet Computer", FIL: "Filecoin", ARB: "Arbitrum", OP: "Optimism", SHIB: "Shiba Inu",
+  POL: "Polygon", PEPE: "Pepe", SUI: "Sui", TON: "Toncoin", TAO: "Bittensor", INJ: "Injective",
+  AAVE: "Aave", RENDER: "Render", SEI: "Sei", TIA: "Celestia", ALGO: "Algorand", VET: "VeChain",
+  GRT: "The Graph", SAND: "The Sandbox", MANA: "Decentraland", AXS: "Axie Infinity", THETA: "Theta",
+  EOS: "EOS", XTZ: "Tezos", CAKE: "PancakeSwap", CRV: "Curve", LDO: "Lido", STX: "Stacks",
+  IMX: "Immutable", WIF: "dogwifhat", BONK: "Bonk", JUP: "Jupiter", ENA: "Ethena", ONDO: "Ondo",
+  ZEC: "Zcash", TRUMP: "Official Trump", FET: "Fetch.ai Artificial Superintelligence",
+  WLD: "Worldcoin", PENGU: "Pudgy Penguins", FLOKI: "Floki", HYPE: "Hyperliquid", KAVA: "Kava"
+};
+/* تطبيعٌ للمطابقة: حروفٌ صغيرة، بلا تشكيل ولا مدّ، والهمزات ألفاً، والتاء المربوطة هاءً */
+const cNorm = (x) => String(x || "").toLowerCase().normalize("NFKD").replace(/[ً-ٰٟـ]/g, "")
+  .replace(/[إأآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/[\s._\-/]+/g, "");
+function cryptoSearch(q) {
+  const sum = bookGet("crypto", "summary");
+  if (!sum || !Array.isArray(sum.rows)) return null;
+  let n = cNorm(q).replace(/(usdt|usd)$/, "");
+  if (!n) return [];
+  const out = [];
+  for (const r of sum.rows) {
+    const base = r.s.replace(/-USD$/, "");
+    const b = cNorm(base), en = cNorm(CRYPTO_EN[base]), ar = cNorm(r.ar);
+    let k = null;
+    if (b === n) k = 0;
+    else if (b.startsWith(n)) k = 1;
+    else if (en.startsWith(n) || ar.startsWith(n)) k = 2;
+    else if (b.includes(n) || en.includes(n) || ar.includes(n)) k = 3;
+    if (k !== null) out.push({ r, k });
+  }
+  /* الأقرب مطابقةً أولاً، ثم الأكثر سيولة (حجم التداول بالدولار إن وُجد) ثم الرمز */
+  return out.sort((a, b) => (a.k - b.k) || ((b.r.qv || 0) - (a.r.qv || 0)) || (a.r.s < b.r.s ? -1 : 1)).map((x) => x.r);
+}
+function renderCryptoSearch() {
+  const el = $("#cSearchOut"), inp = $("#cSearch");
+  if (!el || !inp) return;
+  const q = inp.value.trim();
+  if (!q) { el.innerHTML = ""; return; }
+  const rows = cryptoSearch(q);
+  if (rows === null) { el.innerHTML = `<div class="skl" style="height:60px"></div>`; refreshCrypto(); return; }
+  if (!rows.length) { el.innerHTML = `<div class="empty">لا عملة مطابقة لـ«${esc(q)}» في كون الكريبتو</div>`; return; }
+  const opp = new Set(((TRADES_C && TRADES_C.open) || []).map((t) => t.s));
+  const MAX = 20;
+  el.innerHTML = `<div class="card" style="padding:0;margin-bottom:11px">` + rows.slice(0, MAX).map((r) => {
+    const base = r.s.replace(/-USD$/, "");
+    const col = !Number.isFinite(r.chg) ? "var(--mut)" : r.chg > 0 ? "var(--up)" : r.chg < 0 ? "var(--dn)" : "var(--mut)";
+    return `<div class="srow" data-csearch="${esc(r.s)}">
+      ${monoTile(r.s, r.sec, "sm")}
+      <div class="id">
+        <div class="t"><span class="nmx">${esc(nm(r))}</span>${opp.has(r.s) ? `<span class="chip up" style="font-size:10px;padding:1px 6px">فرصة الآن</span>` : ""}</div>
+        <div class="n"><span class="tick" style="font-size:11px">${esc(r.s)}</span>${CRYPTO_EN[base] ? " · " + esc(CRYPTO_EN[base]) : ""}</div>
+      </div>
+      <div class="px">
+        <div class="p num">${money(r.p)}</div>
+        <div class="c num" style="color:${col}">${pct(r.chg)}</div>
+      </div>
+    </div>`;
+  }).join("") + `</div>` +
+    (rows.length > MAX ? `<p class="srcline">${bd(rows.length)} نتيجة — تظهر أوّل ${MAX}، اكتب أكثر لتضييقها.</p>` : "");
+  $$("#cSearchOut [data-csearch]").forEach((x) => x.onclick = () => openSymbol(x.dataset.csearch));
 }
 
 /* ---------- شاشة السهم ---------- */
@@ -5296,6 +5370,7 @@ async function refreshCrypto() {
   } finally { cryptoBusy = false; }
   if (state.book !== "crypto") return;
   renderTop();
+  renderCryptoSearch();
   if (state.view === "crypto") renderScreen();
   else if (state.sym) { try { await getSymbol(state.sym); renderDetail(); } catch (e) {} }
 }
@@ -8829,9 +8904,11 @@ function boot() {
     }, 90);
   });
   // البحث السريع من الترويسة: ينقل إلى شاشة الأسهم ويضع المؤشّر في الحقل
+  /* وفي تبويب الكريبتو يبقى فيه ويضع المؤشّر في بحث العملات — لا ينقل إلى الأسهم */
   const openSearch = () => {
-    go("list");
-    setTimeout(() => { const q = $("#qSearch"); if (q) { q.focus(); q.select(); } }, 80);
+    const cr = state.view === "crypto";
+    if (!cr) go("list");
+    setTimeout(() => { const q = $(cr ? "#cSearch" : "#qSearch"); if (q) { q.focus(); q.select(); } }, 80);
   };
   $("#btnSearch").onclick = openSearch;
   /* الإجراءات السريعة اختصاراتُ تنقّلٍ لا وظائفَ جديدة: كلُّ زرٍّ يذهب
@@ -8891,6 +8968,7 @@ function boot() {
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "/") {
       e.preventDefault();
+      if (state.view === "crypto") { const q = $("#cSearch"); if (q) { q.focus(); q.select(); } return; }
       go("list");
       const q = $("#qSearch"); if (q) { q.focus(); q.select(); }
     } else if (e.key === "r" || e.key === "R") {
@@ -8992,6 +9070,7 @@ function boot() {
 
   let deb;
   // البحث يعمّ الكون كاملاً، فأول حرفٍ يطلب الطبقة الواسعة
+  $("#cSearch").oninput = renderCryptoSearch;
   $("#qSearch").oninput = () => {
     if ($("#qSearch").value.trim()) need("wide.json");
     clearTimeout(deb); deb = setTimeout(renderList, 180);

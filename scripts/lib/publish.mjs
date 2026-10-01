@@ -112,8 +112,10 @@ export function validateCryptoBook(dir) {
   const errs = validateBook(dir, "crypto", { symLimit: 0 });
   if (errs.length) throw new Error("مخالفة مخطّط: " + errs.slice(0, 3).map((e) => e.file + " " + e.errors[0]).join(" · "));
   if (!Number.isFinite(tr.hour)) throw new Error("لقطة الساعة بلا hour");
-  // ملفّات الشموع المنشورة: عملاتُ الفرص وحدها (شاشة التفاصيل) — الكون ~21 م.ب
-  return { rows: rows.length, four, candleKey: tr.candleKey, show: new Set(tr.open.map((t) => t.s)) };
+  /* ملفّات الشموع المنشورة: **كونُ اليوم كلُّه** (صفوف الملخّص) — بحثُ الكريبتو يفتح أيَّ عملةٍ
+     فيه لا عملاتِ الفرص وحدها (قرار المالك 2026-10-01؛ ~26 م.ب بدل ~11). واليتيمةُ خارج الكون
+     (رموزٌ خرجت منه) تبقى غير منشورة. */
+  return { rows: rows.length, four, candleKey: tr.candleKey, opps: tr.open.length, show: new Set(rows.map((r) => r.s)) };
 }
 
 /* ---------------------------------------------------------------------
@@ -232,7 +234,7 @@ export async function publishData(opts = {}) {
     const cdir = path.join(stage, "crypto");
     let carry = false;
     if (fs.existsSync(cdir)) {
-      try { const c = validateCryptoBook(cdir); cryptoShow = c.show; cryptoNote = `${c.rows} صفّاً · ${c.show.size} فرصة`; }
+      try { const c = validateCryptoBook(cdir); cryptoShow = c.show; cryptoNote = `${c.rows} صفّاً · ${c.opps} فرصة · ${c.show.size} ملفّ عملة`; }
       catch (e) { carry = true; cryptoNote = "ساقطٌ في بوّابته (" + e.message + ") — يُحمَل المنشور"; }
     } else if (remoteFiles["crypto/summary.json"]) { carry = true; cryptoNote = "غائبٌ محلياً — يُحمَل المنشور"; }
     if (carry) {
