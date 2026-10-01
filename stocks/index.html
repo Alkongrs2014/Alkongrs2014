@@ -2866,6 +2866,26 @@ async function pollLive() {
 /* =======================================================================
    5) العرض — الشريط العلوي
    ======================================================================= */
+/* طزاجةُ أسعار الأسهم من **آخر صفقةٍ حقيقية** في SIP (`pAt` في صفوف الملخّص) لا من وقت كتابة
+   الملفّ: الملفّ يُعاد كتابته كلَّ ربع ساعة ليلاً بنفس الأسعار، و«حُدّثت قبل دقيقة» حينها
+   تكذب. «مباشر» = صفقةٌ خلال خمس دقائق؛ وإلا «آخر سعر حقيقي HH:MM» بتوقيت الرياض.
+   والكريبتو بطزاجته هو (يُجلب كلَّ خمس دقائق ‎24/7‎). */
+const PRICE_LIVE_MS = 5 * 60000;
+function priceFresh(sum = state.summary, now = Date.now()) {
+  if (!sum) return null;
+  if (state.book === "crypto") return { at: Number(sum.updated), live: true, crypto: true };
+  let at = null;
+  for (const r of sum.rows || []) if (r.mkt !== "crypto" && Number.isFinite(r.pAt) && (at === null || r.pAt > at)) at = r.pAt;
+  if (at === null) return null;                       // ملفٌّ قبل حقل `pAt` — لا ادّعاء
+  return { at, live: now - at < PRICE_LIVE_MS };
+}
+function priceFreshText(f, now = Date.now()) {
+  if (!f) return null;
+  if (f.crypto) return `حُدّثت ${ago(f.at)}`;
+  return f.live ? `مباشر · آخر تداول ${stamp(f.at)} ${TZ_NOTE}`
+                : `آخر سعر حقيقي ${stamp(f.at)} ${TZ_NOTE} · قبل ${age(now - f.at)}`;
+}
+
 function renderTop() {
   const el = $("#mkState"), sb = $("#scanStart"), now = Date.now();
   /* الكريبتو مستقلٌّ تماماً عن السوق الأمريكي (‎24/7‎): لا شارةَ جلسةٍ أمريكية ولا
@@ -2909,7 +2929,8 @@ function renderTop() {
 
   const src = state.liveOn && (Date.now() - state.liveAt < 60000) ? "لحظي" : "من الملفات";
   const upd = state.summary && state.summary.updated;
-  $("#stamp").textContent = state.lastOk ? `${src} · حُدّثت ${ago(upd)}` : "جارِ التحميل…";
+  const pf = priceFreshText(priceFresh());
+  $("#stamp").textContent = !state.lastOk ? "جارِ التحميل…" : pf || `${src} · حُدّثت ${ago(upd)}`;
   renderStale();
 }
 
@@ -2949,6 +2970,9 @@ function renderStale() {
      بداية النافذة: أوّلُ دورة أسعارٍ لم تصل بعد ليس عطلاً. */
   const ss = statusAt(now), win = sessionWindows(now);
   const sipQuiet = ss.state === "CLOSED" || (ss.state === "PRE" && win.pre && now - win.pre.start < 10 * 60000);
+  /* داخل نافذة SIP: عمرُ آخر صفقةٍ حقيقية هو مقياس طزاجة السعر (لا وقتُ كتابة الملفّ) */
+  const pf = priceFresh(state.summary, now);
+  if (pf && !sipQuiet) { const mins = (now - pf.at) / 60000; if (mins >= 10) rows.push({ ar: "آخر تداول حقيقي", at: pf.at, dead: mins >= 30 }); }
   for (const f of FRESH) {
     if (f.k === "quotesRun" && sipQuiet) continue;
     const v = m[f.k];
@@ -3525,7 +3549,7 @@ function renderList() {
   const depth = (mkt !== "us" || $("#qSearch").value.trim())
     ? ` · خارج المرصودة: شمعات يومية فقط` : "";
   $("#listCount").textContent =
-    `${rows.length} ${unit}${state.favOnly ? " من المتابَعة" : ""} · حُدّثت ${ago(state.summary.updated)}${depth}`;
+    `${rows.length} ${unit}${state.favOnly ? " من المتابَعة" : ""} · ${priceFreshText(priceFresh()) || "حُدّثت " + ago(state.summary.updated)}${depth}`;
 }
 
 /* ---------- شاشة السهم ---------- */
@@ -8592,14 +8616,15 @@ function fillSymbolSelects() {
 function renderAbout() {
   const el = $("#about"); if (!el) return;
   const m = state.summary, mk = state.market;
+  const aboutPf = state.book === "crypto" ? null : priceFresh(m);   // آخر صفقة SIP حقيقية لا وقت كتابة الملف
   const live = String(CFG.LIVE_ENDPOINT || "").trim();
   el.innerHTML = `
     <div class="row"><div class="l">وضع البيانات<small>${live
       ? "لحظي عبر وسيط خاص، مع رجوع تلقائي للملفات عند أي انقطاع"
       : "مجاني — الأسعار من ملفات تُكتب دورياً، والصفحة تقرأها كل دقيقة"}</small></div>
       <div class="r">${live ? "لحظي" : "مجاني"}</div></div>
-    <div class="row"><div class="l">آخر تحديث للأسعار<small>${m ? new Date(m.updated).toLocaleString(AR, { timeZone: UI_TZ }) + " " + TZ_NOTE : "—"}</small></div>
-      <div class="r">${m ? ago(m.updated) : "—"}</div></div>
+    <div class="row"><div class="l">آخر سعر حقيقي للأسهم<small>${aboutPf ? "آخر صفقة من Alpaca SIP: " + stamp(aboutPf.at) + " " + TZ_NOTE : m ? "كتابة الملف: " + new Date(m.updated).toLocaleString(AR, { timeZone: UI_TZ }) + " " + TZ_NOTE : "—"}</small></div>
+      <div class="r">${aboutPf ? (aboutPf.live ? "مباشر" : "قبل " + age(Date.now() - aboutPf.at)) : m ? ago(m.updated) : "—"}</div></div>
     <div class="row"><div class="l">عدد الشركات المرصودة<small>أكبر الشركات الأمريكية بالقيمة السوقية، يُعاد ترتيبها يومياً</small></div>
       <div class="r num">${m ? m.count : "—"}</div></div>
     <div class="row"><div class="l">حالة السوق<small>${mk && mk.period
