@@ -8120,11 +8120,15 @@ function oDetails(p) {
   const hist = p.legs.filter(l => l.hist && l.hist.length).map(l => `<div class="ohist"><b><bdi>${esc(l.sym)}</bdi></b> — آخر ${bd(l.hist.length)} جلسات (إغلاق/حجم):
       ${l.hist.map(h => `<span><bdi>${oNum(h[1])}</bdi><small>/${bd(h[2])}</small></span>`).join(" ")}
       ${Number.isFinite(l.decay) ? `<br>التآكل الزمني اليومي ≈ <bdi>${oNum(Math.abs(l.decay) * 100, 1)}%</bdi> من سعر العقد (θ ÷ السعر)` : ""}</div>`).join("");
+  const alts = (p.alts || []).length ? `<p class="small"><b>عقود بديلة للمقارنة</b> (نفس الانتهاء، اجتازت السيولة):</p>
+    <table class="otab"><thead><tr><th>السترايك</th><th>Δ</th><th>الطلب</th><th>السبريد</th><th>OI</th><th>الحجم</th><th>التعادل</th></tr></thead><tbody>${p.alts.map(a =>
+      `<tr><td>${oNum(a.K, a.K % 1 ? 2 : 0)}</td><td>${oNum(a.delta, 2)}</td><td>${oNum(a.ask)}</td><td>${Number.isFinite(a.spr) ? oNum(a.spr * 100, 1) + "%" : "—"}</td><td>${a.oi == null ? "—" : bd(a.oi)}</td><td>${bd(a.vol || 0)}</td><td>${money(a.be)}</td></tr>`).join("")}</tbody></table>
+    <p class="small">اختير العقد الأقرب إلى دلتا 0.45 مع أعلى سيولة وأضيق سبريد؛ البدائل أبعد أو أقرب من المال بكلفةٍ وحساسيةٍ مختلفتين.</p>` : "";
   const gc = p.legs.some(l => l.gcalc) ? `<p class="small">بعض الإغريقيات محسوبةٌ بنموذج بلاك–شولز من سعر الوسط لأن المصدر لم يعطها.</p>` : "";
   const qt = p.legs.map(l => l.qt ? stamp(l.qt * 1000) : "—").join(" · ");
   return `<details class="plain odet"><summary>الإغريقيات والسيولة والتاريخ</summary>
     <table class="otab"><thead><tr><th>العقد</th><th>Δ</th><th>Γ</th><th>Θ/يوم</th><th>Vega</th><th>IV</th><th>OI</th><th>حجم اليوم</th><th>السبريد</th></tr></thead><tbody>${legs}</tbody></table>
-    ${gc}<p class="small">وقت العرض/الطلب: ${esc(qt)} ${TZ_NOTE} · التذبذب التاريخي HV20 ${Number.isFinite(p.hv) ? oNum(p.hv * 100, 1) + "%" : "—"} · IV/HV ${p.ivhv ?? "—"}${p.flow ? ` · أقساط اليوم: كول ${oUsd(p.flow.call)} / بوت ${oUsd(p.flow.put)}` : ""}</p>
+    ${alts}${gc}<p class="small">وقت العرض/الطلب: ${esc(qt)} ${TZ_NOTE} · التذبذب التاريخي HV20 ${Number.isFinite(p.hv) ? oNum(p.hv * 100, 1) + "%" : "—"} · IV/HV ${p.ivhv ?? "—"}${p.flow ? ` · أقساط اليوم: كول ${oUsd(p.flow.call)} / بوت ${oUsd(p.flow.put)}` : ""}</p>
     ${hist || `<p class="small">لا تاريخ تداولٍ يومي متاح لهذا العقد.</p>`}
   </details>`;
 }

@@ -168,11 +168,15 @@ function legOut(c, side) {
 const synced = (legs) => { const t = legs.map((l) => l.qt).filter(Boolean); return t.length === legs.length && (Math.max(...t) - Math.min(...t)) * 1000 <= P.legSyncMs; };
 
 /* ---------------- المراكز ---------------- */
-function bestByDelta(list, lo, hi, best) {
+function rankByDelta(list, lo, hi, best) {
   return list.filter((c) => Math.abs(c.delta) >= lo && Math.abs(c.delta) <= hi)
     .map((c) => ({ c, sc: -Math.abs(Math.abs(c.delta) - best) * 10 + Math.log10(1 + c.vol + (c.oi || 0)) - c.spr * 10 }))
-    .sort((a, b) => b.sc - a.sc)[0]?.c || null;
+    .sort((a, b) => b.sc - a.sc).map((x) => x.c);
 }
+const bestByDelta = (list, lo, hi, best) => rankByDelta(list, lo, hi, best)[0] || null;
+/* بدائل للمقارنة: عقودٌ أخرى بنفس الانتهاء والنوع اجتازت السيولة ونطاق الدلتا */
+const altOut = (c) => ({ sym: c.sym, K: c.K, delta: r4(c.delta), mid: r4(c.mid), ask: r2(c.ask), spr: r4(c.spr), oi: c.oi, vol: c.vol,
+  be: r2(c.type === "call" ? c.K + c.ask : c.K - c.ask), iv: r4(c.iv) });
 /* عقدٌ منفرد: وقف العقد من مستوى إبطال حركة السهم (≥ نصف القسط حدّاً للخسارة)،
    والأهداف من حركة السهم بمضاعفات نصف ATR — بلاك–شولز بنفس IV بعد أفقٍ قصير */
 export function singlePlan(c, u, d, horizonY) {
@@ -247,11 +251,12 @@ export function picksFor(u, chain, ctx) {
       const e = exps.find((x) => { const t = dteOf(x, now); return t >= lo && t <= hi; });
       if (!e) continue;
       const inExp = okC.filter((c) => c.exp === e && c.type === type);
-      const L = bestByDelta(inExp, P.delta.lo, P.delta.hi, P.delta.best);
+      const ranked = rankByDelta(inExp, P.delta.lo, P.delta.hi, P.delta.best), L = ranked[0];
       if (!L) continue;
       const horizon = cat === "0dte" ? 1 / (365 * 24) : cat === "day" ? 3 / (365 * 24) : 1 / 365;
       const pl = singlePlan(L, u, d, horizon);
       if (pl) picks.push({ ...base, kind: "single", cat, d, legs: [legOut(L, "buy")], ...pl, why: reasonsDir(d), v3: v3c(d),
+                           alts: ranked.slice(1, 3).map(altOut),
                            score: r2(Math.abs(sig.move) + dir.flow + Math.log10(1 + L.vol + (L.oi || 0)) / 2 - L.spr * 5) });
       // سبريد مدين بنفس الانتهاء: رجلٌ مبيعة أبعد بدلتا أصغر
       const Sh = bestByDelta(inExp.filter((c) => (c.K - L.K) * d > 0), P.short.lo, P.short.hi, (P.short.lo + P.short.hi) / 2);
