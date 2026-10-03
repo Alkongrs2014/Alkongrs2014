@@ -400,7 +400,7 @@ else {
              : (cmd === "opps" || cmd === "trades") ? ["build-trades.mjs"]
              /* العقود (قرار المالك 2026-10-03) بعد V3 مباشرةً: لقطتُها على نفس حدود الأسهم
                 وتقرأ trades.json تأكيداً إضافياً لا شرطاً، وتتبّعُ الأهداف كلَّ دورة */
-             : cmd === "confirm" ? ["fetch-market.mjs", "build-trades.mjs", "fetch-contracts.mjs"]
+             : cmd === "confirm" ? ["fetch-market.mjs", "build-trades.mjs"]
              : cmd === "contracts" ? ["fetch-contracts.mjs"]
              /* الكريبتو على V3 بلقطة الساعة: يومُه 03:00→03:00 الرياض (= يوم UTC)، وكلُّ
                 ساعة تُصفَّر فرصُه وتُبنى من الصفر. المهمّة كل 5 دقائق تجلب الشموع وتبني
@@ -471,6 +471,24 @@ else {
   console.log(bad ? `\n✗ فشل ${bad} من ${jobs.length}` : `\n✔ تم — البيانات في ${DATA}`);
   // النشر بعد الجلب وبشرط نجاحه: لا تُرفع نتيجة تشغيل فاشل فوق بيانات سليمة
   // القفل يُحرَّر قبل النشر: النشر يأخذ لقطته تحت نفس القفل فلا ينتظر نفسه
-  if (!bad && wantPublish) { releaseLock(); console.log("\n──── نشر ────"); process.exit(await publish()); }
+  /* العقود **بعد** نشر الأسهم (2026-10-03): كانت قبله، فجلبٌ بطيءٌ أو فاشلٌ للعقود يؤخّر فرص
+     الأسهم أو يمنع نشرها في تلك الدورة. الآن تُنشر لقطة الأسهم أولاً، ثم تُبنى العقود وتُنشر
+     وحدها — وفشلُها يُسجَّل ولا يمسّ الأسهم ولا الكريبتو. */
+  const AFTER = cmd === "confirm" ? ["fetch-contracts.mjs"] : [];
+  if (!bad && wantPublish) {
+    releaseLock(); console.log("\n──── نشر ────");
+    const pc = await publish();
+    if (!AFTER.length) process.exit(pc);
+  }
+  if (AFTER.length) {
+    if (!acquireLock(cmd)) process.exit(bad ? 1 : 0);
+    for (const j of AFTER) {
+      console.log(`\n──── ${j} ────`);
+      const t0 = Date.now(), code = await runScript(j);
+      console.log(`  ⏱ ${j} ${((Date.now() - t0) / 1000).toFixed(1)}ث · رمز ${code}`);
+      if (code !== 0) { logError({ job: cmd, failed: [j], note: "العقود — لا يمسّ الأسهم" }); console.error(`  ✗ ${j} انتهى برمز ${code} — الأسهم نُشرت قبلها`); }
+      else if (wantPublish) { releaseLock(); console.log("\n──── نشر العقود ────"); await publish(); }
+    }
+  }
   process.exit(bad ? 1 : 0);
 }

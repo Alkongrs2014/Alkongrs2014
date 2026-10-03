@@ -709,6 +709,8 @@ body.sheet-open{overflow:hidden}
 .otr td{white-space:normal}
 .ohist{font-size:11px;color:var(--tx2);margin:4px 0;line-height:1.7}.ohist span{margin-inline-end:6px}
 .ometh p{font-size:12px;color:var(--tx2);line-height:1.7;margin:0 0 8px}
+.v3stale{font-size:12px;color:#E6B24A;background:rgba(230,178,74,.09);border:1px solid rgba(230,178,74,.3);border-radius:8px;padding:7px 10px;margin:0 0 10px;line-height:1.6}
+.v3stale.info{color:var(--tx2);background:var(--s2);border-color:var(--hair)}
 .v3low{margin-top:18px;border-top:1px dashed var(--hair);padding-top:12px}
 .v3low .gh{font-size:13px;font-weight:800;color:var(--tx2);margin-bottom:6px}
 .v3low .warnline{font-size:11.5px;color:#E6B24A;background:rgba(230,178,74,.08);border:1px solid rgba(230,178,74,.25);border-radius:8px;padding:6px 9px;margin:0 0 10px}
@@ -2932,6 +2934,8 @@ async function getSymbol(sym) {
   if (cache[sym]) return cache[sym];
   const d = await getJSON(`${pre}sym/${sym}.json`);
   for (const o of Object.values(d.tf || {})) o.c = unpackCandles(o.c);
+  for (const o of Object.values(d.tfx || {})) o.c = unpackCandles(o.c);
+  for (const o of Object.values(d.cx || {})) o.c = unpackCandles(o.c);
   cache[sym] = d;
   return d;
 }
@@ -3199,7 +3203,7 @@ function renderTopOpp() {
     el.innerHTML = `<div class="empty" style="padding:18px">لا صفقة مفتوحة من المحرّك V3 الآن — وهذه نتيجة صحيحة لا عطل</div>`;
     if (src) src.textContent = ""; return;
   }
-  el.innerHTML = top.map(t => {
+  el.innerHTML = v3Stale(T, false) + top.map(t => {
     const lr = symRow(t.s), D = v3dir(t.d);
     const chg = lr && Number.isFinite(lr.chg) ? lr.chg : null;
     const ccol = chg === null ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
@@ -7323,10 +7327,20 @@ function chartOverlays(rec) {
   return ovCache.val;
 }
 
+/* سلسلة الشارت — نفس شموع المحرّك V3 (2026-10-03، إصلاح البريماركت): الأسهم على نافذة SIP
+   كاملة (04:00–20:00): ‎15د‎ من `tfx`، والساعة و4س من `cx` (دلاءُ المحرّك بمرسى 04:00)، واليوميّ
+   الرسمي كما هو. كان الشارت يرسم الجلسة الرسمية وحدها فلا تظهر شمعةٌ من اليوم قبل 09:30.
+   والكريبتو بلا `tfx`/`cx` فيبقى على `tf`. المؤشّرات المعروضة في بطاقتها لا تتغيّر. */
+function chartSeries(rec, tf) {
+  const ok = (o) => o && o.c && o.c.length;
+  if (rec.cx && ok(rec.cx[tf])) return rec.cx[tf].c;
+  if (tf === "15m" && rec.tfx && ok(rec.tfx["15m"])) return rec.tfx["15m"].c;
+  return rec.tf[tf] && rec.tf[tf].c;
+}
 function drawChart() {
   const cv = $("#chart");
   const rec = state.sym && state.symCache[state.sym];
-  const k = rec && rec.tf[state.activeTF] && rec.tf[state.activeTF].c;
+  const k = rec && chartSeries(rec, state.activeTF);
   if (!cv || !k || !k.length) { geom = null; return; }
 
   /* تبديل الرمز أو الفريم يعيد المدى إلى الافتراضي. الحارس هنا لا عند كل
@@ -7386,13 +7400,17 @@ function drawChart() {
   }
 
   const bw = Math.max(1.5, (cw / N) * 0.62);
+  // شموع ما قبل الافتتاح وما بعد الإغلاق باهتة — تُرسم ولا تُخلط بالجلسة الرسمية بصرياً
+  const extOn = state.book !== "crypto" && state.activeTF === "15m" && typeof isRegularBar === "function";
   view.forEach((c, i) => {
     const x = X(i), up = c.c >= c.o, col = up ? "#16c784" : "#ea3943";
+    g.globalAlpha = extOn && !isRegularBar(c.t) ? 0.45 : 1;
     g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1;
     g.beginPath(); g.moveTo(x, Y(c.h)); g.lineTo(x, Y(c.l)); g.stroke();
     const y1 = Y(Math.max(c.o, c.c)), y2 = Y(Math.min(c.o, c.c));
     g.fillRect(x - bw / 2, y1, bw, Math.max(1, y2 - y1));
   });
+  g.globalAlpha = 1;
 
   const line = (arr, col) => {
     g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath(); let started = false;
@@ -8043,6 +8061,28 @@ function v3Card(t, i) {
   </div>`;
 }
 
+/* تنبيه التقادم (2026-10-03، إصلاح البريماركت): الفرص المعروضة من جلسةٍ سابقة، أو لقطةٌ
+   متأخّرة عن موعدها. قبله كانت فرصُ الأمس تُعرض بين 04:00 وأوّل لقطة (05:15 نيويورك) بلا أيّ
+   إشارة. والمهلة 10 دقائق: التأكيد يبني بعد الحدّ بدقائق ثم النشر ثم استطلاع المتصفح. */
+const V3_LATE_MS = 10 * 60000;
+function v3Stale(T, CR) {
+  if (!T || !Number.isFinite(T.hour)) return "";
+  const now = Date.now(), H = T.hour * 1000;
+  if (CR) {
+    const due = Math.floor((now - 900000) / 1800000) * 1800000 + 900000;
+    return due > H && now - due > V3_LATE_MS
+      ? `<div class="v3stale"><b>تنبيه: التحليل متأخّر.</b> آخر لقطة ${esc(stamp(H))} ${TZ_NOTE}، والمستحقّة ${esc(stamp(due))} — تأخّر ${bd(Math.round((now - due) / 60000))} دقيقة.</div>` : "";
+  }
+  const today = scanSlotsOf(now), due = scanSlotAt(now);
+  const prevDay = !today.length || H < today[0];
+  if (prevDay && today.length && now < today[0])
+    return `<div class="v3stale"><b>هذه فرص جلسةٍ سابقة</b> — آخر تحليل ${esc(stamp(H))} ${TZ_NOTE}. أوّل لقطةٍ اليوم ${esc(ksaTime(today[0]))} ${TZ_NOTE}، ولا تُبنى قبلها (أوّل شمعة ساعة تكتمل 05:00 نيويورك).</div>`;
+  if (due && due > H && now - due > V3_LATE_MS)
+    return `<div class="v3stale"><b>تنبيه: التحليل متأخّر.</b> آخر لقطة ${esc(stamp(H))} ${TZ_NOTE}، والمستحقّة ${esc(stamp(due))} — تأخّر ${bd(Math.round((now - due) / 60000))} دقيقة. الفرص المعروضة بتوقيتها الحقيقي ولم تُحدَّث.</div>`;
+  if (prevDay) return `<div class="v3stale info">الفرص من آخر جلسة تداول — آخر تحليل ${esc(stamp(H))} ${TZ_NOTE}.</div>`;
+  return "";
+}
+
 function renderTrades(book) {
   const CR = book === "crypto";
   const el = $(CR ? "#cScanList" : "#scanList"), cnt = $(CR ? "#cScanCount" : "#scanCount");
@@ -8072,7 +8112,7 @@ function renderTrades(book) {
       <p class="warnline"><b>تنبيه:</b> تداولها دون 500 ألف دولار في 24 ساعة: السبريد أوسع والانزلاق أكبر، وقد لا يُنفَّذ السعر المعروض. نفس الاستراتيجيات والأوزان — لكن المخاطرة أعلى.</p>
       ${low.map((t, i) => v3Card(t, -1)).join("")}
     </div>` : "";
-  el.innerHTML = note + (open.length ? open.map(v3Card).join("")
+  el.innerHTML = v3Stale(T, CR) + note + (open.length ? open.map(v3Card).join("")
     : `<div class="empty">لا فرصة في هذه اللقطة — تتولّد الفرصة حين يكون عبورُ قمة/قاع أمس قائماً أو المتوسطات مرتّبة، وهذه نتيجة صحيحة لا عطل</div>`) + lowHtml;
   if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة${low.length ? ` + ${bd(low.length)} أقل سيولة` : ""} في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُني التحليل ${esc(stamp(Date.parse(T.generatedAt)))} (${ago(Date.parse(T.generatedAt))})`;
 }
@@ -9495,10 +9535,39 @@ function boot() {
   if (state.view === "now") setTimeout(() => { need("trades.json"); }, 0);
   setInterval(renderTop, 1000);                                     // العدّ التنازلي
   setInterval(refresh, Math.max(30, +CFG.FILE_POLL_SECONDS || 60) * 1000);
+  scheduleSlotCatchUp();
   if (String(CFG.LIVE_ENDPOINT || "").trim()) {
     pollLive();
     setInterval(pollLive, Math.max(5, +CFG.LIVE_POLL_SECONDS || 10) * 1000);
   }
+}
+
+/* =====================================================================
+   التقاط اللقطة فور نشرها (2026-10-03، تقرير التأخّر): الاستطلاع العادي كل دقيقتين مع
+   صلاحية trades.json دقيقةً وذاكرة الالتزام دقيقةً يضيف حتى 4 دقائق بعد النشر. فعند حدّ كل
+   لقطة (:15/:45 — الأسهم والكريبتو) + زمن الخادم نقرأ من جديد، ونعيد كلَّ 30 ثانية حتى تصل
+   اللقطة المستحقّة (8 محاولات حدّاً). لا يمسّ شيئاً من الحساب: قراءةٌ أبكر لملفٍّ منشور.
+   ===================================================================== */
+const SLOT_FIRST_MS = 4 * 60000, SLOT_RETRY_MS = 30000, SLOT_TRIES = 8;
+function scheduleSlotCatchUp() {
+  const now = Date.now();
+  const nextC = Math.floor((now - 900000) / 1800000) * 1800000 + 900000 + 1800000;   // :15/:45
+  const nextS = nextScanSlot(now) || Infinity;
+  const at = Math.min(nextS, nextC) + SLOT_FIRST_MS;
+  setTimeout(() => slotCatchUp(null, 0), Math.max(5000, at - now));
+}
+function slotCatchUp(due0, n) {
+  // اللقطة المستحقّة للدفتر المعروض الآن: الأسهم من جدول نيويورك (في العطلة آخرُ لقطة جلسة،
+  // وهي موجودة فلا إعادة)، والكريبتو آخرُ :15/:45
+  const CR = state.book === "crypto", now = Date.now();
+  const due = due0 || (CR ? Math.floor((now - 900000) / 1800000) * 1800000 + 900000 : scanSlotAt(now));
+  const T = CR ? TRADES_C : TRADES;
+  const have = T && T.hour * 1000 >= due;
+  if (have || n >= SLOT_TRIES) { scheduleSlotCatchUp(); return; }
+  dataRef.at = 0;                                   // التزامٌ جديد لا الذاكرة
+  lazyAt["trades.json"] = 0; lazyAt["contracts.json"] = 0; lazyAt["contracts-track.json"] = 0;
+  refresh(true);
+  setTimeout(() => slotCatchUp(due, n + 1), SLOT_RETRY_MS);
 }
 
 boot();

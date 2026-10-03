@@ -25,6 +25,7 @@ import { marketStatus, approxMarketStatus, statusNow, sessionOf, isRegularBar,
          sessionBucket, sessionCloseAt } from "./lib/session.mjs";
 import * as PROV from "./providers/index.mjs";
 import { updateStore, storeDir, STORE_SRC, mergeBars, splitSuspect, validBar } from "./lib/bars-store.mjs";
+import { prep as prepV3 } from "./lib/engine3-run.mjs";
 const SES = __cr(import.meta.url)("../stocks/session.js");
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -371,6 +372,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
      يُتوقّع كائنات، فينهار الحساب على `x.c.toFixed` (مصيدةٌ موثّقة
      وقعت مرّة مع `tf`، ولا تظهر إلا بعد أن يوجد ملفٌّ سابق فعلاً). */
   for (const o of Object.values(prev?.tfx || {})) if (o?.c) o.c = unpackCandles(o.c);
+  for (const o of Object.values(prev?.cx || {})) if (o?.c) o.c = unpackCandles(o.c);
   const rec = { s: sym, ar: meta.ar, en: meta.en, sec: meta.sec, tf: {}, src: "yahoo", updated: now };
   if (meta.mkt) rec.mkt = meta.mkt;
   /* المحفوظ أولاً ثم يكتب المجلوبُ فوقه — فلا يسقط فريمٌ لم يُطلب */
@@ -394,7 +396,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
     } else if (prev?.src === STORE_SRC && Object.keys(prev.tf || {}).length) {
       /* لم تصل شموعُه هذا التشغيل (موقوف، أو رفضه المزوّد): السابق كما
          هو **ومعلَنٌ قديماً** (`touched = false` ⇒ `stale`). */
-      rec.tf = { ...prev.tf }; if (prev.tfx) rec.tfx = prev.tfx;
+      rec.tf = { ...prev.tf }; if (prev.tfx) rec.tfx = prev.tfx; if (prev.cx) rec.cx = prev.cx;
       rec.src = STORE_SRC; rec.srcs = prev.srcs; rec.period = prev.period; rec.cur = prev.cur;
       errors.push(`sip: ${store.stats?.missing?.[sym] || "لا شموع هذا التشغيل"}`);
       fromStore = true;
@@ -410,7 +412,7 @@ async function buildSymbol(meta, prevDir, now, quotes, frames = ["1d", "1h", "15
   }
   if (!fromStore && meta.mkt !== "crypto") {
     /* الاحتياط يبني الرمز كاملاً من ياهو: لا نقل لفريمٍ من SIP السابق */
-    rec.tf = {}; delete rec.tfx;
+    rec.tf = {}; delete rec.tfx; delete rec.cx;
   }
 
   // الترتيب مقصود: اليومي أولاً لأنه أساس الشارت والنتيجة الفنية، فحين
@@ -706,6 +708,15 @@ export function applyStore(rec, sb, now) {
   rec.tf["1h"] = { updated: now, c: slimCandles(full1h.slice(-KEEP)) };
   rec.tf["1d"] = { updated: now, c: slimCandles(d1.slice(-KEEP)) };
   rec.tfx = { "15m": { updated: now, src: STORE_SRC, c: slimCandles(all15.slice(-KEEP_X)) } };
+  /* شارتُ الساعة و4س بنفس شموع المحرّك V3 (2026-10-03، إصلاح البريماركت): دلاءٌ بمرسى 04:00
+     على نافذة SIP كاملة، **من دالّة المحرّك نفسها** (`prep`) لا نسخةٍ منها — فالشارت يعرض ما
+     يقرؤه القرار. للعرض وحده: خارج `tfx` كي لا تمرّ بـ`anx` ولا `closedBars` ولا أيّ نتيجة. */
+  try {
+    const V = prepV3(all15, sb["1d"]);
+    const strip = (a) => a.map(({ t, o, h, l, c, v }) => ({ t, o, h, l, c, v }));
+    rec.cx = { "1h": { updated: now, c: slimCandles(strip(V.h1).slice(-KEEP_X)) },
+               "4h": { updated: now, c: slimCandles(strip(V.h4).slice(-KEEP_X)) } };
+  } catch { delete rec.cx; }
   rec.src = STORE_SRC;
   rec.srcs = { "15m": STORE_SRC, "1h": STORE_SRC, "4h": STORE_SRC, "1d": STORE_SRC, "x15m": STORE_SRC };
   rec.period = periodFor(now);
@@ -1045,6 +1056,10 @@ async function main() {
     if (rec.tfx) {
       packed.tfx = {};
       for (const [tf, o] of Object.entries(rec.tfx)) packed.tfx[tf] = { ...o, c: packCandles(o.c) };
+    }
+    if (rec.cx) {
+      packed.cx = {};
+      for (const [tf, o] of Object.entries(rec.cx)) packed.cx[tf] = { ...o, c: packCandles(o.c) };
     }
     bytes += writeJSON(`sym/${rec.s}.json`, packed);
     const q = quotes?.[rec.s];

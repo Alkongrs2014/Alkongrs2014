@@ -42,6 +42,8 @@ export const symSchema = (tfs) => ({
     /* السلسلة الممتدة للجلسة الممتدة وحدها — ‎15د‎ فقط */
     tfx: { type: "object", propertyNames: { enum: ["15m"] }, additionalProperties: series },
     anx: { type: "object", propertyNames: { enum: ["15m"] } },
+    /* شارت الساعة و4س بشموع المحرّك V3 (مرسى 04:00، نافذة SIP كاملة) — عرضٌ لا تحليل */
+    cx: { type: "object", propertyNames: { enum: ["1h", "4h"] }, additionalProperties: series },
     score: numOrNull, band: { enum: [0, 1, 2, 3, 4, null] }
   }
 });
