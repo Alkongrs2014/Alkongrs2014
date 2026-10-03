@@ -110,10 +110,21 @@ test("بحث الكريبتو: على كون الكريبتو كلِّه بال�
   expect(await page.locator("#stockList [data-open]").first().getAttribute("data-open")).toBe("NVDA");
 });
 
+/* §4ج: لقطةٌ قد تخلو من فرصةٍ جديدة (الفرصة من إشارةٍ جديدة)، والصفقات القائمة صفوفٌ تُرسم بطاقتُها
+   عند فتحها — فالبطاقة الأولى: جديدةٌ إن وُجدت، وإلا أوّلُ صفقةٍ قائمة بعد فتح صفّها */
+async function firstCard(page) {
+  const sec = page.locator('section[data-view="screen"]');
+  await page.waitForFunction(() => typeof TRADES !== "undefined" && TRADES, null, { timeout: 20000 });
+  await page.waitForTimeout(300);
+  if (!(await sec.locator(".srow.opp").count()) && await sec.locator(".v3act").count())
+    await sec.locator(".v3act > summary").first().click();
+  return sec.locator(".srow.opp").first();
+}
+
 test("بطاقة الفرصة تشرح درجتها: الخمس بأوزانها ✓/✗ والدرجة مجموعُ المتوافقة", async ({ page }) => {
   await open(page);
   await nav(page, "screen");
-  const card = page.locator('section[data-view="screen"] .srow.opp').first();
+  const card = await firstCard(page);
   await expect(card).toBeVisible({ timeout: 20000 });
   const r = await card.evaluate((c) => ({
     score: parseFloat(c.querySelector(".v3q b").textContent),
@@ -124,16 +135,17 @@ test("بطاقة الفرصة تشرح درجتها: الخمس بأوزانها
   const sum = Math.round(r.items.reduce((a, x, i) => a + (x.on ? W[i] : 0), 0) * 100) / 100;
   expect(r.score).toBeCloseTo(sum, 6);
   expect(r.score).toBeLessThanOrEqual(100);
-  expect(await card.innerText()).toMatch(/قوة التوافق/);
+  expect(await card.innerText()).toMatch(/قوة التوافق|التوافق عند الإصدار/);
 });
 
 test("فتحُ سهمٍ من الفرص يعرض تفاصيله بلا خطأ، والعودة تعمل", async ({ page }) => {
   const { errors } = await open(page);
   await nav(page, "screen");
-  const first = page.locator('section[data-view="screen"] [data-open]').first();
+  const first = await firstCard(page);
   await expect(first).toBeVisible({ timeout: 20000 });
   const sym = await first.getAttribute("data-open");
-  await first.click();
+  // الترويسة: جدول الفريمات وزرّ «دخلت الصفقة» داخل البطاقة لا يفتحان السهم عمداً
+  await first.locator(".opp-hd").click();
   await expect(page.locator('section[data-view="detail"]')).toHaveClass(/\bon\b/, { timeout: 15000 });
   await page.waitForTimeout(2500);
   const txt = await visibleText(page, "detail");
