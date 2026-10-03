@@ -124,6 +124,16 @@ node scripts/make-fixtures.mjs                               # إعادة تجم
 - **مهامّ الحراسة** (Task Scheduler، بلا قفل ولا AI): `WebTrade-Health` كل عشر
   دقائق · `WebTrade-Fortress` ليلاً 04:13 · `WebTrade-Torture` الجمعة ·
   `WebTrade-Mutation` السبت. التقارير في `reports/` (مستبعدة من git).
+- **التشغيل والنشر (2026-10-03)**: مخرجات كل مهمّة مجدولة في `data/logs/runs/YYYY-MM-DD-<job>.log`
+  (14 يوماً) وأثر كل فشل في `data/logs/errors.jsonl`. `schedule.ps1 -Publish -Check` يقارن الملف
+  بالمهام المسجّلة **بلا تغيير** (13/13) — شغّله قبل أيّ تعديلٍ للجدولة. Confirm ينشر الأسهم **ثم**
+  يبني العقود وينشرها (فشلُها لا يؤخّر الأسهم)، و`build-trades` يُتخطّى إن فشل جلب الشموع في نفس
+  الدورة (تبقى آخر لقطة سليمة). الرجوع في `site.yml` بأثرٍ اسمه `github-pages-rollback` (بالاسم
+  الافتراضي رفضه deploy-pages «Multiple artifacts» فلم يعمل قط)، وتمرينه بلا نشر:
+  `workflow_dispatch` بـ`rollback_drill=true`. وملفُّ بياناتٍ جديد تطلبه الواجهة يجب أن يوجد في
+  المنشور **قبل** نشر الواجهة التي تطلبه، وإلا أسقط Playwright الحيّ التحقّقَ بخطأ 404.
+- **الشارت (2026-10-03)**: ‎15د‎ من `tfx` (نافذة SIP كاملة، الممتدة باهتة)، والساعة و4س من `cx` —
+  دلاء المحرّك V3 نفسه (`prep`، مرسى 04:00)؛ `cx` للعرض وحده خارج `tfx` كي لا تمرّ بـ`anx`/`closedBars`.
 
 - **متصفّحات Playwright في `.pw-browsers/`** (`scripts/lib/pw-browsers.mjs` يُستورد قبل
   أيّ Playwright). تطبيق Claude المكتبيّ مغلَّف (MSIX): ما تُركّبه جلستُه تحت
