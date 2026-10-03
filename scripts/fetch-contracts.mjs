@@ -328,8 +328,14 @@ function ensureTrack(out) {
   const f = path.join(out, "contracts-track.json");
   if (!fs.existsSync(f)) writeAtomic(f, { v: 1, rows: [], updated: Date.now() });
 }
-const closeDoc = (doc) => ({ ...doc, phase: "post", marketOpen: false, note: "سوق العقود مغلق — آخر لقطة من الجلسة",
-  picks: (doc.picks || []).map((p) => ({ ...p, exec: false, execWhy: "سوق العقود مغلق — آخر لقطة من الجلسة" })) });
+/* عقدٌ انتهى (بعد إغلاق نيويورك يوم انتهائه) لا يُعرض في اللقطة المغلقة — كان عقد 0DTE يوم الجمعة
+   يبقى معروضاً طوال العطلة وقد زال من OPRA (مقيس 2026-10-03: AVGO 2026-10-02 355C) */
+const expired = (p, now) => p.legs.some((l) => SES.sessionCloseAt(Date.parse(l.exp + "T16:00:00Z")) <= now);
+const closeDoc = (doc, now = Date.now()) => {
+  const picks = (doc.picks || []).filter((p) => !expired(p, now))
+    .map((p) => ({ ...p, exec: false, execWhy: "سوق العقود مغلق — آخر لقطة من الجلسة" }));
+  return { ...doc, phase: "post", marketOpen: false, note: "سوق العقود مغلق — آخر لقطة من الجلسة", picks, count: picks.length };
+};
 
 export async function run({ now = Date.now(), out = OUT, _closed = false } = {}) {
   ensureTrack(out);
@@ -343,7 +349,9 @@ export async function run({ now = Date.now(), out = OUT, _closed = false } = {})
   const phase = !w.regular ? "closed" : H < w.regular.start ? "pre" : H <= w.regular.end ? "regular" : "post";
   if (phase === "post" || phase === "closed") {
     /* بعد الإغلاق تبقى آخر لقطة للاطّلاع، وكلُّ عقدٍ فيها **غير قابلٍ للتنفيذ** — لا الترويسة وحدها */
-    if (prev && prev.phase !== "post") { const doc = closeDoc(prev); writeAtomic(file, doc); return { ok: true, doc, closed: true }; }
+    if (prev && (prev.phase !== "post" || (prev.picks || []).some((p) => expired(p, now)))) {
+      const doc = closeDoc(prev, now); writeAtomic(file, doc); return { ok: true, doc, closed: true };
+    }
     /* لا لقطةَ سابقة (أوّل تشغيل، أو بعد عطلة): تُبنى من آخر لقطةٍ في جلسةٍ رسمية وتُوسَم مغلقة —
        كي لا تبقى الشاشة على ملفٍّ غائب، ولا يُعرض عقدٌ قابلاً للتنفيذ والسوق مغلق */
     if (!prev && !_closed) { const Hr = lastRegularSlot(now); if (Hr) return run({ now: Hr + MIN, out, _closed: true }); }
@@ -432,7 +440,7 @@ export async function run({ now = Date.now(), out = OUT, _closed = false } = {})
     universe: { n: syms.length, pre: U.pre.length, core: live ? core.length : 0 }, params: P, cats: CAT_AR,
     count: picks.length, picks, sigs, skip, stats: { requests: AO.optStats.requests, failures: AO.optStats.failures } };
   doc.rowsHash = crypto.createHash("sha256").update(JSON.stringify(picks)).digest("hex").slice(0, 12);
-  const final = _closed ? closeDoc(doc) : doc;
+  const final = _closed ? closeDoc(doc) : doc;   // Date.now(): الانتهاء يُقاس بالآن لا بلحظة اللقطة
   writeAtomic(file, final);
   return { ok: true, doc: final };
 }
@@ -541,6 +549,10 @@ function selfCheck() {
   ok(x.hits.length === 0 && x.status === "stop", "دقيقةٌ قبل الظهور تُحتسب أو الهدف قبل الوقف");
   x = walkHits(tr({ kind: "credit", entry: 2, stop: 4, tg: [1] }), [[110, 2.5, 0.9]]);
   ok(x.hits.join() === "110" && x.status === "done", "تتبّع الدائن");
+  // اللقطة المغلقة: لا عقد قابلاً للتنفيذ، ولا عقد انتهى (0DTE بعد إغلاق يومه)
+  const fri = Date.parse("2026-10-02T21:00:00Z");      // الجمعة بعد الإغلاق
+  const cd = closeDoc({ picks: [{ s: "A", exec: true, legs: [{ exp: "2026-10-02" }] }, { s: "B", exec: true, legs: [{ exp: "2026-10-09" }] }] }, fri);
+  ok(cd.picks.length === 1 && cd.picks[0].s === "B" && cd.picks[0].exec === false && cd.phase === "post", "اللقطة المغلقة: " + JSON.stringify(cd.picks));
   // رمز OCC
   const o = AO.parseOcc("NVDA261009C00235000");
   ok(o && o.root === "NVDA" && o.exp === "2026-10-09" && o.type === "call" && o.K === 235, "OCC");
