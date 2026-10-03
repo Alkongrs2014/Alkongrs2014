@@ -1,8 +1,9 @@
-/* لقطة الساعة للمحرّك V3 (قرار المالك 2026-10-01) — على مخزن SIP اصطناعي في مجلّدٍ مؤقّت:
-   ١) داخل الساعة الواحدة: نفس اللقطة مهما تقدّمت الساعة أو تحرّكت الشمعة الجارية.
-   ٢) كلُّ ساعة بدايةٌ جديدة: البناء فوق لقطة الساعة السابقة = البناء من الصفر حرفياً —
-      فلا يُورَث دخولٌ ولا وقفٌ ولا هدفٌ ولا فرصة.
-   ٣) كلُّ فرصة مبنيّةٌ في ساعتها، ولا مغلقةَ ولا نشطةَ محمولة.
+/* لقطات المحرّك V3 ودورة حياة الصفقة (§4ج، قرار المالك 2026-10-03) — على مخزن SIP اصطناعي
+   في مجلّدٍ مؤقّت:
+   ١) داخل اللقطة الواحدة: نفس اللقطة مهما تقدّمت الساعة أو تحرّكت الشمعة الجارية.
+   ٢) الصفقة بعد إصدارها تُحمَل بخطتها نفسها (دخول/وقف/أهداف) حتى تنتهي بوقفٍ أو آخر هدف أو
+      انقضاء مدّتها — ولا تختفي بصمت، ولا تتكرّر للرمز نفسه خلال دورة حياتها.
+   ٣) البناء التزايديّ من الحالة على القرص = البناء المتسلسل في الذاكرة حرفياً.
    لا يكتب في المثبّتات: كلُّ شيءٍ في مجلّدٍ مؤقّت. */
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
@@ -42,33 +43,45 @@ describe("لقطة الساعة — المسار الحيّ", () => {
     expect(c.same).toBe(true);
   });
 
-  it("كلُّ ساعة من الصفر: البناء فوق الساعة السابقة = البناء من الصفر، ولا وراثة", () => {
+  it("الصفقة تُحمَل بخطتها حتى تنتهي بقواعدها، بلا تكرارٍ ولا اختفاءٍ صامت، والتزايديّ = المتسلسل", () => {
     const dir = tmp();
-    let prev = null, both = 0, recomputed = 0;
+    let mem = null, carried = 0, ended = 0;
+    const plan = new Map(), live = new Map();
     for (const H of hours) {
       const now = H + 3 * 60000;
       const bars = storeAt(dir, now);
-      const r = build({ now, out: dir, barsDir: bars });            // فوق لقطة الساعة السابقة
-      const f = build({ now, out: tmp(), barsDir: bars, fresh: true });   // من الصفر
-      expect(r.ok && f.ok).toBe(true);
+      const r = build({ now, out: dir, barsDir: bars });                       // من الحالة على القرص
+      const m = build({ now, out: tmp(), barsDir: bars, state: mem });          // متسلسلٌ في الذاكرة
+      expect(r.ok && m.ok).toBe(true);
       expect(r.same).toBeFalsy();
-      expect(r.doc.rowsHash).toBe(f.doc.rowsHash);
-      for (const t of r.doc.open) {
-        expect(t.h).toBe(r.doc.hour);
-        expect(t.id).toBe(`${t.s}|${r.doc.hour}`);
-      }
-      expect(r.doc.closed).toEqual([]);
-      if (prev) for (const t of r.doc.open) {
-        const p = prev.open.find((x) => x.s === t.s);
-        if (!p) continue;
-        both++;
-        if (p.e !== t.e || p.st !== t.st || JSON.stringify(p.tg) !== JSON.stringify(t.tg)) recomputed++;
-      }
+      expect(r.doc.rowsHash).toBe(m.doc.rowsHash);
+      fs.writeFileSync(path.join(dir, "trades-state.json"), JSON.stringify(r.state));
       put(dir, r.doc);
-      prev = r.doc;
+      mem = JSON.parse(JSON.stringify(m.state));
+      // كلُّ جديدة مولودةٌ في لقطتها، وصفقةٌ واحدة لكل رمز بين الجديدة والقائمة
+      for (const t of r.doc.open) { expect(t.h).toBe(r.doc.hour); expect(t.id).toBe(`${t.s}|${r.doc.hour}`); }
+      const syms = [...r.doc.open, ...r.doc.active].map((t) => t.s);
+      expect(new Set(syms).size).toBe(syms.length);
+      // الخطة مثبّتة: القائمة تحمل أرقام إصدارها بالحرف
+      for (const t of r.doc.active) {
+        expect(t.h).toBeLessThan(r.doc.hour);
+        expect(plan.get(t.id)).toBe(JSON.stringify([t.e, t.st, t.tg]));
+        carried++;
+      }
+      for (const t of r.doc.open) plan.set(t.id, JSON.stringify([t.e, t.st, t.tg]));
+      // لا اختفاء صامت: ما غاب من الجديدة/القائمة موجودٌ في المنتهية بسببٍ من قواعدها
+      const here = new Set([...r.doc.open, ...r.doc.active].map((t) => t.id));
+      const done = new Map(r.doc.closed.map((t) => [t.id, t]));
+      for (const id of live.keys()) if (!here.has(id)) {
+        const c = done.get(id);
+        expect(c, id).toBeTruthy();
+        expect(["stop", "be", "tgt", "exp", "gap"]).toContain(c.end.k);
+        ended++;
+      }
+      live.clear(); for (const id of here) live.set(id, 1);
     }
-    expect(both).toBeGreaterThan(20);          // رموزٌ ظهرت في ساعتين متتاليتين فعلاً
-    expect(recomputed).toBeGreaterThan(0);     // وخطّتُها أُعيد حسابها لا أُورثت
+    expect(carried).toBeGreaterThan(20);       // صفقاتٌ عبرت لقطاتٍ فعلاً
+    expect(ended).toBeGreaterThan(0);          // وانتهت بقواعدها
   });
 
   it("كلُّ فرصة مكتملة ومرتّبة بالدرجة", () => {

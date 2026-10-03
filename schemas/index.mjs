@@ -151,6 +151,11 @@ const trade3 = { type: "object",
     end: { anyOf: [{ type: "null" }, { type: "object", required: ["k", "t", "px"],
            properties: { k: { enum: ["stop", "be", "tgt", "exp", "gap"] }, t: epochS, px: pos } }] }
   } };
+/* المنتهية مختصرة (§4ج): الهوية والنتيجة — والخطة كاملةً كانت في «الجديدة» ثم «القائمة» */
+const ended3 = { type: "object", required: ["id", "s", "d", "status", "base", "score", "e", "hit", "end"],
+  properties: { id: str, s: str, d: { enum: [-1, 1] }, h: epochS, status: { enum: ["closed", "cancelled"] },
+    base: { enum: ["day", "ma"] }, score: { type: "number", minimum: 40, maximum: 100 }, e: pos, hit: { type: "integer", minimum: 0, maximum: 3 },
+    end: { type: "object", required: ["k", "t", "px"], properties: { k: { enum: ["stop", "be", "tgt", "exp", "gap"] }, t: epochS, px: pos } } } };
 export const tradesSchema = {
   type: "object",
   required: ["engine", "mode", "hour", "version", "generatedAt", "candleKey", "weights", "open", "closed", "bySym", "rowsHash"],
@@ -165,7 +170,10 @@ export const tradesSchema = {
     candleKey: { type: "integer", minimum: 1.6e9, maximum: 4e9, multipleOf: 900 },
     weights: { type: "object", required: ["day", "ma", "trend", "vwap", "week"] },
     open: { type: "array", items: trade3 },
-    closed: { type: "array", items: trade3 },
+    /* §4ج (قرار 2026-10-03): الصفقات القائمة بخطتها المثبّتة حتى تنتهي بقواعد §6 */
+    active: { type: "array", items: trade3 },
+    life: { const: 1 },
+    closed: { type: "array", items: { anyOf: [trade3, ended3] } },
     bySym: { type: "object" }
   } };
 

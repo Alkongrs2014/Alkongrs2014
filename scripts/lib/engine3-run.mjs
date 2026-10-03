@@ -29,7 +29,7 @@ function fold(arr, keyOf, endOf) {
   for (const b of arr) {
     const k = keyOf(b);
     if (cur && k === ck) { cur.h = Math.max(cur.h, b.h); cur.l = Math.min(cur.l, b.l); cur.c = b.c; cur.v += b.v; }
-    else { if (cur) out.push(cur); cur = { t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, end: endOf(b, k) }; ck = k; }
+    else { if (cur) out.push(cur); cur = { t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d: b.d, end: endOf(b, k) }; ck = k; }
   }
   if (cur) out.push(cur);
   return out;
@@ -78,7 +78,10 @@ export function prep(bars15, bars1d) {
       return Math.min(start + Hms, w.end);
     });
   };
-  const d1 = (bars1d || []).map(b => { const d = dayKeyOf(b.t + 12 * 3600000); return { t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d, w: isoWeek(d) }; });
+  /* `end` لليومية = نهاية نافذة SIP ليومها: لحظة «اكتمالها» التي يقرأ بها فريمُ اليومي في
+     لقطات §4ج (انقلاب المتوسطات اليومي يُرى في أوّل لقطةٍ بعدها) */
+  const d1 = (bars1d || []).map(b => { const d = dayKeyOf(b.t + 12 * 3600000), w = winOf(b.t + 12 * 3600000);
+    return { t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d, w: isoWeek(d), end: w ? w.end : b.t + DAY }; });
   return { r15, h1: bucket(1), h4: bucket(4), d1 };
 }
 
@@ -175,10 +178,33 @@ export function prepCrypto(rec) {
   const un = (tf) => ((rec && rec.tf && rec.tf[tf] && rec.tf[tf].c) || [])
     .map((a) => Array.isArray(a) ? { t: a[0] * 1000, o: a[1], h: a[2], l: a[3], c: a[4], v: a[5] || 0 } : a);
   const r15 = un("15m").map((b) => ({ ...b, d: utcDay(b.t), last: (b.t + M15) % DAY === 0, end: b.t + M15 }));
-  const h1 = un("1h").map((b) => ({ ...b, end: b.t + HOUR }));
-  const h4 = un("4h").map((b) => ({ ...b, end: b.t + 4 * HOUR }));
-  const d1 = un("1d").map((b) => { const d = utcDay(b.t); return { ...b, d, w: isoWeek(d) }; });
+  const h1 = un("1h").map((b) => ({ ...b, d: utcDay(b.t), end: b.t + HOUR }));
+  const h4 = un("4h").map((b) => ({ ...b, d: utcDay(b.t), end: b.t + 4 * HOUR }));
+  const d1 = un("1d").map((b) => { const d = utcDay(b.t); return { ...b, d, w: isoWeek(d), end: b.t + DAY }; });
   return { r15, h1, h4, d1 };
+}
+
+/* اللقطة السابقة لحدٍّ H — نافذةُ «الإشارة الجديدة» في §4ج هي (prevSlot, H]: الأسهم من
+   جدول session.js (فبعد 19:45 تأتي 05:15 التالية وتضمّ إغلاق اليومي 20:00)، والكريبتو H−30د */
+export const prevSlotOf = (book, H) => book === "crypto" ? H - HALF : SES.scanSlotAt(H - 1);
+
+/* §4ج: التقييم عند الحدّ H بإشارةٍ جديدة في (prevH, H] — المحرّك يقرّر، وهذا يقطع المدخلات */
+export function evalSlot(S, H, prevH) {
+  const i = upto(S.r15, (b) => b.end <= H);
+  if (i < 0) return { i, r: { reject: "data" } };
+  return { i, r: E.evaluateSlot(inputAt(S, i), wkOf, prevH) };
+}
+
+/* §6: يمشي صفقةً على شموع 15د المغلقة في (afterMs, toMs] بدوالّ المحرّك نفسها
+   (`fillTrade` ثم `stepTrade`) — نفس نمط `advanceSym`. يعدّل الصفقة في مكانها. */
+export function stepOver(tr, S, afterMs, toMs) {
+  const j0 = upto(S.r15, (b) => b.end <= afterMs) + 1, j1 = upto(S.r15, (b) => b.end <= toMs);
+  for (let j = j0; j <= j1; j++) {
+    if (tr.status === "confirmed") E.fillTrade(tr, S.r15[j]);
+    else if (tr.status === "active") E.stepTrade(tr, S.r15[j]);
+    if (tr.status === "closed" || tr.status === "cancelled") break;
+  }
+  return tr;
 }
 
 /* الرمز عند حدّ الساعة H: آخر شمعة 15د مغلقة (نهايتها ≤ H) ثم التقييم من الصفر */

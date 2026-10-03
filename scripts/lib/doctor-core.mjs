@@ -98,11 +98,13 @@ export function structuralChecks(dir) {
     out.push(T("depth.stocks", "INV-11", "CRITICAL", four >= sum.rows.length * 0.9, `${four}/${sum.rows.length}`));
   }
 
-  /* INV-60..65: لقطة ساعة V3 — الهندسة والدرجة والأساس والتفرّد وعدم الوراثة */
+  /* INV-60..64 و68: لقطات V3 ودورة الحياة — الهندسة والدرجة والأساس والتفرّد والحمل */
   for (const [book, tr] of [["stocks", tr0], ["crypto", rd(dir, "crypto/trades.json")]]) {
     if (!tr) continue;
     const W = E3.E3.W, geo = [], score = [], base = [], seen = new Set(), dup = [];
-    for (const t of [...tr.open, ...tr.closed]) {
+    const act = tr.active || [];
+    // المنتهية تُنشر مختصرةً بلا خطة (pubEnded) — فحصُ الهندسة والدرجة على الجديدة والقائمة
+    for (const t of [...tr.open, ...act]) {
       const tg = (t.tg || []).map((x) => x.p);
       if (t.d === 1 && !(tg.every((x) => x > t.e) && t.e > t.st)) geo.push(`${t.id} شراء معكوس`);
       if (t.d === -1 && !(tg.every((x) => x < t.e) && t.e < t.st)) geo.push(`${t.id} بيع معكوس`);
@@ -117,15 +119,22 @@ export function structuralChecks(dir) {
       if (t.base === "day" && !(t.evt && t.pts.day === 40)) base.push(`${t.id} أساس «أمس» بلا حدث`);
       if (t.base !== "day" && t.base !== "ma") base.push(`${t.id} أساس ${t.base}`);
     }
-    for (const t of tr.open) { if (seen.has(t.s)) dup.push(t.s); seen.add(t.s); }
+    // صفقةٌ واحدة لكل رمز بين الجديدة والقائمة — لا تتكرّر خلال دورة حياتها (§4ج)
+    for (const t of [...tr.open, ...act]) { if (seen.has(t.s)) dup.push(t.s); seen.add(t.s); }
     out.push(T("trades.geometry." + book, "INV-60", "CRITICAL", !geo.length, geo.slice(0, 6).join(" · ")));
     out.push(T("trades.score." + book, "INV-61", "CRITICAL", !score.length, score.slice(0, 6).join(" · ")));
     out.push(T("trades.base." + book, "INV-62", "CRITICAL", !base.length, base.slice(0, 6).join(" · ")));
     out.push(T("trades.one-per-symbol." + book, "INV-63", "CRITICAL", !dup.length, dup.join(", ")));
     const order = tr.open.every((t, i) => !i || tr.open[i - 1].score >= t.score);
     out.push(T("trades.ranked." + book, "INV-64", "CRITICAL", order, "الترتيب ليس تنازلياً بالدرجة"));
-    const carried = tr.open.filter((t) => t.h !== tr.hour || !String(t.id).endsWith("|" + tr.hour)).map((t) => t.id);
-    out.push(T("trades.no-carry." + book, "INV-65", "CRITICAL", !carried.length && !(tr.closed || []).length, carried.slice(0, 6).join(", ")));
+    /* INV-68 (قرار 2026-10-03، بدل INV-65): الجديدة مولودةٌ في لقطتها، والقائمة وُلدت قبلها بحالةٍ
+       مؤكَّدة أو نشطة، والمنتهية بسببٍ من قواعد §6 — لا حملٌ لجديدة ولا قائمةٌ بلا حالة */
+    const life = [
+      ...tr.open.filter((t) => t.h !== tr.hour || !String(t.id).endsWith("|" + tr.hour)).map((t) => `${t.id} جديدةٌ من لقطةٍ أخرى`),
+      ...act.filter((t) => !(t.h < tr.hour) || !["confirmed", "active"].includes(t.status)).map((t) => `${t.id} قائمةٌ بحالة ${t.status}`),
+      ...tr.closed.filter((t) => !t.end || !["stop", "be", "tgt", "exp", "gap"].includes(t.end.k)).map((t) => `${t.id} منتهيةٌ بلا سبب`)
+    ];
+    out.push(T("trades.lifecycle." + book, "INV-68", "CRITICAL", !life.length, life.slice(0, 6).join(" · ")));
     // INV-67: لا دخولٌ من شمعةٍ أقدم من شمعة اللقطة — لا فرصة بلا تداولٍ في آخر 15 دقيقة
     const oldEntry = tr.open.filter((t) => t.t !== tr.candleKey).map((t) => `${t.s}:${(tr.candleKey - t.t) / 60}د`);
     out.push(T("trades.fresh-entry." + book, "INV-67", "CRITICAL", !oldEntry.length, oldEntry.slice(0, 6).join(", ")));

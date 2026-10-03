@@ -38,7 +38,7 @@ const W = { day: 40, ma: 40, trend: 6.67, vwap: 6.67, week: 6.66 };
 /* تأخيرٌ صناعيّ لملفّ الصفقات: بلاه يصل قبل أوّل رسم فلا يُختبر أن الواجهة
    تعرض هيكلاً ولا تخترع قائمةً مؤقّتة. */
 const lagRoute = async (route) => { await new Promise(r => setTimeout(r, 1800)); await route.continue(); };
-const FILES = ["index.html", "sw.js", "indicators.js", "score.js", "session.js", "config.js"];
+const FILES = ["index.html", "sw.js", "indicators.js", "score.js", "session.js", "config.js", "engine3.js"];
 
 console.log("\n▶ اختبار قبول على الموقع المنشور (المحرّك V3)\n  " + URL_ + "\n");
 const browser = await chromium.launch({ headless: true });
@@ -147,6 +147,42 @@ try {
   await page.evaluate(() => go("screen"));
   const old = reqs.filter(u => /(opportunities|strategies|strategy-edge|ma200-open|opp-history)\.json/.test(u));
   old.length ? no("لا تُطلب لقطات المحرّك القديم", old.slice(0, 3).join(" · ")) : ok("لا تُطلب لقطات المحرّك القديم");
+
+  /* ══ ٦) §4ج: الصفقات القائمة · «صفقاتي» مستقلّةٌ لكل متصفّح ولا تمسّ الترتيب ══ */
+  {
+    const life = await page.evaluate(() => {
+      renderScreen();
+      return TRADES && { life: TRADES.life || 0, act: (TRADES.active || []).length, rows: document.querySelectorAll("#scanList .v3act").length };
+    });
+    if (life && life.life) life.rows === life.act
+      ? ok("صفقات V3 القائمة معروضةٌ كلُّها في قسمها", `${life.act} قائمة`)
+      : no("صفقات V3 القائمة معروضةٌ كلُّها في قسمها", `${life.rows} صفّاً من ${life.act}`);
+    const mt = await page.evaluate(async () => {
+      localStorage.removeItem("stk_mytrades");
+      const order = () => { renderScreen(); return [...document.querySelectorAll("#scanList > .srow.opp")].map(c => c.dataset.open + "/" + c.querySelector(".v3q b").textContent).join(","); };
+      const t = TRADES && [...(TRADES.open || []), ...(TRADES.active || [])][0];
+      if (!t) return { skip: true };
+      const A = order();
+      mtAsk(t.id); await new Promise(r => setTimeout(r, 200));
+      mtAction("save"); await new Promise(r => setTimeout(r, 200));
+      const n = mtLoad().length, B = order();
+      go("mytrades"); await new Promise(r => setTimeout(r, 600));
+      const cards = document.querySelectorAll("#mtList .mtcard").length;
+      go("screen");
+      return { n, cards, same: A === B };
+    });
+    if (mt.skip) ok("«صفقاتي» — لا فرصة ولا صفقة قائمة لتجربة التسجيل الآن", "يُتخطّى");
+    else {
+      mt.n === 1 && mt.cards === 1 ? ok("«دخلت الصفقة» يسجّل في «صفقاتي»") : no("«دخلت الصفقة» يسجّل في «صفقاتي»", JSON.stringify(mt));
+      mt.same ? ok("صفقاتي لا تغيّر ترتيب الفرص ولا درجاتها") : no("صفقاتي لا تغيّر ترتيب الفرص ولا درجاتها");
+      const ctx2 = await browser.newContext(), p2 = await ctx2.newPage();
+      await p2.goto(base + "index.html", { waitUntil: "load" });
+      const other = await p2.evaluate(() => { try { return JSON.parse(localStorage.getItem("stk_mytrades") || "[]").length; } catch { return -1; } });
+      await ctx2.close();
+      other === 0 ? ok("صفقات متصفّحٍ لا تظهر في متصفّحٍ آخر", "localStorage لكل متصفّح") : no("صفقات متصفّحٍ لا تظهر في متصفّحٍ آخر", other + " صفقة");
+      await page.evaluate(() => localStorage.removeItem("stk_mytrades"));
+    }
+  }
 
   /* ══ ٥) صفرُ استثناء وصفرُ تشخيص ══ */
   const real = errs.filter(e => !/api\.github\.com|status of 40[34]/.test(e));

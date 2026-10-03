@@ -39,8 +39,8 @@
    تُترك للتذكّر — وهي نفس مبدأ «حارسٌ يمرّ دون أن تُختبر حالتُه حارسٌ
    مفترَض لا محروس».
    ===================================================================== */
-const V = "webtrade-v55";
-const SHELL_SHA = "24fd07ebf6da";     // يحسبها `check-ui` من ملفّات CORE
+const V = "webtrade-v56";
+const SHELL_SHA = "d9c66c101490";     // يحسبها `check-ui` من ملفّات CORE
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";
@@ -61,6 +61,7 @@ const CORE = ["./", "./index.html", "./config.js", "./score.js",
   "./consensus.js",
   "./confluence.js",
   "./opportunities.js",
+  "./engine3.js",
   // المنيفست والأيقونة جزءٌ من الهيكل: بدونهما لا يُعرض التطبيق مثبَّتاً
   // بلا شبكة، ويسقط شرطُ التثبيت نفسه عند أوّل زيارةٍ بشبكةٍ ضعيفة
   "./manifest.json", "./icon.svg"];

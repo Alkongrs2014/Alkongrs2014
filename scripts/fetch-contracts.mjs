@@ -373,7 +373,10 @@ export async function run({ now = Date.now(), out = OUT, _closed = false } = {})
   const snaps = await AO.stockSnapshots(syms);
   const fund = (readJ(path.join(out, "fundamentals.json")) || {}).f || {};
   const evs = ((readJ(path.join(out, "events.json")) || {}).events || []).filter((e) => e.w >= 3).map((e) => ({ at: e.at, ar: e.ar, kind: "macro" }));
-  const v3 = Object.fromEntries(((readJ(path.join(out, "trades.json")) || {}).open || []).map((t) => [t.s, t]));
+  /* صفقات V3 الجديدة والقائمة (§4ج — القائمة تُحمَل بخطتها، والتوافق الحالي في `now`) */
+  const TR = readJ(path.join(out, "trades.json")) || {};
+  const v3 = Object.fromEntries([...(TR.active || []).map((t) => ({ ...t, score: t.now && Number.isFinite(t.now.score) ? t.now.score : t.score })),
+    ...(TR.open || [])].map((t) => [t.s, t]));
   /* أحداث الشركة الموثّقة: إيداعات 8-K في 48 ساعة (SEC، موجودة في filings.json)، وعناوين
      الأخبار في 24 ساعة (Benzinga عبر Alpaca) — الأولى حدثٌ مؤكَّد، والثانية إشارةٌ غير حاسمة */
   const k8 = {};

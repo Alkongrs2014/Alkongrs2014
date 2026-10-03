@@ -258,8 +258,8 @@ export async function publishData(opts = {}) {
     const candState = stateOf((f) => { try { return fs.readFileSync(path.join(stage, f), "utf8"); } catch { return null; } });
     const mono = monotonicGuard(candState, remoteState);
     if (mono.length) return res(false, "regression", "حالةٌ أقدم من المنشور: " + mono.join(" · "));
-    /* INV-65 (قرار 2026-10-01): لا وراثة بين الساعات — كلُّ فرصةٍ في اللقطة
-       مبنيّةٌ في ساعتها. فرصةٌ بساعةٍ أخرى داخل لقطة ساعةٍ = حملٌ ممنوع. */
+    /* INV-68 (قرار 2026-10-03، بدل INV-65): «الجديدة» مولودةٌ في لقطتها — والصفقات المحمولة
+       مكانُها `active` لا `open`. جديدةٌ بلقطةٍ أخرى = حملٌ في غير موضعه. */
     for (const f of ["trades.json", "crypto/trades.json"]) {
       let d = null; try { d = JSON.parse(fs.readFileSync(path.join(stage, f), "utf8")); } catch { continue; }
       const carried = (d.open || []).filter((t) => t.h !== d.hour).map((t) => t.id);

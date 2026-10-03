@@ -74,7 +74,7 @@ function lastCross(bars, H, L, pre) {
     var ev = crossEvents(bars[i], H, L, pre);
     if (ev.length) {
       var e = ev[0], d = E3_EVT[e].d, lv = levelOf(e, H, L), c = bars[bars.length - 1].c;
-      return { evt: e, d: d, lv: lv, at: bars[i].t, holds: (c - lv) * d > 0 };
+      return { evt: e, d: d, lv: lv, at: bars[i].t, end: bars[i].end, holds: (c - lv) * d > 0 };
     }
   }
   return null;
@@ -287,6 +287,153 @@ function evaluateHour(inp, wkOf) {
 }
 
 /* =====================================================================
+   **الاستراتيجيات على الفريمات الأربعة** — قرار المالك 2026-10-03 (§4ج).
+
+   كلُّ استراتيجيةٍ تُفحص على شموع كلّ فريمٍ **المغلقة** (15د · ساعة · 4س · يومي)
+   بتعريفها نفسه على ذلك الفريم. والنقاط تُحتسب **مرّةً واحدة** بوزنها الأصلي إن
+   تحقّقت على فريمٍ واحد على الأقل في جهة الصفقة؛ والفريمات المتّفقة معلومةٌ تُعرض
+   لا نقاطٌ تُضاعف. والاتجاه وحده يبقى حكمَ إجماع 1h/4h/1d (`trendOf`) بقرار المالك،
+   ويُحسب على 15د للعرض فقط.
+     day   عبور قمة/قاع أمس بالجسم خلال اليوم على الفريم (15د · ساعة · 4س). اليومي
+           مصدرُ المستوى لا حكمٌ عليه: يُعرض افتتاح اليوم نسبةً إليه وحسب.
+     ma    EMA20/50/200 على إغلاقات الفريم نفسه، و`flip` = تغيّر الترتيب بإغلاق آخر
+           شمعةٍ مغلقة فيه (إشارةٌ جديدة لا استمرارُ ترتيبٍ قديم).
+     vwap  إغلاق آخر شمعةٍ مغلقة للفريم اليوم مقابل VWAP الجلسة حتى نهايتها (اليومي لا ينطبق).
+     week  عبور قمة/قاع الأسبوع السابق بالجسم خلال الأسبوع على الفريم.
+   المدخلات كـ`stateAt` ومعها `d` لكل شمعة ساعة/4س و`end` لكل يومية.
+   ===================================================================== */
+var E3_TFS = ["15m", "1h", "4h", "1d"];
+function framesOf(inp) { return { "15m": inp.b15 || [], "1h": inp.h1 || [], "4h": inp.h4 || [], "1d": inp.d1 || [] }; }
+/* نوع حركة السعر حول مستوى (H, L) على شموع فترةٍ (اليوم أو الأسبوع) لفريمٍ واحد:
+     break      حدثُ عبورٍ بالجسم على آخر شمعةٍ مغلقة نفسها (§2)
+     hold       حدثٌ سابق في الفترة وما زال الإغلاق في جهته (ثباتٌ بلا عبورٍ جديد)
+     back       حدثٌ سابق عاد السعر عبره
+     open_above / open_below   لا حدث في الفترة والسعر في جهةٍ من المستوى منذ افتتاحها
+     inside     بين المستويين بلا حدث
+   والتحقّق في جهة d = آخر حدثٍ في جهة d وما زال قائماً (نفس شرط `scoreFor`). */
+function levelKind(bars, H, L, pre) {
+  if (!bars.length) return { kind: "none" };
+  var lb = bars[bars.length - 1], lc = lastCross(bars, H, L, pre), now = crossEvents(lb, H, L, pre);
+  var side = Number.isFinite(H) && lb.c > H ? 1 : (Number.isFinite(L) && lb.c < L ? -1 : 0);
+  var o = { side: side, c: lb.c, end: lb.end };
+  if (now.length) { o.kind = "break"; o.evt = now[0]; o.d = E3_EVT[now[0]].d; o.holds = true; o.at = lb.t; o.evEnd = lb.end; return o; }
+  if (lc) { o.kind = lc.holds ? "hold" : "back"; o.evt = lc.evt; o.d = lc.d; o.holds = lc.holds; o.at = lc.at; o.evEnd = lc.end; return o; }
+  o.kind = side > 0 ? "open_above" : (side < 0 ? "open_below" : "inside");
+  return o;
+}
+function maFlip(bars) {
+  var now = maOf(bars), lb = bars.length ? bars[bars.length - 1] : null;
+  var prev = bars.length > 1 ? maOf(bars.slice(0, bars.length - 1)).dir : 0;
+  var ok = now.e.every(Number.isFinite);
+  return { dir: now.dir, prev: prev, flip: ok && now.dir !== 0 && now.dir !== prev, end: lb ? lb.end : null, ok: ok };
+}
+function framesAt(inp, wkOf) {
+  var st = stateAt(inp, wkOf);
+  if (!st) return null;
+  var F = framesOf(inp), day = st.b.d, wk = inp.wk, tb = todayBars(inp.b15), out = {};
+  var vwBars = function (end) { return tb.filter(function (x) { return x.end <= end; }); };
+  for (var k = 0; k < E3_TFS.length; k++) {
+    var tf = E3_TFS[k], bars = F[tf], r = {};
+    if (tf === "1d") {
+      // اليومي: مصدر المستوى؛ افتتاح اليوم (أوّل شمعة 15د) نسبةً إليه — بلا حدث
+      var o0 = tb.length ? tb[0].o : null;
+      r.day = { kind: "ref", open: !st.pd || o0 === null ? 0 : (o0 > st.pd.h ? 1 : (o0 < st.pd.l ? -1 : 0)) };
+      r.vwap = null;
+    } else {
+      var today = bars.filter(function (x) { return x.d === day; });
+      r.day = st.pd ? levelKind(today, st.pd.h, st.pd.l, "pd") : { kind: "none" };
+      var lb = today.length ? today[today.length - 1] : null, vw = lb ? vwapOf(vwBars(lb.end)) : null;
+      r.vwap = lb && vw !== null ? { c: lb.c, v: vw, side: lb.c > vw ? 1 : (lb.c < vw ? -1 : 0), end: lb.end } : null;
+    }
+    var wbars = bars.filter(function (x) { return wkOf(x.d) === wk; });
+    r.week = st.pw ? levelKind(wbars, st.pw.h, st.pw.l, "pw") : { kind: "none" };
+    r.ma = maFlip(e3tail(bars, E3.MA_WIN + 1));
+    r.trend = swingTrend(bars);
+    out[tf] = r;
+  }
+  return { st: st, fr: out };
+}
+/* النقاط لجهة d من حالة الفريمات — كلُّ استراتيجيةٍ مرّةً واحدة بوزنها الأصلي.
+   `tfs[k]` الفريمات المتحقّقة في جهة d، و`opp[k]` المتحقّقة في الجهة المعاكسة (تعارض). */
+function frameSat(r, k, d) {
+  if (!r) return false;
+  if (k === "day" || k === "week") { var x = r[k]; return !!(x && x.d === d && x.holds && x.kind !== "ref"); }
+  if (k === "ma") return r.ma.dir === d;
+  if (k === "vwap") return !!(r.vwap && r.vwap.side === d);
+  return false;
+}
+function scoreFrames(FA, d) {
+  var el = {}, tfs = {}, opp = {}, pts = {}, sum = 0;
+  for (var k in E3.W) {
+    tfs[k] = []; opp[k] = [];
+    if (k === "trend") {
+      for (var i = 0; i < E3_TFS.length; i++) {
+        var tv = FA.fr[E3_TFS[i]].trend;
+        if (tv === d) tfs[k].push(E3_TFS[i]); else if (tv === -d) opp[k].push(E3_TFS[i]);
+      }
+      el[k] = FA.st.trend.dir === d;                 // الإجماع 1h/4h/1d — بلا تغيير
+    } else {
+      for (var j = 0; j < E3_TFS.length; j++) {
+        if (frameSat(FA.fr[E3_TFS[j]], k, d)) tfs[k].push(E3_TFS[j]);
+        else if (frameSat(FA.fr[E3_TFS[j]], k, -d)) opp[k].push(E3_TFS[j]);
+      }
+      el[k] = tfs[k].length > 0;
+    }
+    pts[k] = el[k] ? E3.W[k] : 0; sum += pts[k];
+  }
+  return { el: el, pts: pts, score: Math.round(sum * 100) / 100, tfs: tfs, opp: opp };
+}
+/* =====================================================================
+   **إنشاء الفرصة من إشارةٍ جديدة** في نافذة اللقطة (prevH, H]:
+     أ) عبورُ قمة/قاع أمس بالجسم على شمعة 15د أو ساعة أو 4س أُغلقت في النافذة،
+        وما زال قائماً عند H؛ وإلا
+     ب) انقلابُ ترتيب المتوسطات (`flip`) على أيّ فريمٍ بإغلاق شمعةٍ في النافذة.
+   «أمس» يسبق المتوسطات، وبين الفريمات الأحدثُ حدثاً ثم الأدقّ فريماً. والمرشّحات
+   المعاكسة تُسجَّل تعارضاً لا إلغاءً. الدخول والوقف والأهداف والمخاطرة كما في §5.
+   ===================================================================== */
+function slotCands(FA, prevH) {
+  var c = [];
+  for (var i = 0; i < E3_TFS.length; i++) {
+    var tf = E3_TFS[i], r = FA.fr[tf];
+    if (tf !== "1d" && r.day && r.day.holds && r.day.evEnd > prevH) c.push({ base: "day", tf: tf, d: r.day.d, end: r.day.evEnd, evt: r.day.evt, o: i });
+    if (r.ma.flip && r.ma.end > prevH) c.push({ base: "ma", tf: tf, d: r.ma.dir, end: r.ma.end, o: i });
+  }
+  c.sort(function (a, b) { return (a.base === b.base ? 0 : (a.base === "day" ? -1 : 1)) || (b.end - a.end) || (a.o - b.o); });
+  return c;
+}
+function evaluateSlot(inp, wkOf, prevH) {
+  var FA = framesAt(inp, wkOf);
+  if (!FA) return { reject: "data" };
+  var st = FA.st, cands = slotCands(FA, prevH);
+  if (!cands.length) return { reject: "nobase", st: st, fa: FA };
+  var top = cands[0], d = top.d;
+  var same = cands.filter(function (x) { return x.base === top.base && x.d === d; });
+  var conflict = cands.filter(function (x) { return x.d !== d; }).map(function (x) { return { base: x.base, tf: x.tf, d: x.d }; });
+  if (!(st.atrD > 0 && st.atr15 > 0)) return { reject: "atr", st: st, fa: FA };
+  var sc = scoreFrames(FA, d);
+  var e = st.px, stop = stopOf(e, d, inp.h1, st.atr15);
+  if (!stop) return { reject: "nostop", st: st, fa: FA };
+  var risk = (e - stop.p) * d;
+  if (!(risk > 0) || risk > E3.MAX_RISK_ATR * st.atrD) return { reject: "risk", st: st, fa: FA };
+  var tg = targetsOf(e, d, risk, st, inp.h1);
+  var dayEvt = null, weekEvt = null;
+  for (var i = 0; i < E3_TFS.length; i++) {
+    var r = FA.fr[E3_TFS[i]];
+    if (!dayEvt && frameSat(r, "day", d)) dayEvt = r.day.evt;
+    if (!weekEvt && frameSat(r, "week", d)) weekEvt = r.week.evt;
+  }
+  return { reject: null, st: st, fa: FA, sig: {
+    d: d, base: top.base, baseTf: top.tf, baseTfs: same.map(function (x) { return x.tf; }), evAt: top.end,
+    evt: top.base === "day" ? top.evt : dayEvt, weekEvt: weekEvt, conflict: conflict,
+    t: st.t, e: e, st: stop.p, stopPivot: stop.pivot, risk: risk, tg: tg,
+    rr1: (tg[0].p - e) * d / risk, atrD: st.atrD, atr15: st.atr15,
+    el: sc.el, pts: sc.pts, score: sc.score, tfs: sc.tfs, opp: sc.opp,
+    ma: st.ma.dir, trend: st.trend.dir, trendTf: st.trend.tf, vwap: st.vwap,
+    pdh: st.pd && st.pd.h, pdl: st.pd && st.pd.l, pwh: st.pw && st.pw.h, pwl: st.pw && st.pw.l
+  } };
+}
+
+/* =====================================================================
    إدارة الصفقة على شموع 15د الرسمية المغلقة.
    ===================================================================== */
 function fillTrade(tr, bar) {
@@ -333,5 +480,7 @@ var ENGINE3 = { E3: E3, E3_EVT: E3_EVT, e3ema: e3ema, e3atr: e3atr, crossEvents:
   lastCross: lastCross, e3pivots: e3pivots, swingTrend: swingTrend, trendOf: trendOf, maOf: maOf,
   prevDay: prevDay, prevWeek: prevWeek, vwapOf: vwapOf, stateAt: stateAt, scoreFor: scoreFor,
   stopOf: stopOf, targetsOf: targetsOf, evaluate: evaluate, evaluateHour: evaluateHour, fillTrade: fillTrade,
-  stepTrade: stepTrade, tradeR: tradeR };
+  stepTrade: stepTrade, tradeR: tradeR,
+  E3_TFS: E3_TFS, levelKind: levelKind, maFlip: maFlip, framesAt: framesAt, frameSat: frameSat,
+  scoreFrames: scoreFrames, slotCands: slotCands, evaluateSlot: evaluateSlot };
 if (typeof module !== "undefined" && module.exports) module.exports = ENGINE3;

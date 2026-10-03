@@ -160,7 +160,7 @@ export function evaluateHourRef(inp, wkOf) {
   // بفرض حدثٍ مكافئ: لا يوجد في المرجع إلا حسابٌ واحد للدرجة والخطة
   return planRef(inp, wkOf, d, base);
 }
-function planRef(inp, wkOf, d, base) {
+function planRef(inp, wkOf, d, base, elOver) {
   const b15 = inp.b15, d1 = inp.d1, b = b15[b15.length - 1], pd = d1[d1.length - 1];
   let pw = null;
   for (const x of d1) if (x.w < inp.wk) {
@@ -178,7 +178,7 @@ function planRef(inp, wkOf, d, base) {
   const vwap = vv > 0 ? pv / vv : null;
   const atrD = atrRef(last(d1, 259)), atr15 = atrRef(last(b15, 259));
   if (!(atrD > 0 && atr15 > 0)) return { reject: "atr" };
-  const el = { day: !!(day && day.d === d && day.holds), ma: ma === d, trend: trend === d,
+  const el = elOver || { day: !!(day && day.d === d && day.holds), ma: ma === d, trend: trend === d,
                vwap: vwap !== null && d * (b.c - vwap) > 0, week: !!(week && week.d === d && week.holds) };
   const score = Math.round(Object.keys(W).reduce((a, k) => a + (el[k] ? W[k] : 0), 0) * 100) / 100;
   const hw = last(inp.h1, WIN), pv2 = pivRef(hw), list = d > 0 ? pv2.lo : pv2.hi;
@@ -200,4 +200,82 @@ function planRef(inp, wkOf, d, base) {
     tg.push(b.c + d * (Math.floor(lr + 1e-9) + 1) * risk);
   }
   return { reject: null, d, base, el, score, e: b.c, st: stop, tg };
+}
+
+/* =====================================================================
+   §4ج الفريمات الأربعة (قرار 2026-10-03) — مرجعياً من المواصفة:
+   كلُّ استراتيجيةٍ على شموع كلّ فريمٍ المغلقة، والنقاط مرّةً واحدة إن تحقّقت على
+   فريمٍ واحد على الأقل؛ والاتجاه إجماع 1h/4h/1d كما كان. والفرصة من إشارةٍ جديدة
+   أُغلقت شمعتُها في (prevH, H]: عبورُ أمس القائم على 15د/ساعة/4س، وإلا انقلابُ
+   ترتيب المتوسطات على أيّ فريم. «أمس» أوّلاً، ثم الأحدث، ثم الأدقّ.
+   ===================================================================== */
+const TFR = ["15m", "1h", "4h", "1d"];
+function lastCrossEndRef(bars, H, L, pre) {
+  for (let i = bars.length - 1; i >= 0; i--) {
+    const ev = crossRef(bars[i].o, bars[i].c, H, L, pre);
+    if (!ev.length) continue;
+    const d = dirOfEvt(ev[0]), lv = ev[0].includes("h_") ? H : L;
+    return { evt: ev[0], d, end: bars[i].end, holds: d * (bars[bars.length - 1].c - lv) > 0 };
+  }
+  return null;
+}
+function maDirAt(bars) {
+  const c = last(bars, 259).map((b) => b.c), px = c[c.length - 1];
+  const e = [20, 50, 200].map((p) => emaRef(c, p));
+  if (e.some((x) => x === null) || !Number.isFinite(px)) return { dir: 0, ok: false };
+  return { dir: px > e[0] && e[0] > e[1] && e[1] > e[2] ? 1 : (px < e[0] && e[0] < e[1] && e[1] < e[2] ? -1 : 0), ok: true };
+}
+export function evaluateSlotRef(inp, wkOf, prevH) {
+  const b15 = inp.b15, d1 = inp.d1;
+  if (b15.length < 16 || d1.length < 16) return { reject: "data" };
+  const b = b15[b15.length - 1], pd = d1[d1.length - 1];
+  let pw = null;
+  for (const x of d1) if (x.w < inp.wk) {
+    if (!pw || x.w > pw.w) pw = { w: x.w, h: x.h, l: x.l };
+    else if (x.w === pw.w) { pw.h = Math.max(pw.h, x.h); pw.l = Math.min(pw.l, x.l); }
+  }
+  const F = { "15m": b15, "1h": inp.h1 || [], "4h": inp.h4 || [], "1d": d1 };
+  const today15 = b15.filter((x) => x.d === b.d);
+  const per = {};
+  TFR.forEach((tf) => {
+    const bars = F[tf];
+    const today = bars.filter((x) => x.d === b.d), wkb = bars.filter((x) => wkOf(x.d) === inp.wk);
+    const tail = last(bars, 260);
+    const now = maDirAt(tail), before = maDirAt(tail.slice(0, -1));
+    let vw = null;
+    if (tf !== "1d" && today.length) {
+      const lb = today[today.length - 1];
+      let pv = 0, vv = 0;
+      for (const x of today15) if (x.end <= lb.end && x.v > 0) { pv += x.v * (x.h + x.l + x.c) / 3; vv += x.v; }
+      if (vv > 0) { const v = pv / vv; vw = lb.c > v ? 1 : (lb.c < v ? -1 : 0); }
+    }
+    per[tf] = {
+      day: tf === "1d" ? null : lastCrossEndRef(today, pd.h, pd.l, "pd"),
+      week: pw ? lastCrossEndRef(wkb, pw.h, pw.l, "pw") : null,
+      ma: now.dir, flip: now.ok && now.dir !== 0 && now.dir !== before.dir, maEnd: tail.length ? tail[tail.length - 1].end : null,
+      vw
+    };
+  });
+  const cands = [];
+  TFR.forEach((tf, o) => {
+    const p = per[tf];
+    if (p.day && p.day.holds && p.day.end > prevH) cands.push({ base: "day", tf, d: p.day.d, end: p.day.end, o });
+    if (p.flip && p.maEnd > prevH) cands.push({ base: "ma", tf, d: p.ma, end: p.maEnd, o });
+  });
+  if (!cands.length) return { reject: "nobase" };
+  cands.sort((x, y) => (x.base !== y.base ? (x.base === "day" ? -1 : 1) : 0) || (y.end - x.end) || (x.o - y.o));
+  const top = cands[0], d = top.d;
+  const ts = [swingRef(inp.h1), swingRef(inp.h4), swingRef(d1)];
+  const up = ts.filter((x) => x === 1).length, dn = ts.filter((x) => x === -1).length;
+  const sat = (k) => TFR.filter((tf) => {
+    const p = per[tf];
+    if (k === "day" || k === "week") return !!(p[k] && p[k].d === d && p[k].holds);
+    if (k === "ma") return p.ma === d;
+    return p.vw === d;
+  });
+  const el = { day: sat("day").length > 0, ma: sat("ma").length > 0, trend: (up >= 2 && !dn ? 1 : (dn >= 2 && !up ? -1 : 0)) === d,
+               vwap: sat("vwap").length > 0, week: sat("week").length > 0 };
+  const r = planRef(inp, wkOf, d, top.base, el);
+  if (r.reject) return r;
+  return { ...r, baseTf: top.tf, tfs: { day: sat("day"), ma: sat("ma"), vwap: sat("vwap"), week: sat("week") } };
 }

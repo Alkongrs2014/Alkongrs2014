@@ -676,6 +676,54 @@ body.sheet-open{overflow:hidden}
 .v3tft td.nd{color:var(--warn,#E6B24A);font-size:9.5px}
 .v3tft td.lv{color:var(--tx2);font-size:9.5px}
 .v3tfn{color:var(--tx3);font-size:10.5px;margin:5px 0 0}
+/* §4ج: غير المتحقّقة خافتة، والتعارض وحده بلون الهبوط، والمؤكَّدة بفريمٍ آخر بخلفيةٍ خفيفة */
+.v3tft td.off{color:var(--tx3);font-weight:700}
+.v3tft td.cf{color:var(--dn);font-weight:800}
+.v3tft td.on2{color:var(--up);font-weight:800;background:rgba(43,217,138,.08)}
+.v3base{display:inline-block;font-size:8.5px;font-weight:700;color:#04070C;background:var(--acc);border-radius:4px;padding:0 3px;vertical-align:middle}
+/* الصفقات القائمة والمنتهية — صفوفٌ مختصرة، والبطاقة الكاملة تُرسم عند الفتح وحده */
+.v3sect{margin-top:16px}
+.v3sect > .gh{font-weight:800;font-size:13.5px;margin:0 2px 6px}
+.v3act{border:1px solid var(--hair);border-radius:var(--r-sm,12px);background:var(--s1);margin-bottom:7px;content-visibility:auto;contain-intrinsic-size:auto 56px}
+.v3act > summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:9px 12px;font-size:12.5px}
+.v3act > summary::-webkit-details-marker{display:none}
+.v3act > summary::before{content:none !important}
+.v3act .s1{font-weight:800}.v3act .s1 small{font-weight:500;color:var(--tx3);margin-inline-start:6px}
+.v3act .s2{grid-column:1 / -1;color:var(--tx2);font-size:11.5px}
+.v3act .s3{text-align:end;font-weight:700;white-space:nowrap}
+.v3act .warn{color:var(--warn,#E6B24A)}
+.v3act[open] > summary{border-bottom:1px solid var(--hair)}
+.v3act .v3actb{padding:6px 0 0}
+.v3warn{margin:0 14px 10px;padding:7px 10px;border-radius:9px;background:rgba(230,178,74,.10);border:1px solid rgba(230,178,74,.35);font-size:12px;color:var(--tx);position:relative;z-index:2}
+.v3warn b{color:var(--warn,#E6B24A)}
+.v3mt{margin:0 14px 12px;position:relative;z-index:2}
+.v3mt .btn{width:auto;padding:7px 14px;font-size:12.5px}
+.v3ended{display:flex;flex-wrap:wrap;gap:4px 10px;padding:7px 2px;border-bottom:1px solid var(--hair);font-size:12px}
+.v3ended .k{color:var(--tx3)}
+/* صفقاتي — سجلُّ المستخدم في متصفّحه وحده */
+.mtcard{border:1px solid var(--hair);border-inline-start:3px solid var(--tx3);border-radius:var(--r-sm,12px);background:var(--s1);padding:11px 13px;margin-bottom:10px;font-size:12.5px}
+.mtcard.up{border-inline-start-color:var(--up)}.mtcard.dn{border-inline-start-color:var(--dn)}
+.mtcard.done{opacity:.82}
+.mthd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-bottom:6px}
+.mthd .nm{font-size:15px;font-weight:800}.mthd .tk{color:var(--tx3);font-size:11.5px}
+.mthd .dir{font-weight:800}.mthd .dir.up{color:var(--up)}.mthd .dir.dn{color:var(--dn)}
+.mtst{margin-inline-start:auto;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;border:1px solid var(--hair);color:var(--tx2)}
+.mtst.act{color:var(--up);border-color:rgba(43,217,138,.45)}
+.mtst.end{color:var(--tx3)}
+.mtgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;margin:4px 0 6px}
+.mtgrid div{min-width:0}.mtgrid .k{color:var(--tx3);font-size:11px;display:block}
+.mttg{display:flex;flex-wrap:wrap;gap:4px 12px;margin:2px 0 6px}
+.mttg .hit{color:var(--up);font-weight:700}
+.mtw{color:var(--warn,#E6B24A);font-size:11.5px;margin:3px 0}
+.mtsrc{color:var(--tx3);font-size:11px;margin-top:4px}
+.mtbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.mtbtns button{font:inherit;font-size:12px;border:1px solid var(--hair);background:var(--s2);color:var(--tx2);border-radius:8px;padding:5px 10px;cursor:pointer}
+.mtsheet label{display:block;font-size:12px;color:var(--tx2);margin:10px 0 4px}
+.mtsheet input{width:100%;font:inherit;font-size:16px;background:var(--s2);color:var(--tx);border:1px solid var(--hair2);border-radius:10px;padding:9px 11px;direction:ltr;text-align:start}
+.mtsheet .row2{display:flex;gap:8px;margin-top:12px}
+.mtsheet .row2 .btn{flex:1;width:auto}
+.mtsheet .note{font-size:11.5px;color:var(--tx3);margin-top:8px}
+.mtsheet .err{color:var(--dn);font-size:12px;min-height:16px;margin-top:6px}
 /* العقود — بطاقةٌ مختصرة بأسلوب التوصيات، والتفاصيل في كاشف */
 .ocats{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
 .ocats button{flex:none;font:inherit;font-size:12px;border:1px solid var(--hair);background:var(--s2);color:var(--tx2);border-radius:99px;padding:5px 11px;cursor:pointer}
@@ -2344,6 +2392,26 @@ section[data-view="now"].on{display:flex;flex-direction:column}
 </section>
 
 <!-- ================= السجل ================= -->
+<!-- ================= صفقاتي — ما سجّل المستخدم أنه دخله فعلاً =================
+     يُحفظ في localStorage لهذا المتصفّح وحده؛ لا يُنشر ولا يؤثّر في الفرص أو ترتيبها. -->
+<section data-view="mytrades">
+  <div class="card" data-size="hero">
+    <div class="schead" style="margin-bottom:6px">
+      <h2 style="margin:0">صفقاتي</h2>
+      <span class="chip">في متصفّحك وحده</span>
+    </div>
+    <p class="hint">الصفقات التي ضغطتَ لها «دخلت الصفقة». تُحفظ في هذا المتصفّح وحده ولا يراها غيرك، ولا تؤثّر في الفرص العامة أو ترتيبها.
+      الوقف والأهداف تبقى كما سُجّلت، والتحذيرات تقول ما تغيّر. التسجيل متابعةٌ داخل الموقع لا أمرٌ في السوق.</p>
+    <div class="mtbtns" style="margin:0 0 10px">
+      <button type="button" data-mta="export">حفظ نسخة احتياطية</button>
+      <button type="button" data-mta="import">استعادة من نسخة</button>
+      <input type="file" id="mtFile" accept="application/json,.json" hidden>
+      <span class="small" id="mtMsg" style="color:var(--tx3);align-self:center"></span>
+    </div>
+    <div id="mtList"><div class="skl" style="height:120px"></div></div>
+  </div>
+</section>
+
 <section data-view="log">
   <div class="card">
     <h2>سجل المحرّك القديم (أرشيف)</h2>
@@ -2509,6 +2577,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   <button data-go="crypto" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-coin"/></svg>الكريبتو</button>
   <button data-go="contracts" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-opt"/></svg>العقود</button>
   <button data-go="analysis"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-analysis"/></svg>التحليل</button>
+  <button data-go="mytrades" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg>صفقاتي</button>
   <button data-go="log" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>السجل</button>
   <button data-go="news" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-news"/></svg>الأخبار</button>
   <button data-sheet="more" id="btnMore" aria-label="أقسام أخرى" aria-haspopup="dialog" aria-expanded="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-more"/></svg>المزيد</button>
@@ -2534,6 +2603,10 @@ section[data-view="now"].on{display:flex;flex-direction:column}
     <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-opt"/></svg>
     <span class="g">العقود<small>فرص الخيارات — اكتشافٌ مستقل من OPRA والأحداث</small></span>
     <span class="go">‹</span></button>
+  <button class="sheet-r" data-nav="mytrades">
+    <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg>
+    <span class="g">صفقاتي<small>الصفقات التي سجّلتَ دخولها — في متصفّحك وحده</small></span>
+    <span class="go">‹</span></button>
   <button class="sheet-r" data-nav="log">
     <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>
     <span class="g">السجل<small>أداءُ التوصيات المقيس — لا تقديرات</small></span>
@@ -2551,6 +2624,14 @@ section[data-view="now"].on{display:flex;flex-direction:column}
     <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-down"/></svg>
     <span class="g">تثبيت التطبيق<small>يعمل بلا شبكة على آخر بياناتٍ وصلت</small></span>
     <span class="go">‹</span></button>
+</div>
+
+<!-- ورقة «دخلت الصفقة» — تأكيد سعر الدخول الفعلي قبل التسجيل في «صفقاتي» -->
+<div class="sheet" id="sheetMt" role="dialog" aria-modal="true" aria-label="تسجيل صفقة" hidden>
+  <div class="sheet-grip"></div>
+  <button class="sheet-x" type="button" data-mta="cancel" aria-label="إغلاق">✕</button>
+  <h3>دخلت الصفقة</h3>
+  <div id="mtSheetBody"></div>
 </div>
 
 <script src="config.js"></script>
@@ -2572,6 +2653,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
      ثلاثةُ مستهلكين، فنسخةٌ واحدة -->
 <script src="confluence.js"></script>
 <script src="opportunities.js"></script>
+<script src="engine3.js"></script>
 <script>
 "use strict";
 
@@ -3200,7 +3282,10 @@ function renderTopOpp() {
   }
   const top = (T.open || []).slice(0, 3);          // ترتيبُ الخادم نفسه — الأعلى توافقاً
   if (!top.length) {
-    el.innerHTML = `<div class="empty" style="padding:18px">لا صفقة مفتوحة من المحرّك V3 الآن — وهذه نتيجة صحيحة لا عطل</div>`;
+    const na = (T.active || []).length;
+    el.innerHTML = T.life
+      ? `<div class="empty" style="padding:18px">لا فرصة جديدة في هذه اللقطة — وهذه نتيجة صحيحة لا عطل${na ? `. ${bd(na)} صفقة V3 قائمة في شاشة «الفرص»` : ""}</div>`
+      : `<div class="empty" style="padding:18px">لا صفقة مفتوحة من المحرّك V3 الآن — وهذه نتيجة صحيحة لا عطل</div>`;
     if (src) src.textContent = ""; return;
   }
   el.innerHTML = v3Stale(T, false) + top.map(t => {
@@ -5516,6 +5601,7 @@ const LAZY = {
     TRADES = j;
     if (state.view === "screen") renderScreen();
     if (state.view === "now") renderTopOpp();
+    if (state.view === "mytrades") renderMyTrades();
     if (state.sym) { const r = state.symCache[state.sym] || { s: state.sym }; renderStrategies(r); renderPlan(r); }
   },
   "strategies.json": (j) => {
@@ -5801,8 +5887,9 @@ function renderStrategies(rec) {
     ["قمة/قاع الأسبوع السابق — 6.66%", `قمة ${lvl(b.pwh)} · قاع ${lvl(b.pwl)}<br>آخر عبورٍ هذا الأسبوع: ${evt(b.week)}`]
   ];
   el.innerHTML = rows.map(([k, v]) => `<div class="row"><div class="l"><b>${k}</b><small>${v}</small></div></div>`).join("") +
+    (b.fr ? v3Frames({ d: b.up >= b.dn ? 1 : -1 }, b.fr, "الاستراتيجيات حسب الفريم — الآن") : "") +
     `<div class="note">توافق الشراء الآن <b class="num">${v3pct(b.up)}</b> · توافق البيع الآن <b class="num">${v3pct(b.dn)}</b>
-     — حالةٌ حالية لا فرصة: الفرصة تتولّد فقط بعبور قمة/قاع أمس بجسم شمعة أو انقلاب المتوسطات.</div>
+     — حالةٌ حالية لا فرصة: الفرصة تتولّد فقط ${TT.life ? "من إشارةٍ جديدة على شمعةٍ مغلقة — عبور قمة/قاع أمس بجسم شمعة 15د أو ساعة أو 4س، أو انقلاب المتوسطات على أيّ فريم" : "بعبور قمة/قاع أمس بجسم شمعة أو انقلاب المتوسطات"}.</div>
      <p class="srcline">لقطة ${esc(v3Hour(TT))} — شموعٌ مغلقة وحدها، وتُعاد من الصفر ${v3Cycle()}.</p>`;
   if (hint) hint.textContent = "المحرّك V3 — خمس استراتيجيات بأوزانٍ ثابتة";
   card.style.display = "";
@@ -6305,7 +6392,8 @@ async function loadTrend() {
   return state.trend;
 }
 
-const trendOf = (sym) => (((state.trend || {}).syms) || {})[sym] || [];
+/* `trendPts` لا `trendOf`: engine3.js (محمَّلٌ لصفقاتي) يعرّف `trendOf` في النطاق المشترك */
+const trendPts = (sym) => (((state.trend || {}).syms) || {})[sym] || [];
 
 /* إشارات الرمز المفتوحة، الأحدث أولاً. سجلات ما قبل توقيع الاتجاه
    مستبعدة كما في `renderTrackedLevels` — مقاييسها بمواضعة أخرى. */
@@ -6318,7 +6406,7 @@ function sigsOf(sym) {
 function renderTrend(rec) {
   const card = $("#cardTrend"); if (!card) return;
   const row = symRow(rec.s);
-  const pts = trendOf(rec.s), sigs = sigsOf(rec.s);
+  const pts = trendPts(rec.s), sigs = sigsOf(rec.s);
   // بلا تسلسل ولا إشارة لا شيء يُقال — والبطاقة الفارغة أسوأ من غيابها
   if (!pts.length && !sigs.length) { card.style.display = "none"; return; }
   card.style.display = "";
@@ -7049,9 +7137,15 @@ function renderPlan(rec) {
   if (lv) lv.innerHTML = "";
   const TT = tradesOf();
   if (!TT) { if (state.book !== "crypto") need("trades.json"); out.innerHTML = `<div class="skl" style="height:120px"></div>`; card.style.display = ""; return; }
+  /* الجديدة في هذه اللقطة أو القائمة من لقطةٍ سابقة (§4ج) — البحث يصل إلى الصفقة المفعّلة
+     حتى لو لم تعد ضمن الفرص الجديدة؛ والمنتهية حديثاً تُقال بسببها */
   const open = (TT.open || []).find(x => x.s === rec.s);
+  const act = (TT.active || []).find(x => x.s === rec.s);
+  const done = !open && !act ? (TT.closed || []).find(x => x.s === rec.s) : null;
   card.style.display = "";
-  out.innerHTML = open ? v3Card(open, -1)
+  out.innerHTML = open ? v3Card(open, -1, "new") : act ? v3Card(act, -1, "active")
+    : done ? `<div class="empty">آخر صفقة V3 لهذا الرمز ${esc(V3_END[done.end.k] || done.end.k)} ${esc(stamp(done.end.t * 1000))} ${TZ_NOTE}، ولا فرصة جديدة له في لقطة ${esc(v3Hour(TT))}.</div>`
+    : TT.life ? `<div class="empty">لا فرصة ولا صفقة قائمة لهذا الرمز في لقطة ${esc(v3Hour(TT))} — الفرصة تتولّد من إشارةٍ جديدة على شمعةٍ مغلقة ${v3Cycle()}.</div>`
     : `<div class="empty">لا فرصة لهذا الرمز في لقطة ${esc(v3Hour(TT))} — تُعاد اللقطة من الصفر ${v3Cycle()}.</div>`;
 }
 
@@ -7997,7 +8091,80 @@ function v3Elements(t) {
    (واليومي مصدرُ مستوى أمس/الأسبوع لا حكمٌ عليه)، والمتوسطات على الساعة وحدها،
    والاتجاه على الساعة و4س واليومي كلٌّ بحكمه. عرضٌ لحقول اللقطة كما هي: لا حساب
    ولا وزنٌ مكرَّر — النقاط عمودٌ واحد لكل استراتيجية، والدرجة نفسها فوق. */
-function v3Frames(t) {
+/* §4ج (قرار المالك 2026-10-03): الاستراتيجيات الخمس على الفريمات الأربعة من حالة الخادم
+   المضغوطة `fr` — لكل فريم [أمس، المتوسطات، الاتجاه، VWAP، الأسبوع] (build-trades.mjs `frPack`).
+   الخلية تقول نوع الحركة لا ✓/✗ وحدهما: عبورٌ بإغلاقٍ على هذا الفريم · ثباتٌ بعد عبورٍ سابق ·
+   فوق/تحت المستوى منذ الافتتاح بلا عبور · مصدر المستوى (اليومي). والحالة بلونها:
+   ✓ متحقّقة · ✓✓ متحقّقة ومؤكَّدة بفريمٍ آخر · ⇄ متحقّقة في الجهة المعاكسة (تعارض) · ✗ غير متحقّقة.
+   والنقاط عمودٌ واحد لكل استراتيجية — تُحتسب مرّةً واحدة مهما تعدّدت الفريمات. عرضٌ لا حساب. */
+const V3_TFS = ["15m", "1h", "4h", "1d"];
+const V3_TFL = { "15m": "15د", "1h": "ساعة", "4h": "4س", "1d": "يومي" };
+const V3_EVD = { hb: 1, lr: 1, lb: -1, hl: -1 };
+function v3LevelCell(code, wk) {
+  const H = wk ? "قمة الأسبوع" : "قمة أمس", L = wk ? "قاع الأسبوع" : "قاع أمس";
+  if (code == null) return { nd: 1 };
+  if (code[0] === "r") {
+    const o = +code.slice(1);
+    return { ref: 1, txt: "مصدر المستوى", sub: o > 0 ? "افتتاح اليوم فوق القمة" : o < 0 ? "افتتاح اليوم تحت القاع" : "افتتاح اليوم داخل النطاق" };
+  }
+  const k = code[0], ev = code.split(".")[1];
+  const EVT = { hb: [`اختراق ${H} بإغلاق`, `ثبات فوق ${H} بعد اختراقها`], lr: [`استعادة ${L} بإغلاق`, `ثبات فوق ${L} بعد استعادته`],
+                lb: [`كسر ${L} بإغلاق`, `ثبات تحت ${L} بعد كسره`], hl: [`إغلاقٌ تحت ${H} (فقدها)`, `ثبات تحت ${H} بعد فقدها`] };
+  if (k === "b") return { dir: V3_EVD[ev], txt: EVT[ev][0] };
+  if (k === "h") return { dir: V3_EVD[ev], txt: EVT[ev][1] };
+  if (k === "k") return { dir: 0, txt: "عاد السعر عبر المستوى", sub: EVT[ev][0] };
+  if (k === "a") return { dir: 0, txt: `فوق ${H} منذ الافتتاح`, sub: "بلا اختراقٍ جديد" };
+  if (k === "w") return { dir: 0, txt: `تحت ${L} منذ الافتتاح`, sub: "بلا كسرٍ جديد" };
+  if (k === "n") return { dir: 0, txt: "لا شمعة مغلقة اليوم بعد" };
+  return { dir: 0, txt: "داخل النطاق" };
+}
+function v3Frames(t, frNow, title) {
+  const fr = frNow || t.fr;
+  if (!fr) return v3FramesOld(t);
+  const d = t.d || 1, dq = t.dq || null;
+  const tri = (v, up, dn, zero) => v > 0 ? up : v < 0 ? dn : zero;
+  // كلُّ خلية: { dir (+1/-1/0)، txt، sub، ref، nd }
+  const cellOf = (k, tf) => {
+    const a = fr[tf] || [];
+    if (k === "day") return v3LevelCell(a[0], false);
+    if (k === "week") return v3LevelCell(a[4], true);
+    if (k === "ma") { const v = a[1]; if (v == null) return { nd: 1 };
+      return { dir: Math.sign(v), txt: Math.abs(v) === 2 ? tri(v, "انقلاب صاعد بإغلاق هذه الشمعة", "انقلاب هابط بإغلاق هذه الشمعة") : tri(v, "ترتيب صاعد", "ترتيب هابط", "غير مرتّب") }; }
+    if (k === "trend") { const v = a[2]; if (v == null) return { nd: 1 };
+      return { dir: v, txt: tri(v, "صاعد", "هابط", "محايد"), sub: tf === "15m" ? "للعرض — لا يدخل الحكم" : "" }; }
+    if (tf === "1d") return { na: 1 };
+    const v = a[3]; if (v == null) return { nd: 1 };
+    return { dir: v, txt: tri(v, "الإغلاق فوق VWAP", "الإغلاق تحت VWAP", "عند VWAP") };
+  };
+  const rows = [["أمس", "day"], ["المتوسطات", "ma"], ["الاتجاه", "trend"], ["VWAP", "vwap"], ["الأسبوع", "week"]];
+  const body = rows.map(([lbl, k]) => {
+    const cells = V3_TFS.map((tf) => cellOf(k, tf));
+    const nSat = cells.filter((c) => c.dir === d).length;
+    const tds = cells.map((c, i) => {
+      if (c.na) return `<td class="na">لا ينطبق</td>`;
+      if (c.nd || (k === "ma" && dq && dq.ma === 0 && V3_TFS[i] === "1h")) return `<td class="nd">بيانات غير كافية</td>`;
+      const base = !frNow && t.base === k && t.baseTf === V3_TFS[i] ? ` <b class="v3base">أساس</b>` : "";
+      const sub = c.sub ? `<br><small>${esc(c.sub)}</small>` : "";
+      if (c.ref) return `<td class="lv">${esc(c.txt)}${sub}</td>`;
+      const cls = c.dir === d ? (nSat >= 2 ? "on2" : "on") : c.dir === -d ? "cf" : "off";
+      const mk = { on: "✓", on2: "✓✓", cf: "⇄", off: "✗" }[cls];
+      return `<td class="${cls}"><b>${mk}</b>${base}<br><small>${esc(c.txt)}</small>${sub}</td>`;
+    }).join("");
+    const pts = t.pts && !frNow ? `<td class="pt"><bdi>${v3pct(t.pts[k])}</bdi></td>` : "";
+    return `<tr><th>${esc(lbl)}</th>${tds}${pts}</tr>`;
+  }).join("");
+  const ptsH = t.pts && !frNow ? "<th>نقاط</th>" : "";
+  return `<details class="plain v3tf"><summary>${esc(title || "الاستراتيجيات حسب الفريم")}</summary>
+    <table class="v3tft"><thead><tr><th>${d > 0 ? "لجهة الشراء" : "لجهة البيع"}</th>${V3_TFS.map((tf) => `<th>${V3_TFL[tf]}</th>`).join("")}${ptsH}</tr></thead>
+    <tbody>${body}</tbody></table>
+    <p class="v3tfn">✓ متحقّقة على الفريم · ✓✓ متحقّقة ومؤكَّدة بفريمٍ آخر · ⇄ متحقّقة في الجهة المعاكسة (تعارض) · ✗ غير متحقّقة.
+      كلُّ استراتيجيةٍ تُحتسب بنقاطها <b>مرّةً واحدة</b> مهما تعدّدت فريماتها. الاتجاه يُحتسب بإجماع الساعة و4س واليومي
+      (فريمان على الأقل ولا معاكس)، و15د للعرض. اليومي مصدرُ مستوى أمس والحكم على الفريمات الأدنى؛ و«فوق المستوى منذ
+      الافتتاح» ليس اختراقاً جديداً. شموعٌ مغلقة وحدها.</p>
+  </details>`;
+}
+/* الجدول السابق — للقطةٍ منشورة قبل §4ج (بلا `fr`)، كي لا ينكسر العرض أثناء الانتقال */
+function v3FramesOld(t) {
   const dq = t.dq || null, d = t.d, el = t.el || {};
   const NA = `<td class="na">غير مطبق</td>`, ND = `<td class="nd">بيانات غير كافية</td>`;
   const mk = (on) => on ? `<td class="on">✓</td>` : `<td class="off">✗</td>`;
@@ -8023,19 +8190,55 @@ function v3Frames(t) {
   </details>`;
 }
 
-/* بطاقة صفقة V3 — نفس الخطّافات التي تقرؤها أدوات الإثبات (`.srow` و`data-open`) */
-function v3Card(t, i) {
+/* تحذيرات صفقةٍ قائمة من حقل `now` الذي يكتبه الخادم — عرضٌ لا قرار: لا تُغلق الصفقة ولا
+   تُعدَّل خطتها. ومعها تعارضُ الفريمات لحظة الإصدار (`conflict`). */
+const V3_BASE = { day: "قمة/قاع أمس", ma: "المتوسطات" };
+function v3Warnings(t) {
+  const w = [], n = t.now;
+  if (n && n.warn) {
+    if (n.warn.includes("nodata")) w.push("لا شموع حديثة للرمز في هذه اللقطة — الحالة من آخر بياناتٍ متاحة");
+    if (n.warn.includes("drop") && Number.isFinite(n.score)) w.push(`انخفض التوافق من ${v3pct(t.score)} عند الإصدار إلى ${v3pct(n.score)} الآن`);
+    if (n.warn.includes("core")) w.push("لم تعد قمة/قاع أمس ولا المتوسطات متحقّقةً في جهة الصفقة على أيّ فريم");
+    if (n.warn.includes("opp")) w.push("إشارةٌ أساسية في الجهة المعاكسة الآن (أمس أو المتوسطات)");
+  }
+  for (const c of t.conflict || []) w.push(`تعارض عند الإصدار: ${V3_BASE[c.base] || c.base} ${c.d > 0 ? "صاعدة" : "هابطة"} على ${V3_TFL[c.tf] || c.tf}`);
+  return w;
+}
+/* حالة الصفقة القائمة كما تقولها دورة الحياة (§6) */
+function v3Status(t) {
+  if (t.status === "confirmed") return "مؤكَّدة — بانتظار التنفيذ عند افتتاح الشمعة التالية";
+  if (t.status === "active") {
+    const f = t.fill ? `نُفِّذت ${stamp(t.fill.t * 1000)} ${TZ_NOTE} عند <span class="num">${money(t.fill.px)}</span>` : "نشطة";
+    return `نشطة · ${f}${t.hit ? ` · بلغت T${t.hit} — الوقف انتقل إلى سعر التنفيذ` : ""}`;
+  }
+  return t.end ? (V3_END[t.end.k] || t.end.k) : "";
+}
+
+/* بطاقة صفقة V3 — نفس الخطّافات التي تقرؤها أدوات الإثبات (`.srow` و`data-open`).
+   `kind`: "new" فرصةٌ جديدة في هذه اللقطة · "active" صفقةٌ قائمة من لقطةٍ سابقة */
+function v3Card(t, i, kind) {
+  kind = kind || (t.now ? "active" : "new");
   const D = v3dir(t.d), lr = symRow(t.s);
   const px = lr && Number.isFinite(lr.p) ? lr.p : null;
   const chg = lr && Number.isFinite(lr.chg) ? lr.chg : null;
   const col = chg === null ? "var(--mut)" : chg > 0 ? "var(--up)" : chg < 0 ? "var(--dn)" : "var(--mut)";
   const tg = (t.tg || []).map((x, k) => `<span class="${k < (t.hit || 0) ? "hit" : ""}"><bdi><span class="k">T${k + 1}</span> <span class="num">${money(x.p)}</span></bdi> <small class="k"><bdi>${esc(v3src(x.src))}</bdi></small>${k < (t.hit || 0) ? " ✓" : ""}</span>`).join("");
   const chips = [];
-  /* اللقطة: الفرصة مبنيّةٌ فيها من الصفر ولا ترث شيئاً ممّا قبلها */
   const T0 = tradesOf();
-  chips.push(`<span class="good">لقطة ${esc(v3Hour(T0))} — دخولٌ ووقفٌ وأهدافٌ محسوبة الآن</span>`);
-  chips.push(`<span class="cold">الأساس: ${t.base === "day" ? "قمة/قاع أمس" : "المتوسطات"}</span>`);
+  const baseTxt = `${V3_BASE[t.base] || t.base}${t.baseTf ? " على " + (V3_TFL[t.baseTf] || t.baseTf) : ""}`;
+  if (kind === "active") {
+    chips.push(`<span class="good">${v3Status(t)}</span>`);
+    chips.push(`<span class="cold">صدرت ${esc(stamp(t.h * 1000))} ${TZ_NOTE} · الأساس: ${esc(baseTxt)}</span>`);
+  } else {
+    chips.push(`<span class="good">${T0 && T0.life ? "إشارةٌ جديدة في" : "لقطة"} ${esc(v3Hour(T0))}${t.evAt ? ` — على إغلاق شمعة ${esc(clock(t.evAt * 1000))}` : ""}</span>`);
+    chips.push(`<span class="cold">الأساس: ${esc(baseTxt)}${t.baseTfs && t.baseTfs.length > 1 ? ` (ومعه ${esc(t.baseTfs.filter(x => x !== t.baseTf).map(x => V3_TFL[x]).join("، "))})` : ""}</span>`);
+  }
   if (px !== null) chips.push(`<span>السعر الآن <span class="num">${money(px)}</span> <span class="num" style="color:${col}">${chg === null ? "" : pct(chg)}</span></span>`);
+  const warns = v3Warnings(t);
+  const warnHtml = warns.length ? `<div class="v3warn"><b>تحذير:</b> ${warns.map(esc).join(" · ")} — الصفقة باقية بخطتها الأصلية حتى الوقف أو آخر هدف أو انقضاء مدّتها.</div>` : "";
+  const nowSc = kind === "active" && t.now && Number.isFinite(t.now.score)
+    ? `<div class="v3q"><b class="num">${v3pct(t.now.score)}</b><i>التوافق الآن</i></div>` : "";
+  const T = tradesOf(), frNow = kind === "active" && T && T.bySym && T.bySym[t.s] ? T.bySym[t.s].fr : null;
   // `i < 0` بطاقةٌ خارج القائمة (شاشة السهم) — بلا رتبة
   return `<div class="srow opp d-${D.c}${i >= 0 && i < 3 ? " top r" + (i + 1) : ""}" data-open="${esc(t.s)}">
     <div class="opp-hd">
@@ -8048,16 +8251,20 @@ function v3Card(t, i) {
       <div class="opp-dir ${D.c}">${D.t}</div>
     </div>
     <div class="v3sc">
-      <div class="v3q"><b class="num">${v3pct(t.score)}</b><i>قوة التوافق</i></div>
+      <div class="v3q"><b class="num">${v3pct(t.score)}</b><i>${kind === "active" ? "التوافق عند الإصدار" : "قوة التوافق"}</i></div>
+      ${nowSc}
       ${v3Elements(t)}
     </div>
-    ${v3Frames(t)}
+    ${warnHtml}
+    ${kind === "active" ? "" : v3Frames(t)}
+    ${frNow ? v3Frames({ d: t.d }, frNow, "الاستراتيجيات حسب الفريم — الآن") : ""}
     <div class="v3plan">
       <span><span class="k">دخول</span> <b class="num">${money(t.e)}</b></span>
-      <span><span class="k">وقف</span> <b class="num">${money(t.stNow || t.st)}</b></span>
+      <span><span class="k">وقف</span> <b class="num">${money(t.stNow || t.st)}</b>${t.stNow && t.stNow !== t.st ? ` <small class="k">(الأصلي ${money(t.st)})</small>` : ""}</span>
       ${tg}
     </div>
     <div class="opp-ft">${chips.join("")}</div>
+    ${kind !== "closed" ? `<div class="v3mt"><button class="btn gray" type="button" data-mt="${esc(t.id)}">دخلت الصفقة</button></div>` : ""}
   </div>`;
 }
 
@@ -8099,7 +8306,13 @@ function renderTrades(book) {
   const hrs = CR ? null : stockSlotsRiyadh();
   const cycle = CR ? "كل 30 دقيقة على :15 و:45 طوال اليوم ‎24/7‎ (يوم الكريبتو 03:00→03:00 بتوقيت الرياض)"
                    : `كل 30 دقيقة طوال بيانات SIP (ما قبل الافتتاح · الرسمية · ما بعد الإغلاق): ${hrs.length ? hrs[0] + " · " + (hrs[1] || "") + " … " + hrs[hrs.length - 1] : "—"} ${TZ_NOTE}`;
-  const note = `<p class="v3note"><b>لقطة ${esc(v3Hour(T))}</b> — تُصفَّر الفرص كلُّها وتُبنى من الصفر ${cycle}،
+  const note = T.life
+    ? `<p class="v3note"><b>لقطة ${esc(v3Hour(T))}</b> — ${cycle}. <b>الفرص الجديدة</b> وُلدت من إشارةٍ جديدة في هذه اللقطة
+      (عبور قمة/قاع أمس بإغلاق شمعة 15د أو ساعة أو 4س، أو انقلاب المتوسطات على أيّ فريم) ومرتّبةٌ بقوة التوافق ثم الحداثة.
+      وما صدر قبلها يُتابَع في «صفقات V3 القائمة» بخطته الأصلية حتى الوقف أو آخر هدف أو انقضاء 5 جلسات — ولا يؤثّر في الترتيب.<br>
+      قوة التوافق = نسبة توافق الاستراتيجيات الخمس حسب الأوزان المحدّدة
+      (أمس 40 · المتوسطات 40 · الاتجاه 6.67 · VWAP 6.67 · الأسبوع 6.66)، كلٌّ مرّةً واحدة مهما تعدّدت فريماته — <b>ليست نسبة نجاح</b>.</p>`
+    : `<p class="v3note"><b>لقطة ${esc(v3Hour(T))}</b> — تُصفَّر الفرص كلُّها وتُبنى من الصفر ${cycle}،
     ولا يُحمَل دخولٌ ولا وقفٌ ولا هدف من اللقطة السابقة.<br>
     قوة التوافق = نسبة توافق الاستراتيجيات الخمس حسب الأوزان المحدّدة
     (أمس 40 · المتوسطات 40 · الاتجاه 6.67 · VWAP 6.67 · الأسبوع 6.66) — <b>ليست نسبة نجاح</b>.</p>`;
@@ -8112,9 +8325,254 @@ function renderTrades(book) {
       <p class="warnline"><b>تنبيه:</b> تداولها دون 500 ألف دولار في 24 ساعة: السبريد أوسع والانزلاق أكبر، وقد لا يُنفَّذ السعر المعروض. نفس الاستراتيجيات والأوزان — لكن المخاطرة أعلى.</p>
       ${low.map((t, i) => v3Card(t, -1)).join("")}
     </div>` : "";
-  el.innerHTML = v3Stale(T, CR) + note + (open.length ? open.map(v3Card).join("")
-    : `<div class="empty">لا فرصة في هذه اللقطة — تتولّد الفرصة حين يكون عبورُ قمة/قاع أمس قائماً أو المتوسطات مرتّبة، وهذه نتيجة صحيحة لا عطل</div>`) + lowHtml;
-  if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة${low.length ? ` + ${bd(low.length)} أقل سيولة` : ""} في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُني التحليل ${esc(stamp(Date.parse(T.generatedAt)))} (${ago(Date.parse(T.generatedAt))})`;
+  const act = T.active || [], ended = T.closed || [];
+  el.innerHTML = v3Stale(T, CR) + note + (open.length ? open.map((t, i) => v3Card(t, i, "new")).join("")
+    : T.life ? `<div class="empty">لا فرصة جديدة في هذه اللقطة — الفرصة تتولّد من إشارةٍ جديدة على شمعةٍ مغلقة، وهذه نتيجة صحيحة لا عطل${act.length ? ". الصفقات القائمة أدناه" : ""}</div>`
+    : `<div class="empty">لا فرصة في هذه اللقطة — تتولّد الفرصة حين يكون عبورُ قمة/قاع أمس قائماً أو المتوسطات مرتّبة، وهذه نتيجة صحيحة لا عطل</div>`) + lowHtml
+    + (T.life ? v3ActiveHtml(act) + v3EndedHtml(ended) : "");
+  if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة${T.life ? " جديدة" : ""}${low.length ? ` + ${bd(low.length)} أقل سيولة` : ""}${T.life ? ` · ${bd(act.length)} صفقة قائمة` : ""} في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُني التحليل ${esc(stamp(Date.parse(T.generatedAt)))} (${ago(Date.parse(T.generatedAt))})`;
+}
+
+/* صفقات V3 القائمة — صفٌّ مختصر لكلٍّ، والبطاقة الكاملة تُرسم حين يُفتح الصفّ وحده (قوائم الكريبتو
+   تبلغ المئات، ورسمُ مئات البطاقات بجداولها يثقل الهاتف بلا قارئ) */
+function v3ActiveHtml(act) {
+  if (!act.length) return "";
+  const row = (t) => {
+    const lr = symRow(t.s), D = v3dir(t.d), n = t.now || {};
+    const px = lr && Number.isFinite(lr.p) ? lr.p : null, ref = t.fill ? t.fill.px : t.e;
+    const pnl = px !== null && ref ? (px - ref) / ref * 100 * t.d : null;
+    const w = v3Warnings(t);
+    return `<details class="plain v3act" data-act="${esc(t.id)}"><summary>
+      <span class="s1">${esc(lr ? nm(lr) : t.s)}<small>${esc(t.s)}</small> <span style="color:var(--${D.c})">${D.t}</span>${t.low ? ` <small>أقل سيولة</small>` : ""}</span>
+      <span class="s3 num">${pnl === null ? "—" : `<span style="color:${pnl >= 0 ? "var(--up)" : "var(--dn)"}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}%</span>`}</span>
+      <span class="s2">${t.status === "confirmed" ? "بانتظار التنفيذ" : t.hit ? `بلغت T${t.hit}` : "نشطة"} · التوافق ${v3pct(t.score)} ← الآن ${Number.isFinite(n.score) ? v3pct(n.score) : "—"}
+        · صدرت ${esc(stamp(t.h * 1000))}${w.length ? ` · <span class="warn">تحذيرات: ${bd(w.length)}</span>` : ""}</span>
+    </summary><div class="v3actb"></div></details>`;
+  };
+  return `<div class="v3sect"><div class="gh">صفقات V3 القائمة · ${bd(act.length)}</div>
+    <p class="v3note">صدرت في لقطاتٍ سابقة وتُتابَع بخطتها الأصلية (دخول ووقف وأهداف لا تتغيّر) حتى الوقف أو آخر هدف أو انقضاء 5 جلسات.
+      تغيّرُ الاستراتيجيات يظهر تحذيراً ولا يغلقها، ولا تتولّد للرمز فرصةٌ ثانية خلال دورة حياتها. الترتيب بالتوافق الحالي.
+      «تفعيل الدخول» هنا متابعةٌ داخل الموقع لا أمرٌ في السوق.</p>
+    ${act.map(row).join("")}</div>`;
+}
+function v3EndedHtml(ended) {
+  if (!ended.length) return "";
+  const row = (t) => {
+    const lr = symRow(t.s), D = v3dir(t.d);
+    return `<div class="v3ended"><b>${esc(lr ? nm(lr) : t.s)}</b><span class="k">${esc(t.s)}</span><span style="color:var(--${D.c})">${D.t}</span>
+      <span>${esc(V3_END[t.end.k] || t.end.k)}</span><span class="k">${esc(stamp(t.end.t * 1000))} ${TZ_NOTE}</span>
+      <span class="k">دخول ${money(t.fill ? t.fill.px : t.e)} · خروج ${money(t.end.px)}${t.hit ? ` · بلغت T${t.hit}` : ""}</span></div>`;
+  };
+  return `<details class="plain v3sect"><summary>انتهت خلال 24 ساعة · ${bd(ended.length)}</summary>${ended.map(row).join("")}</details>`;
+}
+/* =======================================================================
+   «صفقاتي» — الصفقات التي يسجّل المستخدم أنه دخلها فعلاً.
+
+   تُحفظ في `localStorage` لهذا المتصفّح وحده (المفتاح `stk_mytrades`): لا خادم ولا حساب ولا
+   ملفّ منشور، فصفقات كلّ شخصٍ لا يراها غيره. ولا تؤثّر في أيّ شيءٍ عام: الفرص وترتيبها من
+   الخادم وحده، وهذا القسم يقرأ ما يجلبه الموقع أصلاً (الملخّص ولقطة V3 وملفّ شموع الرمز)
+   بلا طلبٍ جديد إلى أيّ مزوّد.
+
+   الخطة (وقف وأهداف) مثبّتةٌ لحظة التسجيل ولا تُعدَّل تلقائياً. والحالة تُقاس بقواعد V3 نفسها
+   (`stepTrade` من engine3.js — لا نسخة ثانية): شموع 15د المغلقة **بعد** لحظة التسجيل، الوقف
+   ثم الأهداف، والوقف إلى سعر الدخول بعد T1، وانقضاء 5 جلسات. شمعةُ لحظة التسجيل نفسها لا
+   تُحتسب: ما بلغته قبل الدخول ليس للصفقة.
+   ======================================================================= */
+const MT_KEY = "mytrades", MT_M15 = 15 * 60000, MT_EVAL_MS = 2 * 60000;
+const mtLoad = () => { const a = load(MT_KEY, []); return Array.isArray(a) ? a.filter((r) => r && r.id && r.s) : []; };
+const mtSave = (a) => save(MT_KEY, a);
+let mtCryptoAt = 0, mtBusy = false, mtPending = null;
+const mtBarCache = {};
+const mtSum = (book) => bookGet(book, "summary");
+const mtRow = (book, s) => { const S = mtSum(book); return S && (S.rows || []).find((r) => r.s === s) || null; };
+const mtDoc = (book) => book === "crypto" ? TRADES_C : TRADES;
+/* فرصة V3 بمعرّفها في الدفترين — الجديدة والقائمة */
+function mtFindV3(id) {
+  for (const [book, T] of [["us", TRADES], ["crypto", TRADES_C]]) {
+    if (!T) continue;
+    const t = [...(T.open || []), ...(T.active || [])].find((x) => x.id === id);
+    if (t) return { t, book };
+  }
+  return null;
+}
+function mtAsk(id) {
+  const f = mtFindV3(id), box = $("#mtSheetBody");
+  if (!f || !box) return;
+  const { t, book } = f, r = mtRow(book, t.s), D = v3dir(t.d);
+  const px = r && Number.isFinite(r.p) ? r.p : t.e;
+  mtPending = { t, book };
+  box.innerHTML = `<div class="mtsheet">
+    <p><b>${esc(r ? nm(r) : t.s)}</b> <span class="k">${esc(t.s)}</span> · <span style="color:var(--${D.c})">${D.t}</span>
+      · فريم الدخول ${esc(V3_TFL[t.baseTf] || "15د")}</p>
+    <p class="note">وقف <b class="num">${money(t.stNow || t.st)}</b> · أهداف ${(t.tg || []).map((x) => `<b class="num">${money(x.p)}</b>`).join(" · ")}
+      · دخول المحرّك <span class="num">${money(t.e)}</span></p>
+    <label for="mtPx">سعر الدخول الفعلي</label>
+    <input id="mtPx" type="number" inputmode="decimal" step="any" min="0" value="${px}">
+    <div class="err" id="mtErr"></div>
+    <div class="row2">
+      <button class="btn" type="button" data-mta="save">سجّل في صفقاتي</button>
+      <button class="btn gray" type="button" data-mta="cancel">إلغاء</button>
+    </div>
+    <p class="note">تسجيلٌ للمتابعة داخل الموقع فقط — <b>ليس أمراً في السوق</b>. يُحفظ في هذا المتصفّح وحده، والوقت المسجَّل لحظةُ الضغط بتوقيت الرياض.</p>
+  </div>`;
+  sheetOpen("sheetMt");
+  setTimeout(() => { const i = $("#mtPx"); if (i) { i.focus(); i.select(); } }, 80);
+}
+function mtCommit() {
+  const p = mtPending, inp = $("#mtPx"), err = $("#mtErr");
+  if (!p || !inp) return;
+  const px = Number(inp.value), t = p.t;
+  if (!(Number.isFinite(px) && px > 0)) { err.textContent = "أدخل سعراً صحيحاً أكبر من صفر"; return; }
+  if ((px - (t.stNow || t.st)) * t.d <= 0) { err.textContent = "السعر في جهة الوقف أو عنده — لا يمكن متابعة صفقةٍ تجاوزت وقفها"; return; }
+  const a = mtLoad();
+  if (a.some((r) => r.src === t.id && r.status === "open")) { err.textContent = "هذه الصفقة مسجّلةٌ في صفقاتي ونشطة"; return; }
+  const r = mtRow(p.book, t.s);
+  a.unshift({ id: "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), src: t.id, s: t.s, book: p.book,
+    name: r ? nm(r) : t.s, d: t.d, tf: t.baseTf || "15m", base: t.base, at: Date.now(), px,
+    e0: t.e, st: t.stNow || t.st, tg: (t.tg || []).map((x) => x.p), score0: t.score, el0: t.el, status: "open" });
+  mtSave(a);
+  mtPending = null;
+  sheetClose();
+  if (state.view === "mytrades") renderMyTrades();
+}
+function mtAction(act, id) {
+  if (act === "save") return mtCommit();
+  if (act === "cancel") { mtPending = null; return sheetClose(); }
+  if (act === "export") {
+    const a = mtLoad();
+    return download(`my-trades-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ app: "webtrade", kind: "mytrades", v: 1, at: Date.now(), trades: a }, null, 1), "application/json");
+  }
+  if (act === "import") { const f = $("#mtFile"); if (f) f.click(); return; }
+  const a = mtLoad(), i = a.findIndex((r) => r.id === id);
+  if (i < 0) return;
+  if (act === "end" && confirm("إنهاء متابعة هذه الصفقة؟ يبقى سجلُّها للمراجعة.")) { a[i].status = "ended"; a[i].endAt = Date.now(); }
+  else if (act === "del" && confirm("حذف هذه الصفقة من السجلّ نهائياً من هذا المتصفّح؟")) a.splice(i, 1);
+  else return;
+  mtSave(a); renderMyTrades();
+}
+/* الاستيراد يدمج بالمعرّف ولا يمحو: نسخةٌ احتياطية تُستعاد فوق ما سُجّل بعدها */
+function mtImport(file) {
+  const msg = $("#mtMsg");
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const j = JSON.parse(rd.result), list = Array.isArray(j) ? j : j && Array.isArray(j.trades) ? j.trades : null;
+      if (!list) throw new Error("ليس ملفّ صفقات");
+      const ok = list.filter((r) => r && typeof r.id === "string" && typeof r.s === "string" && (r.d === 1 || r.d === -1)
+        && Number.isFinite(r.px) && Number.isFinite(r.st) && Array.isArray(r.tg));
+      const a = mtLoad(), have = new Set(a.map((r) => r.id));
+      let n = 0;
+      for (const r of ok) if (!have.has(r.id)) { a.push(r); n++; }
+      a.sort((x, y) => y.at - x.at);
+      mtSave(a);
+      if (msg) msg.textContent = `استُعيدت ${n} صفقة${ok.length - n ? ` (و${ok.length - n} موجودةٌ أصلاً)` : ""}`;
+      renderMyTrades();
+    } catch (e) { if (msg) msg.textContent = "تعذّرت الاستعادة: " + e.message; }
+  };
+  rd.readAsText(file);
+}
+/* شموع 15د المغلقة للرمز من ملفّه المنشور (نفس ملفّ شاشة السهم) — ذاكرةٌ خمس دقائق.
+   الأسهم: سلسلة الجلسات كلّها (`tfx`) إن وُجدت، كما يمشي المحرّك؛ والكريبتو يوم UTC. */
+async function mtBars(book, s) {
+  const k = book + "|" + s, c = mtBarCache[k];
+  if (c && Date.now() - c.at < 5 * 60000) return c.bars;
+  const d = await getJSON(`${book === "crypto" ? "crypto/" : ""}sym/${s}.json`);
+  const src = (book !== "crypto" && d.tfx && d.tfx["15m"] && d.tfx["15m"].c) || (d.tf && d.tf["15m"] && d.tf["15m"].c) || [];
+  const now = Date.now(), dk = (t) => { if (book === "crypto") { const x = new Date(t); return x.getUTCFullYear() * 10000 + (x.getUTCMonth() + 1) * 100 + x.getUTCDate(); }
+    const p = etParts(t); return p.y * 10000 + p.mo * 100 + p.d; };
+  const bars = unpackCandles(src).filter((b) => b && b.t + MT_M15 <= now).map((b) => ({ ...b, d: dk(b.t) }));
+  bars.forEach((b, i) => { b.last = book === "crypto" ? (b.t + MT_M15) % 86400000 === 0 : (i + 1 < bars.length && bars[i + 1].d !== b.d); });
+  mtBarCache[k] = { at: now, bars };
+  return bars;
+}
+async function mtEval(rec) {
+  const bars = await mtBars(rec.book, rec.s);
+  const from = Math.ceil(rec.at / MT_M15) * MT_M15, b = bars.filter((x) => x.t >= from);
+  const tr = { d: rec.d, st: rec.st, tg: rec.tg.map((p) => ({ p })), status: "active", fill: { t: rec.at, px: rec.px },
+    day: b.length ? b[0].d : null, sess: 0, hit: 0, beNext: false, stNow: rec.st };
+  for (const x of b) { stepTrade(tr, x); if (tr.status === "closed") break; }
+  // نافذة الملفّ محدودة: لا يُستبدل حكمٌ محفوظ أقدم بحكمٍ من شموعٍ لم تعد تغطّي لحظة الدخول
+  if (rec.ev && rec.ev.end) return rec.ev;
+  if (bars.length && bars[0].t > from && rec.ev) return rec.ev;
+  return { hit: tr.hit, stNow: tr.stNow, end: tr.end || null, asOf: b.length ? b[b.length - 1].t + MT_M15 : null, n: b.length, at: Date.now() };
+}
+function mtCard(r) {
+  const D = v3dir(r.d), row = mtRow(r.book, r.s), T = mtDoc(r.book), by = T && T.bySym && T.bySym[r.s];
+  const ev = r.ev || {}, px = row && Number.isFinite(row.p) ? row.p : null;
+  const pAt = row && Number.isFinite(row.pAt) ? row.pAt : (mtSum(r.book) && Number(mtSum(r.book).updated)) || null;
+  const pnl = px !== null ? (px - r.px) / r.px * 100 * r.d : null;
+  const cur = by ? (r.d > 0 ? by.up : by.dn) : null, opp = by ? (r.d > 0 ? by.dn : by.up) : null;
+  const ended = r.status === "ended", rule = ev.end;
+  const st = ended ? `<span class="mtst end">أنهيتَ المتابعة ${esc(stamp(r.endAt))}</span>`
+    : rule ? `<span class="mtst end">انتهت وفق قواعد V3: ${esc(V3_END[rule.k] || rule.k)}</span>` : `<span class="mtst act">نشطة</span>`;
+  const w = [];
+  if (!ended && !rule) {
+    if (Number.isFinite(cur) && cur < r.score0) w.push(`انخفض التوافق من ${v3pct(r.score0)} إلى ${v3pct(cur)}`);
+    if (Number.isFinite(opp) && Number.isFinite(cur) && opp > cur) w.push(`توافق الجهة المعاكسة الآن أعلى (${v3pct(opp)})`);
+    const v3 = T && [...(T.open || []), ...(T.active || [])].find((x) => x.s === r.s);
+    if (v3 && v3.d === -r.d) w.push("فرصة V3 في الجهة المعاكسة على الرمز الآن");
+    if (!row) w.push("لا سعر لهذا الرمز في بيانات الموقع الآن — المعروض آخر حالةٍ محفوظة");
+    if (r.evErr) w.push(r.evErr);
+  }
+  const tg = r.tg.map((p, k) => `<span class="${k < (ev.hit || 0) ? "hit" : ""}">T${k + 1} <b class="num">${money(p)}</b>${k < (ev.hit || 0) ? " ✓" : ""}</span>`).join("");
+  return `<div class="mtcard ${D.c}${ended || rule ? " done" : ""}">
+    <div class="mthd"><span class="nm">${esc(row ? nm(row) : r.name || r.s)}</span><span class="tk">${esc(r.s)}${r.book === "crypto" ? " · كريبتو" : ""}</span>
+      <span class="dir ${D.c}">${D.t}</span>${st}</div>
+    <div class="mtgrid">
+      <div><span class="k">الدخول (سعرك)</span><b class="num">${money(r.px)}</b></div>
+      <div><span class="k">وقت الدخول</span>${esc(stamp(r.at))} ${TZ_NOTE}</div>
+      <div><span class="k">فريم الدخول</span>${esc(V3_TFL[r.tf] || r.tf)} · ${esc(V3_BASE[r.base] || r.base || "—")}</div>
+      <div><span class="k">الوقف</span><b class="num">${money(ev.stNow || r.st)}</b>${ev.stNow && ev.stNow !== r.st ? ` <small class="k">(نُقل إلى الدخول بعد T1 · الأصلي ${money(r.st)})</small>` : ""}</div>
+      <div><span class="k">السعر الآن</span><b class="num">${px === null ? "—" : money(px)}</b>
+        ${pnl === null ? "" : ` <span class="num" style="color:${pnl >= 0 ? "var(--up)" : "var(--dn)"}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}%</span>`}
+        <small class="k" style="display:block">${pAt ? `آخر تحديث ${esc(stamp(pAt))} (${ago(pAt)})` : "لا وقت تحديث"}</small></div>
+      <div><span class="k">التوافق</span>عند الدخول ${v3pct(r.score0)} · الآن ${Number.isFinite(cur) ? v3pct(cur) : "—"}</div>
+    </div>
+    <div class="mttg">${tg}</div>
+    ${w.map((x) => `<div class="mtw">تحذير: ${esc(x)}</div>`).join("")}
+    ${rule ? `<div class="mtsrc">${esc(V3_END[rule.k] || rule.k)} ${esc(stamp(rule.t))} عند <span class="num">${money(rule.px)}</span> — تبقى في السجلّ حتى تُنهي متابعتها</div>` : ""}
+    <div class="mtsrc">${ev.asOf ? `الحالة مقيسة على شموع 15د المغلقة حتى ${esc(stamp(ev.asOf))}` : "الحالة تُقاس عند وصول أوّل شمعةٍ مغلقة بعد الدخول"} ·
+      مصدرها فرصة V3 صدرت ${esc(stamp(Number(String(r.src).split("|")[1]) * 1000))} · الوقف والأهداف لا تتغيّر تلقائياً</div>
+    <div class="mtbtns">${!ended ? `<button type="button" data-mta="end" data-id="${esc(r.id)}">إنهاء المتابعة</button>` : ""}
+      <button type="button" data-mta="del" data-id="${esc(r.id)}">حذف</button></div>
+  </div>`;
+}
+function renderMyTrades() {
+  const el = $("#mtList");
+  if (!el) return;
+  const a = mtLoad();
+  if (a.some((r) => r.book === "crypto") && (!mtSum("crypto") || !TRADES_C) && Date.now() - mtCryptoAt > 5 * 60000) {
+    mtCryptoAt = Date.now(); refreshCrypto().then(() => { if (state.view === "mytrades") renderMyTrades(); });
+  }
+  if (a.some((r) => r.book === "us") && !TRADES) need("trades.json");
+  if (!a.length) {
+    el.innerHTML = `<div class="empty">لا صفقات مسجّلة بعد. اضغط «دخلت الصفقة» في بطاقة أيّ فرصة لتسجيلها هنا ومتابعتها.</div>`;
+    return;
+  }
+  const act = a.filter((r) => r.status === "open" && !(r.ev && r.ev.end)), done = a.filter((r) => !act.includes(r));
+  el.innerHTML = (act.length ? `<div class="v3sect"><div class="gh">نشطة · ${bd(act.length)}</div>${act.map(mtCard).join("")}</div>` : "")
+    + (done.length ? `<div class="v3sect"><div class="gh">منتهية — للمراجعة · ${bd(done.length)}</div>${done.map(mtCard).join("")}</div>` : "");
+  // تحديث الحالة من الشموع — للنشطة وحدها، وكلَّ دقيقتين على الأكثر
+  const due = a.filter((r) => r.status === "open" && !(r.ev && r.ev.end) && !(r.evTry && Date.now() - r.evTry < MT_EVAL_MS));
+  if (!due.length || mtBusy) return;
+  mtBusy = true;
+  Promise.all(due.map((r) => mtEval(r).then((ev) => ({ id: r.id, ev })).catch((e) => ({ id: r.id, err: "تعذّر تحديث الحالة من الشموع: " + (e && e.message) }))))
+    .then((res) => {
+      const b = mtLoad();
+      // `evTry` يحدّ المحاولة نجحت أم فشلت — وإلا أعاد الرسمُ المحاولةَ بلا توقّف
+      for (const x of res) { const r = b.find((y) => y.id === x.id); if (!r) continue; r.evTry = Date.now(); if (x.ev) { r.ev = x.ev; delete r.evErr; } else r.evErr = x.err; }
+      mtSave(b);
+    }).finally(() => { mtBusy = false; if (state.view === "mytrades") renderMyTrades(); });
+}
+
+/* رسم بطاقة الصفقة القائمة عند فتح صفّها */
+function v3ActOpen(det) {
+  const box = det.querySelector(".v3actb");
+  if (!box || box.dataset.done) return;
+  const T = tradesOf(), t = T && (T.active || []).find((x) => x.id === det.dataset.act);
+  if (!t) { box.innerHTML = `<div class="empty">الصفقة لم تعد في اللقطة الحالية</div>`; return; }
+  box.innerHTML = v3Card(t, -1, "active");
+  box.dataset.done = "1";
 }
 
 /* الكريبتو: المحرّك القديم أُوقف، ونقلُه إلى V3 مرحلةٌ منفصلة */
@@ -8776,7 +9234,7 @@ function detailGroup(g) {
   setTimeout(layoutWide, 0);
 }
 
-const SHEET_VIEWS = ["list", "crypto", "log", "news"];
+const SHEET_VIEWS = ["list", "crypto", "log", "news", "mytrades"];
 let sheetLast = null;          // العنصر الذي كان مركَّزاً قبل الفتح
 
 function sheetOpen(id) {
@@ -8961,6 +9419,7 @@ function go(view) {
   }
   if (view === "crypto") renderScreen();
   if (view === "contracts") { need("contracts.json"); need("contracts-track.json"); renderContracts(); }
+  if (view === "mytrades") renderMyTrades();
   if (view === "news") { need("news.json"); need("filings.json"); }
   if (view === "analysis") {
     need("fundamentals.json"); need("analytics.json");
@@ -9391,6 +9850,12 @@ function boot() {
     if (f) { e.stopPropagation(); toggleFav(f.dataset.fav); return; }
     // كاشفٌ داخل بطاقة فرصة (حسب الفريم) يُفتح في مكانه ولا يفتح السهم
     if (e.target.closest(".v3tf")) return;
+    // «دخلت الصفقة» — تسجيلٌ في «صفقاتي» لا فتحُ السهم
+    const mt = e.target.closest("[data-mt]");
+    if (mt) { e.preventDefault(); mtAsk(mt.dataset.mt); return; }
+    const mta = e.target.closest("[data-mta]");
+    if (mta) { mtAction(mta.dataset.mta, mta.dataset.id); return; }
+    if (e.target.closest(".v3act > summary")) return;
     // تصنيفات العقود — زرٌّ واحد نشط
     const oc = e.target.closest("[data-ocat]");
     if (oc) { oUI.cat = oc.dataset.ocat; $$("#oCats [data-ocat]").forEach(b => b.classList.toggle("on", b === oc)); renderContracts(); return; }
@@ -9398,6 +9863,9 @@ function boot() {
     if (t) openSymbol(t.dataset.open);
   });
 
+  // صفّ صفقةٍ قائمة يرسم بطاقته عند فتحه وحده (toggle لا يتصاعد — الالتقاط يلتقطه)
+  document.addEventListener("toggle", (e) => { const d = e.target; if (d.classList && d.classList.contains("v3act") && d.open) v3ActOpen(d); }, true);
+  { const f = $("#mtFile"); if (f) f.onchange = () => { if (f.files && f.files[0]) mtImport(f.files[0]); f.value = ""; }; }
   for (const [id, k] of [["#oKind", "kind"], ["#oSort", "sort"], ["#oRR", "rr"]]) {
     const el = $(id); if (el) el.onchange = () => { oUI[k] = el.value; renderContracts(); };
   }

@@ -3,8 +3,39 @@
 import { describe, it, expect } from "vitest";
 import { createRequire } from "node:module";
 import { prep, inputAt, isoWeek } from "../../scripts/lib/engine3-run.mjs";
-import { evaluateRef, manageRef, evaluateHourRef } from "../reference/engine3-ref.mjs";
+import { evaluateRef, manageRef, evaluateHourRef, evaluateSlotRef } from "../reference/engine3-ref.mjs";
 import { synth } from "./synth3.mjs";
+
+describe("§4ج الفريمات الأربعة (قرار 2026-10-03) مقابل المرجع المستقلّ", () => {
+  it("نفس الجهة والأساس وفريم الأساس والدرجة والفريمات المتّفقة والخطة عند كل لقطة 30 دقيقة", () => {
+    const A0 = synth(7, 240), S0 = prep(A0.b15, A0.b1d);
+    const f0 = S0.r15.findIndex((b) => b.t >= Date.parse("2025-06-01"));
+    const bad = [];
+    let n = 0, sig = 0;
+    const bases = { day: 0, ma: 0 }, tfsSeen = new Set();
+    for (let i = f0; i < S0.r15.length; i++) {
+      const T = S0.r15[i].end;
+      if (T % 1800000 !== 0) continue;
+      const inp = inputAt(S0, i), prevH = T - 1800000;
+      const a = E.evaluateSlot(inp, (d) => isoWeek(d), prevH), b = evaluateSlotRef(inp, (d) => isoWeek(d), prevH);
+      n++;
+      if ((a.reject || null) !== b.reject) { bad.push([i, "reject", a.reject, b.reject]); continue; }
+      if (a.reject) continue;
+      sig++; bases[a.sig.base]++; tfsSeen.add(a.sig.baseTf);
+      const s = a.sig;
+      const tfsA = JSON.stringify({ day: s.tfs.day, ma: s.tfs.ma, vwap: s.tfs.vwap, week: s.tfs.week });
+      if (s.d !== b.d || s.base !== b.base || s.baseTf !== b.baseTf || JSON.stringify(s.el) !== JSON.stringify(b.el) ||
+          s.score !== b.score || tfsA !== JSON.stringify(b.tfs) || !near(s.e, b.e) || !near(s.st, b.st) ||
+          s.tg.length !== b.tg.length || s.tg.some((x, k) => !near(x.p, b.tg[k]))) bad.push([i, "sig", s.baseTf, b.baseTf]);
+    }
+    expect(bad.slice(0, 5)).toEqual([]);
+    expect(n).toBeGreaterThan(500);
+    expect(sig).toBeGreaterThan(20);
+    expect(bases.day).toBeGreaterThan(0);
+    expect(bases.ma).toBeGreaterThan(0);
+    expect(tfsSeen.size).toBeGreaterThan(1);           // الفرص تتولّد من أكثر من فريم فعلاً
+  });
+});
 
 const require = createRequire(import.meta.url);
 const E = require("../../stocks/engine3.js");

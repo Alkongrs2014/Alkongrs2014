@@ -20,6 +20,14 @@ if (!fs.existsSync(bars) || !tr) {
   const b = build({ now, out: dir, barsDir: bars, fresh: true });
   add("determinism.v3", "INV-20", a.ok && b.ok && a.doc.rowsHash === b.doc.rowsHash,
       a.ok ? `${a.doc.open.length} مفتوحة · ${a.doc.rowsHash}` : a.why);
+  /* §4ج: دورة الحياة مدخلٌ ثانٍ — بناءان من نفس حالة الصفقات القائمة ⇒ نفس البصمة */
+  let st = null;
+  try { st = fs.readFileSync(path.join(dir, "trades-state.json"), "utf8"); } catch { /* لا حالة */ }
+  if (st && JSON.parse(st).hour * 1000 <= now) {
+    const c = build({ now, out: dir, barsDir: bars, state: JSON.parse(st) }), d = build({ now, out: dir, barsDir: bars, state: JSON.parse(st) });
+    add("determinism.v3-life", "INV-20", c.ok && d.ok && c.doc.rowsHash === d.doc.rowsHash,
+        c.ok ? `${c.doc.active.length} قائمة · ${c.doc.rowsHash}` : c.why);
+  }
   /* المفتاح يُقارَن داخل نسخة المحرّك الواحدة: لقطةٌ بنسخةٍ سابقة قد تختلف حدودُها
      مشروعاً (كالانتقال من لقطة الساعة إلى لقطة نصف الساعة) — نفس مبدأ حارس الرتابة */
   if (tr.version && tr.version !== engineVersion())
