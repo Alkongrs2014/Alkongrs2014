@@ -8,7 +8,7 @@
    ===================================================================== */
 import { test, expect } from "@playwright/test";
 
-const VIEWS = ["now", "screen", "mdir", "analysis", "list", "crypto", "log", "news"];
+const VIEWS = ["now", "screen", "mdir", "analysis", "list", "crypto", "contracts", "log", "news"];
 const BAD_TEXT = /\bNaN\b|\bInfinity\b|\bundefined\b|\[object Object\]/;
 
 async function open(page) {
@@ -78,12 +78,13 @@ test("الفرص: قائمةٌ حقيقية بختم شمعة، ولا عملة 
   expect(txt).toMatch(/شمعة/);
 });
 
-test("الكريبتو: لقطة V3 كل ساعة — عملاتٌ فقط وبطاقاتٌ بدرجتها", async ({ page }) => {
+test("الكريبتو: لقطة V3 كل 30 دقيقة على :15/:45 — عملاتٌ فقط وبطاقاتٌ بدرجتها", async ({ page }) => {
   await open(page);
   await nav(page, "crypto");
   const syms = await page.locator('section[data-view="crypto"] [data-open]').evaluateAll((a) => a.map((x) => x.getAttribute("data-open")));
   expect(syms.filter((s) => !/-USD$/.test(s)), "سهمٌ في دفتر الكريبتو").toEqual([]);
-  expect(await visibleText(page, "crypto")).toMatch(/لقطة .*كل ساعة/s);
+  // قرار المالك 2026-10-03: لقطة الكريبتو كل 30 دقيقة (كانت كل ساعة)
+  expect(await visibleText(page, "crypto")).toMatch(/لقطة .*كل 30 دقيقة/s);
 });
 
 test("بحث الكريبتو: على كون الكريبتو كلِّه بالرمز والاسم العربي والإنجليزي، ولا يمسّ بحث الأسهم", async ({ page }) => {
@@ -162,4 +163,22 @@ test("كلُّ الأوقات المعروضة بتوقيت الرياض مهم�
   expect(r.txt).toContain("بتوقيت الرياض");
   expect(r.want).not.toBe(r.dev);             // الفحص يميّز فعلاً: منطقة الجهاز مختلفة
   await ctx.close();
+});
+
+/* قسم العقود (2026-10-03): بطاقاتٌ من اللقطة، والتصنيف لا يعرض عقداً لا يستوفي شروطه */
+test("العقود: البطاقات والتصنيفات — لا عقد في تصنيفٍ لا يستوفيه", async ({ page }) => {
+  await open(page);
+  await nav(page, "contracts");
+  const all = await page.locator("#oList .ocard").count();
+  expect(all, "لا بطاقات عقود").toBeGreaterThan(0);
+  for (const [cat, re] of [["etf", /ETF/], ["weekly", /أسبوعية/], ["swing", /متوسطة وطويلة/]]) {
+    await page.locator(`#oCats [data-ocat="${cat}"]`).click();
+    const cats = await page.locator("#oList .ocard .ocat").allTextContents();   // content-visibility يُفرغ innerText خارج الشاشة
+    for (const t of cats) expect(t, `بطاقة خارج تصنيف ${cat}`).toMatch(re);
+  }
+  await page.locator('#oCats [data-ocat=""]').click();
+  await page.locator("#oKind").selectOption("spread");
+  const kinds = await page.locator("#oList .ocard .okind").allTextContents();
+  for (const t of kinds) expect(t).toMatch(/Spread/);
+  expect((await visibleText(page, "contracts")).match(BAD_TEXT)).toBeNull();
 });

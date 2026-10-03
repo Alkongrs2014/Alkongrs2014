@@ -676,6 +676,39 @@ body.sheet-open{overflow:hidden}
 .v3tft td.nd{color:var(--warn,#E6B24A);font-size:9.5px}
 .v3tft td.lv{color:var(--tx2);font-size:9.5px}
 .v3tfn{color:var(--tx3);font-size:10.5px;margin:5px 0 0}
+/* العقود — بطاقةٌ مختصرة بأسلوب التوصيات، والتفاصيل في كاشف */
+.ocats{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.ocats button{flex:none;font:inherit;font-size:12px;border:1px solid var(--hair);background:var(--s2);color:var(--tx2);border-radius:99px;padding:5px 11px;cursor:pointer}
+.ocats button.on{background:var(--acc);color:#04070C;border-color:var(--acc);font-weight:700}
+.ofilt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;font-size:10.5px;color:var(--tx3);margin-bottom:6px}
+.ofilt label{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ofilt select{width:100%;font:inherit;font-size:12px;background:var(--s2);color:var(--tx);border:1px solid var(--hair);border-radius:8px;padding:3px 6px}
+.ocard{border:1px solid var(--hair);border-inline-start:3px solid var(--tx3);border-radius:var(--r-sm,12px);background:var(--s1);padding:10px 12px;margin-bottom:10px;font-size:12.5px;content-visibility:auto;contain-intrinsic-size:auto 300px}
+.ocard.up{border-inline-start-color:var(--up)}.ocard.dn{border-inline-start-color:var(--dn)}
+.ohd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-bottom:4px}
+.osym{font-size:16px;font-weight:800;letter-spacing:.3px}
+.okind{font-weight:800;font-size:12.5px}.okind.up,.ocard .up{color:var(--up)}.okind.dn,.ocard .dn{color:var(--dn)}
+.ocat{font-size:11px;color:var(--tx3);border:1px solid var(--hair);border-radius:99px;padding:1px 8px}
+.ob{margin-inline-start:auto;font-size:10.5px;border-radius:99px;padding:2px 8px;font-weight:700}
+.ob.ok{background:rgba(43,217,138,.12);color:var(--up)}.ob.wait{background:rgba(230,178,74,.12);color:#E6B24A}
+.ometa{font-size:11.5px;color:var(--tx2);margin-bottom:6px;line-height:1.6}
+.olegs{display:grid;gap:3px;margin-bottom:6px}
+.oleg{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline;background:var(--s2);border-radius:8px;padding:4px 8px}
+.oleg .oq{margin-inline-start:auto;color:var(--tx3);font-size:11.5px}
+.oplan,.oplan2{display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:5px}
+.oplan .k{color:var(--tx3)}.oplan2{font-size:11.5px;color:var(--tx2)}
+.oplan small,.oplan2 small{color:var(--tx3)}
+.owhy{margin:4px 0;padding-inline-start:16px;font-size:11.5px;color:var(--tx2);line-height:1.6}
+.otag{font-size:10px;border-radius:6px;padding:0 5px;margin-inline-end:3px}
+.otag.event{background:rgba(34,211,197,.14);color:var(--acc)}.otag.inferred{background:rgba(150,182,214,.12);color:var(--tx2)}.otag.weak{background:rgba(230,178,74,.10);color:#E6B24A}
+.ov3{font-size:11.5px;color:var(--acc);margin:3px 0}
+.odet summary{font-size:11.5px;color:var(--tx2);cursor:pointer;padding:3px 0}
+.otab{width:100%;border-collapse:collapse;font-size:10.5px;margin:4px 0;display:block;overflow-x:auto}
+.otab th,.otab td{border:1px solid var(--hair);padding:3px 4px;text-align:center;white-space:nowrap}
+.otab th{background:var(--s2);color:var(--tx3)}
+.otr td{white-space:normal}
+.ohist{font-size:11px;color:var(--tx2);margin:4px 0;line-height:1.7}.ohist span{margin-inline-end:6px}
+.ometh p{font-size:12px;color:var(--tx2);line-height:1.7;margin:0 0 8px}
 .v3low{margin-top:18px;border-top:1px dashed var(--hair);padding-top:12px}
 .v3low .gh{font-size:13px;font-weight:800;color:var(--tx2);margin-bottom:6px}
 .v3low .warnline{font-size:11.5px;color:#E6B24A;background:rgba(230,178,74,.08);border:1px solid rgba(230,178,74,.25);border-radius:8px;padding:6px 9px;margin:0 0 10px}
@@ -1904,6 +1937,46 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   </div>
 </section>
 
+<!-- ================= العقود — اكتشافٌ مستقلّ لفرص الخيارات =================
+     من حركة السهم وبيانات العقود (OPRA) والأحداث المؤرَّخة — لا تكراراً لفرص
+     الأسهم؛ وفرصة V3 على نفس الرمز والجهة تأكيدٌ إضافي لا شرط. الواجهة تقرأ
+     contracts.json وcontracts-track.json ولا تحسب شيئاً. -->
+<section data-view="contracts">
+  <div class="card" data-size="hero">
+    <div class="sticky-hd">
+      <div class="schead" style="margin-bottom:9px">
+        <h2 style="margin:0">فرص العقود</h2>
+        <span class="chip">مستقل · OPRA · كل 30 دقيقة</span>
+      </div>
+      <div class="ocats" id="oCats" role="tablist" aria-label="تصنيفات العقود"></div>
+      <div class="ofilt">
+        <label>الاستراتيجية <select id="oKind" aria-label="الاستراتيجية">
+          <option value="">الكل</option><option value="single">عقد منفرد</option><option value="strangle">سترانغل</option>
+          <option value="straddle">سترادل</option><option value="spread">سبريد</option></select></label>
+        <label>الترتيب <select id="oSort" aria-label="الترتيب">
+          <option value="score">الأقوى</option><option value="new">الأحدث</option><option value="liq">السيولة والحجم</option>
+          <option value="dte">الانتهاء</option><option value="spr">السبريد</option><option value="cost">تكلفة الدخول</option>
+          <option value="rr">العائد/المخاطرة</option></select></label>
+        <label>العائد/المخاطرة <select id="oRR" aria-label="نطاق العائد للمخاطرة">
+          <option value="">الكل</option><option value="1">≥ 1</option><option value="1.5">≥ 1.5</option><option value="2">≥ 2</option></select></label>
+      </div>
+    </div>
+    <p class="v3note" id="oState"></p>
+    <div id="oList"><div class="skl" style="height:150px"></div></div>
+    <p class="srcline" id="oCount"></p>
+  </div>
+  <div class="card">
+    <h2>سجلّ اليوم — أهدافٌ بُلغت فعلاً</h2>
+    <div id="oTrack"><div class="empty">لا مراكز متتبَّعة بعد</div></div>
+  </div>
+  <div class="card">
+    <details class="plain">
+      <summary>كيف تُكتشف فرص العقود؟</summary>
+      <div class="ometh" id="oMeth"></div>
+    </details>
+  </div>
+</section>
+
 <!-- ================= الكريبتو — دفترٌ منفصل =================
      نفس عرض الفرص على لقطةٍ أخرى (crypto/opportunities.json) بمفتاحها
      وكونها. لا شيء هنا يقرأ ملفّاً من دفتر الأسهم، ولا العكس. -->
@@ -2402,6 +2475,9 @@ section[data-view="now"].on{display:flex;flex-direction:column}
     <circle cx="12" cy="12" r="8.4"/><path d="M9.6 8h3.6a2 2 0 0 1 0 4H9.6h4a2 2 0 0 1 0 4H9.6ZM11 6.4V8M11 16v1.6M13 6.4V8M13 16v1.6"/></g>
   <g id="i-info" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="8.4"/><path d="M12 11.2v5M12 7.9h.01"/></g>
+  <!-- العقود: منحنى عائد خيارٍ (ثابتٌ ثم صاعد) فوق محور -->
+  <g id="i-opt" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 19.5h17M4 15.5h7l8-9"/><path d="M15.5 6.5H19v3.5"/></g>
 </defs></svg>
 <nav class="tabbar" id="tabbar" role="tablist" aria-label="أقسام التطبيق">
   <div class="side-brand">
@@ -2429,6 +2505,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   <button data-go="mdir"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mdir"/></svg>السوق</button>
   <button data-go="list" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>الأسهم</button>
   <button data-go="crypto" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-coin"/></svg>الكريبتو</button>
+  <button data-go="contracts" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-opt"/></svg>العقود</button>
   <button data-go="analysis"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-analysis"/></svg>التحليل</button>
   <button data-go="log" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>السجل</button>
   <button data-go="news" data-more="1"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-news"/></svg>الأخبار</button>
@@ -2450,6 +2527,10 @@ section[data-view="now"].on{display:flex;flex-direction:column}
   <button class="sheet-r" data-nav="crypto">
     <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-coin"/></svg>
     <span class="g">الكريبتو<small>فرصُ العملات 24/7 — دفترٌ منفصل عن الأسهم</small></span>
+    <span class="go">‹</span></button>
+  <button class="sheet-r" data-nav="contracts">
+    <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-opt"/></svg>
+    <span class="g">العقود<small>فرص الخيارات — اكتشافٌ مستقل من OPRA والأحداث</small></span>
     <span class="go">‹</span></button>
   <button class="sheet-r" data-nav="log">
     <svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-log"/></svg>
@@ -5404,6 +5485,9 @@ const LAZY = {
     if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
   },
   "news.json": (n) => { state.news = n; renderNews(); if (state.sym) renderSymNews(); },
+  /* قسم العقود — لقطةٌ كل 30 دقيقة وسجلُّ ما بُلغ فعلاً. لا تُقبل لقطةٌ أقدم */
+  "contracts.json": (j) => { if (!CONTRACTS || !(j.hour < CONTRACTS.hour)) CONTRACTS = j; if (state.view === "contracts") renderContracts(); },
+  "contracts-track.json": (j) => { CTRACK = j; if (state.view === "contracts") renderContracts(); },
   /* لحظاتُ بدء الإشارات — المتصفح يحسب النتيجة بنفسه ولا يستطيع أن
      يعرف متى بدأت، فهذه المعلومة التاريخية لا بديل عنها. */
   /* لقطةُ الفرص — مصدرُ القائمة الوحيد. تُبنى على الخادم مرّةً لكل
@@ -5489,6 +5573,8 @@ const LAZY = {
    الملف في نصف ساعة، كلها متطابقة. */
 const LAZY_TTL = {
   "options.json": 15 * 60e3,        // يُكتب كل 30 دقيقة
+  "contracts.json": 60e3,           // لقطةٌ كل 30 دقيقة — دقيقةٌ تكفي لالتقاطها
+  "contracts-track.json": 60e3,     // أوقات بلوغ الأهداف تُحدَّث كل 15 دقيقة
   "analytics.json": 3 * 3600e3,     // يومي
   "fundamentals.json": 3 * 3600e3,  // يومي
   "wide.json": 5 * 60e3,            // اليوميّ فيه يتجدّد بالتدوير
@@ -8003,6 +8089,139 @@ function renderScreen() {
   renderTrades();
 }
 
+/* =======================================================================
+   العقود — عرضُ contracts.json كما بناه الخادم (scripts/fetch-contracts.mjs).
+   لا تسعير ولا إغريقيات في المتصفح: كلُّ رقمٍ هنا من اللقطة نفسها، والتصنيف
+   والفرز والترشيح عرضٌ يعيد ترتيب القائمة ولا يغيّر محتوى أيّ بطاقة.
+   ======================================================================= */
+let CONTRACTS = null, CTRACK = null;
+const oUI = { cat: "", kind: "", sort: "score", rr: "" };
+const O_CATS = [["", "الكل"], ["0dte", "هيرو زيرو 0DTE"], ["day", "مضاربة يومية"], ["weekly", "أسبوعية"], ["swing", "متوسطة وطويلة"], ["etf", "المؤشرات وETF"]];
+const O_KIND = { single: "عقد منفرد", debit: "سبريد مدين", credit: "سبريد دائن", straddle: "سترادل", strangle: "سترانغل" };
+const O_WHY = { event: "حدث مؤكَّد", inferred: "مستنتج من البيانات", weak: "إشارة غير حاسمة" };
+const oMon = (exp) => { const [y, m, d] = exp.split("-").map(Number); return `${d} ${["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"][m - 1]}`; };
+const oNum = (x, k = 2) => Number.isFinite(x) ? x.toFixed(k) : "—";
+const oUsd = (x) => Number.isFinite(x) ? "$" + Math.round(x).toLocaleString("en-US") : "—";
+const oKey = (p) => `${p.s}|${p.kind}|${p.legs.map(l => l.sym).join("+")}`;
+function oTitle(p) {
+  if (p.kind === "single") return p.legs[0].type === "call" ? "CALL" : "PUT";
+  if (p.kind === "debit") return p.d > 0 ? "Bull Call Debit Spread" : "Bear Put Debit Spread";
+  if (p.kind === "credit") return p.d > 0 ? "Bull Put Credit Spread" : "Bear Call Credit Spread";
+  return p.kind === "straddle" ? "Long Straddle" : "Long Strangle";
+}
+function oLeg(l) {
+  return `<div class="oleg"><b class="${l.side === "buy" ? "up" : "dn"}">${l.side === "buy" ? "شراء" : "بيع"}</b>
+    <bdi>${l.type === "call" ? "CALL" : "PUT"} ${oNum(l.K, l.K % 1 ? 2 : 0)}</bdi> · ${esc(oMon(l.exp))} <small>(${bd(l.dte)} يوم)</small>
+    <span class="oq">عرض <bdi>${oNum(l.bid)}</bdi> · طلب <bdi>${oNum(l.ask)}</bdi></span></div>`;
+}
+function oDetails(p) {
+  const legs = p.legs.map(l => `<tr><td><bdi>${esc(l.sym)}</bdi></td><td>${oNum(l.delta, 2)}</td><td>${oNum(l.gamma, 3)}</td><td>${oNum(l.theta, 3)}</td><td>${oNum(l.vega, 3)}</td>
+      <td>${Number.isFinite(l.iv) ? oNum(l.iv * 100, 1) + "%" : "—"}</td><td>${l.oi == null ? "—" : bd(l.oi)}</td><td>${bd(l.vol || 0)}</td><td>${Number.isFinite(l.spr) ? oNum(l.spr * 100, 1) + "%" : "—"}</td></tr>`).join("");
+  const hist = p.legs.filter(l => l.hist && l.hist.length).map(l => `<div class="ohist"><b><bdi>${esc(l.sym)}</bdi></b> — آخر ${bd(l.hist.length)} جلسات (إغلاق/حجم):
+      ${l.hist.map(h => `<span><bdi>${oNum(h[1])}</bdi><small>/${bd(h[2])}</small></span>`).join(" ")}
+      ${Number.isFinite(l.decay) ? `<br>التآكل الزمني اليومي ≈ <bdi>${oNum(Math.abs(l.decay) * 100, 1)}%</bdi> من سعر العقد (θ ÷ السعر)` : ""}</div>`).join("");
+  const gc = p.legs.some(l => l.gcalc) ? `<p class="small">بعض الإغريقيات محسوبةٌ بنموذج بلاك–شولز من سعر الوسط لأن المصدر لم يعطها.</p>` : "";
+  const qt = p.legs.map(l => l.qt ? stamp(l.qt * 1000) : "—").join(" · ");
+  return `<details class="plain odet"><summary>الإغريقيات والسيولة والتاريخ</summary>
+    <table class="otab"><thead><tr><th>العقد</th><th>Δ</th><th>Γ</th><th>Θ/يوم</th><th>Vega</th><th>IV</th><th>OI</th><th>حجم اليوم</th><th>السبريد</th></tr></thead><tbody>${legs}</tbody></table>
+    ${gc}<p class="small">وقت العرض/الطلب: ${esc(qt)} ${TZ_NOTE} · التذبذب التاريخي HV20 ${Number.isFinite(p.hv) ? oNum(p.hv * 100, 1) + "%" : "—"} · IV/HV ${p.ivhv ?? "—"}${p.flow ? ` · أقساط اليوم: كول ${oUsd(p.flow.call)} / بوت ${oUsd(p.flow.put)}` : ""}</p>
+    ${hist || `<p class="small">لا تاريخ تداولٍ يومي متاح لهذا العقد.</p>`}
+  </details>`;
+}
+function oCard(p, first) {
+  const multi = p.legs.length > 1, cred = p.kind === "credit", vol = p.kind === "straddle" || p.kind === "strangle";
+  const dirC = p.d > 0 ? "up" : p.d < 0 ? "dn" : "";
+  const badge = p.exec ? `<span class="ob ok">قابل للتنفيذ</span>` : `<span class="ob wait">${esc(p.execWhy || "غير قابل للتنفيذ الآن")}</span>`;
+  const tg = (p.tg || []).map((x, i) => `<span><span class="k">T${i + 1}</span> <b><bdi>${oNum(x)}</bdi></b>${vol && p.uMove && p.uMove[i] != null ? ` <small>(حركة السهم ±${oNum(p.uMove[i] * 100, 1)}%)</small>` : (p.uT && p.uT[i] != null ? ` <small>(السهم <bdi>${oNum(p.uT[i])}</bdi>)</small>` : "")}</span>`).join("");
+  const why = (p.why || []).map(w => `<li><span class="otag ${w.k}">${O_WHY[w.k] || ""}</span> ${esc(w.t)}</li>`).join("");
+  const v3 = p.v3 ? `<div class="ov3">يتوافق مع فرصة V3 على السهم (قوة التوافق <bdi>${oNum(p.v3.score, 2)}%</bdi>) — تأكيدٌ إضافي لا شرط</div>` : "";
+  const ev = p.ev ? ` · الحدث ${esc(p.ev.ar)} ${esc(stamp(p.ev.at * 1000))}${p.ev.est ? " (تقديري)" : ""}` : "";
+  return `<div class="ocard ${dirC}">
+    <div class="ohd"><b class="osym">${esc(p.s)}</b><span class="okind ${dirC}">${esc(oTitle(p))}</span>
+      <span class="ocat">${esc((CONTRACTS && CONTRACTS.cats && CONTRACTS.cats[p.cat]) || p.cat)}${p.etf ? " · ETF" : ""}</span>${badge}</div>
+    <div class="ometa">الفرصة: ${esc(stamp(p.at * 1000))} ${TZ_NOTE}${first && first !== p.at ? ` · ظهرت أول مرة ${esc(stamp(first * 1000))}` : ""} · سعر السهم <b><bdi>${money(p.S)}</bdi></b>
+      <span class="${p.chg > 0 ? "up" : p.chg < 0 ? "dn" : ""}"><bdi>${Number.isFinite(p.chg) ? pct(p.chg) : ""}</bdi></span>${ev}</div>
+    <div class="olegs">${p.legs.map(oLeg).join("")}</div>
+    <div class="oplan">
+      <span><span class="k">${cred ? "الائتمان المستلم" : "الدخول"}</span> <b><bdi>${oNum(p.entry)}</bdi></b> <small>(الوسط <bdi>${oNum(p.mid)}</bdi>)</small></span>
+      <span><span class="k">${cred ? "الهامش/أقصى خسارة" : "التكلفة"}</span> <b><bdi>${oUsd(cred ? p.maxL : p.cost)}</bdi></b></span>
+      <span><span class="k">${cred ? "وقف (كلفة الإغلاق)" : multi ? "وقف المركز" : "وقف العقد"}</span> <b class="dn"><bdi>${oNum(p.stop)}</bdi></b></span>
+      ${tg}
+      ${Number.isFinite(p.rr) ? `<span><span class="k">العائد/المخاطرة (T1)</span> <b><bdi>${oNum(p.rr)}</bdi></b></span>` : ""}
+    </div>
+    <div class="oplan2">
+      ${p.inv != null && !vol ? `<span>إبطال حركة السهم: <b><bdi>${money(p.inv)}</bdi></b></span>` : ""}
+      ${(p.be || []).length ? `<span>التعادل عند الانتهاء: <b><bdi>${p.be.map(x => money(x)).join(" · ")}</bdi></b></span>` : ""}
+      ${p.maxP != null ? `<span>أقصى ربح: <b class="up"><bdi>${oUsd(p.maxP)}</bdi></b></span>` : (multi || p.kind === "single") ? `<span>أقصى ربح: <b>مفتوح</b></span>` : ""}
+      ${p.maxL != null ? `<span>أقصى خسارة: <b class="dn"><bdi>${oUsd(p.maxL)}</bdi></b></span>` : ""}
+      ${p.pop != null ? `<span>احتمال بقاء البيع خارج المال ≈ <b><bdi>${oNum(p.pop * 100, 0)}%</bdi></b> <small>(1 − |Δ|)</small></span>` : ""}
+      ${vol ? `<span>يلزم تحرّك <b><bdi>${oNum(p.need * 100, 2)}%</bdi></b> للتعادل · الضمني <bdi>${oNum(p.implied * 100, 2)}%</bdi> · التاريخي <bdi>${oNum((p.hvMove || 0) * 100, 2)}%</bdi></span>` : ""}
+    </div>
+    <ul class="owhy">${why}</ul>
+    ${v3}
+    ${cred ? `<p class="small">سبريد دائن: خطر التخصيص المبكر على الرجل المبيعة (عقود أمريكية) وخطر التنفيذ بأسعارٍ أسوأ من العرض/الطلب المعروض.</p>` : ""}
+    ${oDetails(p)}
+  </div>`;
+}
+function renderContracts() {
+  const el = $("#oList"); if (!el) return;
+  const C = CONTRACTS;
+  const cats = $("#oCats");
+  if (cats && !cats.dataset.on) {
+    cats.innerHTML = O_CATS.map(([k, t]) => `<button data-ocat="${k}" class="${k === oUI.cat ? "on" : ""}">${esc(t)}</button>`).join("");
+    cats.dataset.on = "1";
+  }
+  if (!C) {
+    if (lazyFail["contracts.json"]) { el.innerHTML = `<div class="empty">لم تُبنَ لقطة عقود بعد — أوّل لقطة 05:15 نيويورك (ما قبل الافتتاح) ثم كلَّ 30 دقيقة</div>`; return; }
+    // الفشل (404 قبل أوّل لقطة) لا يمرّ بمعالج الملف — نعيد الرسم بعده كي تظهر الحالة لا هيكلٌ أبدي
+    need("contracts.json").then(() => { if (state.view === "contracts" && !CONTRACTS) renderContracts(); });
+    el.innerHTML = `<div class="skl" style="height:150px"></div>`; return;
+  }
+  const first = new Map(((CTRACK && CTRACK.rows) || []).map(r => [r.key, r.at]));
+  const st = $("#oState");
+  if (st) st.innerHTML = C.phase === "regular"
+    ? `<b>لقطة ${esc(stamp(C.hour * 1000))} ${TZ_NOTE}</b> — سوق العقود مفتوح. العقد «قابل للتنفيذ» حين يكون سوقه مفتوحاً وعروضُ كل أرجله حديثة (أقل من 5 دقائق).`
+    : C.phase === "pre"
+    ? `<b>ما قبل الافتتاح — لقطة ${esc(stamp(C.hour * 1000))}</b>: عقودٌ مُجهَّزة من حركة السهم بأسعار آخر جلسة، <b>غير قابلة للتنفيذ</b> قبل فتح سوق العقود 09:30 نيويورك.`
+    : `<b>سوق العقود مغلق</b> — آخر لقطة ${esc(stamp(C.hour * 1000))}. الأسعار للاطّلاع لا للتنفيذ.`;
+  let L = (C.picks || []).filter(p =>
+    (!oUI.cat || (oUI.cat === "etf" ? p.etf : p.cat === oUI.cat)) &&
+    (!oUI.kind || (oUI.kind === "spread" ? (p.kind === "debit" || p.kind === "credit") : p.kind === oUI.kind)) &&
+    (!oUI.rr || (Number.isFinite(p.rr) && p.rr >= +oUI.rr)));
+  const liq = (p) => p.legs.reduce((a, l) => a + (l.vol || 0) + (l.oi || 0), 0);
+  const spr = (p) => Math.max(...p.legs.map(l => l.spr || 1));
+  const S = { score: (a, b) => (b.score || 0) - (a.score || 0), new: (a, b) => (first.get(oKey(b)) || b.at) - (first.get(oKey(a)) || a.at),
+    liq: (a, b) => liq(b) - liq(a), dte: (a, b) => a.legs[0].dte - b.legs[0].dte, spr: (a, b) => spr(a) - spr(b),
+    cost: (a, b) => (a.cost || 0) - (b.cost || 0), rr: (a, b) => (b.rr ?? -1) - (a.rr ?? -1) };
+  L = L.slice().sort(S[oUI.sort] || S.score);
+  el.innerHTML = L.length ? L.map(p => oCard(p, first.get(oKey(p)))).join("")
+    : `<div class="empty">لا عقد يستوفي هذا التصنيف في هذه اللقطة — لا يُعرض عقدٌ في تصنيفٍ لا يستوفي شروطه</div>`;
+  const cnt = $("#oCount");
+  if (cnt) cnt.innerHTML = `${bd(L.length)} من ${bd((C.picks || []).length)} · ${bd(C.universe.n)} رمزاً مراقَباً · بُني ${esc(stamp(Date.parse(C.generatedAt)))} (${ago(Date.parse(C.generatedAt))}) · المصدر Alpaca OPRA · بصمة ${esc(C.rowsHash || "")}`;
+  renderContractTrack();
+  const m = $("#oMeth");
+  if (m && !m.dataset.on) {
+    const P = C.params || {};
+    m.innerHTML = `<p><b>الجهة</b> من حركة السهم نفسها: تغيّرٌ اليوم ≥ ${P.moveATR ?? 0.5}×ATR اليومي وفي جهته من VWAP اليوم، ولا يعاكسه تدفّق العقود (نسبة أقساط الكول للبوت). ونشاطٌ غير معتاد (حجمٌ ≥ OI) يُذكر إشارةً غير حاسمة.</p>
+      <p><b>السترادل والسترانغل</b> لا تُبنى إلا قبل حدثٍ مؤرَّخ داخل ${P.eventDays ?? 14} يوماً قبل الانتهاء: إعلان أرباح الشركة (مؤكَّد أو تقديري كما يقول المصدر)، أو للصناديق حدثٌ اقتصادي قوي (الفدرالي، التضخّم، الوظائف). وتُقارَن الحركة اللازمة للتعادل بالتكلفة الكاملة بالحركتين الضمنية والتاريخية، والأهداف محسوبةٌ بعد الحدث على تذبذبٍ أقل (أثر انهيار IV) — افتراضٌ معلن.</p>
+      <p><b>السيولة</b>: عرضٌ ≥ ${P.liq ? P.liq.minBid : 0.05}، وسبريد ≤ ${P.liq ? P.liq.maxSpr * 100 : 12}% (‎0DTE ≤ ${P.liq ? P.liq.maxSpr0 * 100 : 18}%)، وOI ≥ ${P.liq ? P.liq.minOI : 250} أو حجمٌ ≥ ${P.liq ? P.liq.minVol : 100}، وعروضُ أرجل المركز الواحد متزامنة. والعقد المختار بدلتا ${P.delta ? P.delta.lo + "–" + P.delta.hi : "0.35–0.60"}.</p>
+      <p><b>الوقف والأهداف</b> بنموذج بلاك–شولز على تذبذب العقد نفسه: وقفُ العقد قيمتُه إذا بلغ السهم مستوى الإبطال (VWAP ∓ ربع ATR) بحدٍّ أدنى نصف القسط، والأهداف قيمتُه إذا تحرّك السهم 0.5 و1 و1.5 ATR. وهي تقديراتٌ لا وعود، ولا موعد متوقَّع لأيّ هدف — وقت البلوغ يُسجَّل حين يقع فعلاً.</p>
+      <p><b>المصادر</b>: Alpaca OPRA (العرض والطلب والإغريقيات وIV)، وOCC عبر Alpaca (Open Interest يوم أمس)، وSIP للسهم، وتقويم الفدرالي وBLS، ومواعيد الأرباح. لا تداول ولا أوامر.</p>`;
+    m.dataset.on = "1";
+  }
+}
+function renderContractTrack() {
+  const el = $("#oTrack"); if (!el) return;
+  const rows = ((CTRACK && CTRACK.rows) || []).slice().sort((a, b) => b.at - a.at).slice(0, 40);
+  if (!rows.length) { el.innerHTML = `<div class="empty">لا مراكز متتبَّعة بعد — يُتتبَّع كلُّ عقدٍ ظهر قابلاً للتنفيذ</div>`; return; }
+  const ST = { open: "جارٍ", stop: "ضُرب الوقف", done: "بلغ كل الأهداف", expired: "انتهى" };
+  el.innerHTML = `<table class="otab otr"><thead><tr><th>العقد</th><th>ظهر</th><th>الدخول</th><th>الأهداف التي بُلغت</th><th>الحالة</th></tr></thead><tbody>${rows.map(r =>
+    `<tr><td><b>${esc(r.s)}</b> <small>${esc(O_KIND[r.kind] || r.kind)}</small></td><td>${esc(stamp(r.at * 1000))}</td><td><bdi>${oNum(r.entry)}</bdi></td>
+      <td>${r.hits.length ? r.hits.map((h, i) => `T${i + 1} ${esc(clock(h * 1000))}`).join(" · ") : "—"}</td>
+      <td class="${r.status === "stop" ? "dn" : r.status === "done" ? "up" : ""}">${ST[r.status] || r.status}${r.end && r.status !== "open" ? ` ${esc(clock(r.end * 1000))}` : ""}</td></tr>`).join("")}</tbody></table>
+    <p class="small">أوقات البلوغ من شموع الدقيقة للعقد (OPRA)، والمراكز متعدّدة الأرجل على إغلاقات الدقائق المشتركة. سجلٌّ لما وقع لا توقّعٌ لما سيقع.</p>`;
+}
+
 function renderEarnings() {
   const el = $("#earnCal");
   if (!el) return;
@@ -8697,6 +8916,7 @@ function go(view) {
     renderScreen(); renderEarnings();
   }
   if (view === "crypto") renderScreen();
+  if (view === "contracts") { need("contracts.json"); need("contracts-track.json"); renderContracts(); }
   if (view === "news") { need("news.json"); need("filings.json"); }
   if (view === "analysis") {
     need("fundamentals.json"); need("analytics.json");
@@ -9127,10 +9347,16 @@ function boot() {
     if (f) { e.stopPropagation(); toggleFav(f.dataset.fav); return; }
     // كاشفٌ داخل بطاقة فرصة (حسب الفريم) يُفتح في مكانه ولا يفتح السهم
     if (e.target.closest(".v3tf")) return;
+    // تصنيفات العقود — زرٌّ واحد نشط
+    const oc = e.target.closest("[data-ocat]");
+    if (oc) { oUI.cat = oc.dataset.ocat; $$("#oCats [data-ocat]").forEach(b => b.classList.toggle("on", b === oc)); renderContracts(); return; }
     const t = e.target.closest("[data-open]");
     if (t) openSymbol(t.dataset.open);
   });
 
+  for (const [id, k] of [["#oKind", "kind"], ["#oSort", "sort"], ["#oRR", "rr"]]) {
+    const el = $(id); if (el) el.onchange = () => { oUI[k] = el.value; renderContracts(); };
+  }
   let deb;
   // البحث يعمّ الكون كاملاً، فأول حرفٍ يطلب الطبقة الواسعة
   $("#cSearch").oninput = renderCryptoSearch;

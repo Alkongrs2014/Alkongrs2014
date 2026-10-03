@@ -36,6 +36,7 @@ const CHECKS = [
   { id: "ui",             cmd: ["scripts/check-ui.mjs"] },
   { id: "session",        cmd: ["scripts/check-session.mjs"] },
   { id: "build-trades",   cmd: ["scripts/build-trades.mjs", "--check"] },
+  { id: "fetch-contracts", cmd: ["scripts/fetch-contracts.mjs", "--check"] },
   ...["fetch-quotes", "fetch-market", "fetch-calendar", "fetch-news", "fetch-daily", "fetch-options", "fetch-filings",
       "fetch-events", "fetch-crypto", "build-universe", "analytics", "market-direction"]
     .map(n => ({ id: n, cmd: [`scripts/${n}.mjs`, "--check"], data: true, out: true })),

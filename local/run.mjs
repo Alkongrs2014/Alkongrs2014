@@ -380,7 +380,10 @@ else {
   const jobs = cmd === "quotes" ? ["fetch-quotes.mjs"]
              : cmd === "market" ? ["fetch-market.mjs", "build-trades.mjs", "market-direction.mjs", "fetch-news.mjs"]
              : (cmd === "opps" || cmd === "trades") ? ["build-trades.mjs"]
-             : cmd === "confirm" ? ["fetch-market.mjs", "build-trades.mjs"]
+             /* العقود (قرار المالك 2026-10-03) بعد V3 مباشرةً: لقطتُها على نفس حدود الأسهم
+                وتقرأ trades.json تأكيداً إضافياً لا شرطاً، وتتبّعُ الأهداف كلَّ دورة */
+             : cmd === "confirm" ? ["fetch-market.mjs", "build-trades.mjs", "fetch-contracts.mjs"]
+             : cmd === "contracts" ? ["fetch-contracts.mjs"]
              /* الكريبتو على V3 بلقطة الساعة: يومُه 03:00→03:00 الرياض (= يوم UTC)، وكلُّ
                 ساعة تُصفَّر فرصُه وتُبنى من الصفر. المهمّة كل 5 دقائق تجلب الشموع وتبني
                 اللقطة مرّةً عند عبور حدّ الساعة وحده. */

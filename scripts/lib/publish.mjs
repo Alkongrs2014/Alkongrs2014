@@ -40,7 +40,9 @@ const git = (args, cwd, env) => execFileSync("git", args,
 export const NO_PUBLISH = new Set([".run.lock", ".publish.lock", ".run.skips.json", "i18n.json", "cik.json",
   "opportunities-log.json", ".opportunities.tmp.json", ".archive", ".monitor", "bars", "market-calendar.json",
   /* المحرّك V3: حالته الداخلية لا تُنشر (trades.json هو المنشور) */
-  "trades-state.json", ".trades.json.tmp", ".trades-state.json.tmp"]);
+  "trades-state.json", ".trades.json.tmp", ".trades-state.json.tmp",
+  /* العقود: ذاكرة OI والشموع اليومية لليوم داخلية — المنشور contracts.json وسجلُّ التتبّع */
+  "contracts-cache", "contracts.json.tmp", "contracts-track.json.tmp"]);
 
 /* =====================================================================
    بوّابتا الدفترين — كما كانتا في `run.mjs` حرفياً، على **مجلّدٍ مُمرَّر**.
