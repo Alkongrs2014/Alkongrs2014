@@ -16,6 +16,10 @@ on:
       ref:
         description: "التزامٌ بعينه للنشر (فارغ = الحالي)"
         required: false
+      rollback_drill:
+        description: "تمرين الرجوع: يبني أثر الرجوع من pages-lkg ويفحصه بلا نشر (true/false)"
+        required: false
+        default: "false"
 
 concurrency:
   group: pages
@@ -29,6 +33,7 @@ permissions:
 jobs:
   gate:
     name: بوّابة الجودة
+    if: inputs.rollback_drill != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -97,9 +102,15 @@ jobs:
           old=$(git ls-remote origin refs/tags/pages-lkg | cut -f1)
           git tag -f pages-lkg
           git push -q origin refs/tags/pages-lkg "--force-with-lease=refs/tags/pages-lkg:${old}"
+      # نتائج Playwright مع التقرير: بدونها يقول السجلّ «4 فشل» ولا يقول ما الخطأ (وقع 2026-10-03)
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: verify-report, path: reports/, retention-days: 14 }
+        with:
+          name: verify-report
+          path: |
+            reports/
+            test-results/
+          retention-days: 14
 
   rollback:
     name: الرجوع إلى آخر نسخةٍ سليمة
@@ -115,6 +126,26 @@ jobs:
           rsync -a --exclude .git --exclude node_modules --exclude tests --exclude reports \
                 --exclude test-results --exclude _site ./ _site/
       - uses: actions/configure-pages@v5
+      # اسمٌ خاصّ بأثر الرجوع: أثرُ النشر في نفس التشغيل اسمُه github-pages، ورفعُ ثانٍ بالاسم
+      # نفسه جعل deploy-pages يرفض «Multiple artifacts named github-pages» — فلم يعمل الرجوع قط
       - uses: actions/upload-pages-artifact@v3
-        with: { path: _site }
+        with: { path: _site, name: github-pages-rollback }
       - uses: actions/deploy-pages@v4
+        with: { artifact_name: github-pages-rollback }
+
+  # تمرين الرجوع (يدويّ: rollback_drill=true) — نفس خطوات الرجوع حتى الأثر وفحصُ محتواه، بلا نشر
+  rollback-drill:
+    name: تمرين الرجوع (بلا نشر)
+    if: inputs.rollback_drill == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: pages-lkg }
+      - run: |
+          mkdir _site
+          rsync -a --exclude .git --exclude node_modules --exclude tests --exclude reports \
+                --exclude test-results --exclude _site ./ _site/
+          test -s _site/stocks/index.html && test -s _site/stocks/sw.js
+          echo "pages-lkg = $(git rev-parse HEAD) · $(grep -o 'webtrade-v[0-9]*' _site/stocks/sw.js | head -1)"
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site, name: github-pages-rollback }

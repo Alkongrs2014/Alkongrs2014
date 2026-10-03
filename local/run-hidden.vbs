@@ -31,5 +31,20 @@ For Each a In WScript.Arguments
 Next
 
 sh.CurrentDirectory = root
-code = sh.Run("node """ & root & "\local\run.mjs""" & args, 0, True)
+
+' Keep every run's output (stdout + stderr) in data\logs\runs\YYYY-MM-DD-<job>.log
+' (2026-10-03). Before this, scheduled output was discarded, so a slow or failed
+' run left no trace to diagnose. cmd /c returns node's own exit code, so the
+' waiting and the exit-code semantics above are unchanged. One file per job and
+' day: concurrent jobs never append to the same file. run.mjs prunes old files.
+Dim logDir, job, d, logFile
+If Not fso.FolderExists(root & "\data") Then fso.CreateFolder(root & "\data")
+If Not fso.FolderExists(root & "\data\logs") Then fso.CreateFolder(root & "\data\logs")
+logDir = root & "\data\logs\runs"
+If Not fso.FolderExists(logDir) Then fso.CreateFolder(logDir)
+job = "run"
+If WScript.Arguments.Count > 0 Then job = WScript.Arguments(0)
+d = Now
+logFile = logDir & "\" & Year(d) & "-" & Right("0" & Month(d), 2) & "-" & Right("0" & Day(d), 2) & "-" & job & ".log"
+code = sh.Run("cmd /c node """ & root & "\local\run.mjs""" & args & " >> """ & logFile & """ 2>&1", 0, True)
 WScript.Quit code

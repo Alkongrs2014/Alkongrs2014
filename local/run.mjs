@@ -221,6 +221,24 @@ function acquireLock(job) {
 const releaseLock = () => { try { fs.unlinkSync(LOCK); } catch (e) {} };
 
 /* ---------- تشغيل سكربت الجلب كعملية منفصلة ---------- */
+/* سجلّات التشغيل (2026-10-03): run-hidden.vbs يكتب مخرجات كل مهمّة في data/logs/runs/،
+   وهنا أثرٌ مختصر لكل فشل في data/logs/errors.jsonl، وتقليمٌ لما مضى عليه 14 يوماً. */
+const LOG_KEEP_DAYS = 14;
+function pruneLogs() {
+  const dir = path.join(ROOT, "data", "logs", "runs");
+  try {
+    const cut = Date.now() - LOG_KEEP_DAYS * 86400000;
+    for (const f of fs.readdirSync(dir)) { const p = path.join(dir, f); if (fs.statSync(p).mtimeMs < cut) fs.rmSync(p, { force: true }); }
+  } catch { /* المجلّد يُنشأ بأوّل تشغيلٍ مجدول */ }
+}
+function logError(o) {
+  try {
+    const f = path.join(ROOT, "data", "logs", "errors.jsonl");
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.appendFileSync(f, JSON.stringify({ at: new Date().toISOString(), ...o }) + "\n");
+  } catch (e) { console.error("  ⚠ تعذّر تسجيل الخطأ: " + e.message); }
+}
+
 function runScript(name) {
   /* الاسم قد يحمل وسائط («track-strategies.mjs --only-price»): دورة
      الأسعار تشغّل نفس السكربت بوضعٍ آخر، وسكربتان لنفس المنطق يتباعدان. */
@@ -434,12 +452,22 @@ else {
   process.on("exit", releaseLock);
   for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { releaseLock(); process.exit(1); });
 
-  let bad = 0;
+  console.log(`════ ${cmd} · ${new Date().toISOString()} · pid ${process.pid} ════`);
+  pruneLogs();
+  /* لا لقطة فرصٍ من بياناتٍ لم تُحدَّث (2026-10-03، تقرير البريماركت): إن فشل جلبُ الشموع في
+     هذه الدورة لا يُبنى V3 عليها — كان يُبنى على المخزن القديم ويُجمَّد 30 دقيقة. تبقى آخر لقطةٍ
+     سليمة بتوقيتها الحقيقي، والواجهة تنبّه إلى تأخّرها. بقيّةُ المهامّ تمضي كما كانت. */
+  const DEPENDS = { "build-trades.mjs": ["fetch-market.mjs", "fetch-crypto.mjs"] };
+  let bad = 0; const failedJobs = [];
   for (const j of jobs) {
     console.log(`\n──── ${j} ────`);
-    const code = await runScript(j);
-    if (code !== 0) { bad++; console.error(`  ✗ ${j} انتهى برمز ${code}`); }
+    const dep = (DEPENDS[j] || []).find(x => failedJobs.includes(x));
+    if (dep) { bad++; failedJobs.push(j); console.error(`  ✗ ${j} تُخطّي: ${dep} فشل في هذه الدورة — تبقى آخر لقطة سليمة`); continue; }
+    const t0 = Date.now(), code = await runScript(j);
+    console.log(`  ⏱ ${j} ${((Date.now() - t0) / 1000).toFixed(1)}ث · رمز ${code}`);
+    if (code !== 0) { bad++; failedJobs.push(j); console.error(`  ✗ ${j} انتهى برمز ${code}`); }
   }
+  if (failedJobs.length) logError({ job: cmd, failed: failedJobs });
   console.log(bad ? `\n✗ فشل ${bad} من ${jobs.length}` : `\n✔ تم — البيانات في ${DATA}`);
   // النشر بعد الجلب وبشرط نجاحه: لا تُرفع نتيجة تشغيل فاشل فوق بيانات سليمة
   // القفل يُحرَّر قبل النشر: النشر يأخذ لقطته تحت نفس القفل فلا ينتظر نفسه

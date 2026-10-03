@@ -13,9 +13,10 @@
 #  الاستعمال:
 #    powershell -ExecutionPolicy Bypass -File schedule.ps1            # بلا نشر
 #    powershell -ExecutionPolicy Bypass -File schedule.ps1 -Publish   # مع النشر
+#    powershell -ExecutionPolicy Bypass -File schedule.ps1 -Publish -Check   # مقارنةٌ بالمجدول بلا تغيير
 #    (أو ببساطة: schedule.bat  /  schedule-publish.bat)
 # =====================================================================
-param([switch]$Publish)
+param([switch]$Publish, [switch]$Check)
 
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
@@ -41,34 +42,60 @@ if (-not (Test-Path $vbs)) { throw "لم يُعثر على $vbs" }
 #   السوق  :01 :11 :21 :31 :41 :51      العقود :05 :35      اليومي 09:27
 # فلا تشترك مهمتان في دقيقة واحدة أبداً. والقفل يبقى شبكة أمان للحالة
 # النادرة (مهمة طالت) بدل أن يكون هو القاعدة.
+# ── مطابقةٌ للمهام المسجّلة فعلاً (2026-10-03، Get-ScheduledTask) ──
+# كان هذا الملفُّ متأخّراً عن المجدول: بلا Confirm ولا Publish، وMarket فيه كل 10 دقائق
+# والحيّ كل 30، فإعادةُ تشغيله كانت تُسقط مهمّتين وتغيّر مواعيد ثالثة. الآن كلُّ مهمّةٍ
+# بوسائطها (`Args`) وموعدها وسقفها وإعداداتها كما هي مسجّلة، و`-Check` يقارن بلا تغيير.
+#   الأسهم: Confirm كل 15د عند :03 (بعد إغلاق شمعة 15د) · Market كل 30د عند :20
+#   النشر: Publish كل دقيقتين — بلا قفل الجلب، وهو الكاتب الوحيد لفرع data
+#   الكريبتو: كل 5د عند :01 (لقطته على :15/:45)
 $tasks = @(
-  @{ Name='WebTrade-Quotes';  Job='quotes';  Every=2;  Start='00:00'; LimitMin=5;   Desc='أسعار فقط' }
-  @{ Name='WebTrade-Market';  Job='market';  Every=10; Start='00:01'; LimitMin=20;  Desc='شمعات ومؤشرات وإشارات وأخبار' }
-  @{ Name='WebTrade-Options'; Job='options'; Every=30; Start='00:05'; LimitMin=25;  Desc='عقود الخيارات والجريكس' }
-  # الإيداعات على :07 — دقيقةٌ فردية لا تصادف الأسعار (زوجية) ولا السوق
-  # (:01) ولا العقود (:05). وسقفُها خمس دقائق: طلبان للتيار وطلبان لكل
-  # إيداعٍ يُفصَّل، وأقصى ما رُصد عشرة طلبات في التشغيل.
-  @{ Name='WebTrade-Filings'; Job='filings'; Every=10; Start='00:07'; LimitMin=5;   Desc='إيداعات SEC — 8-K وتداول المطّلعين' }
-  # الأرشيف يجلب خمس سنوات لخمسمئة رمز، فسقفه ساعة لا نصف. ووقته 09:27
-  # لا 09:30: الدقيقة الزوجية دقيقةُ أسعار، وانسحابُ مهمةٍ يومية يعني
-  # ضياع يوم كامل لا عشر دقائق.
-  @{ Name='WebTrade-Daily';   Job='daily';   At='09:27'; LimitMin=60;  Desc='أساسيات وترتيب وأحداث وأرشيف' }
-  # دفتر الكريبتو — 24/7 بعد إغلاق كل شمعة 5 دقائق بدقيقة. قفلُه وملفّاته
-  # في data\crypto وحده، فلا ينتظر مهمّةَ أسهم ولا تنتظره. وبلا --publish:
-  # مهمّةُ النشر المستقلّة تنشر المجلّد كل دقيقتين. الدورة ~5 ثوانٍ.
-  @{ Name='WebTrade-Crypto';  Job='crypto';  Every=5;  Start='00:01'; LimitMin=4;   Desc='دفتر الكريبتو — شموع ومحرّك ولقطة فرص' }
-  # مراقبة الكريبتو المنشور — تسجّل كل لقطةٍ منشورة وتقارن الأسهم (للتقرير)
-  @{ Name='WebTrade-CryptoMon'; Job='cmon';  Every=5;  Start='00:04'; LimitMin=4;   Desc='مراقبة ثبات الكريبتو وعزل الأسهم على المنشور' }
-  # الحراسة — بلا قفلٍ ولا شبكةٍ للجلب ولا أيّ نموذج لغوي (scripts/health · fortress · torture · mutation)
-  @{ Name='WebTrade-Health';   Job='health';   Every=10; Start='00:09'; LimitMin=8;   Desc='صحّة المنشور ورجوعٌ آليّ عند عطبٍ تقنيّ' }
-  @{ Name='WebTrade-Fortress'; Job='fortress'; At='04:13'; LimitMin=90;  Desc='الفحص الشامل الليلي — الطبيب والاختبارات والإعادة والواجهة' }
-  @{ Name='WebTrade-Torture';  Job='torture';  At='05:43'; Day='FRI'; LimitMin=120; Desc='تعذيبٌ أسبوعي — آلاف الحالات والسباقات' }
-  @{ Name='WebTrade-Mutation'; Job='mutation'; At='02:43'; Day='SAT'; LimitMin=240; Desc='اختبار الطفرات الأسبوعي' }
+  @{ Name='WebTrade-Quotes';    Args='quotes';             Every=2;  Start='00:00'; LimitMin=5;    Swa=$true;  Desc='أسعار فقط' }
+  @{ Name='WebTrade-Confirm';   Args='confirm --publish';  Every=15; Start='00:03'; LimitMin=4320; Swa=$false; Desc='التأكيد السريع: شموع SIP ثم V3 ثم العقود' }
+  @{ Name='WebTrade-Market';    Args='market --publish';   Every=30; Start='00:20'; LimitMin=20;   Swa=$true;  Desc='بقية الفريمات والأخبار وتوجّه السوق' }
+  @{ Name='WebTrade-Publish';   Args='publish';            Every=2;  Start='00:01'; LimitMin=4320; Swa=$false; Desc='نشر data إلى فرع data (الكاتب الوحيد)' }
+  @{ Name='WebTrade-Options';   Args='options --publish';  Every=30; Start='00:06'; LimitMin=25;   Swa=$true;  Desc='عقود الخيارات لصفحة السهم (ياهو)' }
+  @{ Name='WebTrade-Filings';   Args='filings --publish';  Every=10; Start='00:07'; LimitMin=5;    Swa=$true;  Desc='إيداعات SEC — 8-K وتداول المطّلعين' }
+  @{ Name='WebTrade-Daily';     Args='daily --publish';    At='09:27';              LimitMin=60;   Swa=$true;  Desc='أساسيات وترتيب وأحداث وتقويم' }
+  @{ Name='WebTrade-Crypto';    Args='crypto';             Every=5;  Start='00:01'; LimitMin=4;    Swa=$true;  Desc='دفتر الكريبتو — شموع ومحرّك ولقطة فرص' }
+  @{ Name='WebTrade-CryptoMon'; Args='cmon';               Every=5;  Start='00:04'; LimitMin=4;    Swa=$true;  Desc='مراقبة الكريبتو المنشور' }
+  # الحراسة — بلا قفلٍ ولا شبكةٍ للجلب ولا أيّ نموذج لغوي
+  @{ Name='WebTrade-Health';    Args='health';             Every=10; Start='00:09'; LimitMin=8;    Swa=$true;  Desc='صحّة المنشور ورجوعٌ آليّ عند عطبٍ تقنيّ' }
+  @{ Name='WebTrade-Fortress';  Args='fortress';           At='04:13';              LimitMin=90;   Swa=$true;  Desc='الفحص الشامل الليلي' }
+  @{ Name='WebTrade-Torture';   Args='torture';            At='05:43'; Day='FRI';   LimitMin=120;  Swa=$true;  Desc='تعذيبٌ أسبوعي' }
+  @{ Name='WebTrade-Mutation';  Args='mutation';           At='02:43'; Day='SAT';   LimitMin=240;  Swa=$true;  Desc='اختبار الطفرات الأسبوعي' }
 )
 
-# بلا نشر: لا حاجة لدورة الأسعار السريعة، فهي موجودة أصلاً كي يبقى
-# الموقع المنشور حديثاً. محلياً يكفي تحديث كل عشر دقائق.
-if (-not $Publish) { $tasks = $tasks | Where-Object { $_.Name -ne 'WebTrade-Quotes' } }
+# بلا نشر (تشغيلٌ محلّي فقط): لا أسعار سريعة ولا مهمّة نشر، ووسائطٌ بلا --publish
+if (-not $Publish) {
+  $tasks = $tasks | Where-Object { $_.Name -notin @('WebTrade-Quotes', 'WebTrade-Publish') }
+  foreach ($t in $tasks) { $t.Args = $t.Args -replace ' --publish', '' }
+}
+
+# -Check: مقارنة الملفّ بالمجدول **بلا أيّ تغيير** — الوسائط والموعد والدورة والسقف
+if ($Check) {
+  $diff = 0
+  foreach ($t in $tasks) {
+    $r = Get-ScheduledTask -TaskName $t.Name -ErrorAction SilentlyContinue
+    if (-not $r) { Write-Host "  ✗ $($t.Name): غير مسجّلة"; $diff++; continue }
+    $args0 = ($r.Actions | Select-Object -First 1).Arguments
+    $trg = $r.Triggers | Select-Object -First 1
+    $hm = ([datetime]$trg.StartBoundary).ToString('HH:mm')
+    $want = @{ args = $t.Args; hm = $(if ($t.At) { $t.At } else { $t.Start }); rep = $(if ($t.Every) { "PT$($t.Every)M" } else { '' }); lim = $t.LimitMin }
+    $limMin = [int]([System.Xml.XmlConvert]::ToTimeSpan($r.Settings.ExecutionTimeLimit).TotalMinutes)
+    $bad = @()
+    if (-not $args0.EndsWith(' ' + $want.args)) { $bad += "الوسائط '$args0'" }
+    if ($hm -ne $want.hm) { $bad += "البداية $hm≠$($want.hm)" }
+    if ("$($trg.Repetition.Interval)" -ne $want.rep) { $bad += "الدورة $($trg.Repetition.Interval)≠$($want.rep)" }
+    if ($limMin -ne $want.lim) { $bad += "السقف $limMin≠$($want.lim)" }
+    if ($r.Settings.StartWhenAvailable -ne $t.Swa) { $bad += "StartWhenAvailable" }
+    if ($bad.Count) { Write-Host "  ✗ $($t.Name): $($bad -join ' · ')"; $diff++ } else { Write-Host "  ✓ $($t.Name)" }
+  }
+  $extra = Get-ScheduledTask -TaskName 'WebTrade-*' | Where-Object { $_.TaskName -notin $tasks.Name }
+  foreach ($e in $extra) { Write-Host "  ✗ $($e.TaskName): مسجّلة وليست في الملف"; $diff++ }
+  Write-Host $(if ($diff) { "  ✗ $diff اختلاف" } else { "  ✔ الملف يطابق المجدول ($($tasks.Count) مهمّة)" })
+  exit $diff
+}
 
 Write-Host ""
 Write-Host "  جدولة المرصد$(if ($Publish) {' — مع النشر التلقائي على GitHub'})" -ForegroundColor Cyan
@@ -96,7 +123,7 @@ Read-Host "  اضغط Enter للمتابعة (أو Ctrl+C للإلغاء)" | Out
 # Set-ScheduledTask: السقف الزمني ومنع التداخل.
 $failed = @()
 foreach ($t in $tasks) {
-  $jobArgs = if ($Publish) { "$($t.Job) --publish" } else { $t.Job }
+  $jobArgs = $t.Args
   # wscript لا node مباشرة: node تطبيق كونسول، فيفتح Windows نافذة طرفية
   # مرئية مع كل تشغيل — أي كل دقيقتين مع دورة الأسعار.
   $tr = 'wscript.exe "' + $vbs + '" ' + $jobArgs
@@ -118,7 +145,7 @@ foreach ($t in $tasks) {
     $task = Get-ScheduledTask -TaskName $t.Name
     $task.Settings.ExecutionTimeLimit = "PT$($t.LimitMin)M"
     $task.Settings.MultipleInstances  = 'IgnoreNew'
-    $task.Settings.StartWhenAvailable = $true
+    $task.Settings.StartWhenAvailable = $t.Swa
     $task.Settings.DisallowStartIfOnBatteries = $false
     $task.Settings.StopIfGoingOnBatteries     = $false
     Set-ScheduledTask -TaskName $t.Name -Settings $task.Settings | Out-Null
