@@ -309,7 +309,25 @@ export function picksFor(u, chain, ctx) {
 }
 
 /* ---------------- التشغيل ---------------- */
-export async function run({ now = Date.now(), out = OUT } = {}) {
+/* آخرُ لقطةٍ في جلسةٍ رسمية ≤ now (لعطلة الأسبوع أو بعد عطلة بلا لقطةٍ سابقة) */
+function lastRegularSlot(now) {
+  for (let i = 0; i < 10; i++) {
+    const w = SES.sessionWindows(now - i * DAY);
+    if (!w.regular) continue;
+    const ok = SES.scanSlotsOf(now - i * DAY).filter((h) => h >= w.regular.start && h <= w.regular.end && h <= now);
+    if (ok.length) return ok[ok.length - 1];
+  }
+  return null;
+}
+function ensureTrack(out) {
+  const f = path.join(out, "contracts-track.json");
+  if (!fs.existsSync(f)) writeAtomic(f, { v: 1, rows: [], updated: Date.now() });
+}
+const closeDoc = (doc) => ({ ...doc, phase: "post", marketOpen: false, note: "سوق العقود مغلق — آخر لقطة من الجلسة",
+  picks: (doc.picks || []).map((p) => ({ ...p, exec: false, execWhy: "سوق العقود مغلق — آخر لقطة من الجلسة" })) });
+
+export async function run({ now = Date.now(), out = OUT, _closed = false } = {}) {
+  ensureTrack(out);
   const H = SES.scanSlotAt(now);
   if (!H) return { ok: false, why: "لا حدّ لقطة" };
   const ver = version();
@@ -320,11 +338,10 @@ export async function run({ now = Date.now(), out = OUT } = {}) {
   const phase = !w.regular ? "closed" : H < w.regular.start ? "pre" : H <= w.regular.end ? "regular" : "post";
   if (phase === "post" || phase === "closed") {
     /* بعد الإغلاق تبقى آخر لقطة للاطّلاع، وكلُّ عقدٍ فيها **غير قابلٍ للتنفيذ** — لا الترويسة وحدها */
-    if (prev && prev.phase !== "post") {
-      const picks = (prev.picks || []).map((p) => ({ ...p, exec: false, execWhy: "سوق العقود مغلق — آخر لقطة من الجلسة" }));
-      const doc = { ...prev, phase: "post", marketOpen: false, picks, note: "سوق العقود مغلق — آخر لقطة من الجلسة" };
-      writeAtomic(file, doc); return { ok: true, doc, closed: true };
-    }
+    if (prev && prev.phase !== "post") { const doc = closeDoc(prev); writeAtomic(file, doc); return { ok: true, doc, closed: true }; }
+    /* لا لقطةَ سابقة (أوّل تشغيل، أو بعد عطلة): تُبنى من آخر لقطةٍ في جلسةٍ رسمية وتُوسَم مغلقة —
+       كي لا تبقى الشاشة على ملفٍّ غائب، ولا يُعرض عقدٌ قابلاً للتنفيذ والسوق مغلق */
+    if (!prev && !_closed) { const Hr = lastRegularSlot(now); if (Hr) return run({ now: Hr + MIN, out, _closed: true }); }
     return { ok: true, same: true, doc: prev, why: "سوق العقود مغلق" };
   }
   const live = phase === "regular";
@@ -344,6 +361,13 @@ export async function run({ now = Date.now(), out = OUT } = {}) {
   const fund = (readJ(path.join(out, "fundamentals.json")) || {}).f || {};
   const evs = ((readJ(path.join(out, "events.json")) || {}).events || []).filter((e) => e.w >= 3).map((e) => ({ at: e.at, ar: e.ar, kind: "macro" }));
   const v3 = Object.fromEntries(((readJ(path.join(out, "trades.json")) || {}).open || []).map((t) => [t.s, t]));
+  /* أحداث الشركة الموثّقة: إيداعات 8-K في 48 ساعة (SEC، موجودة في filings.json)، وعناوين
+     الأخبار في 24 ساعة (Benzinga عبر Alpaca) — الأولى حدثٌ مؤكَّد، والثانية إشارةٌ غير حاسمة */
+  const k8 = {};
+  for (const f of ((readJ(path.join(out, "filings.json")) || {}).rows || []))
+    if (f.form === "8-K" && f.at > H - 2 * DAY && f.at <= H) (k8[f.s] ||= []).push(f);
+  let newsBy = {};
+  try { newsBy = await AO.news(syms, new Date(H - DAY).toISOString()); } catch (e) { console.warn(`  ⚠ الأخبار: ${e.message}`); }
   const oiKey = path.join(cacheDir, `oi-${today}.json`);
   const oiCache = readJ(oiKey) || {};
 
@@ -368,7 +392,11 @@ export async function run({ now = Date.now(), out = OUT } = {}) {
     const res = picksFor(u, chain, { now: H, live, v3: v3[s] ? { d: v3[s].d, score: v3[s].score } : null, events: [...earn, ...evs].sort((a, b) => a.at - b.at) });
     sigs[s] = { S: r2(S), chg: r2(prevC ? (S / prevC - 1) * 100 : null), move: r2(res.sig.move), ivhv: res.sig.ivhv, flow: res.sig.flow,
                 liquid: res.liquid, total: res.total, why: res.why };
+    const corp = [
+      ...(k8[s] || []).slice(0, 2).map((f) => ({ k: "event", t: `إفصاح 8-K ${f.items && f.items.length ? "(بند " + f.items.join("، ") + ") " : ""}${new Date(f.at).toISOString().slice(0, 16).replace("T", " ")} UTC` })),
+      ...((newsBy[s] || []).filter((n) => n.at * 1000 <= H).slice(0, 2).map((n) => ({ k: "weak", t: `خبر: ${n.h.slice(0, 140)}` })))];
     for (const p of res.picks) {
+      if (corp.length) p.why = [...p.why, ...corp];
       // قابلٌ للتنفيذ: سوق العقود مفتوح لهذا الرمز الآن، وكلُّ أرجله حديثة
       const closeAt = w.regular.end + (late.has(s) ? 15 * MIN : 0);
       const fresh = p.legs.every((l) => l.qt && H - l.qt * 1000 <= P.quoteAgeMs);
@@ -399,8 +427,9 @@ export async function run({ now = Date.now(), out = OUT } = {}) {
     universe: { n: syms.length, pre: U.pre.length, core: live ? core.length : 0 }, params: P, cats: CAT_AR,
     count: picks.length, picks, sigs, skip, stats: { requests: AO.optStats.requests, failures: AO.optStats.failures } };
   doc.rowsHash = crypto.createHash("sha256").update(JSON.stringify(picks)).digest("hex").slice(0, 12);
-  writeAtomic(file, doc);
-  return { ok: true, doc };
+  const final = _closed ? closeDoc(doc) : doc;
+  writeAtomic(file, final);
+  return { ok: true, doc: final };
 }
 
 /* =====================================================================

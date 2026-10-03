@@ -136,3 +136,20 @@ export async function optionBars(symbols, timeframe, startIso) {
   }
   return out;
 }
+
+/* أخبار Benzinga عبر Alpaca (مجانية ضمن اشتراك البيانات) — عناوين الرموز منذ `startIso`.
+   الخبر **حدثٌ وقع** لكن أثره غير محسوم، فيُعرض إشارةً لا سبباً. */
+export async function news(symbols, startIso, limit = 50) {
+  const out = {};
+  for (let i = 0; i < symbols.length; i += 50) {
+    const u = new URL(`${DATA}/v1beta1/news`);
+    u.searchParams.set("symbols", symbols.slice(i, i + 50).map(toAlpaca).join(",")); u.searchParams.set("start", startIso);
+    u.searchParams.set("limit", String(limit)); u.searchParams.set("sort", "desc");
+    const j = await req(u.toString());
+    for (const n of j.news || []) for (const s of n.symbols || []) {
+      const k = toApp(s); if (!symbols.includes(k)) continue;
+      (out[k] ||= []).push({ h: n.headline, at: Math.round(Date.parse(n.created_at) / 1000), src: n.source, url: n.url || null });
+    }
+  }
+  return out;
+}

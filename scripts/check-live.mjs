@@ -137,7 +137,8 @@ try {
   await page.evaluate(() => go("crypto"));
   await page.waitForTimeout(1500);
   const cr = await page.evaluate(() => ({ rows: [...document.querySelectorAll('section[data-view="crypto"] .srow.opp')].map(c => c.dataset.open),
-    pub: TRADES_C && TRADES_C.open.map(t => t.s), hour: TRADES_C && TRADES_C.hour,
+    /* ترتيب العرض: العادية بترتيب الخادم ثم «أقل سيولة» بترتيبه في قسمها (قرار المالك 2026-10-03) */
+    pub: TRADES_C && [...TRADES_C.open.filter(t => !t.low), ...TRADES_C.open.filter(t => t.low)].map(t => t.s), hour: TRADES_C && TRADES_C.hour,
     carried: TRADES_C ? TRADES_C.open.filter(t => t.h !== TRADES_C.hour).length : -1,
     oldEntry: TRADES_C ? TRADES_C.open.filter(t => t.t !== TRADES_C.candleKey).length : -1 }));
   (cr.pub && JSON.stringify(cr.rows) === JSON.stringify(cr.pub) && !cr.rows.some(s => !/-USD$/.test(s)) && cr.carried === 0 && cr.oldEntry === 0)
