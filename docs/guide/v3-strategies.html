@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>دليل استراتيجيات V3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#0d1b2a;--mut:#5b6b7c;--line:#dfe6ee;--teal:#0fa89d;--teal2:#e6f7f5;--up:#13a86a;--dn:#e0394f;--gold:#c8962e;--bg:#f6f8fb;}
+  @page{size:A4;margin:14mm 13mm 16mm}
+  *{box-sizing:border-box}
+  body{font-family:"IBM Plex Sans Arabic",Tahoma,sans-serif;color:var(--ink);font-size:11.2pt;line-height:1.75;margin:0;background:#fff}
+  h1,h2,h3{margin:0;line-height:1.35}
+  .cover{height:262mm;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(180deg,#0b1623,#12273a);color:#fff;border-radius:14px;padding:22mm 16mm;page-break-after:always}
+  .cover .tag{display:inline-block;background:rgba(34,211,197,.15);color:#5ff0e3;border:1px solid rgba(34,211,197,.4);border-radius:99px;padding:3px 14px;font-size:10pt}
+  .cover h1{font-size:30pt;margin-top:18mm}
+  .cover h1 span{color:#22d3c5}
+  .cover p{color:#b9c7d6;font-size:12.5pt;max-width:150mm}
+  .cover .w{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10mm}
+  .cover .w div{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;text-align:center;font-size:9.5pt;color:#cfe0ee}
+  .cover .w b{display:block;font-size:17pt;color:#fff}
+  .cover .foot{font-size:9pt;color:#8aa0b5}
+  section{page-break-inside:auto;margin-bottom:9mm}
+  h2{font-size:17pt;padding-bottom:4px;border-bottom:3px solid var(--teal);display:inline-block;margin-bottom:5mm}
+  h3{font-size:13pt;margin:4mm 0 2mm}
+  .card{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 4mm;background:#fff;page-break-inside:avoid}
+  .card.hl{background:var(--teal2);border-color:#bfe9e4}
+  .strat{border-right:5px solid var(--teal)}
+  .strat.core{border-right-color:var(--gold)}
+  .strat .hd{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .pill{font-size:9pt;border-radius:99px;padding:1px 10px;border:1px solid var(--line);background:var(--bg);white-space:nowrap}
+  .pill.g{background:#fff6e3;border-color:#f0d9a8;color:#8a6414}
+  .pill.t{background:var(--teal2);border-color:#bfe9e4;color:#0b7d74}
+  table{width:100%;border-collapse:collapse;font-size:10.2pt;margin:2mm 0 3mm}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:right;vertical-align:top}
+  th{background:#eef3f8;font-weight:600}
+  .ok{color:var(--up);font-weight:700}.no{color:var(--dn);font-weight:700}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
+  .ex{background:var(--bg);border-radius:8px;padding:6px 10px;font-size:10pt;margin-top:2mm}
+  .ex b{color:#0b7d74}
+  .small{font-size:9.4pt;color:var(--mut)}
+  .ltr{direction:ltr;unicode-bidi:isolate;display:inline-block}
+  svg text{font-family:"IBM Plex Sans Arabic",Tahoma,sans-serif}
+  .warn{border-right:5px solid var(--dn);background:#fff5f6}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div>
+    <span class="tag">محرّك الفرص V3 · دليل للشباب</span>
+    <h1>كيف يطلّع الموقع <span>الفرصة</span>؟</h1>
+    <p>شرح مختصر للاستراتيجيات الخمس اللي يشتغل عليها المحرّك في الأسهم والكريبتو: وش تحسب، على أي فريم، ومتى تتحقق ومتى لا. بدون تعقيد.</p>
+    <div class="w">
+      <div><b>40</b>قمة/قاع أمس</div>
+      <div><b>40</b>المتوسطات</div>
+      <div><b>6.67</b>الاتجاه</div>
+      <div><b>6.67</b>VWAP</div>
+      <div><b>6.66</b>قمة/قاع الأسبوع</div>
+    </div>
+  </div>
+  <div class="foot">المرجع: مواصفة المحرّك <span class="ltr">docs/ENGINE_V3_SPEC.md</span> · الأوزان ثابتة بقرار المالك · هذا الدليل يشرح ولا يغيّر شيء · ليس توصية استثمارية</div>
+</div>
+
+<section>
+  <h2>الفكرة باختصار</h2>
+  <div class="card hl">
+    <b>عندنا خمس استراتيجيات، كل وحدة لها وزن.</b> الفرصة <u>ما تطلع</u> إلا من وحدة من الاثنتين الأساسيتين (قمة/قاع أمس أو المتوسطات). الثلاث الباقية (الاتجاه، VWAP، الأسبوع) <b>تأكيد بس</b> — ترفع الدرجة لكنها ما تولّد فرصة لحالها.
+  </div>
+  <div class="grid2">
+    <div class="card"><b>الدرجة (قوة التوافق)</b><br>= مجموع أوزان الاستراتيجيات اللي <span class="ok">✓</span> متوافقة مع جهة الفرصة. أعلى شي 100. اللي محايدة أو عكس الجهة تاخذ صفر.</div>
+    <div class="card"><b>انتبه</b><br>«قوة التوافق 93%» <u>مو</u> معناها احتمال ربح 93%. هي كم استراتيجية متفقة على نفس الجهة، بأوزانها. الاختبار التاريخي ما أثبت أفضلية مضمونة.</div>
+  </div>
+  <table>
+    <tr><th>الاستراتيجية</th><th>الوزن</th><th>دورها</th><th>الفريمات اللي تستخدمها</th></tr>
+    <tr><td>قمة/قاع أمس</td><td>40</td><td>أساسية — تولّد فرصة</td><td>شموع 15 دقيقة (للكسر) + اليومي (للمستوى)</td></tr>
+    <tr><td>المتوسطات</td><td>40</td><td>أساسية — تولّد فرصة</td><td>الساعة فقط</td></tr>
+    <tr><td>الاتجاه</td><td>6.67</td><td>تأكيد</td><td>الساعة + 4 ساعات + اليومي</td></tr>
+    <tr><td>VWAP</td><td>6.67</td><td>تأكيد</td><td>شموع 15 دقيقة لليوم الحالي</td></tr>
+    <tr><td>قمة/قاع الأسبوع السابق</td><td>6.66</td><td>تأكيد</td><td>شموع 15 دقيقة (للكسر) + اليومي (للمستوى)</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>أهم قاعدة: الكسر بجسم الشمعة مو بالذيل</h2>
+  <p>كل «كسر» أو «استعادة» يُحكم عليه على <b>شمعة 15 دقيقة مقفلة</b>، بالافتتاح (O) والإغلاق (C) بس. الذيل لو لمس المستوى ما يُحسب.</p>
+  <svg viewBox="0 0 700 175" width="100%" height="175">
+    <line x1="10" y1="62" x2="690" y2="62" stroke="#c8962e" stroke-dasharray="6 5"/><text x="680" y="55" font-size="12" fill="#8a6414" text-anchor="end">القمة H</text>
+    <line x1="10" y1="122" x2="690" y2="122" stroke="#5b6b7c" stroke-dasharray="6 5"/><text x="680" y="140" font-size="12" fill="#5b6b7c" text-anchor="end">القاع L</text>
+    <g><line x1="590" y1="40" x2="590" y2="90" stroke="#13a86a"/><rect x="578" y="48" width="24" height="30" fill="#13a86a"/><text x="590" y="168" font-size="12" text-anchor="middle">كسر القمة ▲</text></g>
+    <g><line x1="440" y1="100" x2="440" y2="150" stroke="#13a86a"/><rect x="428" y="108" width="24" height="24" fill="#13a86a"/><text x="440" y="168" font-size="12" text-anchor="middle">استعادة القاع ▲</text></g>
+    <g><line x1="290" y1="100" x2="290" y2="150" stroke="#e0394f"/><rect x="278" y="110" width="24" height="26" fill="#e0394f"/><text x="290" y="168" font-size="12" text-anchor="middle">كسر القاع ▼</text></g>
+    <g><line x1="140" y1="38" x2="140" y2="88" stroke="#e0394f"/><rect x="128" y="46" width="24" height="30" fill="#e0394f"/><text x="140" y="168" font-size="12" text-anchor="middle">فقد القمة ▼</text></g>
+  </svg>
+  <table>
+    <tr><th>الحدث</th><th>الشرط</th><th>الجهة</th></tr>
+    <tr><td>كسر القمة</td><td>الافتتاح عند القمة أو تحتها، والإغلاق فوقها</td><td class="ok">صعود</td></tr>
+    <tr><td>استعادة القاع</td><td>الافتتاح تحت القاع، والإغلاق فوقه</td><td class="ok">صعود</td></tr>
+    <tr><td>كسر القاع</td><td>الافتتاح عند القاع أو فوقه، والإغلاق تحته</td><td class="no">هبوط</td></tr>
+    <tr><td>فقد القمة</td><td>الافتتاح فوق القمة، والإغلاق تحتها</td><td class="no">هبوط</td></tr>
+  </table>
+  <div class="ex"><b>مثال:</b> قمة أمس 100. شمعة 15د فتحت 99.5 وقفلت 100.8 ⇒ <span class="ok">كسر قمة ✓</span>. شمعة ثانية فتحت 99.5 وطلع ذيلها لـ101 بس قفلت 99.9 ⇒ <span class="no">ما فيه كسر ✗</span> (الذيل ما يُحسب).</div>
+  <p class="small">وبعد الكسر لازم يبقى الإغلاق الأخير في نفس الجهة من المستوى. لو كسر القمة ثم رجع قفل تحتها، الاستراتيجية ما تُحسب.</p>
+</section>
+
+<section>
+  <h2>الاستراتيجيات الخمس بالتفصيل</h2>
+
+  <div class="card strat core">
+    <div class="hd"><h3>١. قمة/قاع أمس</h3><span class="pill g">40 نقطة · أساسية</span></div>
+    <p><b>المستوى:</b> أعلى وأدنى سعر في آخر جلسة <u>مكتملة</u>. الأسهم: من الجلسة الرسمية فقط (09:30–16:00 نيويورك). الكريبتو: من يوم UTC السابق (03:00 الرياض إلى 03:00).</p>
+    <p><b>تتحقق ✓</b> إذا آخر حدث كسر/استعادة لقمة أو قاع أمس <u>خلال اليوم الحالي</u> كان بجهة الفرصة، والإغلاق الأخير لسا في جهته.<br>
+       <b>ما تتحقق ✗</b> إذا ما صار أي كسر اليوم، أو صار بالعكس، أو رجع السعر ورا المستوى.</p>
+    <div class="ex"><b>مثال:</b> قاع أمس 50. الساعة 10:15 شمعة فتحت 50.2 وقفلت 49.6 ⇒ «كسر قاع أمس» هبوط. لو آخر شمعة لسا تحت 50 ⇒ ✓ لفرصة بيع.</div>
+  </div>
+
+  <div class="card strat core">
+    <div class="hd"><h3>٢. المتوسطات</h3><span class="pill g">40 نقطة · أساسية</span></div>
+    <p><b>الحساب:</b> المتوسطات الأُسّية EMA 20 و50 و200 على شموع <b>الساعة</b> المكتملة (آخر 259 شمعة)، ونقارن آخر إغلاق ساعة.</p>
+    <p><b>صعود ✓</b> إذا: الإغلاق &gt; EMA20 &gt; EMA50 &gt; EMA200 (ترتيب كامل).<br>
+       <b>هبوط ✓</b> إذا: الإغلاق &lt; EMA20 &lt; EMA50 &lt; EMA200.<br>
+       <b>غير كذا ✗</b> = محايد (لو أي واحد خرب الترتيب).</p>
+    <div class="ex"><b>مثال:</b> إغلاق 120، EMA20=118، EMA50=115، EMA200=105 ⇒ ترتيب صاعد كامل ✓. لو EMA20=118 بس EMA50=119 ⇒ محايد ✗.</div>
+  </div>
+
+  <div class="card strat">
+    <div class="hd"><h3>٣. الاتجاه</h3><span class="pill t">6.67 نقطة · تأكيد</span></div>
+    <p><b>الحساب:</b> على كل فريم (ساعة، 4 ساعات، يومي) نشوف آخر 120 شمعة ونطلّع القمم والقيعان المؤكّدة (قمة = شمعة ما تعدّاها 3 شموع قبلها و3 بعدها).
+       الفريم <b>صاعد</b> إذا آخر قمتين وآخر قاعين كلها أعلى من اللي قبلها، و<b>هابط</b> إذا كلها أدنى، وغير كذا محايد.</p>
+    <p><b>تتحقق ✓</b> إذا فريمين على الأقل بجهة الفرصة وما فيه ولا فريم عكسها. <b>✗</b> لو فريم واحد عكس، أو ما فيه فريمين متفقين.</p>
+    <div class="ex"><b>مثال:</b> ساعة صاعد، 4س صاعد، يومي محايد ⇒ ✓ للصعود. ساعة صاعد، 4س صاعد، يومي هابط ⇒ ✗.</div>
+  </div>
+
+  <div class="card strat">
+    <div class="hd"><h3>٤. VWAP</h3><span class="pill t">6.67 نقطة · تأكيد</span></div>
+    <p><b>الحساب:</b> متوسط السعر مرجّح بالحجم لليوم الحالي: مجموع (السعر النموذجي × الحجم) ÷ مجموع الحجم، على شموع 15د المقفلة. السعر النموذجي = (أعلى + أدنى + إغلاق) ÷ 3.
+       الأسهم: يبدأ من 04:00 نيويورك (يشمل ما قبل الافتتاح). الكريبتو: من 03:00 الرياض.</p>
+    <p><b>✓ للصعود</b> إذا إغلاق آخر شمعة فوق VWAP، <b>✓ للهبوط</b> إذا تحته.</p>
+    <div class="ex"><b>مثال:</b> VWAP=235.5 وآخر إغلاق 233.9 ⇒ لفرصة شراء ✗، ولفرصة بيع ✓.</div>
+  </div>
+
+  <div class="card strat">
+    <div class="hd"><h3>٥. قمة/قاع الأسبوع السابق</h3><span class="pill t">6.66 نقطة · تأكيد</span></div>
+    <p><b>المستوى:</b> أعلى وأدنى سعر في الأسبوع المكتمل اللي قبل (أسبوع ISO من الاثنين). <b>الشرط:</b> نفس قاعدة أمس بالضبط (كسر بالجسم + الإغلاق باقي في جهته)، بس على شموع <u>الأسبوع الحالي</u>.</p>
+    <div class="ex"><b>مثال:</b> قمة الأسبوع اللي فات 230. الثلاثاء شمعة فتحت 229.5 وقفلت 231 ولسا السعر فوق 230 ⇒ ✓ للصعود.</div>
+  </div>
+</section>
+
+<section>
+  <h2>متى تطلع الفرصة؟ وكيف الدخول والوقف والأهداف؟</h2>
+  <div class="card">
+    <b>الجهة:</b> إذا «قمة/قاع أمس» قائمة الحين ⇒ هي اللي تحدد الجهة (الأساس = أمس). وإذا ما فيه، والمتوسطات مرتبة كامل ⇒ جهتها (الأساس = المتوسطات). وإذا الثنتين ما فيه ⇒ <b>ما فيه فرصة</b>. ولو اختلفوا، «أمس» يتقدّم.
+  </div>
+  <table>
+    <tr><th>البند</th><th>الطريقة</th></tr>
+    <tr><td>الدخول</td><td>إغلاق آخر شمعة 15د مقفلة عند وقت اللقطة.</td></tr>
+    <tr><td>الوقف</td><td>آخر قاع مؤكّد على فريم الساعة تحت الدخول (للشراء) ناقص 0.1 × ATR الـ15د. وبالعكس للبيع.</td></tr>
+    <tr><td>رفض الفرصة</td><td>إذا ما فيه قاع/قمة مؤكّدة ورا الدخول، أو المخاطرة أكبر من ATR يومي واحد ⇒ الفرصة ما تنعرض.</td></tr>
+    <tr><td>الأهداف</td><td>مستويات حقيقية قدّام الدخول (قمة/قاع أمس، قمة/قاع الأسبوع، قمم وقيعان الساعة)، الأقرب أول، ونقبل اللي عائده ≥ 1R، لين 3 أهداف. لو طلع أقل من هدفين نكمّل بمضاعفات المخاطرة (R1، R2...).</td></tr>
+    <tr><td>لازم تداول حديث</td><td>لو السهم ما تداول في آخر 15 دقيقة (يصير كثير في ما قبل الافتتاح وبعد الإغلاق) ⇒ ما تنعرض له فرصة في هذي اللقطة.</td></tr>
+  </table>
+  <div class="ex"><b>مثال كامل:</b> سهم كسر قمة أمس (✓40)، والمتوسطات صاعدة كامل (✓40)، والاتجاه صاعد (✓6.67)، والسعر فوق VWAP (✓6.67)، بس ما كسر قمة الأسبوع (✗0) ⇒ <b>شراء بقوة توافق 93.34</b>.</div>
+</section>
+
+<section>
+  <h2>التوقيت (بتوقيت الرياض)</h2>
+  <div class="grid2">
+    <div class="card"><h3>الأسهم</h3>
+      أول لقطة <b>05:15 نيويورك</b> (= 12:15 الرياض صيفاً، 13:15 شتاءً) بعد ما تكتمل أول ساعة من ما قبل الافتتاح. بعدها <b>كل 30 دقيقة</b> على :15 و:45 لين 19:45 نيويورك (نصف اليوم لين 16:45).
+      كل لقطة تبدأ من الصفر: الفرص تتصفّر وتنحسب من جديد، وما يُورَّث شي من اللقطة اللي قبلها. والبيانات من Alpaca SIP.</div>
+    <div class="card"><h3>الكريبتو</h3>
+      حالياً <b>كل ساعة</b> على رأس ساعة UTC (= :00 بتوقيت الرياض)، 24 ساعة و7 أيام. اليوم يبدأ <b>03:00 الرياض</b> (منتصف ليل UTC)، والأسبوع من الاثنين 03:00. البيانات من Binance.</div>
+  </div>
+</section>
+
+<section>
+  <h2>الفرق الفعلي بين الأسهم والكريبتو</h2>
+  <table>
+    <tr><th>البند</th><th>الأسهم</th><th>الكريبتو</th></tr>
+    <tr><td>الاستراتيجيات والأوزان</td><td colspan="2">نفسها بالضبط (40 · 40 · 6.67 · 6.67 · 6.66)</td></tr>
+    <tr><td>مصدر البيانات</td><td>Alpaca SIP</td><td>Binance</td></tr>
+    <tr><td>شموع اليوم</td><td>04:00–20:00 نيويورك (ما قبل الافتتاح + الرسمية + ما بعد الإغلاق)</td><td>24 ساعة</td></tr>
+    <tr><td>قمة/قاع أمس</td><td>من الجلسة الرسمية فقط</td><td>من يوم UTC كامل</td></tr>
+    <tr><td>شموع الساعة و4 ساعات</td><td>تبدأ من 04:00 نيويورك</td><td>ساعات UTC من Binance</td></tr>
+    <tr><td>VWAP يبدأ</td><td>04:00 نيويورك</td><td>03:00 الرياض</td></tr>
+    <tr><td>اللقطات</td><td>كل 30 دقيقة من 05:15 نيويورك</td><td>كل ساعة (حالياً)</td></tr>
+    <tr><td>عطلات</td><td>تتبع تقويم البورصة</td><td>ما فيه</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>كيف تتكامل الاستراتيجيات؟</h2>
+  <div class="card hl">
+    <b>«أمس»</b> يقول: فيه حركة اليوم كسرت مستوى مهم. <b>«المتوسطات»</b> تقول: الاتجاه الأوسع على الساعة مرتّب. لما يتفقون = 80 نقطة من البداية.
+    بعدها التأكيدات الثلاث: <b>الاتجاه</b> (هل القمم والقيعان تمشي بنفس الجهة على أكثر من فريم؟)، و<b>VWAP</b> (هل السعر الحين فوق/تحت متوسط اليوم؟)، و<b>الأسبوع</b> (هل كسر مستوى أكبر؟). كل تأكيد يضيف نقاط بسيطة ويفرّق بين فرصتين متقاربتين.
+  </div>
+  <table>
+    <tr><th>الحالة</th><th>الدرجة</th></tr>
+    <tr><td>أمس فقط</td><td>40</td></tr>
+    <tr><td>المتوسطات فقط</td><td>40</td></tr>
+    <tr><td>أمس + المتوسطات</td><td>80</td></tr>
+    <tr><td>الخمس كلها</td><td>100</td></tr>
+  </table>
+  <div class="card warn small">تنبيه: هذا شرح لطريقة الحساب. ما فيه أي ضمان ربح، والدرجة العالية مو احتمال نجاح. تداولك على مسؤوليتك.</div>
+</section>
+
+</body>
+</html>

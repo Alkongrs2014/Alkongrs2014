@@ -23,7 +23,7 @@ import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { readSeries, storeDir } from "./lib/bars-store.mjs";
-import { prep, prepCrypto, evalHour, stockSlotAt, cryptoHourAt } from "./lib/engine3-run.mjs";
+import { prep, prepCrypto, evalHour, inputAt, stockSlotAt, cryptoSlotAt } from "./lib/engine3-run.mjs";
 import { rp } from "./lib/round.mjs";
 
 const require = createRequire(import.meta.url);
@@ -55,6 +55,19 @@ function pubOpp(s, H, sig, bar) {
     tg: sig.tg.map((x) => ({ p: r4(x.p), src: x.src })), hit: 0,
     ma: sig.ma, trend: sig.trend, trendTf: sig.trendTf, vwap: r4(sig.vwap),
     pdh: r4(sig.pdh), pdl: r4(sig.pdl), pwh: r4(sig.pwh), pwl: r4(sig.pwl), atrD: r4(sig.atrD) };
+}
+/* كفاية البيانات لكل استراتيجية على فريمها (لبطاقة «الاستراتيجيات حسب الفريم») —
+   عرضٌ لا قرار: نفس مدخلات الفرصة (`inputAt`) ونفس دوالّ المحرّك (`e3pivots`)،
+   فـ«بيانات غير كافية» تعني أن المحرّك نفسه لم يملك ما يحكم به، لا «محايد».
+     ma   ‎≥ 200‎ شمعة ساعة في نافذة المتوسطات (EMA200 تحتاجها)
+     tr   لكل فريم: قمّتان وقاعان مؤكّدان على الأقل في نافذة الاتجاه
+     vw · wk   VWAP اليوم ومستويا الأسبوع السابق موجودة */
+function dataQuality(S, i, st) {
+  const inp = inputAt(S, i), tail = (a, n) => a.slice(Math.max(0, a.length - n));
+  const piv = (bars) => { const p = E.e3pivots(tail(bars || [], E.E3.PIV_WIN), E.E3.PIV_K); return p.hi.length >= 2 && p.lo.length >= 2 ? 1 : 0; };
+  return { ma: tail(inp.h1, E.E3.MA_WIN).length >= E.E3.MA[2] ? 1 : 0,
+           tr: { "1h": piv(inp.h1), "4h": piv(inp.h4), "1d": piv(inp.d1) },
+           vw: st.vwap !== null ? 1 : 0, wk: st.pw ? 1 : 0 };
 }
 function stateRow(st) {
   return { px: r4(st.px), ma: st.ma.dir, trend: st.trend.dir, trendTf: st.trend.tf,
@@ -94,7 +107,7 @@ export function build({ now = Date.now(), out = OUT, barsDir, book, fresh = fals
   book = book || (path.basename(out) === "crypto" ? "crypto" : "stocks");
   barsDir = barsDir || storeDir(out);
   const ver = engineVersion();
-  const H = book === "crypto" ? cryptoHourAt(now) : stockSlotAt(now);
+  const H = book === "crypto" ? cryptoSlotAt(now) : stockSlotAt(now);
   if (!H) return { ok: false, why: "لا حدّ لقطة" };
   const prev = fresh ? null : readJ(path.join(out, "trades.json"));
   if (prev && prev.mode === "hourly" && prev.version === ver && prev.hour === Math.round(H / 1000))
@@ -111,6 +124,10 @@ export function build({ now = Date.now(), out = OUT, barsDir, book, fresh = fals
     while (i >= 0 && r[i].end > H) i--;
     if (i >= 0) refDay = Math.max(refDay, r[i].d);
   }
+  /* الكريبتو: عملاتٌ دون حدّ السيولة (`low` من الكون) تُحلَّل كغيرها وتُوسَم فرصُها —
+     تصنيفٌ منفصل بتحذير في الواجهة، لا تغييرٌ في القرار (قرار المالك 2026-10-03) */
+  const lowSet = new Set();
+  if (book === "crypto") for (const r of (readJ(path.join(out, "summary.json")) || {}).rows || []) if (r.low) lowSet.add(r.s);
   const open = [], bySym = {}, rej = {};
   for (const s of syms) {
     const { i, r } = evalHour(S[s], H);
@@ -126,7 +143,7 @@ export function build({ now = Date.now(), out = OUT, barsDir, book, fresh = fals
        لقطةٍ شمعتُها الأخيرة فيها تداول، لأن كلَّ لقطةٍ تُبنى من الصفر. المحرّك لم يُمسّ. */
     if (!r.reject && bar.t !== H - M15) { rej.notrade = (rej.notrade || 0) + 1; continue; }
     rej[r.reject || "ok"] = (rej[r.reject || "ok"] || 0) + 1;
-    if (!r.reject) open.push(pubOpp(s, H, r.sig, bar));
+    if (!r.reject) open.push({ ...pubOpp(s, H, r.sig, bar), dq: dataQuality(S[s], i, r.st), ...(lowSet.has(s) ? { low: 1 } : {}) });
   }
   open.sort((a, b) => (b.score - a.score) || (a.s < b.s ? -1 : 1));
   // مفتاح الشمعة = بداية آخر شمعة 15د مغلقة عند الحدّ (على شبكة ربع الساعة)

@@ -141,7 +141,13 @@ const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 /* يُرشِّح أزواج Binance إلى الكون المؤهَّل. دالّةٌ خالصة كي تُفحص بلا شبكة. */
 export function qualify(pairs, trading, synthetic, pegged) {
-  const out = [], why = { notTrading: 0, stable: 0, pegged: 0, wrapped: 0, lever: 0, synthetic: 0, illiquid: 0 };
+  /* قرار المالك 2026-10-03: **كلُّ** عملةٍ قابلةٍ للتداول في Binance Spot تُحلَّل —
+     وكلُّ أساسٍ فيها له زوج USDT (مقيس: 503 من 503)، فزوج USDT مصدرُ السعر الوحيد
+     ولا تحويل عملات. ما دون ‎MIN_QV‎ لا يُستبعد بل يُوسَم `low` فتُعرض فرصُه في تصنيفٍ
+     منفصل بتحذير، ويبقى الفلتر للقائمة العادية. والمستقرّة والمشطوبة والملفوفة
+     والرافعة والأسهم/السلع المرمَّزة تُستبعد كما كانت. `illiquid` = عددُ الموسومة. */
+  const out = [], why = { notTrading: 0, stable: 0, pegged: 0, wrapped: 0, lever: 0, synthetic: 0, illiquid: 0, dup: 0 };
+  const seen = new Set();
   for (const t of pairs) {
     const base = t.sym.replace(/USDT$/, "");
     if (!trading.has(t.sym)) { why.notTrading++; continue; }
@@ -149,9 +155,13 @@ export function qualify(pairs, trading, synthetic, pegged) {
     if (WRAPPED.test(base)) { why.wrapped++; continue; }
     if (LEVER.test(base)) { why.lever++; continue; }
     if (synthetic && synthetic.has(t.sym)) { why.synthetic++; continue; }
-    if (!(t.quoteVolume >= MIN_QV)) { why.illiquid++; continue; }
     if (pegged && pegged.has(t.sym)) { why.pegged++; continue; }
-    out.push({ s: t.app, en: base, ar: CRYPTO_AR[base] || base, sec: "كريبتو", mkt: "crypto", qv: Math.round(t.quoteVolume) });
+    if (seen.has(t.app)) { why.dup++; continue; }              // رمزٌ واحد لكل أساس
+    seen.add(t.app);
+    const low = !(t.quoteVolume >= MIN_QV);
+    if (low) why.illiquid++;
+    out.push({ s: t.app, en: base, ar: CRYPTO_AR[base] || base, sec: "كريبتو", mkt: "crypto", qv: Math.round(t.quoteVolume || 0),
+               ...(low ? { low: 1 } : {}) });
   }
   /* ترتيبٌ ثابت للكون كلّه: بالاسم لا بالحجم. ترتيبُ الصفوف يفصل التعادل في
      الترتيب النهائي، وحجمٌ لحظيّ يعيد ترتيبها داخل الشمعة. */
@@ -293,7 +303,7 @@ export function buildRow(rec, u, tick, now) {
                                         .map(t => [t, +rec.an[t].score.toFixed(1)])),
     rtf: Object.fromEntries(REGIME_TFS.filter(t => rec.an[t] && Number.isFinite(rec.an[t].score))
                                       .map(t => [t, +rec.an[t].score.toFixed(1)])),
-    qv: u.qv, mc: null, vol: tick ? Math.round(tick.quoteVolume) : null,
+    qv: u.qv, ...(u.low ? { low: 1 } : {}), mc: null, vol: tick ? Math.round(tick.quoteVolume) : null,
     w52h: ext("h"), w52l: ext("l"),
     stale: !!rec.stale, src: "binance"
   };
@@ -386,13 +396,14 @@ function selfCheck() {
   let pass = 0, fail = 0;
   const t = (n, fn) => { try { fn(); console.log(`  ✓ ${n}`); pass++; } catch (e) { console.log(`  ✗ ${n} — ${e.message}`); fail++; } };
   const ok = (c, m) => { if (!c) throw new Error(m); };
-  t("الترشيح: المستقرّة والملفوفة والرافعة والمرمَّزة والموقوفة والراكدة تُستبعد", () => {
+  t("الترشيح: المستقرّة والملفوفة والرافعة والمرمَّزة والموقوفة تُستبعد، والراكدة تبقى موسومةً `low`", () => {
     const P = [["BTCUSDT", 9e8], ["USDCUSDT", 9e8], ["WBTCUSDT", 5e6], ["ETHUPUSDT", 5e6],
                ["AAPLBUSDT", 5e6], ["DEADUSDT", 9e6], ["TINYUSDT", 1e4], ["SOLUSDT", 2e8]]
       .map(([sym, qv]) => ({ sym, app: sym.replace(/USDT$/, "") + "-USD", quoteVolume: qv }));
     const trading = new Set(P.map(p => p.sym).filter(s => s !== "DEADUSDT"));
     const { rows, why } = qualify(P, trading, new Set(["AAPLBUSDT"]));
-    ok(rows.map(r => r.s).join() === "BTC-USD,SOL-USD", rows.map(r => r.s).join());
+    ok(rows.map(r => r.s).join() === "BTC-USD,SOL-USD,TINY-USD", rows.map(r => r.s).join());
+    ok(rows.find(r => r.s === "TINY-USD").low === 1 && !rows.find(r => r.s === "BTC-USD").low, "وسم السيولة");
     ok(why.notTrading === 1 && why.stable === 1 && why.wrapped === 1 && why.lever === 1 && why.synthetic === 1 && why.illiquid === 1,
        JSON.stringify(why));
   });

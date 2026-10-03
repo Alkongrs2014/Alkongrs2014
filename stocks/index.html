@@ -659,6 +659,26 @@ body.sheet-open{overflow:hidden}
 .v3plan span{white-space:nowrap}
 .v3plan .k{color:var(--tx3)}
 .v3plan .hit{color:var(--up);font-weight:700}
+/* الاستراتيجيات حسب الفريم — جدولٌ مضغوط يتّسع للهاتف (‎375px‎) بلا تمرير أفقي */
+.v3tf{margin:0 14px 10px;position:relative;z-index:2;font-size:11.5px}
+.v3tf summary{cursor:pointer;color:var(--tx2);font-weight:700;padding:4px 0}
+.v3tft{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:4px}
+.v3tft th,.v3tft td{border:1px solid var(--hair);padding:4px 2px;text-align:center;line-height:1.3;overflow-wrap:anywhere}
+.v3tft thead th{background:var(--s2);color:var(--tx3);font-size:10.5px}
+.v3tft thead th:first-child{width:21%}
+.v3tft thead th:last-child{width:15%}
+.v3tft tbody th{text-align:start;font-weight:600;font-size:11px;word-break:keep-all;overflow-wrap:normal}
+.v3tft td.pt{font-size:10.5px;color:var(--tx2)}
+.v3tft td.on{color:var(--up);font-weight:800}
+.v3tft td.off{color:var(--dn);font-weight:800}
+.v3tft td small{font-weight:400;color:var(--tx3);font-size:9.5px}
+.v3tft td.na{color:var(--tx3);font-size:9.5px}
+.v3tft td.nd{color:var(--warn,#E6B24A);font-size:9.5px}
+.v3tft td.lv{color:var(--tx2);font-size:9.5px}
+.v3tfn{color:var(--tx3);font-size:10.5px;margin:5px 0 0}
+.v3low{margin-top:18px;border-top:1px dashed var(--hair);padding-top:12px}
+.v3low .gh{font-size:13px;font-weight:800;color:var(--tx2);margin-bottom:6px}
+.v3low .warnline{font-size:11.5px;color:#E6B24A;background:rgba(230,178,74,.08);border:1px solid rgba(230,178,74,.25);border-radius:8px;padding:6px 9px;margin:0 0 10px}
 .v3note{font-size:11.5px;color:var(--tx2);border-inline-start:2px solid var(--acc);padding:2px 9px;margin:0 0 10px}
 /* فاصلُ الفئتين في «الفرص الآن»: الجديدةُ أولاً ثم المستمرّة — عنوانٌ لا بطاقة،
    فلا تعدّه أدواتُ الإثبات صفّاً (`.srow`) */
@@ -1555,7 +1575,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
 
   <div class="card" data-grp="plan" id="cardPlan">
     <h2>صفقة المحرّك V3</h2>
-    <p class="hint">الدخول والوقف والأهداف تُحسب من الصفر في كل لقطة (الأسهم كل 30 دقيقة · الكريبتو كل ساعة) على آخر الشموع المغلقة — لا يُورَث شيءٌ من اللقطة السابقة</p>
+    <p class="hint">الدخول والوقف والأهداف تُحسب من الصفر في كل لقطة (الأسهم والكريبتو كل 30 دقيقة على :15 و:45) على آخر الشموع المغلقة — لا يُورَث شيءٌ من اللقطة السابقة</p>
     <div id="planOut"></div>
     <div id="planLevels"></div>
   </div>
@@ -1892,7 +1912,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
     <div class="sticky-hd">
       <div class="schead" style="margin-bottom:9px">
         <h2 style="margin:0">فرص الكريبتو</h2>
-        <span class="chip">المحرّك V3 · كل ساعة</span>
+        <span class="chip">المحرّك V3 · كل 30 دقيقة</span>
       </div>
       <!-- البحث يعمّ كون الكريبتو كلَّه (ملخّصه) لا عملاتِ الفرص وحدها -->
       <div class="toolbar" style="margin-bottom:9px">
@@ -1908,11 +1928,11 @@ section[data-view="now"].on{display:flex;flex-direction:column}
       <summary>ما الفرق بين هذا الدفتر ودفتر الأسهم؟</summary>
       <p class="scan-why" id="cScanWhy" style="margin:0 0 9px;padding:0"></p>
       <p class="srcline" style="text-align:start">
-        كلُّ عملةٍ تُتداول فعلاً في Binance Spot فوق عتبة سيولة، يُعاد بناؤها مرّةً في اليوم. الفرص على
-        فريمات 5د · 15د · ساعة · 4 ساعات، وتوجّه السوق من البيتكوين على ساعة · 4 ساعات · يومي، وكلُّ رقمٍ
-        على الشموع المغلقة وحدها — تتحدّث القائمة عند إغلاق كل شمعة 5 دقائق ولا تتغيّر بينها.
-        ونفس الشروط والاستراتيجيات — لكن بلقطةٍ وشمعةٍ وملفّاتٍ خاصّة به. فإغلاقُ شمعة عملةٍ لا يغيّر
-        نقطةً ولا ترتيباً في الأسهم، والعكس. ولا حافّة مقيسة للعملات بعد، فأوزان الاستراتيجيات محايدة.
+        كلُّ عملةٍ قابلةٍ للتداول في Binance Spot (السعر من زوج USDT)، والكون يُعاد بناؤه مرّةً في اليوم، وتُستبعد
+        المستقرّة والمشطوبة والملفوفة والمرمَّزة. الاستراتيجيات الخمس نفسُها بأوزانها، على الشموع المغلقة وحدها،
+        ولقطةٌ كل 30 دقيقة على :15 و:45 بتوقيت الرياض طوال اليوم والأسبوع — ولا تتغيّر داخل اللقطة.
+        والعملات دون 500 ألف دولار تداولاً في 24 ساعة تُحلَّل بنفس الطريقة وتُعرض فرصُها في قسمٍ منفصل بتحذير.
+        والدفتر مستقلٌّ عن الأسهم بملفّاته ولقطته: إغلاقُ شمعة عملةٍ لا يغيّر شيئاً في الأسهم، والعكس.
       </p>
     </details>
   </div>
@@ -2900,8 +2920,9 @@ function renderTop() {
     el.textContent = "الكريبتو · ‎24/7‎ · الماسح يعمل";
     $("#mkCountdown").textContent = "";
     if (sb) {
-      const H = Math.floor(now / 3600000) * 3600000;
-      sb.textContent = `لقطة كل ساعة · آخرها ${ksaTime(H)} · التالية ${ksaTime(H + 3600000)} ${TZ_NOTE}`;
+      // :15 و:45 (cryptoSlotAt في engine3-run) — دقائق UTC هي دقائق الرياض
+      const H = Math.floor((now - 900000) / 1800000) * 1800000 + 900000;
+      sb.textContent = `لقطة كل 30 دقيقة · آخرها ${ksaTime(H)} · التالية ${ksaTime(H + 1800000)} ${TZ_NOTE}`;
     }
   } else {
     const st = marketStatus(state.market && state.market.period);
@@ -7824,7 +7845,7 @@ function v3Hour(T) {
   return `${stamp(T.hour * 1000)} ${TZ_NOTE}`;
 }
 /* دورةُ التجديد للدفتر: الأسهم كلَّ 30 دقيقة (05:15 نيويورك فصاعداً) والكريبتو كلَّ ساعة */
-const v3Cycle = (book) => (book || state.book) === "crypto" ? "كل ساعة" : "كل 30 دقيقة";
+const v3Cycle = () => "كل 30 دقيقة";
 /* لقطاتُ الأسهم اليوم (أو يوم التداول التالي) بتوقيت الرياض — من `scanSlotsOf` في
    session.js (05:15 ثم كلَّ 30 دقيقة حتى نهاية ما بعد الإغلاق) فتتبع التوقيت الصيفي
    تلقائياً: رقمٌ مكتوبٌ يكذب نصف السنة */
@@ -7867,6 +7888,37 @@ function v3Elements(t) {
   </div>`;
 }
 
+/* «الاستراتيجيات حسب الفريم» — كلُّ استراتيجيةٍ على الفريم الذي يقرؤه المحرّك فعلاً
+   (docs/ENGINE_V3_SPEC.md §3) ولا غيره: أمس والأسبوع والـVWAP تُحكم على شموع 15د
+   (واليومي مصدرُ مستوى أمس/الأسبوع لا حكمٌ عليه)، والمتوسطات على الساعة وحدها،
+   والاتجاه على الساعة و4س واليومي كلٌّ بحكمه. عرضٌ لحقول اللقطة كما هي: لا حساب
+   ولا وزنٌ مكرَّر — النقاط عمودٌ واحد لكل استراتيجية، والدرجة نفسها فوق. */
+function v3Frames(t) {
+  const dq = t.dq || null, d = t.d, el = t.el || {};
+  const NA = `<td class="na">غير مطبق</td>`, ND = `<td class="nd">بيانات غير كافية</td>`;
+  const mk = (on) => on ? `<td class="on">✓</td>` : `<td class="off">✗</td>`;
+  const lvl = (h, l) => `<td class="lv">مصدر المستوى<br><small><bdi>${money(h)}</bdi><br><bdi>${money(l)}</bdi></small></td>`;
+  const trTd = (tf) => {
+    if (dq && dq.tr && dq.tr[tf] === 0) return ND;
+    const v = t.trendTf ? t.trendTf[tf] : undefined;
+    if (v === undefined) return `<td>—</td>`;
+    return v === d ? `<td class="on">✓</td>` : `<td class="off">✗<br><small>${v === 0 ? "محايد" : "عكسي"}</small></td>`;
+  };
+  const rows = [
+    ["أمس", "day", [mk(el.day), NA, NA, lvl(t.pdh, t.pdl)]],
+    ["المتوسطات", "ma", [NA, dq && dq.ma === 0 ? ND : mk(el.ma), NA, NA]],
+    ["الاتجاه", "trend", [NA, trTd("1h"), trTd("4h"), trTd("1d")]],
+    ["VWAP", "vwap", [dq && dq.vw === 0 ? ND : mk(el.vwap), NA, NA, NA]],
+    ["الأسبوع", "week", [dq && dq.wk === 0 ? ND : mk(el.week), NA, NA, dq && dq.wk === 0 ? NA : lvl(t.pwh, t.pwl)]]
+  ];
+  const pts = (k) => v3pct(t.pts ? t.pts[k] : 0);
+  return `<details class="plain v3tf"><summary>الاستراتيجيات حسب الفريم</summary>
+    <table class="v3tft"><thead><tr><th></th><th>15د</th><th>ساعة</th><th>4س</th><th>يومي</th><th>نقاط</th></tr></thead>
+    <tbody>${rows.map(([lbl, k, cells]) => `<tr><th>${esc(lbl)}</th>${cells.join("")}<td class="pt"><bdi>${pts(k)}</bdi></td></tr>`).join("")}</tbody></table>
+    <p class="v3tfn">الاتجاه يُحتسب ✓ بنقاطه حين يوافق فريمان على الأقل ولا يعاكس أيٌّ منها. «مصدر المستوى» يعني أن المستوى مأخوذٌ من ذلك الفريم والحكم على شموع 15د.</p>
+  </details>`;
+}
+
 /* بطاقة صفقة V3 — نفس الخطّافات التي تقرؤها أدوات الإثبات (`.srow` و`data-open`) */
 function v3Card(t, i) {
   const D = v3dir(t.d), lr = symRow(t.s);
@@ -7895,6 +7947,7 @@ function v3Card(t, i) {
       <div class="v3q"><b class="num">${v3pct(t.score)}</b><i>قوة التوافق</i></div>
       ${v3Elements(t)}
     </div>
+    ${v3Frames(t)}
     <div class="v3plan">
       <span><span class="k">دخول</span> <b class="num">${money(t.e)}</b></span>
       <span><span class="k">وقف</span> <b class="num">${money(t.stNow || t.st)}</b></span>
@@ -7918,16 +7971,24 @@ function renderTrades(book) {
     return;
   }
   const hrs = CR ? null : stockSlotsRiyadh();
-  const cycle = CR ? "كل ساعة على مدار اليوم ‎24/7‎ (يوم الكريبتو 03:00→03:00 بتوقيت الرياض)"
+  const cycle = CR ? "كل 30 دقيقة على :15 و:45 طوال اليوم ‎24/7‎ (يوم الكريبتو 03:00→03:00 بتوقيت الرياض)"
                    : `كل 30 دقيقة طوال بيانات SIP (ما قبل الافتتاح · الرسمية · ما بعد الإغلاق): ${hrs.length ? hrs[0] + " · " + (hrs[1] || "") + " … " + hrs[hrs.length - 1] : "—"} ${TZ_NOTE}`;
   const note = `<p class="v3note"><b>لقطة ${esc(v3Hour(T))}</b> — تُصفَّر الفرص كلُّها وتُبنى من الصفر ${cycle}،
     ولا يُحمَل دخولٌ ولا وقفٌ ولا هدف من اللقطة السابقة.<br>
     قوة التوافق = نسبة توافق الاستراتيجيات الخمس حسب الأوزان المحدّدة
     (أمس 40 · المتوسطات 40 · الاتجاه 6.67 · VWAP 6.67 · الأسبوع 6.66) — <b>ليست نسبة نجاح</b>.</p>`;
-  const open = T.open || [];
+  /* الكريبتو: فرصُ العملات دون حدّ السيولة (`low`) في قسمٍ منفصل بتحذير — نفس التحليل
+     والدرجة، والفصل عرضٌ لا قرار. الترتيب داخل كلّ قسمٍ ترتيبُ الخادم كما هو. */
+  const all = T.open || [];
+  const open = CR ? all.filter(t => !t.low) : all, low = CR ? all.filter(t => t.low) : [];
+  const lowHtml = low.length ? `<div class="v3low">
+      <div class="gh">عملات أقل سيولة · ${bd(low.length)}</div>
+      <p class="warnline"><b>تنبيه:</b> تداولها دون 500 ألف دولار في 24 ساعة: السبريد أوسع والانزلاق أكبر، وقد لا يُنفَّذ السعر المعروض. نفس الاستراتيجيات والأوزان — لكن المخاطرة أعلى.</p>
+      ${low.map((t, i) => v3Card(t, -1)).join("")}
+    </div>` : "";
   el.innerHTML = note + (open.length ? open.map(v3Card).join("")
-    : `<div class="empty">لا فرصة في لقطة هذه الساعة — تتولّد الفرصة حين يكون عبورُ قمة/قاع أمس قائماً أو المتوسطات مرتّبة، وهذه نتيجة صحيحة لا عطل</div>`);
-  if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُنيت ${ago(Date.parse(T.generatedAt))}`;
+    : `<div class="empty">لا فرصة في هذه اللقطة — تتولّد الفرصة حين يكون عبورُ قمة/قاع أمس قائماً أو المتوسطات مرتّبة، وهذه نتيجة صحيحة لا عطل</div>`) + lowHtml;
+  if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة${low.length ? ` + ${bd(low.length)} أقل سيولة` : ""} في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُني التحليل ${esc(stamp(Date.parse(T.generatedAt)))} (${ago(Date.parse(T.generatedAt))})`;
 }
 
 /* الكريبتو: المحرّك القديم أُوقف، ونقلُه إلى V3 مرحلةٌ منفصلة */
@@ -9064,6 +9125,8 @@ function boot() {
   document.addEventListener("click", (e) => {
     const f = e.target.closest("[data-fav]");
     if (f) { e.stopPropagation(); toggleFav(f.dataset.fav); return; }
+    // كاشفٌ داخل بطاقة فرصة (حسب الفريم) يُفتح في مكانه ولا يفتح السهم
+    if (e.target.closest(".v3tf")) return;
     const t = e.target.closest("[data-open]");
     if (t) openSymbol(t.dataset.open);
   });
