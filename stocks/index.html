@@ -1189,7 +1189,12 @@ body::after{background-image:radial-gradient(rgba(160,190,255,.14) 1px, transpar
 /* ---------- البطاقة: زجاجٌ بحافّةٍ مضيئة ---------- */
 main{padding:16px 14px 28px}
 .card{background:var(--glass);border:1px solid var(--hair);border-radius:var(--r-lg);
-  box-shadow:var(--sh1);padding:18px 16px;margin-bottom:16px;overflow:hidden}
+  box-shadow:var(--sh1);padding:18px 16px;margin-bottom:16px}
+/* القصّ على البطاقتين اللتين تحتاجانه وحدهما: `overflow:hidden` على كلّ بطاقة يجعلها حاويةَ تمرير
+   فتلتصق الترويسات اللاصقة (`.sticky-hd`) بالبطاقة لا بالصفحة — ظهرت فوق أوّل فرصة على الحاسوب.
+   و`clip` لا ينشئ حاويةَ تمرير، فيبقى الالتصاق صحيحاً في بطاقة الكريبتو. */
+#cardPulse{overflow:hidden}
+section[data-view="crypto"] > .card[data-size="hero"]{overflow:clip}
 .card::before{background:linear-gradient(90deg,transparent,rgba(200,225,255,.22) 30%,rgba(200,225,255,.22) 70%,transparent)}
 .card h2{font-size:16.5px;font-weight:600;letter-spacing:-.2px;gap:10px}
 .card h2::before{width:4px;height:16px;border-radius:3px;background:var(--grad);box-shadow:0 0 12px rgba(124,200,255,.5)}
@@ -1771,7 +1776,7 @@ section[data-view].on{animation:viewIn .42s var(--ease)}
   .tabbar button.on .ti{color:var(--acc)}
 }
 @media (pointer:fine){
-  .srow.opp:hover{border-color:rgba(124,200,255,.3);transform:translateY(-2px)}
+  .srow.opp:hover{border-color:rgba(124,200,255,.3)}
   .v3tabs button:hover{color:var(--tx)}
   #cardPulse .qa button:hover{border-color:rgba(124,200,255,.35)}
 }
