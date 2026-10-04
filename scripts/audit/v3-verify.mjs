@@ -313,8 +313,8 @@ const slotErr = [];
 for (const doc of docs) {
   const H = doc.hour * 1000; res.slots++;
   const date = etDate(H), cd = cal.find((c) => c.date === date);
-  // التوقيت: الحدّ على جدول المواصفة (05:15 + 30د حتى نهاية النافذة − 15د)
-  const slotOk = cd && H >= cd.pre + 75 * 60000 && H <= cd.post - M15 && (H - (cd.pre + 75 * 60000)) % 1800000 === 0;
+  // التوقيت: الحدّ على جدول المواصفة (05:15 + 15د منذ V4.1، حتى نهاية النافذة − 15د)
+  const slotOk = cd && H >= cd.pre + 75 * 60000 && H <= cd.post - M15 && (H - (cd.pre + 75 * 60000)) % 900000 === 0;
   if (!slotOk) slotErr.push({ hour: new Date(H).toISOString(), why: "حدٌّ خارج جدول المواصفة" });
   if (doc.candleKey !== doc.hour - 900) slotErr.push({ hour: new Date(H).toISOString(), why: "candleKey ≠ الحدّ − 15د" });
   const pubSet = new Set(doc.open.map((o) => o.s));

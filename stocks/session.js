@@ -57,7 +57,14 @@ var SCAN_START_ET = PRE_OPEN;
    فتصادف الدورةُ نفسها ‎09:45‎ (أوّل ‎15د‎ بعد الافتتاح) و‎16:15‎ (أوّل ‎15د‎ بعد
    الإغلاق) بلا أيّ استثناء — والرياض تُشتقّ عرضاً فقط فتتبع التوقيت الصيفي وحدها. */
 var SCAN_FIRST_ET = PRE_OPEN + 75;   /* 05:15 */
-var SCAN_STEP_MIN = 30;
+/* V4.1 (طلب المالك 2026-10-04): كلَّ 15 دقيقة — كلُّ إغلاق شمعة 15د لقطة. والنافذة كما هي:
+   05:15 … 19:45 (نصف اليوم 16:45) — آخرُ لقطةٍ قبل نهاية ما بعد الإغلاق بربع ساعة، لأن
+   لقطةً عند 20:00 تقطع اليومي عند «اليوم» فلا ترى إغلاقه، ثم تخرج نافذةُ 05:15 التالية
+   (20:00, 05:15] حدثَه عند 20:00 — فيضيع انقلابُ المتوسطات اليومي. العقود باقيةٌ على 30. */
+var SCAN_STEP_MIN = 15;
+/* أدنى انتظارٍ بعد إغلاق شمعة 15د قبل جلبها (ثوانٍ) — مصدرٌ واحد للخادم (`wait-bar.mjs`)
+   وللواجهة (موعد التقاط اللقطة). 180 = الهامش الموروث من ياهو حتى يُثبت المسبار أقصر منه. */
+var CONFIRM_WAIT_S = 180;
 
 /* =====================================================================
    عطلات بورصة نيويورك. جدولٌ صريح لا اشتقاق: قواعدها ليست منتظمة
@@ -240,28 +247,29 @@ function nextScanStart(t) {
   return null;
 }
 
-/* لقطاتُ يوم التداول الذي تقع فيه `t`: ‎05:15‎ ثم كلَّ ‎30‎ دقيقة ما دامت ≤ نهاية
-   ما بعد الإغلاق (‎20:00‎، أو ‎17:00‎ في نصف اليوم). يومٌ غير تداول ⇒ قائمةٌ فارغة. */
-function scanSlotsOf(t) {
+/* لقطاتُ يوم التداول الذي تقع فيه `t`: ‎05:15‎ ثم كلَّ `stepMin` (‎15‎ افتراضاً، والعقود ‎30‎)
+   ما دامت قبل نهاية ما بعد الإغلاق (‎20:00‎، أو ‎17:00‎ في نصف اليوم). يومٌ غير تداول ⇒ فارغة.
+   و`<` لا `<=`: بخطوة ‎30‎ لا تقع لقطةٌ على النهاية أصلاً (05:15 + 30k ≠ 20:00) فلا يتغيّر جدولها. */
+function scanSlotsOf(t, stepMin) {
   var w = sessionWindows(t);
   if (!w.pre) return [];
-  var out = [], step = SCAN_STEP_MIN * 60000;
-  for (var h = atEtMinutes(t, SCAN_FIRST_ET); h <= w.post.end; h += step) out.push(h);
+  var out = [], step = (stepMin || SCAN_STEP_MIN) * 60000;
+  for (var h = atEtMinutes(t, SCAN_FIRST_ET); h < w.post.end; h += step) out.push(h);
   return out;
 }
 /* أحدثُ لقطةٍ ≤ `t` (وقبل أوّل لقطةٍ اليوم فآخرُ لقطةٍ في آخر يوم تداول) */
-function scanSlotAt(t) {
+function scanSlotAt(t, stepMin) {
   for (var i = 0; i < 10; i++) {
-    var s = scanSlotsOf(t - i * 86400000), best = null;
+    var s = scanSlotsOf(t - i * 86400000, stepMin), best = null;
     for (var k = 0; k < s.length; k++) if (s[k] <= t) best = s[k];
     if (best !== null) return best;
   }
   return null;
 }
 /* أقربُ لقطةٍ قادمة > `t` */
-function nextScanSlot(t) {
+function nextScanSlot(t, stepMin) {
   for (var i = 0; i < 10; i++) {
-    var s = scanSlotsOf(t + i * 86400000);
+    var s = scanSlotsOf(t + i * 86400000, stepMin);
     for (var k = 0; k < s.length; k++) if (s[k] > t) return s[k];
   }
   return null;
@@ -379,7 +387,7 @@ if (typeof module !== "undefined" && module.exports) {
     sessionOf: sessionOf, isExtendedOpen: isExtendedOpen, scannerActive: scannerActive,
     sessionWindows: sessionWindows, currentWindow: currentWindow,
     scanStartOf: scanStartOf, nextScanStart: nextScanStart, atEtMinutes: atEtMinutes,
-    SCAN_FIRST_ET: SCAN_FIRST_ET, SCAN_STEP_MIN: SCAN_STEP_MIN,
+    SCAN_FIRST_ET: SCAN_FIRST_ET, SCAN_STEP_MIN: SCAN_STEP_MIN, CONFIRM_WAIT_S: CONFIRM_WAIT_S,
     scanSlotsOf: scanSlotsOf, scanSlotAt: scanSlotAt, nextScanSlot: nextScanSlot,
     statusAt: statusAt, barSession: barSession,
     isExtendedBar: isExtendedBar, isRegularBar: isRegularBar,

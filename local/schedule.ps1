@@ -46,12 +46,13 @@ if (-not (Test-Path $vbs)) { throw "لم يُعثر على $vbs" }
 # كان هذا الملفُّ متأخّراً عن المجدول: بلا Confirm ولا Publish، وMarket فيه كل 10 دقائق
 # والحيّ كل 30، فإعادةُ تشغيله كانت تُسقط مهمّتين وتغيّر مواعيد ثالثة. الآن كلُّ مهمّةٍ
 # بوسائطها (`Args`) وموعدها وسقفها وإعداداتها كما هي مسجّلة، و`-Check` يقارن بلا تغيير.
-#   الأسهم: Confirm كل 15د عند :03 (بعد إغلاق شمعة 15د) · Market كل 30د عند :20
+#   الأسهم: Confirm كل 15د عند :00 — حدّ الشمعة نفسه، وwait-bar.mjs ينتظر أدنى انتظارٍ آمن ثم
+#   ظهورَ الشمعة في SIP (V4.1؛ كان :03 هامشاً ثابتاً موروثاً من ياهو) · Market كل 30د عند :20
 #   النشر: Publish كل دقيقتين — بلا قفل الجلب، وهو الكاتب الوحيد لفرع data
 #   الكريبتو: كل 5د عند :01 (لقطته على :15/:45)
 $tasks = @(
   @{ Name='WebTrade-Quotes';    Args='quotes';             Every=2;  Start='00:00'; LimitMin=5;    Swa=$true;  Desc='أسعار فقط' }
-  @{ Name='WebTrade-Confirm';   Args='confirm --publish';  Every=15; Start='00:03'; LimitMin=4320; Swa=$false; Desc='التأكيد السريع: شموع SIP ثم V3 ثم العقود' }
+  @{ Name='WebTrade-Confirm';   Args='confirm --publish';  Every=15; Start='00:00'; LimitMin=4320; Swa=$false; Desc='التأكيد السريع: شموع SIP ثم V3 ثم العقود' }
   @{ Name='WebTrade-Market';    Args='market --publish';   Every=30; Start='00:20'; LimitMin=20;   Swa=$true;  Desc='بقية الفريمات والأخبار وتوجّه السوق' }
   @{ Name='WebTrade-Publish';   Args='publish';            Every=2;  Start='00:01'; LimitMin=4320; Swa=$false; Desc='نشر data إلى فرع data (الكاتب الوحيد)' }
   @{ Name='WebTrade-Options';   Args='options --publish';  Every=30; Start='00:06'; LimitMin=25;   Swa=$true;  Desc='عقود الخيارات لصفحة السهم (ياهو)' }

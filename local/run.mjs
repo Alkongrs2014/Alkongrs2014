@@ -450,6 +450,14 @@ else {
       process.exit(0);
     }
   }
+  /* V4.1: التأكيد يُطلقه المجدول عند حدّ الشمعة نفسه، وينتظر هنا — **قبل القفل** كي لا
+     يحجب دورة الأسعار — أدنى انتظارٍ آمن ثم ظهورَ الشمعة المغلقة في SIP (`wait-bar.mjs`).
+     فشلُ البوّابة لا يوقف الدورة: تمضي كما كانت. */
+  if (cmd === "confirm" && !process.env.CONFIRM_NO_WAIT) {
+    const t0 = Date.now(), code = await runScript("wait-bar.mjs");
+    if (code !== 0) console.error(`  ⚠ wait-bar انتهى برمز ${code} — الدورة تمضي`);
+    else console.log(`  ⏱ wait-bar.mjs ${((Date.now() - t0) / 1000).toFixed(1)}ث`);
+  }
   const READ_ONLY = ["replay", "audit", "cmon"];
   if (!READ_ONLY.includes(cmd) && !acquireLock(cmd)) process.exit(0);
   process.on("exit", releaseLock);
@@ -484,6 +492,9 @@ else {
     if (!AFTER.length) process.exit(pc);
   }
   if (AFTER.length) {
+    /* بلا نشرٍ قبلها القفلُ ما زال لنا: إعادةُ أخذه كانت تنتظر نفسها حتى السقف (240ث)
+       ثم تنسحب — قِيس في قياس V4.1 (`confirm` بلا `--publish`؛ المجدول ينشر دائماً) */
+    if (bad || !wantPublish) releaseLock();
     if (!acquireLock(cmd)) process.exit(bad ? 1 : 0);
     for (const j of AFTER) {
       console.log(`\n──── ${j} ────`);

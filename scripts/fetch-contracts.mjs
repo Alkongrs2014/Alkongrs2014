@@ -39,6 +39,8 @@ const argv = process.argv.slice(2);
 const argOf = (k, d) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : d; };
 const OUT = path.resolve(argOf("out", path.join(ROOT, "data")));
 const DAY = 86400000, MIN = 60000;
+/* لقطةُ العقود باقيةٌ كلَّ 30 دقيقة على حدود الأسهم (05:15 · 05:45 …) — V4.1 جعل الأسهم 15 والعقود لم تُطلب */
+const CT_STEP = 30;
 const R = 0.04;                               // عائدٌ خالٍ من المخاطر تقريبي — أثره على عقود أسابيع ضئيل
 
 /* ---------------- المعايير — معلنةٌ في الواجهة ---------------- */
@@ -319,7 +321,7 @@ function lastRegularSlot(now) {
   for (let i = 0; i < 10; i++) {
     const w = SES.sessionWindows(now - i * DAY);
     if (!w.regular) continue;
-    const ok = SES.scanSlotsOf(now - i * DAY).filter((h) => h >= w.regular.start && h <= w.regular.end && h <= now);
+    const ok = SES.scanSlotsOf(now - i * DAY, CT_STEP).filter((h) => h >= w.regular.start && h <= w.regular.end && h <= now);
     if (ok.length) return ok[ok.length - 1];
   }
   return null;
@@ -339,7 +341,7 @@ const closeDoc = (doc, now = Date.now()) => {
 
 export async function run({ now = Date.now(), out = OUT, _closed = false } = {}) {
   ensureTrack(out);
-  const H = SES.scanSlotAt(now);
+  const H = SES.scanSlotAt(now, CT_STEP);
   if (!H) return { ok: false, why: "لا حدّ لقطة" };
   const ver = version();
   const file = path.join(out, "contracts.json");
