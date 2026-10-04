@@ -43,11 +43,14 @@ describe("لقطة الساعة — المسار الحيّ", () => {
     expect(c.same).toBe(true);
   });
 
-  it("الصفقة تُحمَل بخطتها حتى تنتهي بقواعدها، بلا تكرارٍ ولا اختفاءٍ صامت، والتزايديّ = المتسلسل", () => {
+  it("الصفقة تُحمَل بخطتها حتى تنتهي بقواعدها، بلا تكرارٍ ولا اختفاءٍ صامت، والتزايديّ = المتسلسل", async () => {
     const dir = tmp();
-    let mem = null, carried = 0, ended = 0;
+    let mem = null, carried = 0, ended = 0, k = 0;
     const plan = new Map(), live = new Map();
     for (const H of hours) {
+      // تنازلٌ عن الحلقة كلَّ 20 لقطة: 280 لقطة متزامنة (~60ث) حجبت ردَّ العامل فأسقط vitest
+      // التشغيلَ بمهلة RPC «onTaskUpdate» والاختبارات ناجحة (بوّابة CI، 2026-10-04)
+      if (++k % 20 === 0) await new Promise((r) => setImmediate(r));
       const now = H + 3 * 60000;
       const bars = storeAt(dir, now);
       const r = build({ now, out: dir, barsDir: bars });                       // من الحالة على القرص
