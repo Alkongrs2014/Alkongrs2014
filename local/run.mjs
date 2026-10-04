@@ -329,6 +329,7 @@ async function publish() {
         fs.writeFileSync(path.join(ROOT, "reports", "publish-last.json"), JSON.stringify({ at: new Date().toISOString(), ok: r.ok, code: r.code, why: r.why, sha: r.sha || null, lkg: r.lkg || null })); } catch {}
   if (r.info) console.log(`  ✓ ${r.info.rows} صفاً · ${r.info.four} بأربعة فريمات · ${r.info.files} ملف سهم · ${r.info.stale} قديماً`);
   if (r.crypto) console.log(`  · دفتر الكريبتو: ${r.crypto}`);
+  if (r.ms) console.log("  ⏱ نشر " + Object.entries(r.ms).map(([k, v]) => `${k} ${(v / 1000).toFixed(1)}ث`).join(" · "));
   if (r.ok) {
     console.log(r.code === "unchanged" ? "  = لا جديد — المنشور مطابق"
       : `  ✔ نُشر ${r.sha.slice(0, 10)}` + (r.lkg ? ` · آخر نسخة سليمة ${r.lkg.slice(0, 10)}` : ""));

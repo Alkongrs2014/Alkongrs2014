@@ -210,16 +210,22 @@ export async function publishData(opts = {}) {
   const log = opts.log || console.log;
   const url = opts.remote || git(["remote", "get-url", "origin"], root);
   const lock = path.join(dataDir, ".publish.lock");
-  const res = (ok, code, why, extra = {}) => Object.assign({ ok, code, why }, extra);
+  /* زمنُ كلّ مرحلة (V4.1): «من إغلاق الشمعة إلى الموقع» يُقاس مرحلةً مرحلة لا جملةً */
+  const ms = {}; let tm = Date.now();
+  const mark = (k) => { const n = Date.now(); ms[k] = n - tm; tm = n; };
+  const res = (ok, code, why, extra = {}) => Object.assign({ ok, code, why, ms }, extra);
 
   if (!(await acquire(lock, "publish", opts.lockCapMs ?? 90000)))
     return res(false, "locked", "نشرٌ آخر جارٍ — نفسح له");
   let stage = null, work = null;
   try {
     /* ١) الإيجار: SHA المنشور **قبل** أيّ فحص — كلُّ ما بعده يُقاس عليه. */
+    mark("lock");
     const prevSha = lsRemote(url, branch);
+    mark("lease");
     /* ٢) لقطةٌ واحدة تحت قفل الكاتب — ما يُفحص هو ما يُنشر. */
     stage = await takeSnapshot({ src: dataDir, job: "publish" });
+    mark("snapshot");
     let info;
     try { info = validateStocks(stage, { requireProvider: opts.requireProvider }); }
     catch (e) { return res(false, "invalid", "الأسهم لم تجتز البوّابة: " + e.message); }
@@ -230,6 +236,7 @@ export async function publishData(opts = {}) {
     if (readRemote) for (const f of ["summary.json", "trades.json", "crypto/summary.json", "crypto/trades.json"])
       remoteFiles[f] = await readRemote(f);
     const remoteState = stateOf((f) => remoteFiles[f] ?? null);
+    mark("remote");
 
     /* ٣) دفتر الكريبتو: سليمٌ ⇒ يُنشر، ساقطٌ ⇒ يُحمَل المنشورُ كما هو. */
     let cryptoShow = null, cryptoNote = "لا دفتر كريبتو";
@@ -247,12 +254,14 @@ export async function publishData(opts = {}) {
       }
     }
     prune(stage, cryptoShow);
+    mark("books");
 
     /* ٤) الطبيب السريع على المرشَّح نفسه */
     if (typeof opts.quick === "function") {
       const errs = await opts.quick(stage);
       if (errs && errs.length) return res(false, "doctor", "الطبيب السريع: " + errs.slice(0, 3).join(" · "));
     }
+    mark("doctor");
 
     /* ٥) حارس الرتابة */
     const candState = stateOf((f) => { try { return fs.readFileSync(path.join(stage, f), "utf8"); } catch { return null; } });
@@ -280,6 +289,7 @@ export async function publishData(opts = {}) {
     git(["add", "-A"], stage);
     git(["commit", "-q", "-m", `بيانات محلية ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`], stage);
     const sha = git(["rev-parse", "HEAD"], stage);
+    mark("commit");
     /* نقطةُ اختبارٍ وحيدة: السباق «بدأ A، نشر B، ثم دفع A» لا يُحاكى إلا
        بإدخال B بين قراءة الإيجار والدفع. لا يمرّرها أيُّ مستدعٍ إنتاجيّ. */
     if (opts.hooks && typeof opts.hooks.beforePush === "function") await opts.hooks.beforePush();
@@ -291,6 +301,7 @@ export async function publishData(opts = {}) {
         return res(false, "lease", "الإيجار لم يطابق — كاتبٌ آخر نشر بعد قراءتنا؛ أُلغي النشر بلا إعادة");
       return res(false, "push", "فشل الدفع: " + msg.trim().slice(0, 300));
     }
+    mark("push");
 
     /* ٧) آخر نسخة سليمة: المنشورُ السابق إن اجتاز مخطّطاته. فشلُ هذه الخطوة
        لا يُفشل النشر (البيانات الجديدة نُشرت فعلاً) لكنه يُقال. */
@@ -309,6 +320,7 @@ export async function publishData(opts = {}) {
         }
       } catch (e) { log("  ⚠ تعذّر تحديث " + lkgBranch + ": " + String(e.stderr || e.message).trim().slice(0, 200)); }
     }
+    mark("lkg");
     return res(true, "published", "نُشر", { sha, prev: prevSha, lkg, info, crypto: cryptoNote });
   } finally {
     release(lock);
