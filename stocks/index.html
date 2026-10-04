@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<meta name="theme-color" content="#0C0B09">
+<meta name="theme-color" content="#050811">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="مرصد الأسهم">
@@ -14,7 +14,7 @@
 <link rel="manifest" id="manifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@300;400;500;600;700&display=swap">
 <title>مرصد الأسهم الأمريكية</title>
 <style>
 /* ======================================================================
@@ -33,44 +33,44 @@
    ====================================================================== */
 
 :root{
-  /* «الحبر والنحاس» — النسخة التصميمية الثالثة (2026-10-04).
-     الأرضيةُ حبرٌ دافئ لا أزرقُ بحريّ: الكحليُّ المائل إلى السماويّ مع التيل المتوهّج
-     هو أشهر ما يشي بواجهةٍ مولَّدة. والهويّةُ لونٌ واحد — النحاس — يقع على ما يُختار
-     ويُرتَّب، والعاجيُّ للنصّ والاختيار، والأخضر والمرجانيّ للاتجاه وحده. */
-  --bg:#0C0B09; --bg2:#100F0C;
-  --s1:#151411; --s2:#1C1A16; --s3:#25221C;
-  --hair:rgba(236,226,206,.08); --hair2:rgba(236,226,206,.16);
-  --tx:#F2EDE3; --tx2:#ADA595; --tx3:#7A7366;
-  --acc:#E2B464; --acc2:#A87F3A; --accGlow:rgba(226,180,100,.16);
-  --up:#5FCB94; --dn:#EE6F5C; --neu:#F09A52; --gold:#F4D394; --pre:#A397EE;
-  --upBg:rgba(95,203,148,.11); --dnBg:rgba(238,111,92,.11);
-  --neuBg:rgba(240,154,82,.11); --accBg:rgba(226,180,100,.10);
-  --goldBg:rgba(244,211,148,.10);
+  /* «المرصد الضوئي» — النسخة الرابعة (2026-10-05).
+     الأرضيةُ ليلٌ عميق متعدّد الطبقات لا أسودٌ مسطّح: ضوءٌ باردٌ رئيسيّ من الأعلى وضوءُ حافّةٍ
+     دافئ من الأسفل، وأسطحٌ زجاجية بحافّةٍ مضيئة من أعلاها. الهويّةُ ضوءٌ جليديّ (أزرقٌ يميل
+     إلى الأبيض) — لا بنفسجيّ ولا قوس قزح؛ والكهرمانيّ للنادر وحده (الأولى والجديد). */
+  --bg:#050811; --bg2:#08101C;
+  --s1:#0C1322; --s2:#111B2D; --s3:#17233A;
+  --hair:rgba(160,190,255,.09); --hair2:rgba(160,190,255,.17);
+  --tx:#EEF3FB; --tx2:#9CABC2; --tx3:#64738C;
+  --acc:#7CC8FF; --acc2:#3B82F6; --accGlow:rgba(124,200,255,.28);
+  --amber:#FFB547;
+  --up:#2EE59D; --dn:#FF5A6E; --neu:#FFB547; --gold:#FFC861; --pre:#A6B4FF;
+  --upBg:rgba(46,229,157,.12); --dnBg:rgba(255,90,110,.12);
+  --neuBg:rgba(255,181,71,.12); --accBg:rgba(124,200,255,.11);
+  --goldBg:rgba(255,200,97,.12);
 
-  /* لا تدرّجات: النحاسُ سطحٌ مصمت، والعمقُ من الطبقات */
-  --grad:linear-gradient(180deg,#E8BD70,#D9A955);
-  --gradUp:linear-gradient(180deg,var(--up),var(--up));
-  --gradDn:linear-gradient(180deg,var(--dn),var(--dn));
+  /* التدرّج المعدنيّ — جليدٌ إلى أزرقٍ عميق، والأبيضُ انعكاسٌ في أعلاه */
+  --grad:linear-gradient(135deg,#F2F8FF 0%,#9FD6FF 38%,#4F8DF7 100%);
+  --gradUp:linear-gradient(90deg,#1FB57C,#5CF5B8);
+  --gradDn:linear-gradient(90deg,#D93A52,#FF8A98);
+  --glass:linear-gradient(180deg,rgba(23,35,58,.78),rgba(11,17,30,.86));
 
-  /* زوايا مقتضبة: ‎8px‎ للبطاقة و‎4px‎ للشارة — الحبّاتُ المستديرة في كلّ مكان من علامات القالب */
-  --r-xl:14px; --r-lg:8px; --r-md:6px; --r-sm:4px; --r-pill:999px;
+  --r-xl:26px; --r-lg:20px; --r-md:14px; --r-sm:10px; --r-pill:999px;
 
-  --sh1:none;
-  --sh2:0 24px 48px -24px rgba(0,0,0,.9);
-  --shGlow:0 0 0 1px rgba(226,180,100,.35);
+  --sh1:0 1px 0 rgba(255,255,255,.05) inset, 0 12px 32px -18px rgba(0,0,0,.9);
+  --sh2:0 30px 60px -28px rgba(0,0,0,.95);
+  --shGlow:0 0 0 1px rgba(124,200,255,.35), 0 12px 40px -14px rgba(79,141,247,.55);
 
-  --ease:cubic-bezier(.2,.7,.2,1);
-  --d1:120ms; --d2:200ms; --d3:280ms;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --spring:cubic-bezier(.34,1.56,.64,1);
+  --d1:140ms; --d2:260ms; --d3:420ms;
 
-  --nav:64px;
+  --nav:68px;
 
-  /* ثلاثة أصوات طباعية: الكوفيّ للعناوين والتنقّل، والبلكس للقراءة، والأرقام بخطٍّ جدوليّ */
-  --fd:"Noto Kufi Arabic","IBM Plex Sans Arabic",system-ui,sans-serif;
-  --fm:"JetBrains Mono","JetBrains Mono","IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  /* العناوين والأرقام بـReadex Pro (عربيٌّ هندسيّ حديث بأرقامٍ لاتينية متّسقة)، والقراءة بـIBM Plex */
+  --fd:"Readex Pro","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --fm:"Readex Pro","IBM Plex Sans Arabic",system-ui,sans-serif;
 
-  /* ---- أسماءٌ قديمة تبقى مستعارةً ----
-     مستعملةٌ في عشرات القواعد وفي `style="…var(--mut)"` داخل قوالب JS.
-     حذفُها يُطفئ ألوان نصوصٍ كاملة بلا خطأ ولا أثر. */
+  /* ---- أسماءٌ قديمة تبقى مستعارةً ---- */
   --card:var(--s1); --card2:var(--s2); --card3:var(--s3);
   --line:var(--hair); --line2:var(--hair2);
   --mut:var(--tx2); --dim:var(--tx3);
@@ -97,31 +97,31 @@ body{
 body::before{
   content:""; position:fixed; inset:0; z-index:-2; pointer-events:none;
   background:
-    radial-gradient(900px 520px at 88% -6%, rgba(226,180,100,.10), transparent 62%),
-    radial-gradient(760px 480px at 6% 4%, rgba(226,180,100,.07), transparent 60%),
-    radial-gradient(1100px 700px at 50% 108%, rgba(226,180,100,.05), transparent 65%),
+    radial-gradient(900px 520px at 88% -6%, rgba(124,200,255,.10), transparent 62%),
+    radial-gradient(760px 480px at 6% 4%, rgba(124,200,255,.07), transparent 60%),
+    radial-gradient(1100px 700px at 50% 108%, rgba(124,200,255,.05), transparent 65%),
     var(--bg);
 }
 body::after{
   content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
   background-image:
-    linear-gradient(rgba(236,226,206,.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(236,226,206,.028) 1px, transparent 1px);
+    linear-gradient(rgba(160,190,255,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160,190,255,.028) 1px, transparent 1px);
   background-size:36px 36px;
   mask-image:radial-gradient(120% 90% at 50% 0%, #000 0%, transparent 78%);
   -webkit-mask-image:radial-gradient(120% 90% at 50% 0%, #000 0%, transparent 78%);
 }
 
 a{color:var(--acc);text-decoration:none}
-::selection{background:rgba(226,180,100,.3);color:#fff}
+::selection{background:rgba(124,200,255,.3);color:#fff}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:8px}
 
 /* الأرقام جدوليّة دائماً: عمودُ أسعارٍ تتغيّر عروضُ خاناته يهتزّ بصرياً
    مع كل تحديث، والقارئ يقرأ الاهتزاز تغيّراً */
 .num{font-variant-numeric:tabular-nums lining-nums;
-  font-family:"JetBrains Mono","IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  font-family:"Readex Pro","SF Mono",ui-monospace,Menlo,Consolas,monospace;
   direction:ltr; display:inline-block; letter-spacing:-.2px}
-.tick{font-family:"JetBrains Mono","IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+.tick{font-family:"Readex Pro","SF Mono",ui-monospace,Menlo,Consolas,monospace;
   direction:ltr; display:inline-block; font-weight:700; letter-spacing:.4px}
 .mut{color:var(--tx2)}
 .up{color:var(--up)} .dn{color:var(--dn)} .neu{color:var(--neu)}
@@ -132,7 +132,7 @@ a{color:var(--acc);text-decoration:none}
    ====================================================================== */
 .topbar{
   position:sticky; top:0; z-index:50;
-  background:linear-gradient(180deg, rgba(12,11,9,.97), rgba(12,11,9,.88));
+  background:linear-gradient(180deg, rgba(5,8,17,.97), rgba(5,8,17,.88));
   backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
   border-bottom:1px solid var(--hair);
   padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
@@ -143,7 +143,7 @@ a{color:var(--acc);text-decoration:none}
 .tb-row{display:flex; align-items:center; gap:10px}
 .brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
 .logo{width:34px;height:34px;flex:none;display:block;
-  filter:drop-shadow(0 2px 10px rgba(226,180,100,.35))}
+  filter:drop-shadow(0 2px 10px rgba(124,200,255,.35))}
 .tb-title{font-size:16px;font-weight:700;letter-spacing:-.4px;line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tb-title b{color:var(--tx);font-weight:700}
@@ -163,12 +163,12 @@ a{color:var(--acc);text-decoration:none}
 .chip{font-size:11px; padding:3px 9px; border-radius:var(--r-pill); font-weight:600;
   white-space:nowrap; border:1px solid transparent; line-height:1.45;
   display:inline-flex; align-items:center; gap:5px}
-.chip.up{background:var(--upBg);color:var(--up);border-color:rgba(95,203,148,.26)}
-.chip.dn{background:var(--dnBg);color:var(--dn);border-color:rgba(238,111,92,.26)}
-.chip.neu{background:var(--neuBg);color:var(--neu);border-color:rgba(240,154,82,.26)}
-.chip.acc{background:var(--accBg);color:var(--acc);border-color:rgba(226,180,100,.28)}
+.chip.up{background:var(--upBg);color:var(--up);border-color:rgba(46,229,157,.26)}
+.chip.dn{background:var(--dnBg);color:var(--dn);border-color:rgba(255,90,110,.26)}
+.chip.neu{background:var(--neuBg);color:var(--neu);border-color:rgba(255,181,71,.26)}
+.chip.acc{background:var(--accBg);color:var(--acc);border-color:rgba(124,200,255,.28)}
 .chip.pre{background:rgba(163,151,238,.14);color:var(--pre);border-color:rgba(163,151,238,.28)}
-.chip.off{background:rgba(236,226,206,.08);color:var(--tx2);border-color:var(--hair)}
+.chip.off{background:rgba(160,190,255,.08);color:var(--tx2);border-color:var(--hair)}
 /* نبضُ «حيّ»: هالةٌ تتمدّد وتخبو — تقول إن الرقم يتحرّك بلا أن تحرّكه */
 .chip.live::before{content:"";width:7px;height:7px;border-radius:50%;
   background:currentColor;flex:none;box-shadow:0 0 0 0 currentColor;
@@ -180,7 +180,7 @@ a{color:var(--acc);text-decoration:none}
 }
 
 /* أزرارُ الترويسة */
-.refresh,.back{background:rgba(236,226,206,.06); border:1px solid var(--hair);
+.refresh,.back{background:rgba(160,190,255,.06); border:1px solid var(--hair);
   color:var(--tx2); width:38px;height:38px;border-radius:13px;
   font-size:17px;cursor:pointer;flex:none;display:grid;place-items:center;
   font-family:inherit;
@@ -196,8 +196,8 @@ a{color:var(--acc);text-decoration:none}
   border-top:1px solid var(--hair);
   display:flex;gap:8px;align-items:center;flex-wrap:wrap;line-height:1.5}
 .stalebar[hidden]{display:none}
-.stalebar.late{background:rgba(240,154,82,.12);color:#F6C08E}
-.stalebar.dead{background:rgba(238,111,92,.15);color:#F7B3A8}
+.stalebar.late{background:rgba(255,181,71,.12);color:#F6C08E}
+.stalebar.dead{background:rgba(255,90,110,.15);color:#F7B3A8}
 .stalebar b{font-variant-numeric:tabular-nums}
 
 /* ======================================================================
@@ -209,7 +209,7 @@ section[data-view].on{display:block; animation:viewIn var(--d3) var(--ease)}
 @keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
 .card{
-  background:linear-gradient(180deg, var(--s1), #151411);
+  background:linear-gradient(180deg, var(--s1), #0B111D);
   border:1px solid var(--hair); border-radius:var(--r-lg); padding:15px;
   margin-bottom:13px; box-shadow:var(--sh1); position:relative;
   transition:border-color var(--d2) var(--ease), box-shadow var(--d2) var(--ease);
@@ -248,10 +248,10 @@ section[data-view].on{display:block; animation:viewIn var(--d3) var(--ease)}
 /* ======================================================================
    أوّليّات: أزرار · مبدّلات · شرائط · أشرطة تقدّم · هياكل تحميل
    ====================================================================== */
-.btn{width:100%;background:var(--grad);border:0;color:#1B1305;padding:13px;
+.btn{width:100%;background:var(--grad);border:0;color:#04121F;padding:13px;
   border-radius:var(--r-md); font-size:15px;font-weight:700;cursor:pointer;
   font-family:inherit; letter-spacing:-.2px;
-  box-shadow:0 6px 20px -10px rgba(226,180,100,.9), inset 0 1px 0 rgba(255,255,255,.22);
+  box-shadow:0 6px 20px -10px rgba(124,200,255,.9), inset 0 1px 0 rgba(255,255,255,.22);
   transition:transform var(--d1) var(--ease), filter var(--d1) var(--ease)}
 .btn:active{transform:scale(.975)}
 .btn.gray{background:var(--s2);border:1px solid var(--hair);color:var(--tx);box-shadow:none}
@@ -270,8 +270,8 @@ section[data-view].on{display:block; animation:viewIn var(--d3) var(--ease)}
   transition:background var(--d1) var(--ease),color var(--d1) var(--ease),
              border-color var(--d1) var(--ease),box-shadow var(--d1) var(--ease)}
 .chipbar button.on,.scans button.on,.tf-picker button.on{
-  background:var(--grad);border-color:transparent;color:#1B1305;font-weight:700;
-  box-shadow:0 5px 16px -8px rgba(226,180,100,.95)}
+  background:var(--grad);border-color:transparent;color:#04121F;font-weight:700;
+  box-shadow:0 5px 16px -8px rgba(124,200,255,.95)}
 .tf-picker{margin-bottom:11px}
 .tf-picker button{border-radius:var(--r-sm);padding:7px 15px;font-size:13px;font-weight:700}
 
@@ -285,7 +285,7 @@ section[data-view].on{display:block; animation:viewIn var(--d3) var(--ease)}
   box-shadow:0 1px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05)}
 
 /* شريط تقدّم مشترك */
-.bar{height:7px;border-radius:var(--r-pill);background:rgba(236,226,206,.09);
+.bar{height:7px;border-radius:var(--r-pill);background:rgba(160,190,255,.09);
   overflow:hidden;position:relative}
 .bar>i{display:block;height:100%;border-radius:var(--r-pill);
   background:var(--grad);transition:width var(--d3) var(--ease)}
@@ -294,7 +294,7 @@ section[data-view].on{display:block; animation:viewIn var(--d3) var(--ease)}
 /* مربّعُ الشركة — بديلُ الشعار. لا شعارات CDN: قاعدةُ «بلا اعتماد خارجي»
    يفحصها `check-ui`، وشعارٌ لا يُحمَّل أسوأ من حرفين واضحين */
 .mono{width:38px;height:38px;flex:none;border-radius:var(--r-md);display:grid;
-  place-items:center;font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;
+  place-items:center;font-family:"Readex Pro",ui-monospace,monospace;
   font-weight:700;font-size:13px;direction:ltr;letter-spacing:.3px;
   border:1px solid rgba(255,255,255,.07);position:relative;overflow:hidden}
 .mono::after{content:"";position:absolute;inset:0;pointer-events:none;
@@ -310,7 +310,7 @@ section[data-view].on{display:block; animation:viewIn var(--d3) var(--ease)}
 .spark .ar{stroke:none;opacity:.15}
 
 /* هيكلُ التحميل: وميضٌ لا دوّارة — يقول أين سيقع المحتوى فلا تقفز الصفحة */
-.skl{background:linear-gradient(90deg,var(--s2) 8%,#2A2721 22%,var(--s2) 36%);
+.skl{background:linear-gradient(90deg,var(--s2) 8%,#1A2638 22%,var(--s2) 36%);
   background-size:220% 100%;animation:sh 1.5s linear infinite;
   border-radius:var(--r-sm);height:14px}
 @keyframes sh{to{background-position:-220% 0}}
@@ -324,7 +324,7 @@ section[data-view].on{display:block; animation:viewIn var(--d3) var(--ease)}
 /* علاماتٌ صغيرة */
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none;
   border:1.5px solid var(--tx3);margin-left:6px;vertical-align:.02em}
-.dot.on{background:var(--up);border-color:var(--up);box-shadow:0 0 8px rgba(95,203,148,.55)}
+.dot.on{background:var(--up);border-color:var(--up);box-shadow:0 0 8px rgba(46,229,157,.55)}
 .mk{font-size:.9em;color:var(--acc);margin-left:4px}
 .mk.hot{color:var(--neu)}
 .ic{width:1.05em;height:1.05em;flex:none;vertical-align:-.16em;margin-left:.42em}
@@ -336,15 +336,15 @@ section[data-view].on{display:block; animation:viewIn var(--d3) var(--ease)}
 .star:active{transform:scale(.86)}
 .tag{font-size:11px;color:var(--tx2)}
 .tagmini{font-style:normal;font-size:10.5px;color:var(--neu);
-  border:1px solid rgba(240,154,82,.3);border-radius:6px;padding:1px 6px;
+  border:1px solid rgba(255,181,71,.3);border-radius:6px;padding:1px 6px;
   margin-right:auto;flex:none}
 
 /* صناديقُ رسائل */
-.warn{background:rgba(238,111,92,.09);border:1px solid rgba(238,111,92,.3);color:#F7B3A8;
+.warn{background:rgba(255,90,110,.09);border:1px solid rgba(255,90,110,.3);color:#F7B3A8;
   border-radius:var(--r-md);padding:12px 13px;font-size:13px;margin-top:10px;line-height:1.7}
-.ok{background:rgba(95,203,148,.08);border:1px solid rgba(95,203,148,.28);color:#A9E3C3;
+.ok{background:rgba(46,229,157,.08);border:1px solid rgba(46,229,157,.28);color:#A9E3C3;
   border-radius:var(--r-md);padding:12px 13px;font-size:13px;margin-top:10px;line-height:1.7}
-.note{background:rgba(240,154,82,.07);border:1px solid rgba(240,154,82,.24);color:#F1D3A6;
+.note{background:rgba(255,181,71,.07);border:1px solid rgba(255,181,71,.24);color:#F1D3A6;
   border-radius:var(--r-md);padding:12px 13px;font-size:12.5px;line-height:1.7}
 
 /* ======================================================================
@@ -355,7 +355,7 @@ input,select{width:100%;background:var(--s2);border:1px solid var(--hair);color:
   border-radius:var(--r-md);padding:11px 13px;font-size:16px;font-family:inherit;
   transition:border-color var(--d1) var(--ease),box-shadow var(--d1) var(--ease)}
 input:focus,select:focus{outline:none;border-color:var(--acc);
-  box-shadow:0 0 0 3px rgba(226,180,100,.14)}
+  box-shadow:0 0 0 3px rgba(124,200,255,.14)}
 .fld{margin-bottom:11px}
 .fld input{direction:ltr;text-align:right}
 .chk{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--tx2);margin:9px 0}
@@ -369,7 +369,7 @@ input:focus,select:focus{outline:none;border-color:var(--acc);
 .toolbar .favbtn{flex:1;min-width:112px;background:var(--s2);border:1px solid var(--hair);
   color:var(--tx2);border-radius:var(--r-md);padding:10px 12px;font-size:13.5px;
   font-family:inherit;cursor:pointer;transition:all var(--d1) var(--ease)}
-.toolbar .favbtn.on{background:var(--neuBg);border-color:rgba(240,154,82,.4);color:var(--neu)}
+.toolbar .favbtn.on{background:var(--neuBg);border-color:rgba(255,181,71,.4);color:var(--neu)}
 
 /* بحثٌ كبير: صندوقٌ بمقاس النصّ العادي يجعل ما يُكتب فيه غير مقروء —
    بلّغ عنه مستخدم. و`dir="auto"` على الحقل لا LTR مفروضاً: يُبحث
@@ -404,13 +404,13 @@ input:focus,select:focus{outline:none;border-color:var(--acc);
    ====================================================================== */
 .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:60;display:flex;
   align-items:stretch;
-  background:linear-gradient(180deg, rgba(16,15,12,.86), rgba(12,11,9,.98));
+  background:linear-gradient(180deg, rgba(8,12,22,.86), rgba(5,8,17,.98));
   backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
   border-top:1px solid var(--hair);
   padding:0 4px env(safe-area-inset-bottom)}
 /* خطُّ ضوءٍ علويّ: يفصل الشريط عن المحتوى بلا حدٍّ ثقيل */
 .tabbar::before{content:"";position:absolute;top:-1px;right:8%;left:8%;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(226,180,100,.35),transparent)}
+  background:linear-gradient(90deg,transparent,rgba(124,200,255,.35),transparent)}
 .tabbar button{flex:1;background:none;border:0;color:var(--tx3);
   padding:9px 2px 8px;height:var(--nav);
   font-size:10.5px;font-family:inherit;cursor:pointer;display:flex;
@@ -432,14 +432,14 @@ input:focus,select:focus{outline:none;border-color:var(--acc);
 .side-brand{display:none}
 
 /* الطبقة المعتمة تحت الورقة */
-.scrim{position:fixed;inset:0;z-index:70;background:rgba(6,5,4,.66);
+.scrim{position:fixed;inset:0;z-index:70;background:rgba(2,4,10,.66);
   backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
   opacity:0;pointer-events:none;transition:opacity var(--d2) var(--ease)}
 .scrim.on{opacity:1;pointer-events:auto}
 
 /* الورقة السفلية — مكوّنٌ واحد تستعمله «المزيد» والمرشّحات معاً */
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:75;
-  background:linear-gradient(180deg,#1C1A16,#151411);
+  background:linear-gradient(180deg,#111A2A,#0B111D);
   border-top:1px solid var(--hair2);
   border-radius:var(--r-xl) var(--r-xl) 0 0;
   box-shadow:0 -18px 50px -20px rgba(0,0,0,.95);
@@ -469,7 +469,7 @@ input:focus,select:focus{outline:none;border-color:var(--acc);
   margin-top:2px;line-height:1.5}
 .sheet-r .g{flex:1;min-width:0}
 .sheet-r .go{color:var(--tx3);font-size:17px;flex:none}
-.sheet-r.on{border-color:rgba(226,180,100,.35);background:var(--accBg)}
+.sheet-r.on{border-color:rgba(124,200,255,.35);background:var(--accBg)}
 .sheet-r:active{transform:scale(.99)}
 /* قفلُ تمرير الخلفية حين تكون الورقة مفتوحة */
 body.sheet-open{overflow:hidden}
@@ -478,7 +478,7 @@ body.sheet-open{overflow:hidden}
    مقاييس ومؤشّرات بصرية مشتركة
    ====================================================================== */
 /* خانةُ مقياس: أكبرُ من `.stat` وأقلُّ عدداً — للأرقام التي تُقرأ أولاً */
-.metric{background:linear-gradient(180deg,var(--s2),#1A1915);
+.metric{background:linear-gradient(180deg,var(--s2),#0E1522);
   border:1px solid var(--hair);border-radius:var(--r-md);padding:12px;
   position:relative;overflow:hidden;min-width:0}
 .metric .k{font-size:10.5px;color:var(--tx2);font-weight:600;
@@ -495,10 +495,10 @@ body.sheet-open{overflow:hidden}
 /* العدّاد — قوسٌ SVG. الرقمُ من الخادم كما هو ولا يُعاد حسابه هنا */
 .gauge{position:relative;display:block;margin:2px auto 0;max-width:262px}
 .gauge svg{display:block;width:100%;height:auto;overflow:visible}
-.gauge .gtrk{fill:none;stroke:rgba(236,226,206,.10);stroke-linecap:butt}
+.gauge .gtrk{fill:none;stroke:rgba(160,190,255,.10);stroke-linecap:butt}
 .gauge .gval{fill:none;stroke-linecap:butt;
   transition:stroke-dasharray var(--d3) var(--ease)}
-.gauge .gtick{stroke:rgba(236,226,206,.22);stroke-width:1}
+.gauge .gtick{stroke:rgba(160,190,255,.22);stroke-width:1}
 
 .verdict{font-size:27px;font-weight:800;text-align:center;margin:12px 0 2px;
   letter-spacing:-.9px}
@@ -507,7 +507,7 @@ body.sheet-open{overflow:hidden}
 /* نطاق 52 أسبوعاً — الطرف الأيمن قاعٌ والأيسر قمّة */
 .rng{margin-top:6px}
 .rng-track{height:7px;border-radius:var(--r-pill);position:relative;
-  background:linear-gradient(to left,var(--dn),#3A3730,var(--up))}
+  background:linear-gradient(to left,var(--dn),#26324A,var(--up))}
 .rng-mark{position:absolute;top:-4px;width:3px;height:15px;background:#fff;
   border-radius:2px;box-shadow:0 0 7px rgba(0,0,0,.85)}
 .rng-lbl{display:flex;justify-content:space-between;font-size:11px;
@@ -515,12 +515,12 @@ body.sheet-open{overflow:hidden}
 
 /* شريط القوة النسبية */
 .rsbar{position:relative;height:8px;border-radius:var(--r-pill);
-  background:rgba(236,226,206,.09);overflow:hidden}
+  background:rgba(160,190,255,.09);overflow:hidden}
 .rsbar b{position:absolute;top:0;bottom:0;border-radius:var(--r-pill);display:block}
 
 /* أعمدةُ الأساسيات الصغيرة */
 .bars{display:flex;gap:3px;flex:none;width:66px}
-.bars i{flex:1;height:28px;background:rgba(236,226,206,.08);border-radius:3px;
+.bars i{flex:1;height:28px;background:rgba(160,190,255,.08);border-radius:3px;
   position:relative;overflow:hidden}
 .bars i b{position:absolute;bottom:0;left:0;right:0;border-radius:3px;display:block}
 .fscore{width:36px;text-align:center;flex:none;font-weight:800;font-size:14px}
@@ -534,7 +534,7 @@ body.sheet-open{overflow:hidden}
    وبطاقةُ الفرصة تخصيصٌ فوقه بـ`.opp` — نفس الحاوية ونفس الخطّافات
    (`data-open` · `.rank` · `.id .n` · `.hitv`) التي يقرؤها `prove-live`.
    ====================================================================== */
-.slist{background:linear-gradient(180deg,var(--s1),#151411);
+.slist{background:linear-gradient(180deg,var(--s1),#0B111D);
   border:1px solid var(--hair);border-radius:var(--r-lg);
   overflow:hidden;box-shadow:var(--sh1)}
 .srow{display:flex;align-items:center;gap:11px;padding:11px 13px;
@@ -564,7 +564,7 @@ body.sheet-open{overflow:hidden}
 .srow.opp{
   display:block;padding:0;border:1px solid var(--hair);border-radius:var(--r-lg);
   margin-bottom:11px;overflow:hidden;position:relative;
-  background:linear-gradient(180deg,var(--s1),#151411);
+  background:linear-gradient(180deg,var(--s1),#0B111D);
   box-shadow:var(--sh1);
   /* القوائم تبلغ مئات الصفوف: ما هو خارج الشاشة لا يُخطَّط ولا يُرسم */
   content-visibility:auto; contain-intrinsic-size:auto 168px;
@@ -575,15 +575,15 @@ body.sheet-open{overflow:hidden}
 /* شريطٌ دلاليّ على الحافّة الابتدائية بلون اتجاه النظام */
 .srow.opp::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;
   width:3px;background:var(--hair2);z-index:1}
-.srow.opp.d-up::before{background:linear-gradient(180deg,var(--up),rgba(95,203,148,.25))}
-.srow.opp.d-dn::before{background:linear-gradient(180deg,var(--dn),rgba(238,111,92,.25))}
+.srow.opp.d-up::before{background:linear-gradient(180deg,var(--up),rgba(46,229,157,.25))}
+.srow.opp.d-dn::before{background:linear-gradient(180deg,var(--dn),rgba(255,90,110,.25))}
 /* الثلاثةُ الأولى تأخذ وزناً بصرياً أعلى — **تمييزٌ يتبع الترتيب الذي
    أعطاه النظام ولا يغيّره**: الموضع مصدرُه اللقطة وحدها */
-.srow.opp.top{border-color:rgba(226,180,100,.26);
-  box-shadow:var(--sh1),0 0 26px -14px rgba(226,180,100,.55)}
+.srow.opp.top{border-color:rgba(124,200,255,.26);
+  box-shadow:var(--sh1),0 0 26px -14px rgba(124,200,255,.55)}
 .srow.opp.top::after{content:"";position:absolute;inset:0;pointer-events:none;
   border-radius:var(--r-lg);
-  background:radial-gradient(420px 130px at 92% -18%, rgba(226,180,100,.10), transparent 70%)}
+  background:radial-gradient(420px 130px at 92% -18%, rgba(124,200,255,.10), transparent 70%)}
 
 .opp-hd{display:flex;align-items:flex-start;gap:11px;padding:13px 14px 10px;
   position:relative;z-index:2}
@@ -592,13 +592,13 @@ body.sheet-open{overflow:hidden}
   color:var(--tx2);border:1px solid var(--hair);margin-top:5px;
   font-variant-numeric:tabular-nums;text-align:center}
 .srow.opp.r1 .rank{background:var(--goldBg);color:var(--gold);
-  border-color:rgba(240,154,82,.4);box-shadow:0 0 14px -4px rgba(240,154,82,.55)}
+  border-color:rgba(255,181,71,.4);box-shadow:0 0 14px -4px rgba(255,181,71,.55)}
 .srow.opp.r2 .rank,.srow.opp.r3 .rank{background:var(--accBg);color:var(--acc);
-  border-color:rgba(226,180,100,.3)}
+  border-color:rgba(124,200,255,.3)}
 .srow.opp .id{flex:1;min-width:0}
 .srow.opp .id .t{font-size:15px;font-weight:700;gap:8px;letter-spacing:-.3px}
 .srow.opp .id .t .tick{font-size:11px;color:var(--tx2);font-weight:600;
-  background:rgba(236,226,206,.08);border-radius:5px;padding:1px 6px}
+  background:rgba(160,190,255,.08);border-radius:5px;padding:1px 6px}
 .srow.opp .id .n{font-size:11.5px;margin-top:3px}
 /* سطرُ التوافق: الأثر بالنقاط لا بوصف، وثلاثُ حالاتٍ لا واحدة */
 .srow.opp .id .n.conf{font-weight:700;white-space:normal}
@@ -606,9 +606,9 @@ body.sheet-open{overflow:hidden}
 .opp-dir{flex:none;margin-top:4px;font-size:11px;font-weight:700;padding:4px 9px;
   border-radius:var(--r-pill);border:1px solid transparent;white-space:nowrap;
   display:inline-flex;align-items:center;gap:4px}
-.opp-dir.up{background:var(--upBg);color:var(--up);border-color:rgba(95,203,148,.26)}
-.opp-dir.dn{background:var(--dnBg);color:var(--dn);border-color:rgba(238,111,92,.26)}
-.opp-dir.neu{background:rgba(236,226,206,.08);color:var(--tx2);border-color:var(--hair)}
+.opp-dir.up{background:var(--upBg);color:var(--up);border-color:rgba(46,229,157,.26)}
+.opp-dir.dn{background:var(--dnBg);color:var(--dn);border-color:rgba(255,90,110,.26)}
+.opp-dir.neu{background:rgba(160,190,255,.08);color:var(--tx2);border-color:var(--hair)}
 
 /* الصفّ الرقميّ: سعرٌ · خطٌّ مصغَّر · درجة */
 .opp-bd{display:flex;align-items:center;gap:11px;padding:2px 14px 12px;
@@ -630,20 +630,20 @@ body.sheet-open{overflow:hidden}
 
 /* الذيل: شرائطُ سياقٍ صغيرة تفصلها شعرة */
 .opp-ft{display:flex;flex-wrap:wrap;gap:6px;padding:9px 14px;
-  border-top:1px solid var(--hair);background:rgba(236,226,206,.025);
+  border-top:1px solid var(--hair);background:rgba(160,190,255,.025);
   position:relative;z-index:2}
 .opp-ft span{font-size:10.5px;font-weight:600;color:var(--tx2);
-  background:rgba(236,226,206,.07);border:1px solid var(--hair);
+  background:rgba(160,190,255,.07);border:1px solid var(--hair);
   border-radius:var(--r-pill);padding:3px 9px;white-space:nowrap;
   display:inline-flex;align-items:center;gap:4px}
-.opp-ft span.hot{background:var(--neuBg);color:var(--neu);border-color:rgba(240,154,82,.26)}
-.opp-ft span.good{background:var(--upBg);color:var(--up);border-color:rgba(95,203,148,.24)}
-.opp-ft span.bad{background:var(--dnBg);color:var(--dn);border-color:rgba(238,111,92,.26)}
-.opp-ft span.cold{background:rgba(236,226,206,.05);color:var(--tx3)}
+.opp-ft span.hot{background:var(--neuBg);color:var(--neu);border-color:rgba(255,181,71,.26)}
+.opp-ft span.good{background:var(--upBg);color:var(--up);border-color:rgba(46,229,157,.24)}
+.opp-ft span.bad{background:var(--dnBg);color:var(--dn);border-color:rgba(255,90,110,.26)}
+.opp-ft span.cold{background:rgba(160,190,255,.05);color:var(--tx3)}
 /* الأهداف المتحقّقة في الكريبتو — سطرٌ ظاهر لا شريطٌ بين الشرائط */
 .opp-hit{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 9px;position:relative;z-index:2}
 .opp-hit span{font-size:11.5px;font-weight:700;color:var(--up);background:var(--upBg);
-  border:1px solid rgba(95,203,148,.24);border-radius:var(--r-pill);padding:3px 10px}
+  border:1px solid rgba(46,229,157,.24);border-radius:var(--r-pill);padding:3px 10px}
 #cEnded .good{color:var(--up)} #cEnded .cold{color:var(--tx3)}
 /* المحرّك V3 — سببُ الدرجة ظاهرٌ في البطاقة: كلُّ استراتيجيةٍ بوزنها ✓/✗ */
 .v3sc{display:flex;gap:11px;align-items:stretch;padding:2px 14px 10px;position:relative;z-index:2}
@@ -676,14 +676,14 @@ body.sheet-open{overflow:hidden}
 .v3tft td.off{color:var(--dn);font-weight:800}
 .v3tft td small{font-weight:400;color:var(--tx3);font-size:9.5px}
 .v3tft td.na{color:var(--tx3);font-size:9.5px}
-.v3tft td.nd{color:var(--warn,#F09A52);font-size:9.5px}
+.v3tft td.nd{color:var(--warn,#FFB547);font-size:9.5px}
 .v3tft td.lv{color:var(--tx2);font-size:9.5px}
 .v3tfn{color:var(--tx3);font-size:10.5px;margin:5px 0 0}
 /* §4ج: غير المتحقّقة خافتة، والتعارض وحده بلون الهبوط، والمؤكَّدة بفريمٍ آخر بخلفيةٍ خفيفة */
 .v3tft td.off{color:var(--tx3);font-weight:700}
 .v3tft td.cf{color:var(--dn);font-weight:800}
-.v3tft td.on2{color:var(--up);font-weight:800;background:rgba(95,203,148,.08)}
-.v3base{display:inline-block;font-size:8.5px;font-weight:700;color:#0C0B09;background:var(--acc);border-radius:4px;padding:0 3px;vertical-align:middle}
+.v3tft td.on2{color:var(--up);font-weight:800;background:rgba(46,229,157,.08)}
+.v3base{display:inline-block;font-size:8.5px;font-weight:700;color:#050811;background:var(--acc);border-radius:4px;padding:0 3px;vertical-align:middle}
 /* الصفقات القائمة والمنتهية — صفوفٌ مختصرة، والبطاقة الكاملة تُرسم عند الفتح وحده */
 .v3sect{margin-top:16px}
 .v3nav{display:flex;flex-wrap:wrap;gap:4px 8px;margin:6px 2px 10px;font-size:12.5px;font-weight:700}.v3nav a{color:var(--acc,var(--up));text-decoration:none}
@@ -695,11 +695,11 @@ body.sheet-open{overflow:hidden}
 .v3act .s1{font-weight:800}.v3act .s1 small{font-weight:500;color:var(--tx3);margin-inline-start:6px}
 .v3act .s2{grid-column:1 / -1;color:var(--tx2);font-size:11.5px}
 .v3act .s3{text-align:end;font-weight:700;white-space:nowrap}
-.v3act .warn{color:var(--warn,#F09A52)}
+.v3act .warn{color:var(--warn,#FFB547)}
 .v3act[open] > summary{border-bottom:1px solid var(--hair)}
 .v3act .v3actb{padding:6px 0 0}
-.v3warn{margin:0 14px 10px;padding:7px 10px;border-radius:9px;background:rgba(240,154,82,.10);border:1px solid rgba(240,154,82,.35);font-size:12px;color:var(--tx);position:relative;z-index:2}
-.v3warn b{color:var(--warn,#F09A52)}
+.v3warn{margin:0 14px 10px;padding:7px 10px;border-radius:9px;background:rgba(255,181,71,.10);border:1px solid rgba(255,181,71,.35);font-size:12px;color:var(--tx);position:relative;z-index:2}
+.v3warn b{color:var(--warn,#FFB547)}
 .v3mt{margin:0 14px 12px;position:relative;z-index:2}
 .v3mt .btn{width:auto;padding:7px 14px;font-size:12.5px}
 .v3ended{display:flex;flex-wrap:wrap;gap:4px 10px;padding:7px 2px;border-bottom:1px solid var(--hair);font-size:12px}
@@ -712,13 +712,13 @@ body.sheet-open{overflow:hidden}
 .mthd .nm{font-size:15px;font-weight:800}.mthd .tk{color:var(--tx3);font-size:11.5px}
 .mthd .dir{font-weight:800}.mthd .dir.up{color:var(--up)}.mthd .dir.dn{color:var(--dn)}
 .mtst{margin-inline-start:auto;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;border:1px solid var(--hair);color:var(--tx2)}
-.mtst.act{color:var(--up);border-color:rgba(95,203,148,.45)}
+.mtst.act{color:var(--up);border-color:rgba(46,229,157,.45)}
 .mtst.end{color:var(--tx3)}
 .mtgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;margin:4px 0 6px}
 .mtgrid div{min-width:0}.mtgrid .k{color:var(--tx3);font-size:11px;display:block}
 .mttg{display:flex;flex-wrap:wrap;gap:4px 12px;margin:2px 0 6px}
 .mttg .hit{color:var(--up);font-weight:700}
-.mtw{color:var(--warn,#F09A52);font-size:11.5px;margin:3px 0}
+.mtw{color:var(--warn,#FFB547);font-size:11.5px;margin:3px 0}
 .mtsrc{color:var(--tx3);font-size:11px;margin-top:4px}
 .mtbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .mtbtns button{font:inherit;font-size:12px;border:1px solid var(--hair);background:var(--s2);color:var(--tx2);border-radius:8px;padding:5px 10px;cursor:pointer}
@@ -731,7 +731,7 @@ body.sheet-open{overflow:hidden}
 /* العقود — بطاقةٌ مختصرة بأسلوب التوصيات، والتفاصيل في كاشف */
 .ocats{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
 .ocats button{flex:none;font:inherit;font-size:12px;border:1px solid var(--hair);background:var(--s2);color:var(--tx2);border-radius:99px;padding:5px 11px;cursor:pointer}
-.ocats button.on{background:var(--acc);color:#0C0B09;border-color:var(--acc);font-weight:700}
+.ocats button.on{background:var(--acc);color:#050811;border-color:var(--acc);font-weight:700}
 .ofilt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;font-size:10.5px;color:var(--tx3);margin-bottom:6px}
 .ofilt label{display:flex;flex-direction:column;gap:2px;min-width:0}
 .ofilt select{width:100%;font:inherit;font-size:12px;background:var(--s2);color:var(--tx);border:1px solid var(--hair);border-radius:8px;padding:3px 6px}
@@ -742,7 +742,7 @@ body.sheet-open{overflow:hidden}
 .okind{font-weight:800;font-size:12.5px}.okind.up,.ocard .up{color:var(--up)}.okind.dn,.ocard .dn{color:var(--dn)}
 .ocat{font-size:11px;color:var(--tx3);border:1px solid var(--hair);border-radius:99px;padding:1px 8px}
 .ob{margin-inline-start:auto;font-size:10.5px;border-radius:99px;padding:2px 8px;font-weight:700}
-.ob.ok{background:rgba(95,203,148,.12);color:var(--up)}.ob.wait{background:rgba(240,154,82,.12);color:#F09A52}
+.ob.ok{background:rgba(46,229,157,.12);color:var(--up)}.ob.wait{background:rgba(255,181,71,.12);color:#FFB547}
 .ometa{font-size:11.5px;color:var(--tx2);margin-bottom:6px;line-height:1.6}
 .olegs{display:grid;gap:3px;margin-bottom:6px}
 .oleg{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline;background:var(--s2);border-radius:8px;padding:4px 8px}
@@ -752,7 +752,7 @@ body.sheet-open{overflow:hidden}
 .oplan small,.oplan2 small{color:var(--tx3)}
 .owhy{margin:4px 0;padding-inline-start:16px;font-size:11.5px;color:var(--tx2);line-height:1.6}
 .otag{font-size:10px;border-radius:6px;padding:0 5px;margin-inline-end:3px}
-.otag.event{background:rgba(226,180,100,.14);color:var(--acc)}.otag.inferred{background:rgba(236,226,206,.12);color:var(--tx2)}.otag.weak{background:rgba(240,154,82,.10);color:#F09A52}
+.otag.event{background:rgba(124,200,255,.14);color:var(--acc)}.otag.inferred{background:rgba(160,190,255,.12);color:var(--tx2)}.otag.weak{background:rgba(255,181,71,.10);color:#FFB547}
 .ov3{font-size:11.5px;color:var(--acc);margin:3px 0}
 .odet summary{font-size:11.5px;color:var(--tx2);cursor:pointer;padding:3px 0}
 .otab{width:100%;border-collapse:collapse;font-size:10.5px;margin:4px 0;display:block;overflow-x:auto}
@@ -761,11 +761,11 @@ body.sheet-open{overflow:hidden}
 .otr td{white-space:normal}
 .ohist{font-size:11px;color:var(--tx2);margin:4px 0;line-height:1.7}.ohist span{margin-inline-end:6px}
 .ometh p{font-size:12px;color:var(--tx2);line-height:1.7;margin:0 0 8px}
-.v3stale{font-size:12px;color:#F09A52;background:rgba(240,154,82,.09);border:1px solid rgba(240,154,82,.3);border-radius:8px;padding:7px 10px;margin:0 0 10px;line-height:1.6}
+.v3stale{font-size:12px;color:#FFB547;background:rgba(255,181,71,.09);border:1px solid rgba(255,181,71,.3);border-radius:8px;padding:7px 10px;margin:0 0 10px;line-height:1.6}
 .v3stale.info{color:var(--tx2);background:var(--s2);border-color:var(--hair)}
 .v3low{margin-top:18px;border-top:1px dashed var(--hair);padding-top:12px}
 .v3low .gh{font-size:13px;font-weight:800;color:var(--tx2);margin-bottom:6px}
-.v3low .warnline{font-size:11.5px;color:#F09A52;background:rgba(240,154,82,.08);border:1px solid rgba(240,154,82,.25);border-radius:8px;padding:6px 9px;margin:0 0 10px}
+.v3low .warnline{font-size:11.5px;color:#FFB547;background:rgba(255,181,71,.08);border:1px solid rgba(255,181,71,.25);border-radius:8px;padding:6px 9px;margin:0 0 10px}
 .v3note{font-size:11.5px;color:var(--tx2);border-inline-start:2px solid var(--acc);padding:2px 9px;margin:0 0 10px}
 /* فاصلُ الفئتين في «الفرص الآن»: الجديدةُ أولاً ثم المستمرّة — عنوانٌ لا بطاقة،
    فلا تعدّه أدواتُ الإثبات صفّاً (`.srow`) */
@@ -778,7 +778,7 @@ body.sheet-open{overflow:hidden}
 /* الترويسة اللاصقة لشاشة الفرص: المرشّحات تبقى في متناول الإبهام */
 .sticky-hd{position:sticky;top:0;z-index:20;margin:-15px -15px 12px;
   padding:12px 15px 6px;
-  background:linear-gradient(180deg,rgba(21,20,17,.98) 72%,rgba(21,20,17,0));
+  background:linear-gradient(180deg,rgba(12,18,30,.98) 72%,rgba(12,18,30,0));
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .sticky-hd .scans{margin-bottom:8px}
 
@@ -791,7 +791,7 @@ body.sheet-open{overflow:hidden}
 .md-row:last-child{border-bottom:0}
 .md-row[data-open]{cursor:pointer}
 .md-row[data-open]:active{background:var(--s2)}
-.md-row.bench{background:linear-gradient(180deg,rgba(226,180,100,.07),transparent);
+.md-row.bench{background:linear-gradient(180deg,rgba(124,200,255,.07),transparent);
   border-bottom:1px solid var(--hair2)}
 .md-id{flex:1 1 150px;min-width:0}
 .md-id .t{font-size:14.5px;font-weight:700}
@@ -828,19 +828,19 @@ body.sheet-open{overflow:hidden}
 .lvl.res{border-inline-start:3px solid var(--dn)}
 .lvl.sup{border-inline-start:3px solid var(--up)}
 .lvl.now{border-inline-start:3px solid var(--acc);background:var(--accBg);
-  border-color:rgba(226,180,100,.24)}
+  border-color:rgba(124,200,255,.24)}
 
 
 /* ======================================================================
    الشارت والفريمات
    ====================================================================== */
-.chart-wrap{position:relative;background:linear-gradient(180deg,#1A1915,#12110E);
+.chart-wrap{position:relative;background:linear-gradient(180deg,#0E1522,#0A0F1A);
   border:1px solid var(--hair);border-radius:var(--r-md);padding:7px 3px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
 /* pan-y لا none: السحب الأفقي يحرّك المؤشّر، والعمودي يبقى تمريراً للصفحة */
 canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 .ohlc{position:absolute;top:9px;right:9px;left:9px;display:none;gap:10px;flex-wrap:wrap;
-  background:rgba(21,20,17,.93);border:1px solid var(--hair2);border-radius:var(--r-sm);
+  background:rgba(12,18,30,.93);border:1px solid var(--hair2);border-radius:var(--r-sm);
   padding:6px 9px;font-size:10.5px;color:var(--tx2);pointer-events:none;
   backdrop-filter:blur(6px)}
 .ohlc.on{display:flex}
@@ -855,7 +855,7 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
   border-bottom:1px solid var(--hair)}
 .tf:last-child{border-bottom:0}
 .tf-name{width:58px;font-weight:700;font-size:14px;flex:none}
-.tf-bar{flex:1;height:9px;background:rgba(236,226,206,.09);border-radius:var(--r-pill);
+.tf-bar{flex:1;height:9px;background:rgba(160,190,255,.09);border-radius:var(--r-pill);
   position:relative;overflow:hidden}
 .tf-fill{position:absolute;top:0;height:100%;border-radius:var(--r-pill);
   transition:all var(--d3) var(--ease)}
@@ -863,9 +863,9 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 /* رقم قوّة الاتجاه إلى جانب الوسم — خافتٌ لأنه قيدٌ على الوسم لا بديلٌ
    عنه، ويصير أصفر تحت ‎20‎ حيث «صاعد قويّ» تصف ترتيباً لا حركة */
 .tf-adx{display:inline-block;margin-inline-start:6px;font-size:10.5px;font-weight:600;
-  color:var(--tx3);font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;direction:ltr;
+  color:var(--tx3);font-family:"Readex Pro",ui-monospace,monospace;direction:ltr;
   border:1px solid var(--hair2);border-radius:5px;padding:0 5px;vertical-align:1px}
-.tf-adx.chop{color:var(--neu);border-color:rgba(240,154,82,.35)}
+.tf-adx.chop{color:var(--neu);border-color:rgba(255,181,71,.35)}
 
 /* ======================================================================
    الجداول
@@ -877,7 +877,7 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 .mtable td:first-child,.mtable th:first-child,
 .tbl td:first-child,.tbl th:first-child{text-align:right}
 .mtable tr:last-child td,.tbl tr:last-child td{border-bottom:0}
-.mtable tbody tr:nth-child(even),.tbl tbody tr:nth-child(even){background:rgba(236,226,206,.022)}
+.mtable tbody tr:nth-child(even),.tbl tbody tr:nth-child(even){background:rgba(160,190,255,.022)}
 .mwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 
 /* جدول العقود: أعمدة كثيرة على شاشة جوال، فيمرّر أفقياً داخل حاويته
@@ -886,10 +886,10 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 .otbl{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
 .otbl th{font-size:11px;color:var(--tx2);font-weight:600;padding:7px 8px;
   border-bottom:1px solid var(--hair);text-align:center;position:sticky;top:0;
-  background:#1A1915;backdrop-filter:blur(6px)}
+  background:#0E1522;backdrop-filter:blur(6px)}
 .otbl td{padding:8px;border-bottom:1px solid var(--hair);text-align:center}
 .otbl tr:last-child td{border-bottom:0}
-.otbl tbody tr:nth-child(even){background:rgba(236,226,206,.022)}
+.otbl tbody tr:nth-child(even){background:rgba(160,190,255,.022)}
 .otbl small{font-size:10px}
 
 .cmp{display:flex;justify-content:space-between;align-items:center;gap:9px;
@@ -903,7 +903,7 @@ canvas{display:block;width:100%;height:240px;touch-action:pan-y}
 /* ======================================================================
    الكواشف — الكشف التدريجي هو ما يُبقي شاشة الجوال مقروءة
    ====================================================================== */
-details{background:rgba(28,26,22,.6);border:1px solid var(--hair);
+details{background:rgba(16,24,38,.6);border:1px solid var(--hair);
   border-radius:var(--r-md);padding:11px 13px;margin-top:10px;
   transition:border-color var(--d2) var(--ease)}
 details[open]{background:var(--s2);border-color:var(--hair2)}
@@ -913,9 +913,9 @@ details summary::-webkit-details-marker{display:none}
 /* الكاشف الافتراضي سؤال («من أين جاء هذا الرقم؟») فبادئته «؟». والتسلسل
    ليس سؤالاً بل قائمةً تُفتح، فيأخذ سهماً بدل علامة الاستفهام. */
 details summary::before{content:"؟";flex:none;width:17px;height:17px;border-radius:50%;
-  background:var(--accBg);border:1px solid rgba(226,180,100,.3);
+  background:var(--accBg);border:1px solid rgba(124,200,255,.3);
   display:grid;place-items:center;font-size:10.5px;font-weight:700}
-details.plain summary::before{content:"⌄";background:rgba(236,226,206,.08);
+details.plain summary::before{content:"⌄";background:rgba(160,190,255,.08);
   border-color:var(--hair);color:var(--tx2)}
 details[open] summary{margin-bottom:9px}
 details p{margin:0 0 9px;font-size:13px;color:var(--tx2);line-height:1.8}
@@ -946,7 +946,7 @@ details b{color:var(--tx)}
   border-radius:var(--r-pill);font-size:10px;font-weight:700}
 .news-m .tag-ar{background:var(--upBg);color:var(--up)}
 .news-m .tag-tr{background:var(--accBg);color:var(--acc)}
-.news-m .tag-en{background:rgba(236,226,206,.08);color:var(--tx2)}
+.news-m .tag-en{background:rgba(160,190,255,.08);color:var(--tx2)}
 
 /* ======================================================================
    إيداعات SEC — الوزن شريطٌ جانبي لا رقم: القارئ لا يعرف ما تعنيه «3»،
@@ -961,9 +961,9 @@ details b{color:var(--tx)}
 .fil-sym{background:none;border:0;padding:0;color:var(--tx);font-family:inherit;
   font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:baseline;gap:6px}
 .fil-sym i{font-style:normal;font-size:10.5px;color:var(--tx3);font-weight:600;
-  font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;direction:ltr}
+  font-family:"Readex Pro",ui-monospace,monospace;direction:ltr}
 .fil-form{font-size:10.5px;font-weight:700;color:var(--tx2);border:1px solid var(--hair2);
-  border-radius:5px;padding:1px 6px;font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;
+  border-radius:5px;padding:1px 6px;font-family:"Readex Pro",ui-monospace,monospace;
   direction:ltr}
 .fil-at{font-size:11px;color:var(--tx3);margin-inline-start:auto}
 .fil-bd{font-size:12.5px;line-height:1.8;color:var(--tx)}
@@ -980,13 +980,13 @@ details b{color:var(--tx)}
 .schead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
   flex-wrap:wrap;margin-bottom:12px}
 .schead h2{border:0;padding:0}
-.hotbar{background:linear-gradient(180deg,rgba(95,203,148,.16),rgba(95,203,148,.06));
-  border:1px solid rgba(95,203,148,.35);border-radius:var(--r-md);padding:11px 13px;
+.hotbar{background:linear-gradient(180deg,rgba(46,229,157,.16),rgba(46,229,157,.06));
+  border:1px solid rgba(46,229,157,.35);border-radius:var(--r-md);padding:11px 13px;
   font-size:12.5px;margin-bottom:11px;color:#A9E3C3;line-height:1.7}
 .cmpeng{border-radius:var(--r-md);padding:11px 13px;font-size:12.5px;margin-top:11px;
   border:1px solid var(--hair);background:var(--s2);line-height:1.7}
-.cmpeng.agree{border-color:rgba(95,203,148,.3)}
-.cmpeng.clash{border-color:rgba(238,111,92,.38);background:rgba(238,111,92,.06)}
+.cmpeng.agree{border-color:rgba(46,229,157,.3)}
+.cmpeng.clash{border-color:rgba(255,90,110,.38);background:rgba(255,90,110,.06)}
 .scan-why{font-size:12px;color:var(--tx2);line-height:1.7;margin:0 0 11px;padding:0 2px}
 
 /* صفّ الاستراتيجية — كاشفٌ لا سؤال، فبلا علامة الاستفهام */
@@ -995,7 +995,7 @@ details b{color:var(--tx)}
 .scrow>summary{display:flex;gap:9px;align-items:center;flex-wrap:wrap;
   padding:12px 0;font-size:13.5px;color:var(--tx);font-weight:600;cursor:pointer}
 .scrow>summary::before{content:"";display:none}
-.scrow.act{border-color:rgba(226,180,100,.35);background:linear-gradient(180deg,rgba(226,180,100,.05),var(--s2))}
+.scrow.act{border-color:rgba(124,200,255,.35);background:linear-gradient(180deg,rgba(124,200,255,.05),var(--s2))}
 .scrow.off,.scrow.quiet{opacity:.6}
 .scrow[open]{padding-bottom:13px}
 .scrow .sdir{font-size:15px;flex:none;width:1em;text-align:center}
@@ -1012,7 +1012,7 @@ details b{color:var(--tx)}
   overflow-x:auto;white-space:nowrap}
 .gt th{color:var(--tx2);font-weight:500;font-size:11.5px;text-align:right;
   padding:6px 8px;border-bottom:1px solid var(--hair)}
-.gt td{padding:6px 8px;border-bottom:1px solid rgba(236,226,206,.05)}
+.gt td{padding:6px 8px;border-bottom:1px solid rgba(160,190,255,.05)}
 .gt tr:last-child td{border-bottom:0}
 
 /* التسلسل */
@@ -1044,7 +1044,7 @@ details b{color:var(--tx)}
 .rkf,.rkk{font-size:11px}
 /* شريط الانقسام: الرقم وحده لا يُظهر أن ثلاثاً تعارض أربعاً */
 .rkbar{display:flex;height:7px;border-radius:4px;overflow:hidden;
-  background:rgba(236,226,206,.09)}
+  background:rgba(160,190,255,.09)}
 .rkbar i,.rkbar u{display:block;height:100%}
 .rkbar i{background:var(--up)}
 .rkbar u{background:var(--dn)}
@@ -1064,9 +1064,9 @@ details b{color:var(--tx)}
   transition:transform var(--d1) var(--ease),outline-color var(--d1) var(--ease);
   outline:1px solid transparent}
 .heat-t b{display:block;font-size:11.5px;font-weight:700;letter-spacing:.2px;
-  font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;direction:ltr}
+  font-family:"Readex Pro",ui-monospace,monospace;direction:ltr}
 .heat-t i{display:block;font-style:normal;font-size:10.5px;opacity:.92;
-  font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;direction:ltr}
+  font-family:"Readex Pro",ui-monospace,monospace;direction:ltr}
 
 /* ======================================================================
    شاشة السهم — مجموعاتٌ تُبدَّل بدل صفحةٍ واحدة بعشرين بطاقة
@@ -1076,7 +1076,7 @@ details b{color:var(--tx)}
    تتغيّر دالّةُ رسمٍ واحدة ولا يسقط فحصُ المعرّفات.
    ====================================================================== */
 .dgrp{position:sticky;top:0;z-index:19;margin:0 0 13px;padding:9px 0 3px;
-  background:linear-gradient(180deg,rgba(12,11,9,.97) 70%,rgba(12,11,9,0))}
+  background:linear-gradient(180deg,rgba(5,8,17,.97) 70%,rgba(5,8,17,0))}
 section[data-view="detail"][data-grp] .card[data-grp]{display:none}
 section[data-view="detail"][data-grp="plan"] .card[data-grp~="plan"],
 section[data-view="detail"][data-grp="chart"] .card[data-grp~="chart"],
@@ -1120,7 +1120,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
 .oppm .t{font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .oppm .t .tick{font-size:10.5px;color:var(--tx2);font-weight:600;
-  background:rgba(236,226,206,.08);border-radius:5px;padding:1px 5px}
+  background:rgba(160,190,255,.08);border-radius:5px;padding:1px 5px}
 .oppm .s{font-size:11px;color:var(--tx2);margin-top:2px;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
 .oppm .q{flex:none;text-align:left}
@@ -1140,312 +1140,338 @@ section[data-view="now"].on{display:flex;flex-direction:column}
 
 
 /* ======================================================================
-   النسخة التصميمية الثالثة — «الحبر والنحاس» (2026-10-04)
+   النسخة الرابعة — «المرصد الضوئي» (2026-10-05)
 
-   طبقةٌ فوق ما سبق لا إعادةُ كتابةٍ له: كلُّ معرّفٍ وكلُّ صنفٍ وكلُّ دالّة رسمٍ
-   باقٍ، والطبقة تعيد تعريف المظهر وحده — فلا يسقط فحصٌ ولا تتغيّر قراءةٌ.
-
-   أربعُ قواعد تحكم ما تحت:
-   ١) سطحٌ مطبوع لا شاشةٌ مضيئة: لا توهّج ولا شبكة ولا تدرّجات شعاعية.
-      حبرٌ دافئ بحبيبةٍ خفيفة، وحدودٌ شعرية، وظلالٌ غائبة إلا للورقة.
-   ٢) النحاسُ يُرتِّب، والعاجيُّ يختار: الرتبة والدرجة والعنوان نحاس؛
-      التبويب والمرشّح المختار عاجيٌّ على حبر — لا لونٌ ثالث للهويّة.
-   ٣) الرقمُ بطلُ البطاقة: خطٌّ جدوليّ بحجمٍ يُقرأ من طرف العين، والوسمُ
-      تحته صغيرٌ خافت. الشرحُ يُطوى، والرقم لا يُطوى.
-   ٤) زوايا مقتضبة وفواصلُ دفترية: البطاقة ‎8px‎، والشارة ‎4px‎، والأقسام
-      تبدأ بمعيّنٍ نحاسيّ وتمتدّ بخطٍّ شعريّ.
+   طبقةٌ فوق القواعد الأساسية لا إعادةُ كتابةٍ لها: كلُّ معرّفٍ وصنفٍ ودالّة رسمٍ باقٍ.
+   أربعُ قواعد:
+   ١) العمقُ بالضوء والطبقات: ليلٌ متدرّج، ضوءٌ باردٌ رئيسيّ من الأعلى، وحافّةٌ دافئة من
+      الأسفل؛ والأسطحُ زجاجٌ بحافّةٍ عليا مضيئة (انعكاس) لا حدودٌ رمادية.
+   ٢) الضوءُ دلالة: الجليديُّ للهويّة والاختيار، والكهرمانيُّ للنادر (الأولى · الجديد)،
+      والأخضرُ والأحمر للاتجاه وحده. لا بنفسجيّ ولا توهّجٌ بلا معنى.
+   ٣) الرسمُ من البيانات: المشهد والحلقة والسلّم والخطّ المصغّر كلُّها أرقامٌ حقيقية؛
+      وما هو زخرفيّ (المدار، الحبيبات) معلَنٌ ولا يحاكي سعراً.
+   ٤) الحركةُ تشرح ولا تزيّن: دخولٌ متدرّج، انتقالُ تبويب، ومضةُ الجديد مرّةً واحدة —
+      وكلُّها تسقط مع «تقليل الحركة».
    ====================================================================== */
 
-/* ---------- الأرضية: حبرٌ وحبيبة ---------- */
-body{letter-spacing:0}
+/* ---------- الأرضية: ليلٌ بطبقات ---------- */
+body{font-size:15px;letter-spacing:0}
 body::before{background:
-  linear-gradient(180deg, rgba(226,180,100,.05), rgba(226,180,100,0) 260px),
-  var(--bg)}
-/* حبيبةُ ورقٍ ثابتة — SVG مضمّنٌ لا ملفّ ولا طلب */
-body::after{
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .93 0 0 0 0 .88 0 0 0 0 .78 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size:160px 160px;
-  mask-image:none;-webkit-mask-image:none}
-::selection{background:rgba(226,180,100,.32);color:#fff}
+  radial-gradient(1200px 620px at 85% -12%, rgba(79,141,247,.20), transparent 60%),
+  radial-gradient(900px 520px at -10% 8%, rgba(124,200,255,.09), transparent 62%),
+  radial-gradient(900px 600px at 50% 112%, rgba(255,181,71,.07), transparent 60%),
+  linear-gradient(180deg,#071021 0%,#050811 46%,#04070E 100%)}
+/* شبكةُ نقاطٍ دقيقة تتلاشى — ملمسُ أداةٍ لا ضجيج */
+body::after{background-image:radial-gradient(rgba(160,190,255,.14) 1px, transparent 1.2px);
+  background-size:22px 22px;
+  mask-image:radial-gradient(110% 70% at 50% 0%, #000 0%, transparent 70%);
+  -webkit-mask-image:radial-gradient(110% 70% at 50% 0%, #000 0%, transparent 70%)}
+::selection{background:rgba(124,200,255,.35);color:#fff}
 
-/* ---------- الأصوات الطباعية ---------- */
-.num,.tick{font-family:var(--fm);letter-spacing:-.2px}
-.tick{letter-spacing:.3px}
-.card h2,.tb-title,.verdict,.sheet h3,.gh,.schead h2,.dhero .t,.side-brand .nm,
-.empty b,.v3head b,.opp-dir,.sub-h{font-family:var(--fd)}
+.num,.tick{font-family:var(--fm);font-variant-numeric:tabular-nums lining-nums;letter-spacing:-.2px}
+.card h2,.tb-title,.verdict,.sheet h3,.gh,.schead h2,.dhero .t,.side-brand .nm,.v3head b,.opp-dir,.sub-h,
+.qa button,.tabbar button,.v3tabs .l,.btn{font-family:var(--fd)}
 
-/* ---------- الشريط العلويّ: حبرٌ مصمت وعلامةٌ نحاسية ---------- */
-.topbar{background:rgba(12,11,9,.94);border-bottom:1px solid var(--hair);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
-.topbar::after{display:none}
-.logo{filter:none}
-.tb-title{font-size:15.5px;font-weight:700;letter-spacing:0}
-.refresh,.back{background:transparent;border:1px solid transparent;border-radius:var(--r-md);
+/* ---------- الشريط العلويّ: زجاجٌ معتم ---------- */
+.topbar{background:linear-gradient(180deg,rgba(5,8,17,.92),rgba(5,8,17,.72));
+  backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2);
+  border-bottom:1px solid var(--hair)}
+.topbar::after{background:linear-gradient(90deg,transparent,rgba(124,200,255,.35),transparent)}
+.logo{width:34px;height:34px;filter:drop-shadow(0 4px 14px rgba(79,141,247,.45))}
+.tb-title{font-size:16px;font-weight:600;letter-spacing:-.2px}
+.refresh,.back{background:rgba(160,190,255,.06);border:1px solid var(--hair);border-radius:12px;
   color:var(--tx2);width:40px;height:40px}
-.refresh:active,.back:active{background:var(--s2)}
 .refresh[hidden]{display:none}
-.tb-sub{font-size:11px;gap:10px}
-.tb-sub>span:not(.chip):not(:empty)+span:not(:empty)::before{content:"";display:inline-block;
-  width:3px;height:3px;background:var(--tx3);transform:rotate(45deg);margin-inline-end:10px;vertical-align:middle}
+.refresh:active,.back:active{transform:scale(.9);background:rgba(124,200,255,.14)}
+.chip{border-radius:var(--r-pill);font-size:10.5px;font-weight:600}
+.chip.off{background:rgba(160,190,255,.06)}
 
-/* ---------- الشارات: مستطيلاتٌ مقتضبة لا حبوب ---------- */
-.chip{border-radius:var(--r-sm);font-size:10.5px;font-weight:700;padding:2px 8px;letter-spacing:0}
-.chip.off{background:transparent;border-color:var(--hair2)}
-.chip.live::before{width:6px;height:6px;border-radius:1px;transform:rotate(45deg)}
-
-/* ---------- البطاقة: ورقةٌ على حبر ---------- */
-main{padding:16px 14px 26px}
-.card{background:var(--s1);border:1px solid var(--hair);border-radius:var(--r-lg);
-  box-shadow:none;padding:16px;margin-bottom:14px}
-.card::before{display:none}
-.card h2{font-size:15px;font-weight:700;letter-spacing:0;gap:10px;margin-bottom:8px}
-/* المعيّن النحاسي — العلامةُ التي تبدأ بها كلُّ الأقسام */
-.card h2::before{width:7px;height:7px;border-radius:1px;background:var(--acc);
-  box-shadow:none;transform:rotate(45deg);margin-inline-end:2px}
-/* وخطٌّ دفتريّ يمتدّ بعد عنوانِ البطاقة المباشر — يعطي القسمَ بدايةً واضحة */
-.card > h2::after{content:"";flex:1;height:1px;background:var(--hair);min-width:12px}
-.card .hint{font-size:12.5px;color:var(--tx2)}
-.sub-h{color:var(--tx);font-size:12.5px}
-.sub-h::before{border-radius:1px;transform:rotate(45deg);background:var(--acc);width:5px;height:5px}
-.sep{background:var(--hair)}
-
-/* ---------- الخانات والمقاييس: الرقمُ أوّلاً ---------- */
-.stat,.metric{background:var(--bg2);border:1px solid var(--hair);border-radius:var(--r-md)}
-.stat .v,.metric .v{font-family:var(--fm);font-weight:600;letter-spacing:-.5px}
-.metric .v{font-size:20px}
-.metric::after{width:2px}
-.stat .k,.metric .k{font-size:10.5px;color:var(--tx3);font-weight:600}
-
-/* ---------- الأزرار ---------- */
-.btn{background:var(--acc);color:#1B1305;border-radius:var(--r-md);box-shadow:none;
-  font-family:var(--fd);font-weight:700;font-size:14px;letter-spacing:0}
-.btn.gray{background:transparent;border:1px solid var(--hair2);color:var(--tx)}
-
-/* ---------- المرشّحات والمبدّلات: المختارُ عاجيٌّ على حبر ---------- */
-.chipbar,.scans,.tf-picker{gap:6px}
-.chipbar button,.scans button,.tf-picker button,.ocats button{background:transparent;
-  border:1px solid var(--hair2);border-radius:var(--r-sm);color:var(--tx2);
-  font-size:12.5px;font-weight:600;padding:7px 12px}
-.chipbar button.on,.scans button.on,.tf-picker button.on,.ocats button.on{
-  background:var(--tx);border-color:var(--tx);color:var(--bg);box-shadow:none;font-weight:700}
-.seg{background:var(--bg2);border-radius:var(--r-md);padding:3px}
-.seg button{border-radius:var(--r-sm);font-family:var(--fd);font-size:12px}
-.seg button.on{background:var(--tx);color:var(--bg);box-shadow:none}
-.bar,.tf-bar,.rsbar{border-radius:2px}
-.bar>i{border-radius:2px}
-
-/* ---------- مربّع الرمز: بلا لمعة ---------- */
-.mono{border-radius:var(--r-md);border-color:var(--hair2);font-family:var(--fm)}
-.mono::after{display:none}
-
-/* ---------- النماذج ---------- */
-input,select{background:var(--bg2);border-color:var(--hair2);border-radius:var(--r-md)}
-input:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(226,180,100,.14)}
-
-/* ---------- الكواشف: «+» نحاسيّ لا دائرةُ استفهام ---------- */
-details{background:transparent;border:1px solid var(--hair);border-radius:var(--r-md)}
-details[open]{background:var(--bg2);border-color:var(--hair2)}
-details summary{color:var(--tx);font-weight:600;font-size:12.5px}
-details summary::before,details.plain summary::before{content:"+";width:18px;height:18px;
-  border-radius:var(--r-sm);background:transparent;border:1px solid rgba(226,180,100,.45);
-  color:var(--acc);font-size:13px;font-weight:600;line-height:1;font-family:var(--fm)}
-details[open] > summary::before{content:"−"}
-
-/* ---------- صناديق الرسائل ---------- */
-.warn,.ok,.note,.hotbar,.v3stale,.v3warn,.v3low .warnline{border-radius:var(--r-md)}
-.v3stale{border-inline-start:3px solid var(--neu)}
-
-/* ---------- القوائم ---------- */
-.slist{background:var(--s1);box-shadow:none;border-radius:var(--r-lg)}
-.srow .px .p{font-family:var(--fm);font-weight:600}
+/* ---------- البطاقة: زجاجٌ بحافّةٍ مضيئة ---------- */
+main{padding:16px 14px 28px}
+.card{background:var(--glass);border:1px solid var(--hair);border-radius:var(--r-lg);
+  box-shadow:var(--sh1);padding:18px 16px;margin-bottom:16px;overflow:hidden}
+.card::before{background:linear-gradient(90deg,transparent,rgba(200,225,255,.22) 30%,rgba(200,225,255,.22) 70%,transparent)}
+.card h2{font-size:16.5px;font-weight:600;letter-spacing:-.2px;gap:10px}
+.card h2::before{width:4px;height:16px;border-radius:3px;background:var(--grad);box-shadow:0 0 12px rgba(124,200,255,.5)}
+.card .hint{color:var(--tx2)}
+.stat,.metric{background:linear-gradient(180deg,rgba(23,35,58,.6),rgba(12,19,34,.6));border:1px solid var(--hair);border-radius:var(--r-md)}
+.stat .v,.metric .v{font-family:var(--fm);font-weight:600}
+.btn{background:var(--grad);color:#04121F;border-radius:var(--r-md);font-weight:600;
+  box-shadow:0 10px 24px -12px rgba(79,141,247,.8), inset 0 1px 0 rgba(255,255,255,.5)}
+.btn.gray{background:rgba(160,190,255,.07);border:1px solid var(--hair2);color:var(--tx);box-shadow:none}
+.chipbar button,.scans button,.tf-picker button,.ocats button{background:rgba(160,190,255,.06);border:1px solid var(--hair);
+  border-radius:var(--r-pill);color:var(--tx2)}
+.chipbar button.on,.scans button.on,.tf-picker button.on,.ocats button.on{background:var(--grad);color:#04121F;border-color:transparent;
+  box-shadow:0 6px 18px -8px rgba(79,141,247,.9)}
+.seg{background:rgba(160,190,255,.05);border-radius:var(--r-md)}
+.seg button.on{background:rgba(124,200,255,.16);color:var(--tx)}
+input,select{background:rgba(8,12,22,.7);border-color:var(--hair2);border-radius:var(--r-md)}
+input:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 4px rgba(124,200,255,.14)}
+details{background:rgba(160,190,255,.035);border:1px solid var(--hair);border-radius:var(--r-md)}
+details[open]{background:rgba(160,190,255,.06)}
+details summary{color:var(--tx);font-weight:500}
+details summary::before,details.plain summary::before{content:"+";background:rgba(124,200,255,.12);
+  border:1px solid rgba(124,200,255,.3);color:var(--acc);font-size:13px;line-height:1;transition:transform var(--d2) var(--ease)}
+details[open] > summary::before{transform:rotate(45deg)}
+.mono{border-radius:12px;border:1px solid rgba(255,255,255,.12);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 6px 14px -8px rgba(0,0,0,.8)}
+.mono::after{background:linear-gradient(160deg,rgba(255,255,255,.28),transparent 48%)}
 
 /* ======================================================================
-   بطاقة الفرصة — تذكرة: هويّة · رقم · خطّة · سياق
+   الواجهة الرئيسية — المشهد والميزان والاختصارات
    ====================================================================== */
-.srow.opp{background:var(--s1);border:1px solid var(--hair);border-radius:var(--r-lg);
-  box-shadow:none;margin-bottom:12px;contain-intrinsic-size:auto 230px}
-.srow.opp::before{width:3px}
-.srow.opp.d-up::before{background:var(--up)}
-.srow.opp.d-dn::before{background:var(--dn)}
-.srow.opp.top{border-color:var(--hair2);box-shadow:none}
-.srow.opp.top::after{display:none}
-.opp-hd{padding:14px 16px 10px;gap:10px;align-items:center}
-/* الرتبةُ رقمٌ طباعيّ لا صندوق: النحاسُ للثلاثة الأولى وحدها */
-.srow.opp .rank{background:none;border:0;border-radius:0;box-shadow:none;width:auto;
-  min-width:18px;height:auto;margin:0;font-family:var(--fm);font-size:13px;font-weight:600;
-  color:var(--tx3)}
-.srow.opp.r1 .rank,.srow.opp.r2 .rank,.srow.opp.r3 .rank{background:none;border:0;box-shadow:none;color:var(--acc)}
-.srow.opp.r1 .rank{font-size:16px;color:var(--gold)}
-.srow.opp .id .t{font-size:15.5px;font-weight:700;letter-spacing:-.2px}
-.srow.opp .id .t .tick{background:none;border:1px solid var(--hair2);border-radius:var(--r-sm);
-  font-size:10.5px;padding:0 5px;color:var(--tx2)}
+#cardPulse{position:relative;padding:0 0 16px;border-radius:var(--r-xl);
+  background:
+    radial-gradient(120% 70% at 70% 0%, rgba(79,141,247,.22), transparent 60%),
+    linear-gradient(180deg,#0C1730 0%,#09101F 55%,#070C18 100%);
+  border-color:rgba(124,200,255,.16)}
+#cardPulse > h2{position:relative;z-index:2;margin:16px 16px 2px;font-size:13px;color:var(--acc);font-weight:500}
+#cardPulse > h2::before{height:12px}
+#cardPulse > .hint{position:relative;z-index:2;margin:0 16px;font-size:11.5px;color:var(--tx2)}
+.hero-stage{position:absolute;inset:62px 0 auto;height:200px;z-index:0;pointer-events:none;
+  mask-image:linear-gradient(180deg,#000 55%,transparent 100%);-webkit-mask-image:linear-gradient(180deg,#000 55%,transparent 100%)}
+.hero-stage canvas{width:100%;height:100%;display:block;touch-action:auto}
+.hero-cap{position:relative;z-index:2;margin:184px 16px 0;font-size:10.5px;color:var(--tx3);text-align:start}
+.hero-read{position:relative;z-index:2;display:flex;align-items:center;gap:6px;margin:4px 10px 0}
+#cardPulse .gauge{flex:0 0 46%;max-width:190px;margin:0}
+.gauge .gtrk{stroke:rgba(160,190,255,.12)}
+.gauge .gtick{stroke:rgba(160,190,255,.22);stroke-width:1.2}
+.gauge .gtick.mj{stroke:rgba(200,225,255,.45);stroke-width:1.6}
+.gauge .gnum{font-family:var(--fd);letter-spacing:-1px}
+.gauge .gval{animation:gdraw 1.1s var(--ease) both}
+@keyframes gdraw{from{stroke-dasharray:0 400}to{stroke-dasharray:400 0}}
+.hero-v{flex:1;min-width:0}
+#cardPulse .verdict{font-size:28px;font-weight:600;text-align:start;margin:0;line-height:1.2;letter-spacing:-.4px}
+#cardPulse .verdict-sub{text-align:start;font-size:11.5px;margin-top:4px}
+.hero-breadth{margin-top:12px}
+.hb-bar{display:flex;height:6px;border-radius:99px;overflow:hidden;background:rgba(160,190,255,.08);gap:2px}
+.hb-bar i{display:block;height:100%;border-radius:99px;transition:width .9s var(--ease)}
+.hb-bar .u{background:var(--gradUp)} .hb-bar .d{background:var(--gradDn)} .hb-bar .f{background:rgba(160,190,255,.22)}
+.hb-k{display:flex;justify-content:space-between;gap:6px;font-size:10.5px;color:var(--tx3);margin-top:6px}
+.hb-k .up{color:var(--up)} .hb-k .dn{color:var(--dn)}
+#cardPulse .qa{position:relative;z-index:2;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:16px 12px 0}
+#cardPulse .qa button{flex-direction:column;gap:7px;padding:12px 2px 10px;font-size:11.5px;font-weight:500;color:var(--tx);
+  background:linear-gradient(180deg,rgba(28,42,70,.75),rgba(14,22,40,.75));border:1px solid var(--hair);border-radius:16px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07);transition:transform var(--d1) var(--ease),border-color var(--d2)}
+#cardPulse .qa button:active{transform:scale(.94)}
+.qi{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;
+  background:radial-gradient(120% 120% at 30% 15%,rgba(124,200,255,.45),rgba(59,130,246,.12) 60%),#0D1A33;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 8px 16px -10px rgba(79,141,247,.9)}
+.qi .ti{width:20px;height:20px;color:#EAF4FF;margin:0;opacity:1}
+.qi.cr{background:radial-gradient(120% 120% at 30% 15%,rgba(255,200,97,.55),rgba(184,110,18,.15) 60%),#2A1A06;box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 8px 16px -10px rgba(255,181,71,.8)}
+.qi.st{background:radial-gradient(120% 120% at 30% 15%,rgba(46,229,157,.45),rgba(31,181,124,.12) 60%),#062519;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 16px -10px rgba(46,229,157,.7)}
+.qi.op{background:radial-gradient(120% 120% at 30% 15%,rgba(166,180,255,.45),rgba(90,110,220,.14) 60%),#10183A}
+#cardPulse > details{position:relative;z-index:2;margin:14px 12px 0}
+
+/* ======================================================================
+   بطاقة الفرصة — منصّة تداول: هويّة · حلقة · سوق · سلّم · خطّة
+   ====================================================================== */
+.srow.opp{background:linear-gradient(180deg,rgba(21,32,54,.92),rgba(10,16,29,.95));
+  border:1px solid var(--hair);border-radius:var(--r-lg);margin-bottom:14px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 18px 34px -24px rgba(0,0,0,.95);
+  contain-intrinsic-size:auto 360px;transition:transform var(--d2) var(--spring),border-color var(--d2)}
+.srow.opp:active{transform:scale(.985)}
+.srow.opp::before{width:100%;height:120px;inset:0 0 auto;top:0;bottom:auto;opacity:.9;
+  background:radial-gradient(90% 100% at 100% 0%,rgba(46,229,157,.10),transparent 60%)}
+.srow.opp.d-up::before{background:radial-gradient(90% 100% at 100% 0%,rgba(46,229,157,.13),transparent 62%)}
+.srow.opp.d-dn::before{background:radial-gradient(90% 100% at 100% 0%,rgba(255,90,110,.13),transparent 62%)}
+.srow.opp.top{border-color:rgba(124,200,255,.22)}
+.srow.opp.top::after{background:none}
+.srow.opp.r1{border-color:rgba(255,200,97,.35);box-shadow:inset 0 1px 0 rgba(255,230,180,.12),0 0 0 1px rgba(255,200,97,.08),0 20px 40px -22px rgba(255,181,71,.35)}
+/* ومضةُ الجديد — شعاعٌ واحد يعبر البطاقة عند ظهورها أوّل مرّة */
+.srow.opp.fresh::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;z-index:3;
+  background:linear-gradient(105deg,transparent 30%,rgba(200,230,255,.16) 46%,rgba(255,255,255,.28) 50%,rgba(200,230,255,.16) 54%,transparent 70%);
+  background-size:250% 100%;background-position:120% 0;animation:sweep 1.6s .35s var(--ease) 1 both}
+@keyframes sweep{to{background-position:-60% 0}}
+.opp-hd{padding:16px 16px 6px;gap:11px;align-items:center}
+.srow.opp .rank{width:26px;height:26px;border-radius:9px;margin:0;font-family:var(--fd);font-size:12px;
+  background:rgba(160,190,255,.08);border:1px solid var(--hair);color:var(--tx2)}
+.srow.opp.r1 .rank{background:linear-gradient(160deg,#FFE1A3,#FFB547 60%,#C27A16);color:#2A1700;border:0;
+  box-shadow:0 6px 16px -6px rgba(255,181,71,.8),inset 0 1px 0 rgba(255,255,255,.6)}
+.srow.opp.r2 .rank,.srow.opp.r3 .rank{background:rgba(124,200,255,.14);color:var(--acc);border-color:rgba(124,200,255,.3)}
+.srow.opp .mono{width:42px;height:42px}
+.srow.opp .id .t{font-size:16px;font-weight:600;letter-spacing:-.2px}
+.srow.opp .id .t .tick{background:rgba(160,190,255,.08);border-radius:6px;font-size:10px;color:var(--tx2);font-weight:500}
 .srow.opp .id .n{font-size:11px;color:var(--tx3)}
-.opp-dir{border-radius:var(--r-sm);font-size:11px;padding:3px 9px;margin-top:0}
-.opp-dir.up{background:transparent;border-color:rgba(95,203,148,.45)}
-.opp-dir.dn{background:transparent;border-color:rgba(238,111,92,.45)}
+.opp-dir{display:inline-flex;align-items:center;gap:5px;border-radius:99px;font-size:11.5px;font-weight:600;padding:5px 11px 5px 10px;margin:0}
+.opp-dir svg{width:11px;height:11px}
+.opp-dir.up{background:linear-gradient(180deg,rgba(46,229,157,.22),rgba(46,229,157,.08));border-color:rgba(46,229,157,.4);color:#7FF5C4}
+.opp-dir.dn{background:linear-gradient(180deg,rgba(255,90,110,.22),rgba(255,90,110,.08));border-color:rgba(255,90,110,.4);color:#FF9AA6}
 
-/* الدرجة: سطرٌ برقمٍ كبير ووسمٍ بجانبه، والاستراتيجيات تحته بعرض البطاقة — عمودان على
-   ‎375px‎ كانا يعصران أسماء الاستراتيجيات في نصف عرض */
-.v3sc{padding:2px 16px 12px;gap:12px 14px;flex-wrap:wrap}
-.v3q{flex:0 1 auto;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:0;
-  background:none;border:0;border-radius:0;padding:0;min-width:0}
-.v3q + .v3q{border-inline-start:1px solid var(--hair);padding-inline-start:14px;justify-content:flex-end}
-.v3q b{font-family:var(--fm);font-size:30px;font-weight:600;line-height:1;letter-spacing:-1px;color:var(--tx)}
-.srow.opp.top .v3q b{color:var(--acc)}
-.v3q i{font-size:10.5px;color:var(--tx3);text-align:start;margin-top:5px;line-height:1.35}
-.v3els{border-top:1px solid var(--hair);padding-top:10px}
-.v3q + .v3q b{font-size:20px;color:var(--tx2)}
-.v3els{gap:5px;flex:1 1 100%}
-.v3els .it{font-size:12px}
-.v3els .it .mk{font-family:var(--fm)}
+.opp-core{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:8px 16px 6px;position:relative;z-index:2}
+.v3sco{display:flex;align-items:center;gap:10px;flex:none}
+.v3ring{width:54px;height:54px;transform:rotate(-90deg);flex:none}
+.v3ring .rt{fill:none;stroke:rgba(160,190,255,.12);stroke-width:5}
+.v3ring .rv{fill:none;stroke:var(--acc);stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(124,200,255,.6));
+  transition:stroke-dasharray 1s var(--ease)}
+.srow.opp.r1 .v3ring .rv{stroke:var(--amber);filter:drop-shadow(0 0 4px rgba(255,181,71,.6))}
+.v3q{background:none;border:0;padding:0;min-width:0;align-items:flex-start;justify-content:center}
+.v3q b{font-family:var(--fd);font-size:25px;font-weight:600;letter-spacing:-.6px;line-height:1.05;color:var(--tx)}
+.srow.opp.r1 .v3q b{color:var(--gold)}
+.v3q i{font-size:10.5px;color:var(--tx3);margin-top:3px}
+.v3q.sm{padding-inline-start:12px;border-inline-start:1px solid var(--hair)}
+.v3q.sm b{font-size:17px;color:var(--tx2)}
+.opp-mkt{flex:1 1 110px;min-width:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.v3q.sm + .opp-mkt{flex-direction:row-reverse;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--hair)}
+.opp-mkt .spark{width:92px;height:30px;opacity:.95}
+.opp-mkt .pm{display:flex;gap:7px;align-items:baseline;white-space:nowrap}
+.opp-mkt .p{font-size:13.5px;font-weight:600;color:var(--tx)}
+.opp-mkt .c{font-size:11.5px;font-weight:600}
 
-/* الخطّة جدولُ تذكرة: كلُّ قيمةٍ خانةٌ بوسمها فوقها، والشبكةُ بفواصلَ شعرية */
-.v3plan{display:flex;flex-wrap:wrap;gap:1px;
-  margin:0 16px 12px;padding:0;background:var(--hair);border:1px solid var(--hair);
-  border-radius:var(--r-md);overflow:hidden;font-size:12px}
-.v3plan > span{flex:1 1 88px;display:flex;flex-direction:column;justify-content:center;gap:1px;
-  background:var(--bg2);padding:8px 10px;min-width:0;white-space:nowrap}
-.v3plan > span > bdi{display:flex;flex-direction:column;gap:1px}
-.v3plan .k{font-family:var(--fd);font-size:10px;font-weight:600;color:var(--tx3)}
-.v3plan b.num,.v3plan .num{font-size:14px;font-weight:600;color:var(--tx)}
-.v3plan > span:nth-child(2) b.num{color:var(--dn)}
-.v3plan > span:nth-child(n+3) .num{color:var(--up)}
-.v3plan small.k{font-family:inherit;font-size:9.5px;font-weight:400;overflow:hidden;text-overflow:ellipsis}
-.v3plan .hit{background:rgba(95,203,148,.08)}
-.v3plan .hit .num{text-decoration:line-through;text-decoration-color:rgba(95,203,148,.6)}
+/* السلّم: مسارٌ سعريّ بمنطقتي المخاطرة والعائد وعلاماتٍ حقيقية */
+.v3lad{padding:22px 24px 20px;position:relative;z-index:2}
+.v3lad .lt{position:relative;height:6px;border-radius:99px;background:rgba(160,190,255,.08)}
+.v3lad .lz{position:absolute;top:0;bottom:0;border-radius:99px}
+.v3lad .lz.rk{background:linear-gradient(90deg,rgba(255,90,110,.65),rgba(255,90,110,.25))}
+.v3lad .lz.rw{background:linear-gradient(90deg,rgba(46,229,157,.25),rgba(46,229,157,.75))}
+.srow.opp.d-dn .v3lad .lz.rk{background:linear-gradient(90deg,rgba(255,90,110,.25),rgba(255,90,110,.65))}
+.srow.opp.d-dn .v3lad .lz.rw{background:linear-gradient(90deg,rgba(46,229,157,.75),rgba(46,229,157,.25))}
+.v3lad .lm{position:absolute;top:50%;width:2px;height:14px;margin:-7px 0 0 -1px;background:var(--tx2);border-radius:2px}
+.v3lad .lm em{position:absolute;left:50%;transform:translateX(-50%);font-style:normal;font-size:9px;font-weight:600;
+  color:var(--tx3);white-space:nowrap;font-family:var(--fd)}
+.v3lad .lm.st,.v3lad .lm.en{}
+.v3lad .lm.st em,.v3lad .lm.en em{top:15px}
+.v3lad .lm[class*="tg"] em{bottom:15px}
+.v3lad .lm.st{background:var(--dn)} .v3lad .lm.st em{color:var(--dn)}
+.v3lad .lm.en{background:#fff;width:3px} .v3lad .lm.en em{color:var(--tx)}
+.v3lad .lm[class*="tg"]{background:var(--up)} .v3lad .lm[class*="tg"] em{color:var(--up)}
+.v3lad .lm.hit{box-shadow:0 0 0 3px rgba(46,229,157,.25)}
+.v3lad .lm.now{width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--acc);
+  box-shadow:0 0 0 3px rgba(124,200,255,.25),0 0 14px rgba(124,200,255,.8);animation:pulseNow 2.4s ease-in-out infinite}
+.v3lad .lm.now.out{opacity:.5}
+@keyframes pulseNow{50%{box-shadow:0 0 0 6px rgba(124,200,255,.08),0 0 18px rgba(124,200,255,.9)}}
 
-.v3tf{margin:0 16px 12px}
-.v3tf summary{font-size:12px}
-.v3tft th,.v3tft td{border-color:var(--hair)}
-.v3tft thead th{background:var(--bg2)}
-.v3warn{margin:0 16px 12px;background:rgba(240,154,82,.08);border-color:rgba(240,154,82,.32)}
+/* الخطّة: خاناتٌ زجاجية بأرقامٍ كبيرة، والوقفُ والأهداف بلونهما */
+.v3plan{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px;font-size:12px}
+.v3plan > span{flex:1 1 84px;display:flex;flex-direction:column;gap:2px;min-width:0;white-space:nowrap;
+  background:rgba(160,190,255,.05);border:1px solid var(--hair);border-radius:12px;padding:8px 10px}
+.v3plan > span > bdi{display:flex;flex-direction:column;gap:2px}
+.v3plan .k{font-size:10px;font-weight:500;color:var(--tx3);font-family:var(--fd)}
+.v3plan .num{font-size:14.5px;font-weight:600;color:var(--tx);letter-spacing:-.3px}
+.v3plan > span:nth-child(2){background:rgba(255,90,110,.07);border-color:rgba(255,90,110,.2)}
+.v3plan > span:nth-child(2) .num{color:#FF8D9A}
+.v3plan > span:nth-child(n+3){background:rgba(46,229,157,.06);border-color:rgba(46,229,157,.18)}
+.v3plan > span:nth-child(n+3) .num{color:#6FF2BE}
+.v3plan small.k{font-size:9.5px;overflow:hidden;text-overflow:ellipsis}
+.v3plan .hit .num{text-decoration:line-through;text-decoration-color:rgba(46,229,157,.6)}
 
-/* السياق سطرٌ نصّيّ بفواصل — لا عشرُ حبوبٍ متجاورة */
-.opp-ft{padding:10px 16px;gap:4px 12px;background:none;border-top:1px dashed var(--hair2)}
-.opp-ft span{background:none;border:0;border-radius:0;padding:0;font-size:11px;font-weight:500;
-  color:var(--tx2);white-space:normal}
-.opp-ft span.good{background:none;color:var(--up);font-weight:600}
-.opp-ft span.cold{background:none;color:var(--tx3)}
-.opp-ft span.hot{background:none}
-.opp-ft span.bad{background:none}
-.opp-ft span.rr{color:var(--acc);font-weight:700}
-.v3mt{margin:0 16px 14px}
-.v3mt .btn{font-size:12px;padding:7px 14px;border-radius:var(--r-sm)}
+/* الاستراتيجيات: خمسُ رقاقاتٍ بأوزانها — المتحقّقُ مضيء والباقي خافت */
+.v3sc{padding:0 16px 10px;display:block}
+.v3els{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.v3els > div{min-width:0}
+.v3els .gh{font-size:10px;color:var(--tx3);font-weight:500;margin-bottom:3px}
+.v3els .it{font-size:11.5px;gap:5px;line-height:1.5}
+.v3els .it .mk{width:14px;height:14px;border-radius:4px;display:inline-grid;place-items:center;font-size:9px;
+  background:rgba(160,190,255,.08);color:var(--tx3)}
+.v3els .it.on .mk{background:rgba(46,229,157,.18);color:var(--up)}
+.v3els .it small{display:none}
+.v3tf{margin:0 16px 10px}
+.v3warn{margin:0 16px 10px;border-radius:12px}
+.opp-ft{padding:10px 16px;gap:6px;background:rgba(0,0,0,.18);border-top:1px solid var(--hair)}
+.opp-ft > span{background:rgba(160,190,255,.06);border-color:var(--hair);border-radius:12px;font-size:10.5px;white-space:normal;line-height:1.55}
+.opp-ft span span{background:none;border:0;padding:0;border-radius:0;font-size:inherit;display:inline}
+.opp-ft span.rr{background:rgba(124,200,255,.12);border-color:rgba(124,200,255,.3);color:var(--acc);font-weight:600}
+.v3mt{margin:0 16px 14px;padding-top:10px}
+.v3mt .btn{width:100%;padding:11px;font-size:13px;border-radius:12px}
+
+/* حركةُ الدخول المتدرّجة — عند أوّل رسمٍ أو انتقال تبويب، لا مع كلّ تحديث */
+.enter .srow.opp,.v3pane.enter > *{animation:rise .6s var(--ease) both;animation-delay:calc(var(--i,0) * 55ms)}
+.v3pane.enter > .v3act:nth-child(n+2){animation-delay:60ms}
+@keyframes rise{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
 
 /* ======================================================================
-   الكريبتو — ثلاثة تبويبات، قسمٌ واحد ظاهر
+   الكريبتو — شريطُ رأس، تبويباتٌ زجاجية بمؤشّرٍ منزلق
    ====================================================================== */
-.v3head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
-  margin:0 2px 10px;font-size:12px;color:var(--tx2)}
-.v3head b{color:var(--tx);font-weight:700;font-size:13px}
-.v3head .num{color:var(--tx3);font-size:10.5px}
-.v3tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 10px;
-  border:1px solid var(--hair2);border-radius:var(--r-md);overflow:hidden;background:var(--bg2)}
-.v3tabs button{appearance:none;background:none;border:0;border-inline-start:1px solid var(--hair);
-  color:var(--tx2);font:inherit;cursor:pointer;position:relative;min-height:62px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;
-  transition:background var(--d1) var(--ease),color var(--d1) var(--ease)}
-.v3tabs button:first-child{border-inline-start:0}
-.v3tabs .c{font-size:21px;font-weight:600;line-height:1;color:var(--tx2)}
-.v3tabs .l{font-family:var(--fd);font-size:11px;font-weight:600;white-space:nowrap}
-.v3tabs button.on{background:var(--s3);color:var(--tx)}
-.v3tabs button.on .c{color:var(--acc)}
-.v3tabs button.on::before{content:"";position:absolute;top:0;inset-inline:0;height:2px;background:var(--acc)}
-.v3tabs button:active{background:var(--s2)}
-.v3how{margin:0 0 14px;padding:9px 12px}
+section[data-view="crypto"] > .card[data-size="hero"]{padding-top:0;
+  background:radial-gradient(120% 50% at 10% 0%,rgba(255,181,71,.10),transparent 55%),var(--glass)}
+.sec-banner{position:relative;display:flex;align-items:center;gap:12px;margin:0 -16px 6px;padding:16px 16px 6px;min-height:118px}
+.bn-art{width:140px;height:105px;flex:none;order:2;margin-inline-start:auto;overflow:visible}
+.bn-art .orb{transform-origin:80px 60px}
+.bn-art .o1{animation:orbit 16s linear infinite}
+.bn-art .o2{animation:orbit 28s linear infinite reverse}
+.bn-art .coin{transform-origin:80px 60px;animation:float 6s ease-in-out infinite;filter:drop-shadow(0 10px 18px rgba(255,181,71,.35))}
+@keyframes orbit{to{transform:rotate(360deg)}}
+@keyframes float{50%{transform:translateY(-5px)}}
+.bn-data{flex:1;min-width:0;order:1}
+.bn-n{font-size:12px;color:var(--tx2);margin-bottom:8px}
+.bn-n b{font-family:var(--fd);font-size:26px;font-weight:600;color:var(--tx);margin-inline-end:4px;letter-spacing:-.6px}
+section[data-view="crypto"] .sticky-hd{background:linear-gradient(180deg,rgba(12,19,34,.97) 72%,rgba(12,19,34,0))}
+.v3head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 2px 12px;font-size:11.5px;color:var(--tx2)}
+.v3head b{color:var(--tx);font-weight:600;font-size:13px}
+.v3tabs{--t:0;position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 12px;padding:4px;
+  border:1px solid var(--hair2);border-radius:18px;background:rgba(5,8,17,.55);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+.v3ind{position:absolute;top:4px;bottom:4px;width:calc((100% - 8px) / 3);inset-inline-start:calc(4px + var(--t) * (100% - 8px) / 3);
+  border-radius:14px;background:linear-gradient(180deg,rgba(124,200,255,.24),rgba(59,130,246,.12));
+  border:1px solid rgba(124,200,255,.35);box-shadow:0 8px 22px -10px rgba(79,141,247,.9),inset 0 1px 0 rgba(255,255,255,.2);
+  transition:inset-inline-start .45s var(--spring)}
+.v3tabs button{position:relative;z-index:1;appearance:none;background:none;border:0;color:var(--tx2);font:inherit;cursor:pointer;
+  min-height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 2px;
+  transition:color var(--d2) var(--ease)}
+.v3tabs .c{font-family:var(--fd);font-size:22px;font-weight:600;line-height:1;color:var(--tx2);transition:color var(--d2),transform var(--d2) var(--spring)}
+.v3tabs .l{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;white-space:nowrap}
+.v3tabs .l svg{width:12px;height:12px;flex:none}
+.v3tabs button.on{color:var(--tx)}
+.v3tabs button.on .c{color:#fff;transform:scale(1.06)}
+.v3tabs button[data-v3tab="new"].on .l{color:var(--amber)}
+.v3tabs button[data-v3tab="valid"].on .l{color:var(--up)}
+.v3tabs button[data-v3tab="follow"].on .l{color:var(--acc)}
+.v3tabs button:active .c{transform:scale(.92)}
+.v3how{margin:0 0 14px}
 .v3how p{font-size:12px}
 .v3pane[hidden]{display:none}
-.v3lede{display:block;font-size:12px;color:var(--tx2);
-  margin:0 2px 12px;line-height:1.7}
-.v3lede .tag{display:inline-block;margin-inline-end:8px;font-family:var(--fd);font-size:10.5px;font-weight:700;color:var(--acc);
-  border:1px solid rgba(226,180,100,.45);border-radius:var(--r-sm);padding:1px 7px}
+.v3lede{display:block;font-size:12px;color:var(--tx2);margin:0 2px 12px;line-height:1.7}
+.v3lede .tag{display:inline-block;margin-inline-end:8px;font-size:10.5px;font-weight:600;color:var(--amber);
+  background:rgba(255,181,71,.1);border:1px solid rgba(255,181,71,.35);border-radius:99px;padding:1px 9px}
 .v3lede b{color:var(--tx)}
-.v3jump{margin-top:12px;background:transparent;border:1px solid rgba(226,180,100,.45);color:var(--acc);
-  font-family:var(--fd);font-size:12.5px;font-weight:700;border-radius:var(--r-sm);padding:8px 14px;cursor:pointer}
-/* «صالحة للدخول»: نفسُ البطاقة بختمٍ نحاسيّ في رأسها — سابقةٌ لا جديدة */
-#v3valid .srow.opp{display:flex;flex-direction:column;border-color:rgba(226,180,100,.28)}
+.v3jump{margin-top:12px;background:rgba(124,200,255,.1);border:1px solid rgba(124,200,255,.35);color:var(--acc);
+  font-family:var(--fd);font-size:12.5px;font-weight:500;border-radius:99px;padding:9px 16px;cursor:pointer}
+#v3valid .srow.opp{display:flex;flex-direction:column;border-color:rgba(46,229,157,.25)}
 #v3valid .srow.opp > *{width:100%}
-#v3valid .srow.opp::after{content:"صدرت سابقاً · ما زالت صالحة للدخول";display:block;order:-1;
-  position:static;inset:auto;align-self:stretch;background:var(--accBg);color:var(--acc);border-bottom:1px solid rgba(226,180,100,.2);
-  font-family:var(--fd);font-size:10.5px;font-weight:700;padding:6px 16px;border-radius:0}
-/* «قيد المتابعة» أخفّ: سطورُ دفترٍ لا بطاقات */
-.v3act{background:transparent;border:0;border-bottom:1px solid var(--hair);border-radius:0;margin:0}
-.v3act > summary{padding:11px 4px;font-size:12.5px}
-.v3act .s1{font-weight:700}
-.v3act .s1 small{margin-inline:6px;font-family:var(--fm);font-size:10.5px;color:var(--tx3)}
+#v3valid .srow.opp::after{content:"صدرت سابقاً · ما زالت صالحة للدخول";display:block;order:-1;position:static;align-self:stretch;
+  background:linear-gradient(90deg,rgba(46,229,157,.16),rgba(46,229,157,.04));color:#7FF5C4;border-bottom:1px solid rgba(46,229,157,.18);
+  font-family:var(--fd);font-size:10.5px;font-weight:500;padding:7px 16px;border-radius:0;animation:none}
+.v3act{background:rgba(160,190,255,.03);border:1px solid var(--hair);border-radius:14px;margin-bottom:8px}
+.v3act > summary{padding:11px 12px}
+.v3act .s1{font-weight:600}
+.v3act .s1 small{margin-inline:6px;color:var(--tx3);font-size:10.5px}
 .v3act .s2{font-size:11px;color:var(--tx3)}
-.v3act .s3{font-family:var(--fm)}
-.v3act[open]{background:var(--bg2);padding:0 6px 8px}
+.v3act .s3{font-family:var(--fm);font-weight:600}
+.v3act .warn{background:none;border:0;padding:0;margin:0;border-radius:0;font-size:inherit;color:var(--neu)}
+.srow.opp .id .t{flex-wrap:wrap;white-space:normal;row-gap:3px;line-height:1.3}
 .v3low{border-top:1px dashed var(--hair2)}
-.v3low .gh{font-family:var(--fd)}
-.v3sect > .gh{font-size:13px;display:flex;align-items:center;gap:8px}
-.v3sect > .gh::before{content:"";width:6px;height:6px;background:var(--acc);transform:rotate(45deg);border-radius:1px}
-.v3note{border-inline-start-color:var(--acc)}
+.v3sect > .gh{font-size:13px}
 
-/* ---------- العقود وصفقاتي ---------- */
-.ocard,.mtcard{background:var(--s1);border-radius:var(--r-lg);padding:12px 14px}
-.ob{border-radius:var(--r-sm)}
-.ocat,.mtst{border-radius:var(--r-sm)}
-.oleg{background:var(--bg2);border-radius:var(--r-sm)}
-.osym{font-family:var(--fm)}
-
-/* ---------- الرئيسية: الواجهةُ ترويسةُ صحيفة لا بطاقة ----------
-   «كيف السوق الآن؟» هو السؤال الأوّل، فيُطبع على الأرضية مباشرةً بلا إطار: عنوانٌ صغير
-   نحاسيّ، ثم الميزان والحكم بحجمٍ كبير — وكلُّ ما بعده بطاقات. */
-#cardPulse{background:transparent;border:0;padding:6px 2px 4px;margin-bottom:18px}
-#cardPulse > h2{font-size:12px;color:var(--acc);font-weight:700;letter-spacing:0;margin-bottom:2px}
-#cardPulse > h2::before{width:6px;height:6px}
-#cardPulse .hint{font-size:11.5px;color:var(--tx3);margin-bottom:6px}
-#cardPulse .gauge{max-width:280px}
-#cardPulse details{background:transparent}
-.verdict{font-size:32px;font-weight:800;letter-spacing:0;margin-top:6px}
-.verdict-sub{color:var(--tx2);font-size:12px}
-.qa{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:18px}
-.qa button{flex-direction:row;justify-content:flex-start;gap:10px;background:var(--s1);
-  border:1px solid var(--hair);border-radius:var(--r-md);color:var(--tx);font-family:var(--fd);
-  font-size:12.5px;padding:13px 14px;text-align:start}
-.qa button .ti{color:var(--acc)}
-.oppm{background:var(--bg2);border-radius:var(--r-md);padding:12px 14px}
-.oppm::before{width:3px}
-.oppm .t .tick{background:none;border:1px solid var(--hair2);border-radius:var(--r-sm)}
-.oppm .q b{font-family:var(--fm);font-weight:600;font-size:18px;color:var(--acc)}
-.dhero .pxb .p{font-family:var(--fm);font-weight:600;letter-spacing:-1px}
-.opp-px .p,.md-all .v,.scrow .ssc,.rksc{font-family:var(--fm);font-weight:600}
-
-/* ---------- الأخبار والإيداعات ---------- */
-.news-item,.fil{background:transparent;border-radius:var(--r-md)}
-.news-item::before{width:2px;background:var(--acc);opacity:.5}
-.fil-item{border-radius:var(--r-sm)}
-
-/* ---------- الجداول والمستويات ---------- */
-.lvl,.alert-item,.scrow,.sheet-r,.cmpeng{border-radius:var(--r-md)}
-.chart-wrap{background:var(--bg2);border-radius:var(--r-md);box-shadow:none}
-.heat-t{border-radius:var(--r-sm)}
-
-/* ---------- الورقة السفلية ---------- */
-.sheet{background:var(--s2);border-top:1px solid var(--hair2);border-radius:var(--r-xl) var(--r-xl) 0 0}
-.sheet-grip{background:var(--tx3);opacity:.5}
-.sheet h3{font-size:15px}
-.sheet h3::before{width:7px;height:7px;background:var(--acc);transform:rotate(45deg);border-radius:1px}
-.sheet-r{background:transparent;border:0;border-bottom:1px solid var(--hair);border-radius:0;margin:0;padding:14px 4px}
-.sheet-r.on{background:var(--accBg);border-color:var(--hair)}
+/* ---------- العقود وصفقاتي والجداول ---------- */
+.ocard,.mtcard{background:linear-gradient(180deg,rgba(21,32,54,.9),rgba(10,16,29,.94));border-radius:var(--r-md)}
+.oleg{background:rgba(160,190,255,.05)}
+.chart-wrap{background:linear-gradient(180deg,#0B1424,#070D19);border-radius:var(--r-md)}
+.news-item,.fil{background:rgba(160,190,255,.04);border-radius:var(--r-md)}
+.news-item::before{background:var(--grad)}
+.sheet{background:linear-gradient(180deg,#121D33,#0A1120);border-top:1px solid rgba(124,200,255,.2);border-radius:28px 28px 0 0}
+.sheet h3::before{background:var(--grad)}
+.sheet-r{background:rgba(160,190,255,.04);border-radius:16px}
 .sheet-r[hidden]{display:none}
-.sheet-x{background:transparent;border-radius:var(--r-md)}
-.scrim{background:rgba(6,5,4,.7)}
+.sheet-r .ti{color:var(--acc)}
+.scrim{background:rgba(2,4,10,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 
 /* ======================================================================
-   الشريط السفليّ — الجوال: دفترٌ بخمس خانات، والنشطةُ بحافّةٍ نحاسية
+   الشريط السفليّ — رصيفٌ زجاجيّ عائم فوق المنطقة الآمنة
    ====================================================================== */
 @media (max-width:1079px){
-  .tabbar{background:#0E0D0A;border-top:1px solid var(--hair2);padding:0 6px env(safe-area-inset-bottom);
-    backdrop-filter:none;-webkit-backdrop-filter:none}
+  body{padding-bottom:calc(var(--nav) + 30px + env(safe-area-inset-bottom))}
+  .tabbar{left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));padding:0 4px;border-radius:24px;
+    background:linear-gradient(180deg,rgba(22,34,58,.82),rgba(9,14,27,.9));
+    backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);
+    border:1px solid rgba(160,190,255,.16);box-shadow:0 18px 40px -12px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.08)}
   .tabbar::before{display:none}
-  .tabbar button{color:var(--tx3);font-family:var(--fd);font-size:10.5px;font-weight:600;gap:5px}
-  .tabbar .ti{opacity:.8;width:22px;height:22px}
-  .tabbar button.on{color:var(--tx);font-weight:700}
-  .tabbar button.on .ti{color:var(--acc);filter:none;transform:none;opacity:1}
-  .tabbar button.on::after{top:0;bottom:auto;width:30px;height:2px;border-radius:0 0 2px 2px;
-    background:var(--acc);box-shadow:none}
+  .tabbar button{height:var(--nav);font-size:10.5px;font-weight:500;color:var(--tx3);gap:4px}
+  .tabbar .ti{width:22px;height:22px;opacity:.85}
+  .tabbar button.on{color:var(--tx)}
+  .tabbar button.on .ti{color:var(--acc);filter:drop-shadow(0 0 8px rgba(124,200,255,.7));transform:translateY(-1px)}
+  .tabbar button.on::after{bottom:auto;top:7px;width:44px;height:44px;margin-top:-4px;border-radius:14px;z-index:-1;
+    background:radial-gradient(80% 80% at 50% 30%,rgba(124,200,255,.22),rgba(124,200,255,0));box-shadow:none}
+  .tabbar button:active .ti{transform:scale(.86)}
 }
 
 /* ======================================================================
@@ -1457,12 +1483,12 @@ details[open] > summary::before{content:"−"}
   *::-webkit-scrollbar-track{background:transparent}
   *::-webkit-scrollbar-thumb{background:var(--hair2);border-radius:var(--r-pill);
     border:3px solid var(--bg)}
-  *::-webkit-scrollbar-thumb:hover{background:#4A453B}
+  *::-webkit-scrollbar-thumb:hover{background:#2A3A52}
 
   .card:hover{border-color:var(--hair2)}
   .srow:hover{background:var(--s2)}
-  .srow.opp:hover{border-color:rgba(226,180,100,.3);
-    box-shadow:var(--sh1),0 0 30px -16px rgba(226,180,100,.6);transform:translateY(-1px)}
+  .srow.opp:hover{border-color:rgba(124,200,255,.3);
+    box-shadow:var(--sh1),0 0 30px -16px rgba(124,200,255,.6);transform:translateY(-1px)}
   .stat:hover{border-color:var(--hair2);background:var(--s3)}
   .metric:hover{border-color:var(--hair2)}
   .refresh:hover,.back:hover{background:var(--s3);color:var(--tx);border-color:var(--hair2)}
@@ -1470,13 +1496,13 @@ details[open] > summary::before{content:"−"}
   .tabbar button.on:hover{color:var(--acc)}
   .chipbar button:hover,.scans button:hover,.tf-picker button:hover{
     border-color:var(--hair2);color:var(--tx)}
-  .chipbar button.on:hover,.scans button.on:hover,.tf-picker button.on:hover{color:#1B1305}
+  .chipbar button.on:hover,.scans button.on:hover,.tf-picker button.on:hover{color:#04121F}
   .seg button:hover{color:var(--tx)}
   .btn:hover{filter:brightness(1.07)}
   .sheet-r:hover{background:var(--s3);border-color:var(--hair2)}
   .fil-sym:hover{color:var(--acc)}
   .fil-lnk:hover{color:var(--acc)}
-  .news-item:hover{border-color:rgba(226,180,100,.3);background:var(--s3)}
+  .news-item:hover{border-color:rgba(124,200,255,.3);background:var(--s3)}
   .news-item:hover .news-t{color:var(--acc)}
   .otbl tbody tr:hover,.mtable tbody tr:hover,.tbl tbody tr:hover{background:var(--accBg)}
   .heat-t:hover{transform:scale(1.06);outline-color:#fff;z-index:2;position:relative}
@@ -1547,7 +1573,7 @@ details[open] > summary::before{content:"−"}
   .tabbar{top:0;bottom:auto;right:0;left:0;width:auto;height:var(--nav);
     flex-direction:row;align-items:center;justify-content:flex-start;gap:2px;
     padding:0 18px;border-top:0;border-bottom:1px solid var(--hair);
-    background:linear-gradient(180deg,rgba(16,15,12,.97),rgba(12,11,9,.92))}
+    background:linear-gradient(180deg,rgba(8,12,22,.97),rgba(5,8,17,.92))}
   .tabbar::before{top:auto;bottom:-1px}
   .tabbar button{flex:none;width:auto;height:100%;flex-direction:row;
     justify-content:center;gap:8px;padding:0 15px;border-radius:0;
@@ -1626,34 +1652,29 @@ details[open] > summary::before{content:"−"}
   .sheet{transition:none}
 }
 
-/* النسخة الثالثة — الشاشة العريضة: قسمُ الكريبتو الظاهر شبكةُ بطاقات كقائمة الأسهم، وما ليس
-   بطاقةً (الوسم والتنبيه والصفوف المختصرة) يأخذ العرض كاملاً */
+/* النسخة الرابعة — الشاشة العريضة */
 @media (min-width:860px){
-  #cScanList .v3pane:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+  #cScanList .v3pane:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
   #cScanList .v3pane > :not(.srow){grid-column:1/-1}
   #cScanList .v3pane > .srow.opp{margin:0}
   .v3tabs{max-width:620px}
+  .hero-stage{height:280px}
+  .hero-cap{margin-top:262px}
+  #cardPulse .gauge{max-width:220px}
 }
 @media (min-width:1600px){
   #cScanList .v3pane:not([hidden]){grid-template-columns:repeat(3,minmax(0,1fr))}
 }
-/* النسخة الثالثة — سطح المكتب: الشريطُ العلويّ حبرٌ مصمت، والنشطُ عاجيٌّ بخطٍّ نحاسيّ */
 @media (min-width:1080px){
-  .tabbar{background:#0E0D0A;backdrop-filter:none;-webkit-backdrop-filter:none}
-  .tabbar::before{display:none}
-  .tabbar button{font-family:var(--fd);font-size:13px}
-  .tabbar button.on::after{background:var(--acc);box-shadow:none;height:2px}
+  .tabbar{background:linear-gradient(180deg,rgba(8,13,25,.92),rgba(5,8,17,.86));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+  .tabbar button{font-family:var(--fd);font-size:13px;font-weight:500}
+  .tabbar button.on::after{background:var(--grad);box-shadow:0 0 12px rgba(124,200,255,.6)}
   .tabbar button.on .ti{color:var(--acc)}
-  .side-brand .nm{font-size:14.5px}
-  .srow.opp:hover{border-color:var(--hair2);box-shadow:none;transform:none}
-  .news-item:hover{border-color:var(--hair2);background:var(--s2)}
-  .news-item:hover .news-t{color:var(--tx)}
 }
 @media (pointer:fine){
-  .refresh:hover,.back:hover{background:var(--s2);border-color:transparent}
-  .chipbar button.on:hover,.scans button.on:hover,.tf-picker button.on:hover{color:var(--bg)}
+  .srow.opp:hover{border-color:rgba(124,200,255,.3);transform:translateY(-2px)}
   .v3tabs button:hover{color:var(--tx)}
-  .qa button:hover,.sheet-r:hover{background:var(--s2)}
+  #cardPulse .qa button:hover{border-color:rgba(124,200,255,.35)}
 }
 
 /* ======================================================================
@@ -1697,13 +1718,13 @@ details[open] > summary::before{content:"−"}
            التيل إلى الأخضر — لا أزرق‑بنفسجي على ‎135°‎، وهو أشهر ما يشي
            بقالبٍ مولَّد. ونفس المعرّف `#lgo` يستعمله شعارُ الشريط. -->
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
-      <defs><linearGradient id="lgo" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#C9963F"/><stop offset="1" stop-color="#F0CC86"/></linearGradient></defs>
-      <rect x="6.1" y="6.1" width="19.8" height="19.8" rx="2.2" transform="rotate(45 16 16)" fill="none"
-        stroke="url(#lgo)" stroke-width="1.6"/>
-      <path d="M9.8 19.6 L14 15.6 L17.2 18 L22.4 12.2" fill="none" stroke="#F2EDE3"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="22.4" cy="12.2" r="1.9" fill="#E2B464"/></svg>
+      <defs><linearGradient id="lgo" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#F2F8FF"/><stop offset=".45" stop-color="#9FD6FF"/><stop offset="1" stop-color="#3B6FE0"/></linearGradient>
+        <linearGradient id="lgo2" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#081A36"/><stop offset="1" stop-color="#1D3E72"/></linearGradient></defs>
+      <path d="M16 2.5 L28 9.3 V22.7 L16 29.5 L4 22.7 V9.3 Z" fill="url(#lgo2)" stroke="url(#lgo)" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M16 2.5 L28 9.3 L16 16 L4 9.3 Z" fill="#fff" opacity=".07"/>
+      <path d="M8.5 20.5 L13 15.8 L17 18.6 L23.5 11" fill="none" stroke="url(#lgo)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="23.5" cy="11" r="2.1" fill="#FFB547"/></svg>
       <div style="flex:1;min-width:0">
       <div class="tb-title" id="tbTitle">مرصد الأسهم الأمريكية</div>
       </div>
@@ -1782,21 +1803,30 @@ details[open] > summary::before{content:"−"}
        المستخدم التطبيق على بطاقةٍ تقول «لا مراكز بعد». والسؤال الأوّل
        الذي يفتح لأجله أحدٌ مرصداً هو «كيف السوق الآن؟»، فهو الهيرو،
        والمحفظةُ تنزل تحت (وتبقى في متناول اليد من ورقة «المزيد»). -->
-  <div class="card" data-size="hero" id="cardPulse">
+  <div class="card hero" data-size="hero" id="cardPulse">
+    <!-- المشهد الرئيسي: حقلٌ ثلاثيّ الأبعاد من أعمدةٍ حقيقية — كلُّ عمودٍ سهمٌ من الكون، ارتفاعُه
+         تغيّرُ اليوم ولونُه اتجاهه وقاعدتُه حجمُ الشركة. ليس زخرفة: يُرسم من الملخّص نفسه. -->
+    <div class="hero-stage" aria-hidden="true"><canvas id="heroScene"></canvas></div>
     <h2>صورة السوق الآن</h2>
     <!-- العدد من البيانات لا من النصّ: كان مكتوباً «70» والكون ‎1155‎.
          أربعةُ نصوصٍ كذبت دفعةً واحدة بتغييرٍ في ملفّ إعدادات. -->
     <p class="hint">متوسط القراءة الفنية لـ<span id="mktUniv">…</span> على 4 فريمات زمنية</p>
     <!-- العدّادُ قوسٌ يُرسم في الشيفرة: الرقمُ والوسمُ من `renderNow`
          كما كانا، والمتغيّر شكلُ عرضهما لا مصدرهما. -->
-    <div class="gauge" id="vGauge"></div>
-    <div class="verdict" id="vVerdict">—</div>
-    <div class="verdict-sub" id="vSub">—</div>
+    <p class="hero-cap" id="heroCap"></p>
+    <div class="hero-read">
+      <div class="gauge" id="vGauge"></div>
+      <div class="hero-v">
+        <div class="verdict" id="vVerdict">—</div>
+        <div class="verdict-sub" id="vSub">—</div>
+        <div class="hero-breadth" id="heroBreadth"></div>
+      </div>
+    </div>
     <div class="qa" id="quickActions">
-      <button data-qa="screen"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg>الفرص</button>
-      <button data-qa="mdir"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mdir"/></svg>توجّه السوق</button>
-      <button data-qa="search"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>ابحث عن سهم</button>
-      <button data-qa="port"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wallet"/></svg>محفظتي</button>
+      <button data-qa="screen"><span class="qi"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg></span>الفرص</button>
+      <button data-qa="crypto"><span class="qi cr"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-coin"/></svg></span>الكريبتو</button>
+      <button data-qa="list"><span class="qi st"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg></span>الأسهم</button>
+      <button data-qa="contracts"><span class="qi op"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-opt"/></svg></span>العقود</button>
     </div>
     <details>
       <summary>كيف تُحسب هذه النتيجة؟</summary>
@@ -2374,6 +2404,18 @@ details[open] > summary::before{content:"−"}
      وكونها. لا شيء هنا يقرأ ملفّاً من دفتر الأسهم، ولا العكس. -->
 <section data-view="crypto">
   <div class="card" data-size="hero">
+    <div class="sec-banner cr" id="cBanner">
+      <svg class="bn-art" viewBox="0 0 160 120" aria-hidden="true">
+        <defs><linearGradient id="bnc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE1A3"/><stop offset=".5" stop-color="#FFB547"/><stop offset="1" stop-color="#B86E12"/></linearGradient>
+          <linearGradient id="bno" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgba(124,200,255,0)"/><stop offset=".5" stop-color="rgba(124,200,255,.7)"/><stop offset="1" stop-color="rgba(124,200,255,0)"/></linearGradient></defs>
+        <g class="orb o1"><ellipse cx="80" cy="60" rx="70" ry="22" fill="none" stroke="url(#bno)" stroke-width="1"/><circle cx="150" cy="60" r="2.4" fill="#7CC8FF"/></g>
+        <g class="orb o2"><ellipse cx="80" cy="60" rx="54" ry="40" fill="none" stroke="rgba(124,200,255,.22)" stroke-width="1" stroke-dasharray="2 5"/></g>
+        <g class="coin"><path d="M80 30 L106 45 V75 L80 90 L54 75 V45 Z" fill="url(#bnc)"/>
+          <path d="M80 30 L106 45 L80 60 L54 45 Z" fill="#fff" opacity=".28"/><path d="M80 60 V90 L54 75 V45 Z" fill="#000" opacity=".16"/>
+          <path d="M80 42 L95 51 V69 L80 78 L65 69 V51 Z" fill="none" stroke="rgba(60,30,0,.45)" stroke-width="1.4"/></g>
+      </svg>
+      <div class="bn-data"></div>
+    </div>
     <div class="sticky-hd">
       <div class="schead" style="margin-bottom:9px">
         <h2 style="margin:0">فرص الكريبتو</h2>
@@ -2894,11 +2936,10 @@ details[open] > summary::before{content:"−"}
 <nav class="tabbar" id="tabbar" role="tablist" aria-label="أقسام التطبيق">
   <div class="side-brand">
     <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="6.1" y="6.1" width="19.8" height="19.8" rx="2.2" transform="rotate(45 16 16)" fill="none"
-        stroke="url(#lgo)" stroke-width="1.6"/>
-      <path d="M9.8 19.6 L14 15.6 L17.2 18 L22.4 12.2" fill="none" stroke="#F2EDE3"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="22.4" cy="12.2" r="1.9" fill="#E2B464"/></svg>
+      <path d="M16 2.5 L28 9.3 V22.7 L16 29.5 L4 22.7 V9.3 Z" fill="url(#lgo2)" stroke="url(#lgo)" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M16 2.5 L28 9.3 L16 16 L4 9.3 Z" fill="#fff" opacity=".07"/>
+      <path d="M8.5 20.5 L13 15.8 L17 18.6 L23.5 11" fill="none" stroke="url(#lgo)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="23.5" cy="11" r="2.1" fill="#FFB547"/></svg>
     <div class="nm">مرصد الأسهم<small>الأمريكية والعقود</small></div>
   </div>
   <!-- خمسةٌ في الشريط والباقي في ورقة «المزيد».
@@ -3578,53 +3619,48 @@ const flipMark = () => `<span class="mk" title="انقلاب الاتجاه">⇄
 const hotMark = () => `<span class="mk hot" title="حدث قويّ">▲</span>`;
 
 /* ---------- تبويب: الآن ---------- */
-/* عدّادُ القوس — عرضٌ محض لرقمٍ يأتي محسوباً.
+/* الميزان — قرصٌ زجاجيّ بقوسٍ ثنائيّ القطب (النسخة الرابعة).
 
-   المدى ‎−100..+100‎ على قوسٍ من ‎216°‎ إلى ‎−36°‎ (‎252‎ درجة)، والمسارُ
-   ملوَّنٌ بتدرّجٍ من الأحمر إلى الأخضر فيُقرأ المدى بلا وسوم، والعلامةُ
-   البيضاء تقول أين نحن منه. ولا رقم يُحسب هنا: `sc` كما جاء من الخادم.
-
-   ولماذا قوسٌ لا شريط: الشريط يقول «أين» والقوسُ يقول «أين من المدى» —
-   والسؤال هنا الثاني. */
+   الصفرُ في القمّة، والصعودُ يمتدّ يساراً والهبوطُ يميناً (اصطلاح RTL القائم في كلّ شريط)،
+   فيُقرأ الاتجاه من جهة القوس والقوّةُ من طوله — لا من لونٍ متدرّجٍ على المدى كلّه.
+   العلاماتُ عند ‎±15‎ و‎±45‎ هي حدود `labelOf` نفسها. عرضٌ محض: `sc` كما جاء. */
+let gaugeN = 0;
 function gaugeArc(sc, col) {
-  /* الهندسة: مركزٌ عند ‎(100,104)‎ ونصفُ قطرٍ ‎84‎، والقوسُ من ‎195°‎ إلى
-     ‎−15°‎ — أي ‎210‎ درجة. فالطرفان عند ‎y ≈ 125.7‎ والقمّةُ عند ‎y = 20‎،
-     وكلُّه داخل `viewBox` بارتفاع ‎134‎ بلا فيض.
-     و`large-arc-flag = 1` لأن السَّعة تتجاوز ‎180°‎، و`sweep-flag = 1`
-     لأن المسار يدور باتجاه عقارب الساعة على الشاشة (يسار → أعلى → يمين).
-     خطأٌ في أيٍّ من العلمين يرسم الدائرةَ المكمّلة لا القوس. */
-  const R = 84, CX = 100, CY = 104, A0 = 195, A1 = -15;
+  const CX = 100, CY = 100, R = 80, id = "gz" + (++gaugeN);
   const v = Math.max(-100, Math.min(100, Number.isFinite(sc) ? sc : 0));
-  const pol = (a, rr) => {
-    const r = a * Math.PI / 180, R2 = rr === undefined ? R : rr;
-    return [CX + R2 * Math.cos(r), CY - R2 * Math.sin(r)];
-  };
-  /* الاتجاه RTL: الصعودُ على اليسار والهبوطُ على اليمين — نفس اصطلاح
-     الميزان الذي كان قبله وكلِّ شريطٍ في التطبيق. قلبُه هنا وحده يجعل
-     نفس الرقم يُقرأ في جهتين مختلفتين بين بطاقتين. */
-  const at = a => A1 + (A0 - A1) * ((a + 100) / 200);
-  const [x0, y0] = pol(A0), [x1, y1] = pol(A1);
-  const [mx, my] = pol(at(v));
-  const arc = `M${x0.toFixed(1)},${y0.toFixed(1)} A${R},${R} 0 1 1 ${x1.toFixed(1)},${y1.toFixed(1)}`;
-  // علاماتُ الحدود ‎∓45‎ و‎∓15‎ هي حدود `labelOf` نفسها لا أرقامٌ جديدة
-  const ticks = [-45, -15, 15, 45].map(t => {
-    const [ix, iy] = pol(at(t), R - 10), [ox, oy] = pol(at(t), R + 5);
-    return `<line class="gtick" x1="${ix.toFixed(1)}" y1="${iy.toFixed(1)}" x2="${ox.toFixed(1)}" y2="${oy.toFixed(1)}"/>`;
-  }).join("");
-  return `<svg viewBox="0 0 200 142" role="img" aria-label="ميزان السوق">
-    <defs><linearGradient id="ggrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="var(--up)"/><stop offset=".5" stop-color="#4A453B"/>
-      <stop offset="1" stop-color="var(--dn)"/></linearGradient></defs>
-    <path class="gtrk" stroke-width="7" d="${arc}"/>
-    <path class="gval" stroke="url(#ggrad)" stroke-width="7" opacity=".95" d="${arc}"/>
-    ${ticks}
-    <rect x="${(mx - 5).toFixed(1)}" y="${(my - 5).toFixed(1)}" width="10" height="10" rx="1.5" fill="var(--tx)"
-      stroke="var(--bg)" stroke-width="2.5" transform="rotate(45 ${mx.toFixed(1)} ${my.toFixed(1)})"/>
-    <text x="100" y="100" text-anchor="middle" font-size="46" font-weight="600"
-      fill="${col || "var(--tx)"}" style="font-family:'JetBrains Mono',ui-monospace,monospace;letter-spacing:-2px"
-      >${Number.isFinite(sc) ? Math.round(sc) : "—"}</text>
-    <text x="26" y="138" text-anchor="middle" font-size="10" fill="var(--tx3)">صعود</text>
-    <text x="174" y="138" text-anchor="middle" font-size="10" fill="var(--tx3)">هبوط</text>
+  const ang = (x) => 90 + (x / 100) * 135;
+  const pol = (a, rr) => { const t = a * Math.PI / 180; return [CX + rr * Math.cos(t), CY - rr * Math.sin(t)]; };
+  const P = (a, rr) => pol(a, rr).map((n) => n.toFixed(1)).join(",");
+  const track = `M${P(225, R)} A${R},${R} 0 1 1 ${P(-45, R)}`;
+  const av = ang(v), big = 0, sweep = v > 0 ? 0 : 1;
+  const val = Math.abs(v) < 0.5 ? "" : `M${P(90, R)} A${R},${R} 0 ${big} ${sweep} ${P(av, R)}`;
+  const up = v >= 0, c = up ? "var(--up)" : "var(--dn)";
+  const ticks = [];
+  for (let x = -100; x <= 100; x += 5) {
+    const major = [-45, -15, 0, 15, 45].indexOf(x) >= 0, on = (v > 0 && x > 0 && x <= v) || (v < 0 && x < 0 && x >= v);
+    const [x1, y1] = pol(ang(x), R - 13), [x2, y2] = pol(ang(x), R - (major ? 22 : 17));
+    ticks.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" class="gtick${major ? " mj" : ""}${on ? " on" : ""}"${on ? ` style="stroke:${c}"` : ""}/>`);
+  }
+  const [hx, hy] = pol(av, R);
+  return `<svg viewBox="0 0 200 186" role="img" aria-label="ميزان السوق">
+    <defs>
+      <radialGradient id="${id}d" cx=".5" cy=".28" r=".75"><stop offset="0" stop-color="#1D2C47"/><stop offset=".7" stop-color="#0C1424"/><stop offset="1" stop-color="#070C17"/></radialGradient>
+      <linearGradient id="${id}r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(220,236,255,.38)"/><stop offset=".5" stop-color="rgba(220,236,255,.04)"/><stop offset="1" stop-color="rgba(220,236,255,.12)"/></linearGradient>
+      <filter id="${id}g" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
+    </defs>
+    <circle cx="${CX}" cy="${CY}" r="${R - 26}" fill="url(#${id}d)" stroke="url(#${id}r)" stroke-width="1"/>
+    <path d="M${P(150, R - 30)} A${R - 30},${R - 30} 0 0 1 ${P(30, R - 30)}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="7" stroke-linecap="round"/>
+    <path class="gtrk" d="${track}" stroke-width="5"/>
+    ${val ? `<path d="${val}" fill="none" stroke="${c}" stroke-width="9" opacity=".55" filter="url(#${id}g)"/>
+    <path class="gval" d="${val}" fill="none" stroke="${c}" stroke-width="5" stroke-linecap="round"/>` : ""}
+    ${ticks.join("")}
+    <circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="9" fill="${c}" opacity=".22"/>
+    <circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="4.5" fill="#fff"/>
+    <text x="${CX}" y="${CY + 13}" text-anchor="middle" font-size="40" font-weight="600" class="gnum"
+      fill="${col || "var(--tx)"}">${Number.isFinite(sc) ? Math.round(sc) : "—"}</text>
+    <text x="${CX}" y="${CY + 31}" text-anchor="middle" font-size="9.5" fill="var(--tx3)">من ‎−100‎ إلى ‎+100‎</text>
+    <text x="${pol(225, R)[0] + 4}" y="182" text-anchor="middle" font-size="10" fill="var(--up)">صعود</text>
+    <text x="${pol(-45, R)[0] - 4}" y="182" text-anchor="middle" font-size="10" fill="var(--dn)">هبوط</text>
   </svg>`;
 }
 
@@ -3668,6 +3704,143 @@ function renderTopOpp() {
   if (src) src.textContent = `الأعلى قوّة توافق في لقطة ${v3Hour(T)} — تُعاد من الصفر ${v3Cycle(T)}، وقوة التوافق ليست نسبة نجاح`;
 }
 
+/* =======================================================================
+   المشهد الرئيسي — حقلُ السوق ثلاثيّ الأبعاد (النسخة الرابعة، 2026-10-05).
+
+   **بياناتٌ لا زخرفة**: كلُّ عمودٍ رمزٌ من ملخّص الكون — ارتفاعُه |تغيّر اليوم|، ولونُه
+   جهتُه، وقاعدتُه جذرُ القيمة السوقية (الجذر لا القيمة: أبل تساوي عشرات الشركات). وأكبرُ
+   ثلاث حركاتٍ تحمل رمزها. لا رقم يُختلق: رمزٌ بلا تغيّرٍ معروف يُرسم قاعدةً مسطّحة.
+
+   الحركة: دورانٌ بطيء للكاميرا ونموُّ الأعمدة عند وصول بياناتٍ جديدة. تتوقّف حين تختفي
+   الصفحة أو يخرج المشهد من الشاشة أو تُغادَر «الرئيسية»، ومع «تقليل الحركة» يُرسم إطارٌ
+   واحد ثابت. Canvas ثنائيّ الأبعاد بإسقاطٍ يدويّ — بلا مكتبة: ‎50‎ عموداً بخمسة أوجه
+   لكلٍّ أخفُّ من أيّ محرّكٍ ثلاثيّ.
+   ======================================================================= */
+const heroScene = (() => {
+  let cv = null, g = null, W = 0, H = 0, dpr = 1, bars = [], raf = 0, t0 = 0, grow0 = 0, seen = true;
+  const RM = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+  const COLS = 10;
+  const shade = (rgb, k) => `rgb(${rgb.map((c) => Math.round(Math.min(255, c * k))).join(",")})`;
+  const UP = [46, 229, 157], DN = [255, 90, 110], FLAT = [110, 130, 165];
+
+  function size() {
+    if (!cv) return;
+    const r = cv.getBoundingClientRect();
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.max(1, r.width); H = Math.max(1, r.height);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function set(rows) {
+    const rs = (rows || []).filter((r) => r && r.s).slice()
+      .sort((a, b) => (Number(b.mc) || 0) - (Number(a.mc) || 0)).slice(0, 60);
+    if (!rs.length) return;
+    const mx = Math.max(1.5, ...rs.map((r) => Math.abs(Number(r.chg)) || 0));
+    const mcs = rs.map((r) => Math.sqrt(Number(r.mc) || 0)), mcMax = Math.max(1, ...mcs);
+    const rowsN = Math.ceil(rs.length / COLS);
+    bars = rs.map((r, i) => {
+      const c = Number.isFinite(r.chg) ? r.chg : null;
+      return {
+        s: String(r.s).replace(/-USD$/, ""), chg: c,
+        x: (i % COLS) - (COLS - 1) / 2, z: Math.floor(i / COLS) - (rowsN - 1) / 2,
+        h: c === null ? 0.02 : Math.max(0.04, Math.abs(c) / mx),
+        w: 0.34 + 0.28 * (mcs[i] / mcMax),
+        col: c === null || c === 0 ? FLAT : c > 0 ? UP : DN,
+      };
+    });
+    const top = rs.map((r, i) => [Math.abs(Number(r.chg)) || 0, i]).sort((a, b) => b[0] - a[0]).slice(0, 3).map((x) => x[1]);
+    top.forEach((i) => { bars[i].lbl = true; });
+    grow0 = performance.now();
+    kick();
+  }
+  function proj(x, y, z, yaw, S, cx, cy) {
+    const c = Math.cos(yaw), s = Math.sin(yaw);
+    const X = x * c - z * s, Z = x * s + z * c;
+    return [cx + (X - Z) * 0.866 * S, cy + (X + Z) * 0.5 * S - y * S, X + Z];
+  }
+  function frame(now) {
+    raf = 0;
+    if (!cv || !bars.length) return;
+    const still = RM.matches;
+    const t = still ? 0 : (now - t0);
+    const yaw = -0.62 + (still ? 0 : Math.sin(t / 9000) * 0.22);
+    const grow = still ? 1 : Math.min(1, (now - grow0) / 1100);
+    const ease = 1 - Math.pow(1 - grow, 3);
+    const S = Math.min(W / 13.2, H / 6.2), cx = W * 0.5, cy = H * 0.6, HY = 3.1;
+    g.clearRect(0, 0, W, H);
+    // أرضيةٌ شبكية تتلاشى نحو الحوافّ — سطحٌ يقف عليه الحقل
+    g.lineWidth = 1;
+    for (let k = -6; k <= 6; k++) {
+      const a1 = proj(k, 0, -4, yaw, S, cx, cy), a2 = proj(k, 0, 4, yaw, S, cx, cy);
+      const b1 = proj(-6, 0, k * 0.66, yaw, S, cx, cy), b2 = proj(6, 0, k * 0.66, yaw, S, cx, cy);
+      const al = 0.075 * (1 - Math.abs(k) / 7);
+      g.strokeStyle = `rgba(124,200,255,${al})`;
+      g.beginPath(); g.moveTo(a1[0], a1[1]); g.lineTo(a2[0], a2[1]); g.moveTo(b1[0], b1[1]); g.lineTo(b2[0], b2[1]); g.stroke();
+    }
+    const items = bars.map((b) => {
+      const d = proj(b.x, 0, b.z, yaw, S, cx, cy)[2];
+      return { b, d };
+    }).sort((p, q) => p.d - q.d);
+    const labels = [];
+    for (const { b } of items) {
+      const hw = b.w / 2, y = b.h * HY * ease;
+      const P = (dx, yy, dz) => proj(b.x + dx, yy, b.z + dz, yaw, S, cx, cy);
+      const bot = [P(-hw, 0, -hw), P(hw, 0, -hw), P(hw, 0, hw), P(-hw, 0, hw)];
+      const top = [P(-hw, y, -hw), P(hw, y, -hw), P(hw, y, hw), P(-hw, y, hw)];
+      // ظلٌّ ناعم على الأرضية
+      g.fillStyle = "rgba(0,0,0,.28)";
+      g.beginPath(); bot.forEach((p, i) => (i ? g.lineTo(p[0] + 3, p[1] + 2) : g.moveTo(p[0] + 3, p[1] + 2))); g.fill();
+      // الأوجه الجانبية مرتّبةً بعمقها، ثم الوجه الأعلى — إضاءةٌ من الأعلى‑اليمين
+      const faces = [[0, 1], [1, 2], [2, 3], [3, 0]].map(([i, j], k) => ({ i, j, k, d: (bot[i][2] + bot[j][2]) / 2 }))
+        .sort((p, q) => p.d - q.d);
+      for (const fc of faces) {
+        const lit = [0.55, 0.85, 0.7, 0.45][(fc.k + 4) % 4];
+        g.fillStyle = shade(b.col, lit * 0.62);
+        g.beginPath(); g.moveTo(bot[fc.i][0], bot[fc.i][1]); g.lineTo(bot[fc.j][0], bot[fc.j][1]);
+        g.lineTo(top[fc.j][0], top[fc.j][1]); g.lineTo(top[fc.i][0], top[fc.i][1]); g.closePath(); g.fill();
+      }
+      g.fillStyle = shade(b.col, 1.08);
+      g.beginPath(); top.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.fill();
+      // حافّةٌ ضوئية على الوجه الأعلى — انعكاسٌ خفيف لا توهّج
+      g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 0.8; g.stroke();
+      if (b.lbl && b.chg !== null) {
+        const c = top.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]);
+        labels.push({ x: c[0], y: c[1] - 9, t: `${b.s} ${b.chg > 0 ? "+" : ""}${b.chg.toFixed(1)}%`, col: b.col });
+      }
+    }
+    g.font = "600 10px 'Readex Pro', system-ui, sans-serif"; g.textAlign = "center";
+    // الوسوم لا تتراكب: كلُّ وسمٍ يرتفع فوق ما سبقه إن تقاطعا
+    const placed = [];
+    labels.sort((a, b) => b.y - a.y);
+    for (const L of labels) {
+      const w = g.measureText(L.t).width + 12;
+      for (let k = 0; k < 6 && placed.some((p) => Math.abs(p.x - L.x) < (p.w + w) / 2 + 4 && Math.abs(p.y - L.y) < 20); k++) L.y -= 20;
+      if (L.y < 16) L.y = 16;
+      placed.push({ x: L.x, y: L.y, w });
+      g.fillStyle = "rgba(5,8,17,.78)"; g.strokeStyle = `rgba(${L.col.join(",")},.55)`; g.lineWidth = 1;
+      g.beginPath(); if (g.roundRect) g.roundRect(L.x - w / 2, L.y - 13, w, 17, 8.5); else g.rect(L.x - w / 2, L.y - 13, w, 17);
+      g.fill(); g.stroke();
+      g.fillStyle = "#EEF3FB"; g.fillText(L.t, L.x, L.y - 1.5);
+    }
+    if (!still && seen && !document.hidden && state.view === "now") raf = requestAnimationFrame(frame);
+  }
+  function kick() {
+    if (!cv) init();
+    if (!cv || raf) return;
+    raf = requestAnimationFrame(frame);
+  }
+  function init() {
+    cv = document.getElementById("heroScene");
+    if (!cv || !cv.getContext) { cv = null; return; }
+    g = cv.getContext("2d"); t0 = performance.now(); size();
+    window.addEventListener("resize", () => { size(); kick(); }, { passive: true });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) kick(); });
+    if ("IntersectionObserver" in window)
+      new IntersectionObserver((es) => { seen = es[0].isIntersecting; if (seen) kick(); }).observe(cv);
+  }
+  return { set, kick, resize: () => { size(); kick(); } };
+})();
+
 function renderNow() {
   renderPort();
   renderTopOpp();
@@ -3687,7 +3860,15 @@ function renderNow() {
   const up = scored.filter(r => r.score > 15).length;
   const dn = scored.filter(r => r.score < -15).length;
   $("#vSub").textContent =
-    `${up} سهماً بميل صاعد و${dn} بميل هابط من ${scored.length} · النتيجة ${total === null ? "—" : Math.round(total)}`;
+    `${up} سهماً بميل صاعد و${dn} بميل هابط من ${scored.length}`;
+  /* اتساعُ القراءة الفنية — نفس العدّ أعلاه شريطاً بثلاثة أجزاء، والمشهدُ من نفس الملخّص */
+  const flat = scored.length - up - dn, W3 = (n) => scored.length ? (n / scored.length * 100).toFixed(1) : 0;
+  const hb = $("#heroBreadth");
+  if (hb) hb.innerHTML = `<div class="hb-bar"><i class="u" style="width:${W3(up)}%"></i><i class="f" style="width:${W3(flat)}%"></i><i class="d" style="width:${W3(dn)}%"></i></div>
+    <div class="hb-k"><span class="up">${bd(up)} صاعد</span><span>${bd(flat)} محايد</span><span class="dn">${bd(dn)} هابط</span></div>`;
+  const cap = $("#heroCap");
+  if (cap) cap.innerHTML = `كلُّ عمودٍ سهمٌ من ${bd(s.rows.length)} — ارتفاعُه حركةُ اليوم ولونُه اتجاهها`;
+  heroScene.set(s.rows);
 
   // المؤشرات
   $("#indices").innerHTML = (m.indices || []).map(ix => {
@@ -8580,6 +8761,33 @@ function v3Status(t) {
 
 /* بطاقة صفقة V3 — نفس الخطّافات التي تقرؤها أدوات الإثبات (`.srow` و`data-open`).
    `kind`: "new" فرصةٌ جديدة في هذه اللقطة · "active" صفقةٌ قائمة من لقطةٍ سابقة */
+/* سلّمُ المخاطرة والعائد — الوقف والدخول والأهداف والسعر الآن على محورٍ سعريٍّ واحد بقيمها
+   الحقيقية (النسخة الرابعة). يُقرأ من نظرة: أين السعر من الدخول، وكم بين الوقف والهدف الأوّل.
+   المحور من الأدنى إلى الأعلى سعراً دائماً (LTR) — فصفقة البيع تظهر وقفُها يميناً. */
+function v3Ladder(t, px) {
+  const st = t.stNow || t.st, tg = (t.tg || []).map((x) => x.p).filter(Number.isFinite);
+  const pts = [st, t.e, ...tg].filter(Number.isFinite);
+  if (pts.length < 3) return "";
+  const lo = Math.min(...pts), hi = Math.max(...pts), rg = (hi - lo) || 1;
+  const pos = (v) => (Math.max(0, Math.min(1, (v - lo) / rg)) * 100).toFixed(2);
+  const last = tg.length ? tg[tg.length - 1] : t.e;
+  const zone = (a, b, c) => `<i class="lz ${c}" style="left:${pos(Math.min(a, b))}%;width:${(Math.abs(b - a) / rg * 100).toFixed(2)}%"></i>`;
+  const mk = (v, c, l) => `<span class="lm ${c}" style="left:${pos(v)}%"><em>${l}</em></span>`;
+  const out = px !== null && (px < lo || px > hi);
+  return `<div class="v3lad" dir="ltr" aria-hidden="true"><div class="lt">${zone(st, t.e, "rk")}${zone(t.e, last, "rw")}`
+    + mk(st, "st", "SL") + mk(t.e, "en", "E") + tg.map((p, k) => mk(p, "tg" + (k < (t.hit || 0) ? " hit" : ""), "T" + (k + 1))).join("")
+    + (px !== null ? `<span class="lm now${out ? " out" : ""}" style="left:${pos(px)}%"></span>` : "") + `</div></div>`;
+}
+/* حلقةُ التوافق — النسبة نفسها قوساً (الرقم في `.v3q b` كما كان: تقرؤه أدوات الإثبات) */
+function v3Ring(sc) {
+  const C = 2 * Math.PI * 25, f = Math.max(0, Math.min(100, Number(sc) || 0)) / 100;
+  return `<svg class="v3ring" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="25" class="rt"/>
+    <circle cx="30" cy="30" r="25" class="rv" style="stroke-dasharray:${(C * f).toFixed(1)} ${C.toFixed(1)}"/></svg>`;
+}
+const V3_ARROW = { up: `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2.2 L10 7.4 H7.4 V9.8 H4.6 V7.4 H2 Z" fill="currentColor"/></svg>`,
+                   dn: `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 9.8 L2 4.6 H4.6 V2.2 H7.4 V4.6 H10 Z" fill="currentColor"/></svg>` };
+/* الفرصة الجديدة تومض مرّةً واحدة حين تظهر أوّل مرّة في هذا المتصفّح — لا مع كلّ تحديث */
+const v3Seen = new Set();
 function v3Card(t, i, kind, extra) {
   kind = kind || (t.now ? "active" : "new");
   const D = v3dir(t.d), lr = symRow(t.s);
@@ -8597,15 +8805,16 @@ function v3Card(t, i, kind, extra) {
     chips.push(`<span class="good">${T0 && T0.life ? "إشارةٌ جديدة في" : "لقطة"} ${esc(v3Hour(T0))}${t.evAt ? ` — على إغلاق شمعة ${esc(clock(t.evAt * 1000))}` : ""}</span>`);
     chips.push(`<span class="cold">الأساس: ${esc(baseTxt)}${t.baseTfs && t.baseTfs.length > 1 ? ` (ومعه ${esc(t.baseTfs.filter(x => x !== t.baseTf).map(x => V3_TFL[x]).join("، "))})` : ""}</span>`);
   }
-  if (px !== null) chips.push(`<span>السعر الآن <span class="num">${money(px)}</span> <span class="num" style="color:${col}">${chg === null ? "" : pct(chg)}</span></span>`);
   if (extra) chips.push(extra);
   const warns = v3Warnings(t);
   const warnHtml = warns.length ? `<div class="v3warn"><b>تحذير:</b> ${warns.map(esc).join(" · ")} — الصفقة باقية بخطتها الأصلية حتى الوقف أو آخر هدف أو انقضاء مدّتها.</div>` : "";
   const nowSc = kind === "active" && t.now && Number.isFinite(t.now.score)
-    ? `<div class="v3q"><b class="num">${v3pct(t.now.score)}</b><i>التوافق الآن</i></div>` : "";
+    ? `<div class="v3q sm"><b class="num">${v3pct(t.now.score)}</b><i>التوافق الآن</i></div>` : "";
   const T = tradesOf(), frNow = kind === "active" && T && T.bySym && T.bySym[t.s] ? T.bySym[t.s].fr : null;
+  const fresh = kind === "new" && t.id && !v3Seen.has(t.id); if (t.id) v3Seen.add(t.id);
+  const spk = lr && Array.isArray(lr.spark) && lr.spark.length > 2 ? sparkSVG(lr.spark, (chg || 0) >= 0, { w: 92, h: 30 }) : "";
   // `i < 0` بطاقةٌ خارج القائمة (شاشة السهم) — بلا رتبة
-  return `<div class="srow opp d-${D.c}${i >= 0 && i < 3 ? " top r" + (i + 1) : ""}" data-open="${esc(t.s)}">
+  return `<div class="srow opp d-${D.c}${i >= 0 && i < 3 ? " top r" + (i + 1) : ""}${fresh ? " fresh" : ""}" data-open="${esc(t.s)}" style="--i:${Math.max(0, Math.min(i, 10))}">
     <div class="opp-hd">
       ${i >= 0 ? `<div class="rank num">${i + 1}</div>` : ""}
       ${monoTile(t.s, lr && lr.sec)}
@@ -8613,21 +8822,23 @@ function v3Card(t, i, kind, extra) {
         <div class="t">${esc(lr ? nm(lr) : t.s)}<span class="tick">${esc(t.s)}</span></div>
         <div class="n">${esc((lr && lr.sec) || "—")}${t.evt ? " · " + esc(V3_EVT[t.evt] || t.evt) : ""}</div>
       </div>
-      <div class="opp-dir ${D.c}">${D.t}</div>
+      <div class="opp-dir ${D.c}">${V3_ARROW[D.c] || ""}${D.t.replace(/^[▲▼]\s*/, "")}</div>
     </div>
-    <div class="v3sc">
-      <div class="v3q"><b class="num">${v3pct(t.score)}</b><i>${kind === "active" ? "التوافق عند الإصدار" : "قوة التوافق"}</i></div>
+    <div class="opp-core">
+      <div class="v3sco">${v3Ring(t.score)}<div class="v3q"><b class="num">${v3pct(t.score)}</b><i>${kind === "active" ? "التوافق عند الإصدار" : "قوة التوافق"}</i></div></div>
       ${nowSc}
-      ${v3Elements(t)}
+      ${px !== null ? `<div class="opp-mkt">${spk}<div class="pm"><span class="num p">${money(px)}</span><span class="num c" style="color:${col}">${chg === null ? "" : pct(chg)}</span></div></div>` : ""}
     </div>
-    ${warnHtml}
-    ${kind === "active" ? "" : v3Frames(t)}
-    ${frNow ? v3Frames({ d: t.d }, frNow, "الاستراتيجيات حسب الفريم — الآن") : ""}
+    ${v3Ladder(t, px)}
     <div class="v3plan">
       <span><span class="k">دخول</span> <b class="num">${money(t.e)}</b></span>
       <span><span class="k">وقف</span> <b class="num">${money(t.stNow || t.st)}</b>${t.stNow && t.stNow !== t.st ? ` <small class="k">(الأصلي ${money(t.st)})</small>` : ""}</span>
       ${tg}
     </div>
+    <div class="v3sc">${v3Elements(t)}</div>
+    ${warnHtml}
+    ${kind === "active" ? "" : v3Frames(t)}
+    ${frNow ? v3Frames({ d: t.d }, frNow, "الاستراتيجيات حسب الفريم — الآن") : ""}
     <div class="opp-ft">${chips.join("")}</div>
     ${kind !== "closed" ? `<div class="v3mt"><button class="btn gray" type="button" data-mt="${esc(t.id)}">دخلت الصفقة</button></div>` : ""}
   </div>`;
@@ -8705,10 +8916,11 @@ function renderTrades(book) {
     const howWas = el.querySelector(".v3how");
     const tab = v3TabNow(all.length, valid.length);
     const pane = (k) => `class="v3pane" data-pane="${k}"${tab === k ? "" : " hidden"}`;
-    const tb = (k, l, n) => `<button type="button" role="tab" data-v3tab="${k}" aria-selected="${tab === k}" class="${tab === k ? "on" : ""}"><span class="c num">${bd(n)}</span><span class="l">${l}</span></button>`;
+    const tb = (k, l, n) => `<button type="button" role="tab" data-v3tab="${k}" aria-selected="${tab === k}" class="${tab === k ? "on" : ""}"><span class="c num">${bd(n)}</span><span class="l">${V3_TABI[k]}${l}</span></button>`;
+    v3Banner();
     el.innerHTML = v3Stale(T, CR)
       + `<div class="v3head"><span><b>لقطة ${esc(v3Hour(T))}</b></span><span>كل 15 دقيقة · ‎24/7‎</span></div>`
-      + `<div class="v3tabs" role="tablist" aria-label="أقسام الفرص">${tb("new", "جديدة", all.length)}${tb("valid", "صالحة للدخول", valid.length)}${tb("follow", "قيد المتابعة", follow.length)}</div>`
+      + `<div class="v3tabs" role="tablist" aria-label="أقسام الفرص" style="--t:${V3_TABS.indexOf(tab)}"><span class="v3ind" aria-hidden="true"></span>${tb("new", "جديدة", all.length)}${tb("valid", "صالحة للدخول", valid.length)}${tb("follow", "قيد المتابعة", follow.length)}</div>`
       + `<details class="plain v3how"${howWas && howWas.open ? " open" : ""}><summary>كيف تعمل الفرص؟</summary>
           <p><b>جديدة</b> — وُلدت من إشارةٍ جديدة في هذه اللقطة: عبور قمة/قاع أمس بإغلاق شمعة 15د أو ساعة أو 4س، أو انقلاب المتوسطات على أيّ فريم. مرتّبةٌ بقوة التوافق ثم الحداثة، وتعيش لقطةً واحدة.</p>
           <p><b>صالحة للدخول</b> — ليست توصياتٍ جديدة: صدرت في لقطاتٍ سابقة بخطتها الأصلية، وما زالت تستوفي شروط دخول المحرّك عند السعر الحالي: المخاطرة إلى الوقف ≤ ${bd(E3.MAX_RISK_ATR)}×ATR يومي، وT1 وT2 الأصليّان كلٌّ ≥ ${bd(E3.MIN_RR)}R، ولم تبلغ T1، والأساسية ما زالت متحقّقة بلا تحذير، والسعر حديث. التوافق المرتفع وحده لا يكفي.</p>
@@ -8728,6 +8940,7 @@ function renderTrades(book) {
     : T.life ? `<div class="empty">لا فرصة جديدة في هذه اللقطة — الفرصة تتولّد من إشارةٍ جديدة على شمعةٍ مغلقة، وهذه نتيجة صحيحة لا عطل${cls ? (valid.length ? `. ${bd(valid.length)} فرصة سابقة ما زالت صالحة للدخول أدناه` : act.length ? ". الصفقات القائمة أدناه" : "") : act.length ? ". الصفقات القائمة أدناه" : ""}</div>`
     : `<div class="empty">لا فرصة في هذه اللقطة — تتولّد الفرصة حين يكون عبورُ قمة/قاع أمس قائماً أو المتوسطات مرتّبة، وهذه نتيجة صحيحة لا عطل</div>`) + lowHtml
     + (T.life ? v3ActiveHtml(follow, null) + v3EndedHtml(ended) : "");
+  if (!el.dataset.drawn) { el.dataset.drawn = "1"; el.classList.add("enter"); setTimeout(() => el.classList.remove("enter"), 1600); }
   if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة${T.life ? " جديدة" : ""}${low.length ? ` + ${bd(low.length)} أقل سيولة` : ""}${T.life ? ` · ${bd(act.length)} صفقة قائمة` : ""} في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُني التحليل ${esc(stamp(Date.parse(T.generatedAt)))} (${ago(Date.parse(T.generatedAt))})`;
 }
 
@@ -8747,9 +8960,29 @@ function v3TabNow(nNew, nValid) {
   if (!v3TabAuto) v3TabAuto = nNew ? "new" : "valid";
   return v3TabAuto;
 }
+/* أيقونات التبويبات — ومضةٌ للجديد، وهدفٌ للصالح للدخول، وساعةٌ للمتابعة */
+const V3_TABS = ["new", "valid", "follow"];
+const V3_TABI = {
+  new: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 L9.4 6.6 L14.5 8 L9.4 9.4 L8 14.5 L6.6 9.4 L1.5 8 L6.6 6.6 Z" fill="currentColor"/></svg>`,
+  valid: `<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.2 8.2 L7.2 10.1 L10.9 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  follow: `<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6 V8.3 L10.4 9.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+};
+/* شريطُ رأس الكريبتو: رسمٌ زخرفيّ (مدارٌ حول عملةٍ سداسية — **زخرفةٌ معلنة لا بيانات**) واتساعُ
+   الكون الحقيقيّ من ملخّص الكريبتو: كم عملةً صاعدة وكم هابطة في 24 ساعة */
+function v3Banner() {
+  const el = document.getElementById("cBanner"); if (!el) return;
+  const S = mtSum("crypto"), rows = (S && S.rows) || [];
+  const up = rows.filter((r) => r.chg > 0).length, dn = rows.filter((r) => r.chg < 0).length, n = rows.length;
+  el.querySelector(".bn-data").innerHTML = n ? `<div class="bn-n"><b class="num">${bd(n)}</b> عملة في الكون</div>
+    <div class="hb-bar"><i class="u" style="width:${(up / n * 100).toFixed(1)}%"></i><i class="f" style="width:${((n - up - dn) / n * 100).toFixed(1)}%"></i><i class="d" style="width:${(dn / n * 100).toFixed(1)}%"></i></div>
+    <div class="hb-k"><span class="up">${bd(up)} صاعدة</span><span class="dn">${bd(dn)} هابطة · 24س</span></div>` : "";
+}
 function v3TabSet(k) {
   v3TabPick = k;
   const root = document.getElementById("cScanList"); if (!root) return;
+  const bar = root.querySelector(".v3tabs"); if (bar) bar.style.setProperty("--t", V3_TABS.indexOf(k));
+  const pn = root.querySelector(`.v3pane[data-pane="${k}"]`);
+  if (pn) { pn.classList.remove("enter"); void pn.offsetWidth; pn.classList.add("enter"); }
   root.querySelectorAll(".v3tabs [data-v3tab]").forEach((b) => { const on = b.dataset.v3tab === k; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
   root.querySelectorAll(".v3pane").forEach((p) => { p.hidden = p.dataset.pane !== k; });
   const tabs = root.querySelector(".v3tabs");
@@ -9850,6 +10083,7 @@ function go(view) {
   if (was !== bk) { setTimeout(() => refresh(bk === "us"), 0); renderTop(); }
   state.view = view;
   $$("section[data-view]").forEach(s => s.classList.toggle("on", s.dataset.view === view));
+  if (view === "now") setTimeout(() => heroScene.resize(), 30);
   const isDetail = view === "detail";
   $("#btnBack").style.display = isDetail ? "" : "none";
   if (!isDetail) { state.sym = null; $("#tbTitle").textContent = "مرصد الأسهم الأمريكية"; }
