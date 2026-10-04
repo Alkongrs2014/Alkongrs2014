@@ -1475,6 +1475,105 @@ section[data-view="crypto"] .sticky-hd{background:linear-gradient(180deg,rgba(12
 }
 
 /* ======================================================================
+   «المرصد الضوئي» — جولة التحسين (2026-10-05): بطاقةٌ أقصر، رصيفٌ أخفض، هويّةٌ أخصّ
+   ====================================================================== */
+
+/* ---------- الهويّة: خطوطُ الطول — قبّةُ مرصدٍ فوق كلّ صفحة ----------
+   أقواسٌ متّحدة المركز وخطوطُ طولٍ تتلاشى من أعلى الصفحة: صدى اسم «المرصد» بدل شبكة النقاط
+   الشائعة في لوحات البيانات. زخرفةٌ ثابتة بلا حركة ولا بيانات. */
+body::after{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='760' viewBox='0 0 1200 760' fill='none' stroke='%23A0C8FF'%3E%3Cg stroke-opacity='.09'%3E%3Cellipse cx='600' cy='-40' rx='260' ry='150'/%3E%3Cellipse cx='600' cy='-40' rx='420' ry='260'/%3E%3Cellipse cx='600' cy='-40' rx='600' ry='390'/%3E%3Cellipse cx='600' cy='-40' rx='800' ry='540'/%3E%3C/g%3E%3Cg stroke-opacity='.06'%3E%3Cpath d='M600 -40 L80 760M600 -40 L330 760M600 -40 L600 760M600 -40 L870 760M600 -40 L1120 760'/%3E%3C/g%3E%3Cg fill='%237CC8FF' stroke='none' fill-opacity='.35'%3E%3Ccircle cx='340' cy='176' r='1.6'/%3E%3Ccircle cx='905' cy='120' r='1.4'/%3E%3Ccircle cx='600' cy='350' r='1.8'/%3E%3Ccircle cx='190' cy='330' r='1.2'/%3E%3C/g%3E%3C/svg%3E");
+  background-size:1200px auto;background-position:top center;background-repeat:no-repeat;
+  mask-image:linear-gradient(180deg,#000 0%,transparent 70%);-webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 70%)}
+/* علامةُ القسم وجهٌ ماسيّ مضيء — نفس وجه الأيقونات والشعار */
+.card h2::before{width:8px;height:8px;border-radius:2px;transform:rotate(45deg);margin-inline-end:2px;
+  background:var(--grad);box-shadow:0 0 10px rgba(124,200,255,.55)}
+#cardPulse > h2::before{height:7px;width:7px}
+/* «الفرص» تحمل عدسةً زخرفية في زاويتها — كما يحمل الكريبتو مداره */
+section[data-view="screen"] > .card:first-of-type{
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220' fill='none' stroke='%237CC8FF'%3E%3Cpath d='M110 18 190 64v92l-80 46-80-46V64Z' stroke-opacity='.16'/%3E%3Cpath d='M110 54 159 82v56l-49 28-49-28V82Z' stroke-opacity='.12'/%3E%3Ccircle cx='110' cy='110' r='18' stroke-opacity='.18'/%3E%3Cpath d='M110 0v40M110 180v40M0 110h40M180 110h40' stroke-opacity='.1'/%3E%3C/svg%3E") no-repeat left -60px top -60px/240px,var(--glass)}
+.mono{font-family:var(--fd);font-weight:600;letter-spacing:.2px}
+
+/* ---------- الجوال: رصيفٌ أخفض لا يغطّي، وترويسةٌ لا تقصّ ---------- */
+@media (max-width:1079px){
+  :root{--nav:58px}
+  body{padding-bottom:calc(var(--nav) + 24px + env(safe-area-inset-bottom))}
+  .tabbar{bottom:calc(6px + env(safe-area-inset-bottom));left:12px;right:12px;border-radius:20px}
+  .tabbar button{gap:3px;font-size:10px;padding-top:6px}
+  .tabbar .ti{width:21px;height:21px}
+  /* المؤشّر وجهٌ ماسيّ تحت الأيقونة، والوجهُ داخل الأيقونة يضيء كهرمانياً */
+  .tabbar button.on{--fx:var(--amber)}
+  .tabbar button.on::after{top:auto;bottom:5px;width:5px;height:5px;margin:0;border-radius:1px;transform:rotate(45deg);
+    background:var(--acc);box-shadow:0 0 8px rgba(124,200,255,.9)}
+  .tabbar button.on .ti{animation:pop .5s var(--spring)}
+  .tb-sub{flex-wrap:wrap;white-space:normal;row-gap:3px;overflow:visible;mask-image:none;-webkit-mask-image:none;line-height:1.45}
+  .tb-title{font-size:15.5px}
+}
+@keyframes pop{0%{transform:scale(.8)}60%{transform:scale(1.12) translateY(-1px)}100%{transform:translateY(-1px)}}
+.qi .ti{--fx:#FFE1A3}
+
+/* ---------- الواجهة الرئيسية: سطرٌ واحد تحت الحكم ---------- */
+#cardPulse .verdict-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* أبرز الفرص في الرئيسية: سطرُ الخطّة يلتفّ ولا يُقصّ — السعر لا يُختصر بنقاط */
+.oppm .s{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.5}
+.oppm .q b{font-family:var(--fd)}
+
+/* ---------- الكريبتو: الأعداد الثلاثة بوسومها، والتوقيت ---------- */
+.bn-n{white-space:nowrap}
+.bn-at{font-size:10px;color:var(--tx3);margin-top:4px}
+.sec-banner .hb-k{gap:10px}
+
+/* ======================================================================
+   بطاقة الفرصة المختصرة — الأساسيّ ظاهر، والثانويّ يُفتح في مكانه
+   ====================================================================== */
+.srow.opp{contain-intrinsic-size:auto 320px;margin-bottom:12px}
+.opp-hd{padding:13px 14px 4px;gap:10px}
+.srow.opp .mono{width:38px;height:38px;font-size:12px}
+.srow.opp .id .t{font-size:15.5px}
+.opp-core{padding:6px 14px 0;gap:8px 10px}
+.v3ring{width:46px;height:46px}
+.v3q b{font-size:22px}
+.v3q i{font-size:10px;margin-top:2px}
+.v3q.sm b{font-size:15px}
+.opp-mkt .spark{width:84px;height:26px}
+.v3lad{padding:17px 22px 15px}
+.v3lad .lm em{font-size:8.5px}
+.v3plan{gap:5px;padding:0 14px 10px}
+.v3plan > span{flex:1 1 calc(25% - 5px);min-width:68px;padding:6px 8px;border-radius:10px;gap:1px}
+.v3plan .num{font-size:13px;letter-spacing:-.4px}
+.v3plan .k{font-size:9.5px}
+.v3plan small.k{font-size:8.5px;opacity:.85;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
+.v3plan > span{white-space:normal}
+.v3plan .num{white-space:nowrap}
+.opp-key{padding:0 14px 8px;position:relative;z-index:2}
+.opp-key > span{display:inline-flex;flex-wrap:wrap;gap:4px;font-size:11px;font-weight:500;color:var(--acc);
+  background:rgba(124,200,255,.1);border:1px solid rgba(124,200,255,.28);border-radius:10px;padding:5px 10px;line-height:1.5}
+.opp-key .num{font-weight:600}
+.v3warn{margin:0 14px 8px;padding:6px 10px;font-size:11.5px}
+.opp-act{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 14px 12px;position:relative;z-index:2}
+.opp-tog{display:inline-flex;align-items:center;gap:5px;background:rgba(160,190,255,.06);border:1px solid var(--hair);
+  color:var(--tx2);font:inherit;font-family:var(--fd);font-size:12px;font-weight:500;border-radius:99px;padding:7px 13px;cursor:pointer;
+  transition:background var(--d1),color var(--d1)}
+.opp-tog svg{width:12px;height:12px;transition:transform .4s var(--spring)}
+.xp .opp-tog{color:var(--tx);background:rgba(124,200,255,.12);border-color:rgba(124,200,255,.3)}
+.xp .opp-tog svg{transform:rotate(180deg)}
+.opp-act .v3mt{margin:0;padding:0}
+.opp-act .v3mt .btn{width:auto;padding:7px 14px;font-size:12px;border-radius:99px}
+/* انفتاحٌ بارتفاعٍ طبيعيّ (0fr → 1fr) بلا قياسٍ في الشيفرة */
+.opp-sec{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease);position:relative;z-index:2}
+.opp-sec > .in{overflow:hidden;min-height:0;opacity:0;transform:translateY(-4px);transition:opacity .3s var(--ease),transform .4s var(--ease)}
+.srow.opp.xp .opp-sec{grid-template-rows:1fr}
+.srow.opp.xp .opp-sec > .in{opacity:1;transform:none}
+.opp-sec .v3sc{padding:10px 14px 8px;border-top:1px solid var(--hair)}
+.opp-sec .v3tf{margin:0 14px 8px}
+.opp-sec .opp-ft{background:none;border-top:0;padding:2px 14px 14px}
+.srow.opp.xp{border-color:rgba(124,200,255,.25)}
+
+/* ---------- الحركة: انتقالُ الأقسام ---------- */
+section[data-view].on{animation:viewIn .42s var(--ease)}
+@keyframes viewIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ======================================================================
    تفاعل المؤشّر — سطح المكتب وحده. على اللمس لا «تحويم»، وقواعدُ
    `:hover` هناك تعلق بعد النقر فتبدو البطاقة مختارةً وهي ليست كذلك.
    ====================================================================== */
@@ -1823,7 +1922,7 @@ section[data-view="crypto"] .sticky-hd{background:linear-gradient(180deg,rgba(12
       </div>
     </div>
     <div class="qa" id="quickActions">
-      <button data-qa="screen"><span class="qi"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg></span>الفرص</button>
+      <button data-qa="screen"><span class="qi"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-screen"/></svg></span>الفرص</button>
       <button data-qa="crypto"><span class="qi cr"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-coin"/></svg></span>الكريبتو</button>
       <button data-qa="list"><span class="qi st"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg></span>الأسهم</button>
       <button data-qa="contracts"><span class="qi op"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-opt"/></svg></span>العقود</button>
@@ -2889,13 +2988,9 @@ section[data-view="crypto"] .sticky-hd{background:linear-gradient(180deg,rgba(12
     <path d="m12 4 2.5 5.1 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8L12 4Z"/></g>
   <g id="i-warn" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 4.5 2.8 20h18.4L12 4.5ZM12 10v4.2M12 17.2h.01"/></g>
-  <g id="i-now" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M3 12h3.5l2-5 3 10 2.5-7 1.8 4H21"/></g>
-  <g id="i-list" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-    <path d="M4 7h16M4 12h16M4 17h10"/></g>
-  <g id="i-screen" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-    <circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.6"/>
-    <path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></g>
+  <g id="i-now" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 18.5h17"/><path d="M6 18.5a6 6 0 0 1 12 0"/><path d="M12 12.5 15.2 7.2"/><path d="M17.2 2.6999999999999997L19.099999999999998 4.6L17.2 6.5L15.299999999999999 4.6Z" style="fill:var(--fx,currentColor)" stroke="none"/></g>
+  <g id="i-list" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19.5v-6M10 19.5V9.5M15 19.5v-4M20 19.5V7.5"/><path d="M3.5 19.5h18"/><path d="M20 2.5L21.7 4.2L20 5.9L18.3 4.2Z" style="fill:var(--fx,currentColor)" stroke="none"/></g>
+  <g id="i-screen" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19.6 7.6v8.8L12 20.8 4.4 16.4V7.6Z"/><path d="M12 7.6v2.2M12 14.2v2.2M7.6 12h2.2M14.2 12h2.2"/><path d="M12 10.3L13.7 12L12 13.7L10.3 12Z" style="fill:var(--fx,currentColor)" stroke="none"/></g>
   <g id="i-analysis" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <path d="M4.5 20V9.5M9.8 20V4.5M15.1 20v-7M20.4 20v-11"/></g>
   <g id="i-log" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -2906,15 +3001,11 @@ section[data-view="crypto"] .sticky-hd{background:linear-gradient(180deg,rgba(12
     <path d="M7 9h6.5M7 12.5h6.5M7 16h4"/></g>
   <!-- توجّه السوق: بوصلةٌ لا سهمٌ صاعد — القسم يقيس الميل بجهتيه،
        وأيقونةٌ صاعدة تُوحي بأنه يبحث عن الصعود وحده -->
-  <g id="i-mdir" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="8.5"/><path d="m15.2 8.8-2 5.4-5.4 2 2-5.4 5.4-2Z"/></g>
+  <g id="i-mdir" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 3.4v1.8M12 18.8v1.8M3.4 12h1.8M18.8 12h1.8"/><path d="M15.4 8.6 13.1 13.1 8.6 15.4 10.9 10.9Z" style="fill:var(--fx,currentColor)" stroke="none"/></g>
   <!-- أيقونات الهيكل الجديد: «المزيد» والبحث والهدف والحقيبة. نفس
        القواعد — عرض ‎1.6‎ وشبكة ‎24‎ — كي تُقرأ مجموعةً واحدة لا مجموعةَ
        قراراتٍ متفرّقة. -->
-  <g id="i-more" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-    <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/>
-    <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
-    <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></g>
+  <g id="i-more" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10L7 12L5 14L3 12Z" style="fill:var(--fx,currentColor)" stroke="none"/><path d="M12 10L14 12L12 14L10 12Z" style="fill:var(--fx,currentColor)" stroke="none"/><path d="M19 10L21 12L19 14L17 12Z" style="fill:var(--fx,currentColor)" stroke="none"/></g>
   <g id="i-search" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
     <circle cx="11" cy="11" r="6.6"/><path d="m16 16 4.2 4.2"/></g>
   <g id="i-target" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
@@ -2925,13 +3016,11 @@ section[data-view="crypto"] .sticky-hd{background:linear-gradient(180deg,rgba(12
   <g id="i-bell" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <path d="M6.6 10a5.4 5.4 0 1 1 10.8 0c0 4 1.6 5.4 1.6 5.4H5s1.6-1.4 1.6-5.4Z"/>
     <path d="M10.3 18.6a2 2 0 0 0 3.4 0"/></g>
-  <g id="i-coin" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="8.4"/><path d="M9.6 8h3.6a2 2 0 0 1 0 4H9.6h4a2 2 0 0 1 0 4H9.6ZM11 6.4V8M11 16v1.6M13 6.4V8M13 16v1.6"/></g>
+  <g id="i-coin" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8 20 7.4v9.2L12 21.2 4 16.6V7.4Z"/><path d="M12 7.2 16.2 9.6v4.8L12 16.8 7.8 14.4V9.6Z"/><path d="M12 10.5L13.5 12L12 13.5L10.5 12Z" style="fill:var(--fx,currentColor)" stroke="none"/></g>
   <g id="i-info" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="8.4"/><path d="M12 11.2v5M12 7.9h.01"/></g>
   <!-- العقود: منحنى عائد خيارٍ (ثابتٌ ثم صاعد) فوق محور -->
-  <g id="i-opt" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M3.5 19.5h17M4 15.5h7l8-9"/><path d="M15.5 6.5H19v3.5"/></g>
+  <g id="i-opt" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 19h17"/><path d="M4 15.5h7.2L18.5 6.5"/><path d="M11.2 13.6L13.1 15.5L11.2 17.4L9.299999999999999 15.5Z" style="fill:var(--fx,currentColor)" stroke="none"/><path d="M18.5 6.5h-3.2M18.5 6.5v3.2"/></g>
 </defs></svg>
 <nav class="tabbar" id="tabbar" role="tablist" aria-label="أقسام التطبيق">
   <div class="side-brand">
@@ -3707,21 +3796,23 @@ function renderTopOpp() {
 /* =======================================================================
    المشهد الرئيسي — حقلُ السوق ثلاثيّ الأبعاد (النسخة الرابعة، 2026-10-05).
 
-   **بياناتٌ لا زخرفة**: كلُّ عمودٍ رمزٌ من ملخّص الكون — ارتفاعُه |تغيّر اليوم|، ولونُه
-   جهتُه، وقاعدتُه جذرُ القيمة السوقية (الجذر لا القيمة: أبل تساوي عشرات الشركات). وأكبرُ
-   ثلاث حركاتٍ تحمل رمزها. لا رقم يُختلق: رمزٌ بلا تغيّرٍ معروف يُرسم قاعدةً مسطّحة.
+   **بياناتٌ لا زخرفة**: كلُّ منشورٍ رمزٌ من ملخّص الكون — ارتفاعُه √|تغيّر اليوم| (الجذر كي لا
+   تبتلع حركةٌ واحدة المدى)، ولونُه جهتُه، وعرضُه جذرُ القيمة السوقية. وأكبرُ ثلاث حركاتٍ تحمل
+   رمزها بخيطٍ إلى قمّتها. رمزٌ بلا تغيّرٍ معروف قاعدةٌ مسطّحة لا رقمٌ مختلَق.
 
-   الحركة: دورانٌ بطيء للكاميرا ونموُّ الأعمدة عند وصول بياناتٍ جديدة. تتوقّف حين تختفي
-   الصفحة أو يخرج المشهد من الشاشة أو تُغادَر «الرئيسية»، ومع «تقليل الحركة» يُرسم إطارٌ
-   واحد ثابت. Canvas ثنائيّ الأبعاد بإسقاطٍ يدويّ — بلا مكتبة: ‎50‎ عموداً بخمسة أوجه
-   لكلٍّ أخفُّ من أيّ محرّكٍ ثلاثيّ.
+   الخامة: زجاجٌ ملوّن يضيء من قمّته (تدرّجٌ رأسيّ على الأوجه)، وحافّةٌ أماميّة لامعة، وانعكاسٌ
+   خافت على أرضيةٍ لامعة، وضبابُ عمقٍ يخفت به البعيد. Canvas ثنائيّ بإسقاطٍ يدويّ، بلا مكتبة،
+   و‎30‎ إطاراً في الثانية — يتوقّف حين تختفي الصفحة أو المشهد أو تُغادَر «الرئيسية»، ومع
+   «تقليل الحركة» يُرسم إطارٌ واحد ثابت.
    ======================================================================= */
 const heroScene = (() => {
-  let cv = null, g = null, W = 0, H = 0, dpr = 1, bars = [], raf = 0, t0 = 0, grow0 = 0, seen = true;
+  let cv = null, g = null, W = 0, H = 0, dpr = 1, bars = [], raf = 0, t0 = 0, grow0 = 0, seen = true, last = 0;
   const RM = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
   const COLS = 10;
-  const shade = (rgb, k) => `rgb(${rgb.map((c) => Math.round(Math.min(255, c * k))).join(",")})`;
-  const UP = [46, 229, 157], DN = [255, 90, 110], FLAT = [110, 130, 165];
+  // [قمّةٌ مضيئة, قاعدةٌ معتمة] لكلّ جهة — زجاجٌ ملوّن لا بلاستيك
+  const PAL = { up: [[124, 247, 204], [6, 64, 50]], dn: [[255, 143, 160], [78, 18, 32]], flat: [[150, 168, 200], [24, 34, 56]] };
+  const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 
   function size() {
     if (!cv) return;
@@ -3743,86 +3834,119 @@ const heroScene = (() => {
       return {
         s: String(r.s).replace(/-USD$/, ""), chg: c,
         x: (i % COLS) - (COLS - 1) / 2, z: Math.floor(i / COLS) - (rowsN - 1) / 2,
-        h: c === null ? 0.02 : Math.max(0.04, Math.abs(c) / mx),
-        w: 0.34 + 0.28 * (mcs[i] / mcMax),
-        col: c === null || c === 0 ? FLAT : c > 0 ? UP : DN,
+        h: c === null ? 0.015 : 0.05 + 0.95 * Math.sqrt(Math.abs(c) / mx),
+        w: 0.3 + 0.2 * (mcs[i] / mcMax),
+        pal: c === null || c === 0 ? PAL.flat : c > 0 ? PAL.up : PAL.dn,
       };
     });
-    const top = rs.map((r, i) => [Math.abs(Number(r.chg)) || 0, i]).sort((a, b) => b[0] - a[0]).slice(0, 3).map((x) => x[1]);
-    top.forEach((i) => { bars[i].lbl = true; });
+    rs.map((r, i) => [Math.abs(Number(r.chg)) || 0, i]).sort((a, b) => b[0] - a[0]).slice(0, 3).forEach(([, i]) => { bars[i].lbl = true; });
     grow0 = performance.now();
     kick();
   }
   function proj(x, y, z, yaw, S, cx, cy) {
     const c = Math.cos(yaw), s = Math.sin(yaw);
     const X = x * c - z * s, Z = x * s + z * c;
-    return [cx + (X - Z) * 0.866 * S, cy + (X + Z) * 0.5 * S - y * S, X + Z];
+    return [cx + (X - Z) * 0.866 * S, cy + (X + Z) * 0.42 * S - y * S, X + Z];
   }
+  const area = (a, b, c, d) => ((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) + ((c[0] - a[0]) * (d[1] - a[1]) - (d[0] - a[0]) * (c[1] - a[1]));
+  function quad(p) { g.beginPath(); g.moveTo(p[0][0], p[0][1]); for (let i = 1; i < p.length; i++) g.lineTo(p[i][0], p[i][1]); g.closePath(); }
+
   function frame(now) {
     raf = 0;
     if (!cv || !bars.length) return;
     const still = RM.matches;
-    const t = still ? 0 : (now - t0);
-    const yaw = -0.62 + (still ? 0 : Math.sin(t / 9000) * 0.22);
-    const grow = still ? 1 : Math.min(1, (now - grow0) / 1100);
-    const ease = 1 - Math.pow(1 - grow, 3);
-    const S = Math.min(W / 13.2, H / 6.2), cx = W * 0.5, cy = H * 0.6, HY = 3.1;
+    const live = !still && seen && !document.hidden && state.view === "now";
+    if (live && now - last < 32) { raf = requestAnimationFrame(frame); return; }
+    last = now;
+    const t = still ? 0 : now - t0;
+    const yaw = -0.6 + (still ? 0 : Math.sin(t / 11000) * 0.2);
+    const ease = still ? 1 : 1 - Math.pow(1 - Math.min(1, (now - grow0) / 1300), 3);
+    const S = Math.min(W / 12.6, H / 5.4), cx = W * 0.5, cy = H * 0.66, HY = 3.4;
     g.clearRect(0, 0, W, H);
-    // أرضيةٌ شبكية تتلاشى نحو الحوافّ — سطحٌ يقف عليه الحقل
-    g.lineWidth = 1;
+
+    // أرضيةٌ لامعة: بقعةُ ضوءٍ باردة تحت الحقل، وشبكةٌ رفيعة تتلاشى
+    const pool = g.createRadialGradient(cx, cy, 4, cx, cy, W * 0.55);
+    pool.addColorStop(0, "rgba(79,141,247,.20)"); pool.addColorStop(.55, "rgba(79,141,247,.05)"); pool.addColorStop(1, "rgba(79,141,247,0)");
+    g.fillStyle = pool; g.beginPath(); g.ellipse(cx, cy, W * 0.6, H * 0.3, 0, 0, Math.PI * 2); g.fill();
+    g.lineWidth = 0.7;
     for (let k = -6; k <= 6; k++) {
-      const a1 = proj(k, 0, -4, yaw, S, cx, cy), a2 = proj(k, 0, 4, yaw, S, cx, cy);
-      const b1 = proj(-6, 0, k * 0.66, yaw, S, cx, cy), b2 = proj(6, 0, k * 0.66, yaw, S, cx, cy);
-      const al = 0.075 * (1 - Math.abs(k) / 7);
-      g.strokeStyle = `rgba(124,200,255,${al})`;
+      const a1 = proj(k, 0, -3.6, yaw, S, cx, cy), a2 = proj(k, 0, 3.6, yaw, S, cx, cy);
+      const b1 = proj(-6, 0, k * 0.6, yaw, S, cx, cy), b2 = proj(6, 0, k * 0.6, yaw, S, cx, cy);
+      g.strokeStyle = `rgba(160,200,255,${0.06 * (1 - Math.abs(k) / 7)})`;
       g.beginPath(); g.moveTo(a1[0], a1[1]); g.lineTo(a2[0], a2[1]); g.moveTo(b1[0], b1[1]); g.lineTo(b2[0], b2[1]); g.stroke();
     }
-    const items = bars.map((b) => {
-      const d = proj(b.x, 0, b.z, yaw, S, cx, cy)[2];
-      return { b, d };
-    }).sort((p, q) => p.d - q.d);
-    const labels = [];
-    for (const { b } of items) {
+
+    const geo = bars.map((b) => {
       const hw = b.w / 2, y = b.h * HY * ease;
       const P = (dx, yy, dz) => proj(b.x + dx, yy, b.z + dz, yaw, S, cx, cy);
       const bot = [P(-hw, 0, -hw), P(hw, 0, -hw), P(hw, 0, hw), P(-hw, 0, hw)];
       const top = [P(-hw, y, -hw), P(hw, y, -hw), P(hw, y, hw), P(-hw, y, hw)];
-      // ظلٌّ ناعم على الأرضية
-      g.fillStyle = "rgba(0,0,0,.28)";
-      g.beginPath(); bot.forEach((p, i) => (i ? g.lineTo(p[0] + 3, p[1] + 2) : g.moveTo(p[0] + 3, p[1] + 2))); g.fill();
-      // الأوجه الجانبية مرتّبةً بعمقها، ثم الوجه الأعلى — إضاءةٌ من الأعلى‑اليمين
-      const faces = [[0, 1], [1, 2], [2, 3], [3, 0]].map(([i, j], k) => ({ i, j, k, d: (bot[i][2] + bot[j][2]) / 2 }))
-        .sort((p, q) => p.d - q.d);
-      for (const fc of faces) {
-        const lit = [0.55, 0.85, 0.7, 0.45][(fc.k + 4) % 4];
-        g.fillStyle = shade(b.col, lit * 0.62);
-        g.beginPath(); g.moveTo(bot[fc.i][0], bot[fc.i][1]); g.lineTo(bot[fc.j][0], bot[fc.j][1]);
-        g.lineTo(top[fc.j][0], top[fc.j][1]); g.lineTo(top[fc.i][0], top[fc.i][1]); g.closePath(); g.fill();
-      }
-      g.fillStyle = shade(b.col, 1.08);
-      g.beginPath(); top.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.fill();
-      // حافّةٌ ضوئية على الوجه الأعلى — انعكاسٌ خفيف لا توهّج
-      g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 0.8; g.stroke();
-      if (b.lbl && b.chg !== null) {
-        const c = top.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]);
-        labels.push({ x: c[0], y: c[1] - 9, t: `${b.s} ${b.chg > 0 ? "+" : ""}${b.chg.toFixed(1)}%`, col: b.col });
+      const ref = [P(-hw, -y * 0.55, -hw), P(hw, -y * 0.55, -hw), P(hw, -y * 0.55, hw), P(-hw, -y * 0.55, hw)];
+      return { b, bot, top, ref, d: bot.reduce((a, p) => a + p[2], 0) / 4 };
+    }).sort((p, q) => p.d - q.d);
+    const dMin = geo[0].d, dMax = geo[geo.length - 1].d, dR = (dMax - dMin) || 1;
+
+    // الانعكاس أوّلاً — تحت الأرضية، يخفت نحو الأسفل
+    for (const o of geo) {
+      const [hi, lo] = o.b.pal, fog = 0.45 + 0.55 * (o.d - dMin) / dR;
+      for (const [i, j] of [[0, 1], [1, 2], [2, 3], [3, 0]]) {
+        const f = [o.bot[i], o.bot[j], o.ref[j], o.ref[i]];
+        if (area(o.bot[i], o.bot[j], o.top[j], o.top[i]) >= 0) continue;
+        const gr = g.createLinearGradient(0, o.bot[i][1], 0, o.ref[i][1]);
+        gr.addColorStop(0, rgba(mix(lo, hi, .5), 0.22 * fog)); gr.addColorStop(1, rgba(lo, 0));
+        g.fillStyle = gr; quad(f); g.fill();
       }
     }
-    g.font = "600 10px 'Readex Pro', system-ui, sans-serif"; g.textAlign = "center";
-    // الوسوم لا تتراكب: كلُّ وسمٍ يرتفع فوق ما سبقه إن تقاطعا
+    const labels = [];
+    for (const o of geo) {
+      const [hi, lo] = o.b.pal, fog = 0.5 + 0.5 * (o.d - dMin) / dR;
+      const yTop = Math.min(...o.top.map((p) => p[1])), yBot = Math.max(...o.bot.map((p) => p[1]));
+      // الأوجه المواجهة وحدها: تدرّجٌ رأسيّ من قاعدةٍ معتمة إلى قمّةٍ مضيئة، والجانبُ الأيمن أنصع
+      [[0, 1], [1, 2], [2, 3], [3, 0]].forEach(([i, j], k) => {
+        if (area(o.bot[i], o.bot[j], o.top[j], o.top[i]) >= 0) return;
+        const side = k % 2 ? 1 : 0.72;
+        const gr = g.createLinearGradient(0, yBot, 0, yTop);
+        gr.addColorStop(0, rgba(lo, 0.95));
+        gr.addColorStop(1, rgba(mix(lo, hi, 0.78 * side * fog), 0.95));
+        g.fillStyle = gr; quad([o.bot[i], o.bot[j], o.top[j], o.top[i]]); g.fill();
+      });
+      // الوجه الأعلى: ضوءٌ كامل وحافّةٌ بيضاء رفيعة
+      const tg = g.createLinearGradient(o.top[0][0], o.top[0][1], o.top[2][0], o.top[2][1]);
+      tg.addColorStop(0, rgba(mix(hi, [255, 255, 255], 0.35), fog)); tg.addColorStop(1, rgba(hi, 0.9 * fog));
+      g.fillStyle = tg; quad(o.top); g.fill();
+      g.strokeStyle = `rgba(255,255,255,${0.45 * fog})`; g.lineWidth = 0.7; g.stroke();
+      // الحافّة الأماميّة — خطُّ لمعانٍ رأسيّ يعطي الزجاجَ سُمكه
+      const fr = o.bot.reduce((a, p, i) => (p[1] > o.bot[a][1] ? i : a), 0);
+      const sg = g.createLinearGradient(0, o.bot[fr][1], 0, o.top[fr][1]);
+      sg.addColorStop(0, "rgba(255,255,255,0)"); sg.addColorStop(1, `rgba(255,255,255,${0.55 * fog})`);
+      g.strokeStyle = sg; g.lineWidth = 1; g.beginPath(); g.moveTo(o.bot[fr][0], o.bot[fr][1]); g.lineTo(o.top[fr][0], o.top[fr][1]); g.stroke();
+      if (o.b.lbl && o.b.chg !== null) {
+        const c = o.top.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]);
+        // هالةٌ فوق القمّة للحركات الكبرى وحدها — ضوءٌ يدلّ لا يزيّن
+        const halo = g.createRadialGradient(c[0], c[1], 0, c[0], c[1], 22);
+        halo.addColorStop(0, rgba(hi, 0.45)); halo.addColorStop(1, rgba(hi, 0));
+        g.fillStyle = halo; g.beginPath(); g.arc(c[0], c[1], 22, 0, Math.PI * 2); g.fill();
+        labels.push({ ax: c[0], ay: c[1], x: c[0], y: c[1] - 26, t: `${o.b.s}  ${o.b.chg > 0 ? "+" : ""}${o.b.chg.toFixed(1)}%`, col: hi });
+      }
+    }
+    g.font = "500 10px 'Readex Pro', system-ui, sans-serif"; g.textAlign = "center";
     const placed = [];
     labels.sort((a, b) => b.y - a.y);
     for (const L of labels) {
-      const w = g.measureText(L.t).width + 12;
-      for (let k = 0; k < 6 && placed.some((p) => Math.abs(p.x - L.x) < (p.w + w) / 2 + 4 && Math.abs(p.y - L.y) < 20); k++) L.y -= 20;
-      if (L.y < 16) L.y = 16;
+      const w = g.measureText(L.t).width + 16;
+      L.x = Math.max(w / 2 + 4, Math.min(W - w / 2 - 4, L.x));
+      for (let k = 0; k < 6 && placed.some((p) => Math.abs(p.x - L.x) < (p.w + w) / 2 + 4 && Math.abs(p.y - L.y) < 22); k++) L.y -= 22;
+      if (L.y < 14) L.y = 14;
       placed.push({ x: L.x, y: L.y, w });
-      g.fillStyle = "rgba(5,8,17,.78)"; g.strokeStyle = `rgba(${L.col.join(",")},.55)`; g.lineWidth = 1;
-      g.beginPath(); if (g.roundRect) g.roundRect(L.x - w / 2, L.y - 13, w, 17, 8.5); else g.rect(L.x - w / 2, L.y - 13, w, 17);
+      g.strokeStyle = rgba(L.col, 0.5); g.lineWidth = 0.8;
+      g.beginPath(); g.moveTo(L.ax, L.ay - 2); g.lineTo(L.x, L.y + 7); g.stroke();
+      g.fillStyle = "rgba(8,14,28,.82)"; g.strokeStyle = "rgba(200,225,255,.22)";
+      g.beginPath(); if (g.roundRect) g.roundRect(L.x - w / 2, L.y - 10, w, 18, 9); else g.rect(L.x - w / 2, L.y - 10, w, 18);
       g.fill(); g.stroke();
-      g.fillStyle = "#EEF3FB"; g.fillText(L.t, L.x, L.y - 1.5);
+      g.fillStyle = rgba(L.col, 1); g.beginPath(); g.arc(L.x - w / 2 + 8, L.y - 1, 2.2, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#EEF3FB"; g.fillText(L.t, L.x + 3, L.y + 2.6);
     }
-    if (!still && seen && !document.hidden && state.view === "now") raf = requestAnimationFrame(frame);
+    if (live) raf = requestAnimationFrame(frame);
   }
   function kick() {
     if (!cv) init();
@@ -3859,8 +3983,7 @@ function renderNow() {
   const scored = s.rows.filter(r => isFinite(r.score));
   const up = scored.filter(r => r.score > 15).length;
   const dn = scored.filter(r => r.score < -15).length;
-  $("#vSub").textContent =
-    `${up} سهماً بميل صاعد و${dn} بميل هابط من ${scored.length}`;
+  $("#vSub").textContent = `قراءة ${scored.length} سهماً على 4 فريمات`;
   /* اتساعُ القراءة الفنية — نفس العدّ أعلاه شريطاً بثلاثة أجزاء، والمشهدُ من نفس الملخّص */
   const flat = scored.length - up - dn, W3 = (n) => scored.length ? (n / scored.length * 100).toFixed(1) : 0;
   const hb = $("#heroBreadth");
@@ -8805,7 +8928,6 @@ function v3Card(t, i, kind, extra) {
     chips.push(`<span class="good">${T0 && T0.life ? "إشارةٌ جديدة في" : "لقطة"} ${esc(v3Hour(T0))}${t.evAt ? ` — على إغلاق شمعة ${esc(clock(t.evAt * 1000))}` : ""}</span>`);
     chips.push(`<span class="cold">الأساس: ${esc(baseTxt)}${t.baseTfs && t.baseTfs.length > 1 ? ` (ومعه ${esc(t.baseTfs.filter(x => x !== t.baseTf).map(x => V3_TFL[x]).join("، "))})` : ""}</span>`);
   }
-  if (extra) chips.push(extra);
   const warns = v3Warnings(t);
   const warnHtml = warns.length ? `<div class="v3warn"><b>تحذير:</b> ${warns.map(esc).join(" · ")} — الصفقة باقية بخطتها الأصلية حتى الوقف أو آخر هدف أو انقضاء مدّتها.</div>` : "";
   const nowSc = kind === "active" && t.now && Number.isFinite(t.now.score)
@@ -8835,12 +8957,19 @@ function v3Card(t, i, kind, extra) {
       <span><span class="k">وقف</span> <b class="num">${money(t.stNow || t.st)}</b>${t.stNow && t.stNow !== t.st ? ` <small class="k">(الأصلي ${money(t.st)})</small>` : ""}</span>
       ${tg}
     </div>
-    <div class="v3sc">${v3Elements(t)}</div>
-    ${warnHtml}
-    ${kind === "active" ? "" : v3Frames(t)}
-    ${frNow ? v3Frames({ d: t.d }, frNow, "الاستراتيجيات حسب الفريم — الآن") : ""}
-    <div class="opp-ft">${chips.join("")}</div>
-    ${kind !== "closed" ? `<div class="v3mt"><button class="btn gray" type="button" data-mt="${esc(t.id)}">دخلت الصفقة</button></div>` : ""}
+    ${warnHtml}${extra ? `<div class="opp-key">${extra}</div>` : ""}
+    <div class="opp-act">
+      <button class="opp-tog" type="button" aria-expanded="false">التفاصيل<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.6 6 7.6 9 4.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      ${kind !== "closed" ? `<div class="v3mt"><button class="btn gray" type="button" data-mt="${esc(t.id)}">دخلت الصفقة</button></div>` : ""}
+    </div>
+    <!-- الثانويّ يُطوى ولا يُحذف: الاستراتيجيات بأوزانها والفريمات والتوقيت والأساس — في الشجرة دائماً
+         (أدوات الإثبات تقرأ .v3els .it) ويُفتح بانسيابٍ من «التفاصيل» -->
+    <div class="opp-sec"><div class="in">
+      <div class="v3sc">${v3Elements(t)}</div>
+      ${kind === "active" ? "" : v3Frames(t)}
+      ${frNow ? v3Frames({ d: t.d }, frNow, "الاستراتيجيات حسب الفريم — الآن") : ""}
+      <div class="opp-ft">${chips.join("")}</div>
+    </div></div>
   </div>`;
 }
 
@@ -8969,13 +9098,31 @@ const V3_TABI = {
 };
 /* شريطُ رأس الكريبتو: رسمٌ زخرفيّ (مدارٌ حول عملةٍ سداسية — **زخرفةٌ معلنة لا بيانات**) واتساعُ
    الكون الحقيقيّ من ملخّص الكريبتو: كم عملةً صاعدة وكم هابطة في 24 ساعة */
+/* عدٌّ تصاعديّ قصير للأرقام الرئيسية عند ظهورها أوّل مرّة — الرقمُ النهائيّ مكتوبٌ في الشجرة من البداية
+   (القارئ الآليّ وتقليل الحركة يريانه كما هو)، والحركةُ عرضٌ فوقه لا تغيّره */
+function countUp(root) {
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  (root || document).querySelectorAll("[data-count]:not([data-counted])").forEach((el) => {
+    const to = Number(el.dataset.count); el.dataset.counted = "1";
+    if (!(to > 0)) return;
+    const t0 = performance.now(), D = 900;
+    const step = (now) => { const k = Math.min(1, (now - t0) / D), v = Math.round(to * (1 - Math.pow(1 - k, 3)));
+      el.textContent = bd(v).replace(/<[^>]+>/g, ""); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+}
 function v3Banner() {
   const el = document.getElementById("cBanner"); if (!el) return;
   const S = mtSum("crypto"), rows = (S && S.rows) || [];
-  const up = rows.filter((r) => r.chg > 0).length, dn = rows.filter((r) => r.chg < 0).length, n = rows.length;
-  el.querySelector(".bn-data").innerHTML = n ? `<div class="bn-n"><b class="num">${bd(n)}</b> عملة في الكون</div>
-    <div class="hb-bar"><i class="u" style="width:${(up / n * 100).toFixed(1)}%"></i><i class="f" style="width:${((n - up - dn) / n * 100).toFixed(1)}%"></i><i class="d" style="width:${(dn / n * 100).toFixed(1)}%"></i></div>
-    <div class="hb-k"><span class="up">${bd(up)} صاعدة</span><span class="dn">${bd(dn)} هابطة · 24س</span></div>` : "";
+  /* الأجزاء الثلاثة تُعرض كلُّها فيُطابق مجموعُها الإجمالي (صاعدة + ثابتة + هابطة = الكون) — كان
+     الثابتُ بلا وسم و«· 24س» بجانب الهابطة يُقرأ عدداً ثالثاً فبدا المجموع 401 من 393. والفترةُ في
+     العنوان، ومصدرُ الأعداد الأربعة ملخّصٌ واحد بلحظةٍ واحدة (`updated`). */
+  const up = rows.filter((r) => r.chg > 0).length, dn = rows.filter((r) => r.chg < 0).length, n = rows.length, fl = n - up - dn;
+  el.querySelector(".bn-data").innerHTML = n ? `<div class="bn-n"><b class="num" data-count="${n}">${bd(n)}</b> عملة · تغيّر 24 ساعة</div>
+    <div class="hb-bar"><i class="u" style="width:${(up / n * 100).toFixed(1)}%"></i><i class="f" style="width:${(fl / n * 100).toFixed(1)}%"></i><i class="d" style="width:${(dn / n * 100).toFixed(1)}%"></i></div>
+    <div class="hb-k"><span class="up">${bd(up)} صاعدة</span><span>${bd(fl)} ثابتة</span><span class="dn">${bd(dn)} هابطة</span></div>
+    <div class="bn-at">${S.updated ? "حتى " + esc(clock(S.updated)) : ""}</div>` : "";
+  if (n && !el.dataset.ok) { el.dataset.ok = "1"; countUp(el); }
 }
 function v3TabSet(k) {
   v3TabPick = k;
@@ -10539,6 +10686,10 @@ function boot() {
     if (f) { e.stopPropagation(); toggleFav(f.dataset.fav); return; }
     // كاشفٌ داخل بطاقة فرصة (حسب الفريم) يُفتح في مكانه ولا يفتح السهم
     if (e.target.closest(".v3tf")) return;
+    // «التفاصيل» في بطاقة الفرصة تفتح الثانويّ في مكانه ولا تفتح السهم
+    const og = e.target.closest(".opp-tog");
+    if (og) { const c = og.closest(".srow.opp"), on = c.classList.toggle("xp"); og.setAttribute("aria-expanded", on); return; }
+    if (e.target.closest(".opp-sec")) return;
     // «دخلت الصفقة» — تسجيلٌ في «صفقاتي» لا فتحُ السهم
     const mt = e.target.closest("[data-mt]");
     if (mt) { e.preventDefault(); mtAsk(mt.dataset.mt); return; }
