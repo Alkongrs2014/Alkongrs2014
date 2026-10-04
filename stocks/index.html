@@ -8391,8 +8391,9 @@ function v3EntryNow(t, stale) {
   const d = t.d, risk = (p - t.st) * d;
   if (!(risk > 0)) return no("بلغ السعر الوقف");
   if (!(t.atrD > 0) || risk > E3.MAX_RISK_ATR * t.atrD) return no("السعر تجاوز بوّابة المخاطرة (1×ATR)");
-  const ahead = (t.tg || []).filter((x) => (x.p - p) * d / risk >= E3.MIN_RR);
-  if (ahead.length < E3.MIN_TGTS) return no(`العائد أقل من ${E3.MIN_RR}R عند السعر الحالي`);
+  // المحرّك لا يُبقي هدفاً دون MIN_RR، فأوّلُ MIN_TGTS أهدافٍ أصلية (T1 أوّلها) كلٌّ ≥ MIN_RR عند السعر الحالي
+  const tg = (t.tg || []).slice(0, E3.MIN_TGTS);
+  if (tg.length < E3.MIN_TGTS || tg.some((x) => (x.p - p) * d / risk < E3.MIN_RR)) return no(`العائد إلى T1 أو T2 أقل من ${E3.MIN_RR}R عند السعر الحالي`);
   return { ok: true, why: "", p, risk, rr: ((t.tg[0].p - p) * d) / risk };
 }
 function v3ValidHtml(valid, stale) {
@@ -8401,8 +8402,8 @@ function v3ValidHtml(valid, stale) {
     : `<div class="empty">${stale ? "اللقطة متأخّرة — لا يُعرض شيءٌ كصالحٍ للدخول حتى تصل لقطةٌ حديثة" : "لا صفقة قائمة تستوفي شروط الدخول عند السعر الحالي"}</div>`;
   return `<div class="v3sect" id="v3valid"><div class="gh">فرصٌ سابقة ما زالت صالحة للدخول · ${bd(valid.length)}</div>
     <p class="v3note"><b>ليست توصياتٍ جديدة:</b> صدرت في لقطاتٍ سابقة بخطتها الأصلية (دخول ووقف وأهداف لا تتغيّر)، وما زالت
-      تستوفي شروط دخول المحرّك عند السعر الحالي: المخاطرة إلى الوقف ≤ ${bd(E3.MAX_RISK_ATR)}×ATR يومي، وهدفان أصليّان على الأقل
-      بعائدٍ ≥ ${bd(E3.MIN_RR)}R، ولم تبلغ T1، وما تحقّق من الأساسيتين عند الإصدار ما زال متحقّقاً بلا تحذير، والسعر حديث. التوافق المرتفع وحده لا يكفي.</p>
+      تستوفي شروط دخول المحرّك عند السعر الحالي: المخاطرة إلى الوقف ≤ ${bd(E3.MAX_RISK_ATR)}×ATR يومي، وT1 وT2 الأصليّان
+      كلٌّ بعائدٍ ≥ ${bd(E3.MIN_RR)}R، ولم تبلغ T1، وما تحقّق من الأساسيتين عند الإصدار ما زال متحقّقاً بلا تحذير، والسعر حديث. التوافق المرتفع وحده لا يكفي.</p>
     ${body}</div>`;
 }
 function v3ActiveHtml(act, why) {
