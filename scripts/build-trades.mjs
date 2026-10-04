@@ -18,6 +18,7 @@
    --check     فحصٌ ذاتي بلا شبكة
    ===================================================================== */
 import fs from "node:fs";
+import { renameRetry } from "./lib/rename-retry.mjs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { createRequire } from "node:module";
@@ -263,7 +264,7 @@ export function build({ now = Date.now(), out = OUT, barsDir, book, fresh = fals
 function writeAtomic(file, doc) {
   const tmp = path.join(path.dirname(file), "." + path.basename(file) + ".tmp");
   fs.writeFileSync(tmp, JSON.stringify(doc));
-  fs.renameSync(tmp, file);
+  renameRetry(tmp, file);                        // قفل ويندوز العابر (مهمّة النشر تنسخ الملفّ)
 }
 
 function selfCheck() {

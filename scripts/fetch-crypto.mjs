@@ -30,6 +30,7 @@
             node scripts/fetch-crypto.mjs --check
    ===================================================================== */
 import fs from "node:fs";
+import { renameRetry } from "./lib/rename-retry.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
@@ -134,7 +135,7 @@ function writeJSON(rel, obj) {
   fs.mkdirSync(path.dirname(p), { recursive: true });
   const tmp = p + ".tmp";
   fs.writeFileSync(tmp, JSON.stringify(obj));
-  fs.renameSync(tmp, p);                         // ذرّية: لا يُقرأ نصفُ ملفّ
+  renameRetry(tmp, p);                           // ذرّية: لا يُقرأ نصفُ ملفّ — وتصمد أمام قفل ويندوز العابر
   return fs.statSync(p).size;
 }
 const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
