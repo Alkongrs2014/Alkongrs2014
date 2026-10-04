@@ -39,8 +39,8 @@
    تُترك للتذكّر — وهي نفس مبدأ «حارسٌ يمرّ دون أن تُختبر حالتُه حارسٌ
    مفترَض لا محروس».
    ===================================================================== */
-const V = "webtrade-v65";
-const SHELL_SHA = "d65bcd47bb2f";     // يحسبها `check-ui` من ملفّات CORE
+const V = "webtrade-v66";
+const SHELL_SHA = "88e9b5a48228";     // يحسبها `check-ui` من ملفّات CORE
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";
@@ -55,7 +55,7 @@ const FONT = V + "-font";
    القديمة تُقدَّم ("قديمٌ ثم يُجدَّد") فلا يظهر الملف الجديد أبداً
    في الزيارة الأولى — وقع هذا فعلاً وأوهم أن السكربت لا يُحمَّل. */
 const CORE = ["./", "./index.html", "./config.js", "./score.js",
-              "./session.js",
+              "./session.js", "./hours.js",
               "./indicators.js", "./scans.js", "./plan.js", "./direction.js", "./evaluate.js",
   "./strategies.js",
   "./consensus.js",

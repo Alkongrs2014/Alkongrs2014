@@ -2468,6 +2468,18 @@ section[data-view].on{animation:viewIn .42s var(--ease)}
      الأسهم؛ وفرصة V3 على نفس الرمز والجهة تأكيدٌ إضافي لا شرط. الواجهة تقرأ
      contracts.json وcontracts-track.json ولا تحسب شيئاً. -->
 <section data-view="contracts">
+  <!-- الأدوات الخمس الأساسية (طلب المالك 2026-10-05): ظاهرةٌ دائماً بحالتها — ما يتوفّر من بياناتٍ حقيقية
+       وما لا يتوفّر يُقال، ولا توصية بلا بيانات أصلٍ وعقد. تقرأ core5.json (scripts/build-core5.mjs) -->
+  <div class="card" data-size="hero" id="cardCore5">
+    <div class="schead" style="margin-bottom:9px">
+      <h2 style="margin:0">المؤشرات وصناديقها — الأدوات الخمس</h2>
+      <span class="chip">SPX · SPY · QQQ · XSP · NDX</span>
+    </div>
+    <p class="v3note" id="c5State"></p>
+    <div id="c5List"><div class="skl" style="height:150px"></div></div>
+    <details class="plain" id="c5Hours"><summary>مواعيد التداول لكلّ أداة بتوقيت الرياض</summary><div id="c5HoursBody"></div></details>
+    <p class="srcline" id="c5Src"></p>
+  </div>
   <div class="card" data-size="hero">
     <div class="sticky-hd">
       <div class="schead" style="margin-bottom:9px">
@@ -2607,6 +2619,17 @@ section[data-view].on{animation:viewIn .42s var(--ease)}
       المحرّكان السابقان محفوظان أرشيفاً ولا يدخلان في هذه الفرص.</p>
       <div id="scanHist"></div>
     </details>
+  </div>
+
+  <!-- المؤشرات وصناديقها (طلب المالك 2026-10-05): SPY وQQQ بنفس المحرّك V3 وأوزانه في لقطةٍ منفصلة
+       (idx-trades.json) كي يبقى كون الأسهم الخمسين كما هو؛ وSPX وXSP وNDX ظاهرةٌ بحالتها -->
+  <div class="card" id="cardIdx">
+    <div class="schead" style="margin-bottom:9px">
+      <h2 style="margin:0">المؤشرات وصناديقها</h2>
+      <span class="chip">المحرّك V3 · نفس الأوزان</span>
+    </div>
+    <div id="idxList"><div class="skl" style="height:110px"></div></div>
+    <p class="srcline" id="idxCount"></p>
   </div>
 
   <div class="card">
@@ -3114,6 +3137,8 @@ section[data-view].on{animation:viewIn .42s var(--ease)}
 <script src="score.js"></script>
 <script src="indicators.js"></script>
 <script src="session.js"></script>
+<!-- ساعات تداول كلّ أداة (الآجلة · BOATS · خيارات المؤشرات GTH …) بنيويورك ⇒ الرياض تلقائياً — مشتركة مع الخادم -->
+<script src="hours.js"></script>
 <script src="scans.js"></script>
 <!-- نواة الخطة وطبقة التقييم: نسخة واحدة يقرأها المتصفح والخادم، فما
      يحفظه السجلّ هو ما رآه المستخدم بالضبط لا حساباً موازياً له -->
@@ -6248,6 +6273,9 @@ const LAZY = {
   /* قسم العقود — لقطةٌ كل 30 دقيقة وسجلُّ ما بُلغ فعلاً. لا تُقبل لقطةٌ أقدم */
   "contracts.json": (j) => { if (!CONTRACTS || !(j.hour < CONTRACTS.hour)) CONTRACTS = j; if (state.view === "contracts") renderContracts(); },
   "contracts-track.json": (j) => { CTRACK = j; if (state.view === "contracts") renderContracts(); },
+  /* الأدوات الخمس وفرص SPY/QQQ — لقطتان منفصلتان؛ لا تُقبل أقدم من المعروضة */
+  "core5.json": (j) => { if (j && Array.isArray(j.rows) && (!CORE5D || !(j.at < CORE5D.at))) CORE5D = j; if (state.view === "contracts") renderCore5(); },
+  "idx-trades.json": (j) => { if (j && Array.isArray(j.open) && (!IDXT || !(j.hour < IDXT.hour))) IDXT = j; if (state.view === "screen") renderIdx(); },
   /* لحظاتُ بدء الإشارات — المتصفح يحسب النتيجة بنفسه ولا يستطيع أن
      يعرف متى بدأت، فهذه المعلومة التاريخية لا بديل عنها. */
   /* لقطةُ الفرص — مصدرُ القائمة الوحيد. تُبنى على الخادم مرّةً لكل
@@ -6336,6 +6364,8 @@ const LAZY_TTL = {
   "options.json": 15 * 60e3,        // يُكتب كل 30 دقيقة
   "contracts.json": 60e3,           // لقطةٌ كل 30 دقيقة — دقيقةٌ تكفي لالتقاطها
   "contracts-track.json": 60e3,     // أوقات بلوغ الأهداف تُحدَّث كل 15 دقيقة
+  "core5.json": 60e3,               // كلَّ 15 دقيقة ليلاً ونهاراً مع دورة التأكيد
+  "idx-trades.json": 60e3,          // لقطة SPY/QQQ على حدود لقطات الأسهم
   "analytics.json": 3 * 3600e3,     // يومي
   "fundamentals.json": 3 * 3600e3,  // يومي
   "wide.json": 5 * 60e3,            // اليوميّ فيه يتجدّد بالتدوير
@@ -9562,6 +9592,117 @@ function renderContractTrack() {
     <p class="small">أوقات البلوغ من شموع الدقيقة للعقد (OPRA)، والمراكز متعدّدة الأرجل على إغلاقات الدقائق المشتركة. سجلٌّ لما وقع لا توقّعٌ لما سيقع.</p>`;
 }
 
+/* =======================================================================
+   الأدوات الخمس (core5.json — scripts/build-core5.mjs) وفرص SPY/QQQ (idx-trades.json —
+   scripts/build-idx.mjs). عرضٌ لما بناه الخادم: لا تسعير ولا قرار في المتصفح. والجداول الزمنية
+   من hours.js المشترك (نيويورك ⇒ الرياض صيفاً وشتاءً). ما لا مصدر له يُقال — لا رقمٌ بديل.
+   ======================================================================= */
+let CORE5D = null, IDXT = null;
+const C5_TYPE = { index: "مؤشر نقدي", etf: "صندوق ETF" };
+const C5_DATA = { live: "أسعار حيّة", stale: "الجلسة مفتوحة لكن لا عروض حديثة من المصدر", closed: "السوق مغلق — آخر عرض" };
+function c5Sess(o, what) {
+  if (!o) return "—";
+  if (o.open) return `${what} <b class="up">مفتوح</b> — ${esc(HRS.LABEL[o.k] || o.k)} حتى ${esc(ksaTime(o.until * 1000))}`;
+  return `${what} <b>مغلق</b>${o.next ? ` — يفتح ${esc(stamp(o.next.at * 1000))} (${esc(HRS.LABEL[o.next.k] || o.next.k)})` : ""}`;
+}
+function c5Ago(sec) { return sec == null ? "—" : sec < 90 ? `${bd(sec)} ث` : sec < 5400 ? `${bd(Math.round(sec / 60))} د` : sec < 172800 ? `${bd(Math.round(sec / 3600))} س` : `${bd(Math.round(sec / 86400))} يوم`; }
+function c5Card(r) {
+  const a = r.atm, rec = r.rec;
+  const px = r.px ? `<span>السعر <b class="num">${money(r.px.p)}</b> <small>(${esc(r.px.src === "BOATS" ? "التداول الليلي BOATS" : "SIP")} · ${esc(stamp(r.px.t * 1000))}${Number.isFinite(r.px.chg) ? ` · <span class="${r.px.chg > 0 ? "up" : r.px.chg < 0 ? "dn" : ""}"><bdi>${pct(r.px.chg)}</bdi></span> عن ${money(r.px.ref)}` : ""})</small></span>`
+    : `<span class="warnline">${esc(r.pxWhy || "لا سعر")}</span>`;
+  const atm = a ? `<div class="oleg"><b>${r.type === "index" ? "السترايك حيث يتقارب CALL وPUT" : "أقرب سترايك إلى السعر"}</b>
+      <bdi>${oNum(a.K, a.K % 1 ? 2 : 0)}</bdi> · ${esc(oMon(a.exp))}
+      <span class="oq">CALL عرض <bdi>${oNum(a.call.bid)}</bdi> · طلب <bdi>${oNum(a.call.ask)}</bdi></span>
+      <span class="oq">PUT عرض <bdi>${oNum(a.put.bid)}</bdi> · طلب <bdi>${oNum(a.put.ask)}</bdi></span>
+      <small>عمر العرض ${c5Ago(a.age)} · ${esc(C5_DATA[r.optData] || "")}</small></div>`
+    : `<div class="empty">لا عروض عقود من OPRA لهذه الأداة الآن</div>`;
+  const recHtml = rec ? `<div class="oplan">
+      <span><span class="k">الاتجاه</span> <b class="${rec.type === "call" ? "up" : "dn"}">${rec.type === "call" ? "CALL" : "PUT"}</b></span>
+      <span><span class="k">السترايك</span> <b class="num">${oNum(rec.K, rec.K % 1 ? 2 : 0)}</b></span>
+      <span><span class="k">الانتهاء</span> <b>${esc(oMon(rec.exp))}</b> <small>(${bd(rec.dte)} يوم)</small></span>
+      <span><span class="k">سعر العقد</span> <b class="num">${oNum(rec.bid)} / ${oNum(rec.ask)}</b> <small>عرض/طلب</small></span>
+      <span><span class="k">الدخول</span> <b class="num">${oNum(rec.entry)}</b></span>
+      <span><span class="k">وقف العقد</span> <b class="dn num">${oNum(rec.stop)}</b></span>
+      ${(rec.tg || []).map((x, i) => `<span><span class="k">T${i + 1}</span> <b class="num">${oNum(x)}</b>${rec.uT && rec.uT[i] != null ? ` <small>(الأصل ${money(rec.uT[i])})</small>` : ""}</span>`).join("")}
+      <span><span class="k">قوة التوصية</span> <b class="num">${oNum(rec.score)}</b></span>
+    </div>
+    <p class="small">الفرصة ${esc(stamp(rec.at * 1000))} ${TZ_NOTE} · عرض العقد ${rec.qt ? esc(stamp(rec.qt * 1000)) : "—"} · OI ${rec.oi == null ? "—" : bd(rec.oi)} · حجم ${bd(rec.vol || 0)} · سبريد ${Number.isFinite(rec.spr) ? oNum(rec.spr * 100, 1) + "%" : "—"}${rec.v3 ? ` · يتوافق مع V3 (${oNum(rec.v3.score, 0)}%)` : ""}${r.sameAs ? ` · <b>نفس حركة ${esc(r.sameAs)}</b> — ليست فرصةً مستقلّة` : ""}</p>`
+    : `<p class="v3note"><b>لا توصية:</b> ${esc(r.recWhy || "—")}</p>`;
+  const v3 = r.v3 ? `<span>فرصة V3 على ${esc(r.s)}: <b class="${r.v3.d > 0 ? "up" : "dn"}">${r.v3.d > 0 ? "صعود" : "هبوط"}</b> ${oNum(r.v3.score, 0)}% ${r.v3.isNew ? "(جديدة)" : "(قائمة)"}</span>` : "";
+  const badge = rec ? `<span class="ob ok">توصية قابلة للتنفيذ</span>` : `<span class="ob wait">${esc(r.opt && r.opt.open ? "بلا توصية الآن" : "سوق خياراتها مغلق")}</span>`;
+  return `<div class="ocard ${rec ? (rec.type === "call" ? "up" : "dn") : ""}">
+    <div class="ohd"><b class="osym">${esc(r.s)}</b><span class="okind">${esc(r.ar)}</span><span class="ocat">${esc(C5_TYPE[r.type] || r.type)}${r.trade && !r.trade.alpaca ? " · لا تداول عبر Alpaca" : ""}</span>${badge}</div>
+    <div class="ometa">${px}</div>
+    <div class="oplan2"><span>${c5Sess(r.opt, "سوق الخيارات")}</span>${r.under ? `<span>${c5Sess(r.under, "الأصل (SIP)")}</span>` : ""}${r.night ? `<span>${c5Sess(r.night, "الليلي BOATS")}</span>` : ""}${v3}</div>
+    <div class="olegs">${atm}</div>
+    ${recHtml}
+    <p class="small">${esc(r.note)}</p>
+  </div>`;
+}
+/* جدول المواعيد — يُحسب في المتصفح من hours.js لكلّ يوم، فيتبع التوقيت الصيفي/الشتوي والعطلات */
+const C5_HOURS = [
+  ["fut", "عقود المؤشرات الآجلة (ES · NQ)", "غير متاحة في Alpaca — للاطّلاع على الموعد فقط"],
+  ["boats", "التداول الليلي للأسهم والصناديق (BOATS)", "Alpaca feed=boats — سعرٌ للعرض، لا يدخل شموع التحليل"],
+  ["spxopt", "خيارات SPX وXSP (Cboe)", "OPRA — الحيوية تُقاس في كلّ لقطة"],
+  ["stock", "الأسهم والصناديق (SIP)", "Alpaca SIP — مصدر التحليل والفرص"],
+  ["eqopt", "خيارات SPY وQQQ والأسهم", "OPRA · جلسة خيارات الأسهم الفردية الممتدة (قبل الافتتاح بساعتين) لم تبدأ بعد"],
+  ["ndxopt", "خيارات NDX (Nasdaq)", "OPRA للأسعار · لا تداول عبر Alpaca"]
+];
+function renderCore5Hours() {
+  const el = $("#c5HoursBody"); if (!el) return;
+  const now = Date.now();
+  el.innerHTML = `<table class="otab"><thead><tr><th>الأداة</th><th>الجلسات (${esc(TZ_NOTE)})</th><th>الآن</th></tr></thead><tbody>${C5_HOURS.map(([k, t, src]) => {
+    const ws = HRS.scheduleOf(k, now), st = HRS.stateAt(k, now);
+    return `<tr><td><b>${esc(t)}</b><br><small>${esc(src)}</small></td><td>${ws.map((w) => `${esc(HRS.LABEL[w.k] || w.k)}: <bdi>${esc(ksaTime(w.start))}–${esc(ksaTime(w.end))}</bdi>`).join("<br>") || "—"}</td>
+      <td class="${st.open ? "up" : ""}">${st.open ? "مفتوح" : "مغلق"}</td></tr>`;
+  }).join("")}</tbody></table>
+  <p class="small">الأوقات محسوبةٌ من مواعيد البورصات بتوقيت نيويورك وتُعرض بتوقيت الرياض، فتتأخّر ساعةً تلقائياً حين ينتهي التوقيت الصيفي الأمريكي. يوم التداول الذي يبدأ مساء الأحد هو جلسة الإثنين، والعطلات الرسمية تُلغي جلستها الليلية.</p>`;
+}
+function renderCore5() {
+  renderCore5Hours();
+  const el = $("#c5List"); if (!el) return;
+  const C = CORE5D;
+  if (!C) {
+    if (lazyFail["core5.json"]) { el.innerHTML = `<div class="empty">لم تُبنَ لوحة الأدوات الخمس بعد — تُبنى كلَّ 15 دقيقة مع دورة التأكيد</div>`; return; }
+    need("core5.json").then(() => { if (state.view === "contracts" && !CORE5D) renderCore5(); });
+    el.innerHTML = `<div class="skl" style="height:150px"></div>`; return;
+  }
+  /* الأقوى أولاً بين ما يحمل توصية، ثم البقية بترتيبها الثابت — والخمس ظاهرةٌ دائماً */
+  const rows = C.rows.map((r, i) => ({ r, i })).sort((a, b) => ((b.r.rec ? 1 : 0) - (a.r.rec ? 1 : 0)) || ((b.r.rec ? b.r.rec.score : 0) - (a.r.rec ? a.r.rec.score : 0)) || (a.i - b.i)).map((x) => x.r);
+  el.innerHTML = rows.map(c5Card).join("");
+  const st = $("#c5State");
+  const nRec = C.rows.filter((r) => r.rec).length;
+  if (st) st.innerHTML = `<b>آخر تحديث ${esc(stamp(C.at * 1000))} ${TZ_NOTE}</b> (${ago(C.at * 1000)}) — ${nRec ? `${bd(nRec)} توصية قابلة للتنفيذ` : "لا توصية قابلة للتنفيذ الآن"}.
+    التوصية عقدٌ منفرد CALL أو PUT من لقطة العقود حين يكون سوق خياراته مفتوحاً وعروضه حديثة. <b>SPX وXSP وNDX بلا توصية</b>: Alpaca لا يقدّم سعر المؤشر ولا شموعه، والعقود تُعرض بأسعارها الحقيقية للاطّلاع — ولا يُستعمل سعر SPY أو QQQ بديلاً عنها. ${C.fut ? esc(C.fut.why) + "." : ""}`;
+  const src = $("#c5Src");
+  if (src) src.innerHTML = `المصادر: ${esc(C.src.etf)} · ${esc(C.src.opt)} · المؤشرات: ${esc(C.src.idx)}${Object.keys(C.errs || {}).length ? ` · تعذّر: ${esc(Object.keys(C.errs).join("، "))}` : ""}`;
+}
+/* فرص المؤشرات وصناديقها في شاشة الفرص */
+const IDX_ROWS = [["SPX", "مؤشر S&P 500"], ["SPY", "صندوق SPY"], ["QQQ", "صندوق QQQ"], ["XSP", "مؤشر Mini-SPX"], ["NDX", "مؤشر Nasdaq-100"]];
+function renderIdx() {
+  const el = $("#idxList"); if (!el) return;
+  const T = IDXT;
+  if (!T) {
+    if (lazyFail["idx-trades.json"]) { el.innerHTML = `<div class="empty">لم تُبنَ لقطة المؤشرات بعد — تُبنى مع لقطات الأسهم (كل 15 دقيقة في نافذة SIP)</div>`; return; }
+    need("idx-trades.json").then(() => { if (state.view === "screen" && !IDXT) renderIdx(); });
+    return;
+  }
+  const open = T.open || [], act = T.active || [];
+  const sameNote = (t) => t.same ? `<b>نفس حركة ${esc(t.same)}</b> في نفس اللقطة وبنفس الجهة — صندوقان يتبعان السوق نفسه، فليست فرصةً مستقلّة` : "";
+  el.innerHTML = IDX_ROWS.map(([s, ar]) => {
+    const n = open.find((t) => t.s === s), a = act.find((t) => t.s === s);
+    if (n) return v3Card(n, -1, "new", sameNote(n));
+    if (a) return v3Card(a, -1, "active", sameNote(a));
+    const by = T.bySym && T.bySym[s];
+    const why = s === "SPY" || s === "QQQ"
+      ? (by ? `لا فرصة في هذه اللقطة — التوافق الآن: صعود ${oNum(by.up, 0)}% · هبوط ${oNum(by.dn, 0)}%` : "لا تحليل في هذه اللقطة (لا شمعة حديثة)")
+      : "غير مدعوم: سعر المؤشر الحقيقي وشموعه غير متاحة في اشتراك Alpaca — ولا يُستعمل " + (s === "NDX" ? "QQQ" : "SPY") + " بديلاً عنه";
+    return `<div class="row"><div class="l"><span class="tick">${esc(s)}</span> ${esc(ar)}<small>${esc(why)}</small></div><div class="r" style="color:var(--mut)">${s === "SPY" || s === "QQQ" ? "V3" : "—"}</div></div>`;
+  }).join("");
+  const cnt = $("#idxCount");
+  if (cnt) cnt.innerHTML = `لقطة ${esc(stamp(T.hour * 1000))} ${TZ_NOTE} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · ${esc(T.src || "")} · الاستراتيجيات والأوزان ودورة الحياة نفسها المطبّقة على الأسهم — ولا تدخل هذه الفرص قائمة الأسهم الخمسين`;
+}
+
 function renderEarnings() {
   const el = $("#earnCal");
   if (!el) return;
@@ -10254,11 +10395,11 @@ function go(view) {
      التوافق التي تعدّل الترتيب. وغيابُ الأخيرتين تدهورٌ هادئ — القائمة
      تُعرض بترتيب المسح الخام ويُقال ذلك في سطر العدد. */
   if (view === "screen") {
-    need("fundamentals.json"); need("trades.json");
-    renderScreen(); renderEarnings();
+    need("fundamentals.json"); need("trades.json"); need("idx-trades.json");
+    renderScreen(); renderEarnings(); renderIdx();
   }
   if (view === "crypto") renderScreen();
-  if (view === "contracts") { need("contracts.json"); need("contracts-track.json"); renderContracts(); }
+  if (view === "contracts") { need("contracts.json"); need("contracts-track.json"); need("core5.json"); renderContracts(); renderCore5(); }
   if (view === "mytrades") renderMyTrades();
   if (view === "news") { need("news.json"); need("filings.json"); }
   if (view === "analysis") {
@@ -10894,6 +11035,7 @@ function slotCatchUp(due0, n) {
   if (have || n >= SLOT_TRIES) { scheduleSlotCatchUp(); return; }
   dataRef.at = 0; dataRef.force = true;             // التزامٌ جديد لا الذاكرة (ولا ذاكرة النوافذ الأخرى)
   lazyAt["trades.json"] = 0; lazyAt["contracts.json"] = 0; lazyAt["contracts-track.json"] = 0;
+  lazyAt["idx-trades.json"] = 0; lazyAt["core5.json"] = 0;
   refresh(true);
   setTimeout(() => slotCatchUp(due, n + 1), CR ? SLOT_RETRY_MS : STOCK_RETRY_MS);
 }

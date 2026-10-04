@@ -75,7 +75,7 @@ export function buildIdx({ now = Date.now(), out = OUT, barsDir = storeDir(out),
   const st0 = fresh ? null : readJ(sfile);
   const r = build({ now, out, book: "stocks", S, state: st0 });
   if (!r.ok) return r;
-  const doc = { ...r.doc, book: "idx", version: ver, syms: IDX_SYMS, src: "Alpaca SIP (04:00–20:00 نيويورك) — بلا شموع BOATS الليلية" };
+  const doc = { ...r.doc, book: "idx", version: ver, syms: IDX_SYMS, src: "Alpaca SIP (ما قبل الافتتاح حتى ما بعد الإغلاق) — بلا شموع BOATS الليلية" };
   markSameMove(doc.open); markSameMove(doc.active);
   doc.rowsHash = crypto.createHash("sha256").update(JSON.stringify({ open: doc.open, active: doc.active, bySym: doc.bySym })).digest("hex").slice(0, 12);
   return { ok: true, doc, state: { ...r.state, book: "idx", version: ver } };

@@ -18,7 +18,7 @@ import { ROOT, takeSnapshot, dropSnapshot } from "./lib/snapshot.mjs";
 
 const OUT = path.join(ROOT, "tests", "fixtures", "data");
 const DROP = new Set(["i18n.json", "cik.json", "strat-history.json", "strat-signals.json", "ivhist.json",
-  "opportunities-log.json", ".run.skips.json", "trades-state.json"]);
+  "opportunities-log.json", ".run.skips.json", "trades-state.json", "idx-trades-state.json"]);
 const CRYPTO_SYMS = 6;
 
 const snap = await takeSnapshot({ job: "fixtures" });
