@@ -35,6 +35,18 @@ export const BAR_READY = {
   capS: 120
 };
 
+/* الكريبتو (V4.2): لا انتظارَ ثابتاً طويلاً — قِيس 2026-10-04 على 30 عملة (أعلى/وسط/أدنى سيولة)
+   عند حدود 12:00 و12:15 و12:30Z: الشمعة المغلقة حاضرةٌ عند +0.3ث، ونهائيةٌ (= قيمتها عند +120ث)
+   في 27/30 عند +0.3ث و30/30 من +0.7ث فصاعداً. فالحدّ الأدنى ثانيتان (~3× الهامش المقيس — وساعة
+   الجهاز متأخّرة 1.16ث عن Binance فيزيده)، ثم التحقّق من ظهور شمعة [H−15د، H) للمرجعين بختم
+   إغلاقٍ مضى، وإعادةٌ كلَّ ثانيتين بسقف 60ث. الشمعة قيد التشكّل (t = H) لا تُقبل أبداً. */
+export const CRYPTO_READY = {
+  minWaitS: Number(process.env.CRYPTO_MIN_WAIT_S ?? 2),
+  refs: ["BTCUSDT", "ETHUSDT"],
+  retryS: 2,
+  capS: 60
+};
+
 /* الحدّ الذي يخصّه التشغيل: آخر حدّ ربع ساعة ≤ now (المجدول يطلق عند الحدّ) */
 export const boundaryOf = (now) => Math.floor(now / M15) * M15;
 /* هل يُنتظر لهذا الحدّ شمعةٌ أصلاً؟ داخل نافذة SIP (04:00→20:00 أو 17:00) وحدها */
@@ -45,9 +57,9 @@ export function expectsBar(H) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function waitBar({ now = Date.now(), cfg = BAR_READY, fetchBars, log = console.log, sleepFn = sleep, clock = Date.now } = {}) {
+export async function waitBar({ now = Date.now(), cfg = BAR_READY, fetchBars, log = console.log, sleepFn = sleep, clock = Date.now, expects = expectsBar } = {}) {
   const H = boundaryOf(now);
-  if (!expectsBar(H)) { log(`  ⏱ انتظار الشمعة: خارج نافذة SIP — لا شمعة تُنتظر`); return { H, wait: 0, ready: null }; }
+  if (!expects(H)) { log(`  ⏱ انتظار الشمعة: خارج نافذة SIP — لا شمعة تُنتظر`); return { H, wait: 0, ready: null }; }
   // تشغيلٌ يدويٌّ متأخّر (بعد الحدّ بأكثر من دقائق) لا ينتظر شيئاً: الشمعة نهائيةٌ منذ زمن
   const until = H + cfg.minWaitS * 1000;
   if (until > clock()) await sleepFn(until - clock());
@@ -92,6 +104,16 @@ async function selfCheck() {
   let called = 0;
   const r3 = await waitBar({ now: Date.parse("2026-10-03T15:00:30Z"), ...fake, fetchBars: async () => { called++; return {}; } });
   eq([r3.ready, r3.wait, called], [null, 0, 0], "العطلة بلا انتظار");
+  // الكريبتو: أدنى انتظار ثانيتان ثم فحصٌ واحد حين تكون الشمعة حاضرة
+  t = H + 300;
+  const r4 = await waitBar({ now: t, cfg: CRYPTO_READY, ...fake, expects: () => true,
+    fetchBars: async (refs, from) => Object.fromEntries(refs.map((s) => [s, [{ t: from }]])) });
+  eq([r4.ready, r4.wait, r4.tries], [true, 2, 1], "الكريبتو عند +2ث");
+  // والشمعة الجارية وحدها (t = H) لا تُقبل: تمضي بعد السقف غير جاهزة
+  t = H + 300;
+  const r5 = await waitBar({ now: t, cfg: { ...CRYPTO_READY, capS: 6 }, ...fake, expects: () => true,
+    fetchBars: async (refs) => Object.fromEntries(refs.map((s) => [s, [{ t: H }]])) });
+  eq(r5.ready, false, "الجارية لا تُقبل");
   console.log("✓ wait-bar --check");
 }
 
@@ -104,5 +126,19 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const m = await AL.getCandlesBatch(refs, "15m", { from, feed: "sip", adjustment: "split", maxPages: 2 });
     delete m.__skipped; return m;
   };
-  await waitBar({ now: a ? Date.parse(a.slice(6)) : Date.now(), fetchBars });
+  if (process.argv.includes("--crypto")) {
+    /* Binance: الشمعة المغلقة وحدها — ختمُ إغلاقها (closeTime) مضى، ولا تُقبل الجارية */
+    const fetchCrypto = async (refs, from) => {
+      const out = {};
+      await Promise.all(refs.map(async (sym) => {
+        const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=15m&startTime=${from}&limit=2`, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) throw new Error(`HTTP ${r.status} ${sym}`);
+        out[sym] = (await r.json()).filter((k) => k[6] < Date.now()).map((k) => ({ t: k[0] }));
+      }));
+      return out;
+    };
+    await waitBar({ now: a ? Date.parse(a.slice(6)) : Date.now(), cfg: CRYPTO_READY, fetchBars: fetchCrypto, expects: () => true });
+  } else {
+    await waitBar({ now: a ? Date.parse(a.slice(6)) : Date.now(), fetchBars });
+  }
 }

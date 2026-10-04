@@ -32,9 +32,13 @@ const lastT = DATA[0][1].b15[DATA[0][1].b15.length - 1].t;
 const slots = SES.scanSlotsOf(lastT - 6 * 3600000).filter((t) => t <= lastT);
 
 describe("INV-67 — لا دخولٌ من شمعةٍ أقدم من شمعة اللقطة", () => {
-  it("كلُّ فرصةٍ في كل لقطةٍ على شمعة اللقطة", () => {
+  // تنازلٌ عن الحلقة بين اللقطات: بخطوة 15 دقيقة (V4.1) تضاعفت اللقطات فصار الحجب المتزامن يُسقط
+  // عامل vitest بمهلة RPC «onTaskUpdate» والاختبارات ناجحة
+  const yieldLoop = () => new Promise((r) => setImmediate(r));
+  it("كلُّ فرصةٍ في كل لقطةٍ على شمعة اللقطة", async () => {
     let n = 0;
     for (const H of slots) {
+      await yieldLoop();
       const r = run(H);
       expect(r.ok).toBe(true);
       for (const t of r.doc.open) { expect(t.t).toBe(r.doc.candleKey); n++; }
@@ -42,9 +46,10 @@ describe("INV-67 — لا دخولٌ من شمعةٍ أقدم من شمعة ال
     expect(n).toBeGreaterThan(10);
   });
 
-  it("الاستبعاد للرمز بلا تداول وحده، ومؤقّت", () => {
+  it("الاستبعاد للرمز بلا تداول وحده، ومؤقّت", async () => {
     let tested = 0;
     for (const H of slots) {
+      await yieldLoop();
       const base = run(H);
       const victim = base.doc.open[0];
       if (!victim) continue;

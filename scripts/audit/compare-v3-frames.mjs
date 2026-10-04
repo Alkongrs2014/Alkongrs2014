@@ -10,6 +10,9 @@
    عشوائي: نفس اللقطة ونفس الجهة ونفس قواعد الوقف والأهداف على رمزٍ آخر عشوائي.
 
    node scripts/audit/compare-v3-frames.mjs --book stocks --days 60 --data D:/…/data
+     [--from ISO --to ISO]   نافذة اللقطات (تعلو على --days) — لمقارنة فترتين بنفس المحرّكين
+     [--horizon ساعات]       أفق النتيجة لكل صفقة (min(H+أفق، نهاية البيانات)) — كي لا تنال الفترة
+                             الأقدم وقتاً أطول لتُحسم من الأحدث
    ===================================================================== */
 import fs from "node:fs";
 import path from "node:path";
@@ -52,13 +55,16 @@ else { for (let t = lastEnd - DAYS * 1.45 * 86400000; t <= lastEnd + 86400000; t
 const dayOf = (H) => new Date(H - (BOOK === "crypto" ? 0 : 4 * 3600000)).toISOString().slice(0, 10);
 const days = [...new Set(slots.map(dayOf))];
 const keepDays = new Set(days.slice(-DAYS));
-const useSlots = slots.filter((H) => keepDays.has(dayOf(H)));
+const FROM = arg("from", null) ? Date.parse(arg("from")) : null, TO = arg("to", null) ? Date.parse(arg("to")) : null;
+const HORIZON = arg("horizon", null) ? +arg("horizon") * 3600000 : Infinity;
+const useSlots = FROM !== null ? slots.filter((H) => H >= FROM && (TO === null || H < TO)) : slots.filter((H) => keepDays.has(dayOf(H)));
+if (FROM !== null) { keepDays.clear(); for (const H of useSlots) keepDays.add(dayOf(H)); }
 console.error(`${BOOK}: ${syms.length} رمزاً · ${useSlots.length} لقطة · ${keepDays.size} يوماً · حتى ${new Date(lastEnd).toISOString()}`);
 
 /* ---------------- محاكاة صفقة من إشارة حتى نهايتها (بحدٍّ أقصى نهاية البيانات) ---------------- */
 function simulate(s, sig, H) {
   const tr = { d: sig.d, e: sig.e, st: sig.st, tg: sig.tg, atrD: sig.atrD, risk: sig.risk, status: "confirmed" };
-  stepOver(tr, S[s], H, lastEnd);
+  stepOver(tr, S[s], H, Math.min(lastEnd, H + HORIZON));
   return tr;
 }
 function outcome(tr) {

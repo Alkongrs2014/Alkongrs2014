@@ -78,13 +78,13 @@ test("الفرص: قائمةٌ حقيقية بختم شمعة، ولا عملة 
   expect(txt).toMatch(/شمعة/);
 });
 
-test("الكريبتو: لقطة V3 كل 30 دقيقة على :15/:45 — عملاتٌ فقط وبطاقاتٌ بدرجتها", async ({ page }) => {
+test("الكريبتو: لقطة V3 كل 15 دقيقة — عملاتٌ فقط وبطاقاتٌ بدرجتها", async ({ page }) => {
   await open(page);
   await nav(page, "crypto");
   const syms = await page.locator('section[data-view="crypto"] [data-open]').evaluateAll((a) => a.map((x) => x.getAttribute("data-open")));
   expect(syms.filter((s) => !/-USD$/.test(s)), "سهمٌ في دفتر الكريبتو").toEqual([]);
-  // قرار المالك 2026-10-03: لقطة الكريبتو كل 30 دقيقة (كانت كل ساعة)
-  expect(await visibleText(page, "crypto")).toMatch(/لقطة .*كل 30 دقيقة/s);
+  // V4.2 (طلب المالك 2026-10-04): لقطة الكريبتو كل 15 دقيقة (كانت كل 30 ثم كل ساعة)
+  expect(await visibleText(page, "crypto")).toMatch(/لقطة .*كل 15 دقيقة/s);
 });
 
 test("بحث الكريبتو: على كون الكريبتو كلِّه بالرمز والاسم العربي والإنجليزي، ولا يمسّ بحث الأسهم", async ({ page }) => {

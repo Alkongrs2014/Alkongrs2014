@@ -144,7 +144,7 @@ describe("WLD 2026-10-03 — على شموعها الحقيقية", () => {
   it("الصفقة المفعّلة تبقى بخطتها حتى تنتهي بقواعدها ولا تتكرّر — والمحرّك القديم كان يُسقطها بالمخاطرة", () => {
     let state = null, born = null, slotsActive = 0;
     const oldRejects = [];
-    for (let H = H0; H <= H1; H += 1800000) {
+    for (let H = H0; H <= H1; H += 900000) {          // كلَّ ربع ساعة كالحيّ (V4.2)
       const r = build({ now: H + 60000, book: "crypto", out: "/nonexistent", S, state });
       expect(r.ok).toBe(true);
       state = JSON.parse(JSON.stringify(r.state));
@@ -160,7 +160,7 @@ describe("WLD 2026-10-03 — على شموعها الحقيقية", () => {
       if (old.reject === "risk") oldRejects.push(new Date(H).toISOString().slice(11, 16));
     }
     expect(born).toBeTruthy();
-    expect(new Date(born.H).toISOString()).toBe("2026-10-03T11:15:00.000Z");      // كسر قمة أمس على الساعة
+    expect(new Date(born.H).toISOString()).toBe("2026-10-03T11:00:00.000Z");      // كسر قمة أمس على الساعة — عند إغلاق شمعتها نفسها (V4.2؛ كانت 11:15 بلقطة الثلاثين)
     expect(slotsActive).toBeGreaterThanOrEqual(12);
     expect(oldRejects).toEqual(expect.arrayContaining(["12:15", "14:15", "14:45", "15:15"]));
   });

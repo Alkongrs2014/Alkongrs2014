@@ -1658,7 +1658,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
 
   <div class="card" data-grp="plan" id="cardPlan">
     <h2>صفقة المحرّك V3</h2>
-    <p class="hint">الدخول والوقف والأهداف تُحسب من الصفر في كل لقطة (الأسهم كل 15 دقيقة، والكريبتو كل 30 دقيقة على :15 و:45) على آخر الشموع المغلقة — لا يُورَث شيءٌ من اللقطة السابقة</p>
+    <p class="hint">الدخول والوقف والأهداف تُحسب من الصفر في كل لقطة (الأسهم والكريبتو كل 15 دقيقة) على آخر الشموع المغلقة — لا يُورَث شيءٌ من اللقطة السابقة</p>
     <div id="planOut"></div>
     <div id="planLevels"></div>
   </div>
@@ -2035,7 +2035,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
     <div class="sticky-hd">
       <div class="schead" style="margin-bottom:9px">
         <h2 style="margin:0">فرص الكريبتو</h2>
-        <span class="chip">المحرّك V3 · كل 30 دقيقة</span>
+        <span class="chip">المحرّك V3 · كل 15 دقيقة</span>
       </div>
       <!-- البحث يعمّ كون الكريبتو كلَّه (ملخّصه) لا عملاتِ الفرص وحدها -->
       <div class="toolbar" style="margin-bottom:9px">
@@ -2053,7 +2053,7 @@ section[data-view="now"].on{display:flex;flex-direction:column}
       <p class="srcline" style="text-align:start">
         كلُّ عملةٍ قابلةٍ للتداول في Binance Spot (السعر من زوج USDT)، والكون يُعاد بناؤه مرّةً في اليوم، وتُستبعد
         المستقرّة والمشطوبة والملفوفة والمرمَّزة. الاستراتيجيات الخمس نفسُها بأوزانها، على الشموع المغلقة وحدها،
-        ولقطةٌ كل 30 دقيقة على :15 و:45 بتوقيت الرياض طوال اليوم والأسبوع — ولا تتغيّر داخل اللقطة.
+        ولقطةٌ كل 15 دقيقة (:00 · :15 · :30 · :45) بتوقيت الرياض طوال اليوم والأسبوع — ولا تتغيّر داخل اللقطة.
         والعملات دون 500 ألف دولار تداولاً في 24 ساعة تُحلَّل بنفس الطريقة وتُعرض فرصُها في قسمٍ منفصل بتحذير.
         والدفتر مستقلٌّ عن الأسهم بملفّاته ولقطته: إغلاقُ شمعة عملةٍ لا يغيّر شيئاً في الأسهم، والعكس.
       </p>
@@ -3108,9 +3108,9 @@ function renderTop() {
     el.textContent = "الكريبتو · ‎24/7‎ · الماسح يعمل";
     $("#mkCountdown").textContent = "";
     if (sb) {
-      // :15 و:45 (cryptoSlotAt في engine3-run) — دقائق UTC هي دقائق الرياض
-      const H = Math.floor((now - 900000) / 1800000) * 1800000 + 900000;
-      sb.textContent = `لقطة كل 30 دقيقة · آخرها ${ksaTime(H)} · التالية ${ksaTime(H + 1800000)} ${TZ_NOTE}`;
+      // كلَّ ربع ساعة (cryptoSlotAt في engine3-run، V4.2) — دقائق UTC هي دقائق الرياض
+      const H = cryptoSlotOf(now);
+      sb.textContent = `لقطة كل 15 دقيقة · آخرها ${ksaTime(H)} · التالية ${ksaTime(H + 900000)} ${TZ_NOTE}`;
     }
   } else {
     const st = marketStatus(state.market && state.market.period);
@@ -8064,7 +8064,9 @@ function v3Hour(T) {
   return `${stamp(T.hour * 1000)} ${TZ_NOTE}`;
 }
 /* دورةُ التجديد للدفتر: الأسهم كلَّ 15 دقيقة (05:15 نيويورك فصاعداً، V4.1) والكريبتو كلَّ 30 */
-const v3Cycle = (T) => T && T.book === "crypto" ? "كل 30 دقيقة" : "كل 15 دقيقة";
+const v3Cycle = () => "كل 15 دقيقة";
+/* حدُّ لقطة الكريبتو — كلَّ ربع ساعة (نظير `cryptoSlotAt` في engine3-run.mjs، V4.2) */
+const cryptoSlotOf = (t) => Math.floor(t / 900000) * 900000;
 /* لقطاتُ الأسهم اليوم (أو يوم التداول التالي) بتوقيت الرياض — من `scanSlotsOf` في
    session.js (05:15 ثم كلَّ 15 دقيقة حتى نهاية ما بعد الإغلاق) فتتبع التوقيت الصيفي
    تلقائياً: رقمٌ مكتوبٌ يكذب نصف السنة */
@@ -8297,7 +8299,7 @@ function v3Stale(T, CR) {
   if (!T || !Number.isFinite(T.hour)) return "";
   const now = Date.now(), H = T.hour * 1000;
   if (CR) {
-    const due = Math.floor((now - 900000) / 1800000) * 1800000 + 900000;
+    const due = cryptoSlotOf(now);
     return due > H && now - due > V3_LATE_MS
       ? `<div class="v3stale"><b>تنبيه: التحليل متأخّر.</b> آخر لقطة ${esc(stamp(H))} ${TZ_NOTE}، والمستحقّة ${esc(stamp(due))} — تأخّر ${bd(Math.round((now - due) / 60000))} دقيقة.</div>` : "";
   }
@@ -8325,7 +8327,7 @@ function renderTrades(book) {
     return;
   }
   const hrs = CR ? null : stockSlotsRiyadh();
-  const cycle = CR ? "كل 30 دقيقة على :15 و:45 طوال اليوم ‎24/7‎ (يوم الكريبتو 03:00→03:00 بتوقيت الرياض)"
+  const cycle = CR ? "كل 15 دقيقة (:00 · :15 · :30 · :45) طوال اليوم ‎24/7‎ (يوم الكريبتو 03:00→03:00 بتوقيت الرياض)"
                    : `كل 15 دقيقة طوال بيانات SIP (ما قبل الافتتاح · الرسمية · ما بعد الإغلاق): ${hrs.length ? hrs[0] + " · " + (hrs[1] || "") + " … " + hrs[hrs.length - 1] : "—"} ${TZ_NOTE}`;
   const note = T.life
     ? `<p class="v3note"><b>لقطة ${esc(v3Hour(T))}</b> — ${cycle}. <b>الفرص الجديدة</b> وُلدت من إشارةٍ جديدة في هذه اللقطة
@@ -10034,27 +10036,30 @@ function boot() {
 /* =====================================================================
    التقاط اللقطة فور نشرها (2026-10-03، تقرير التأخّر): الاستطلاع العادي كل دقيقتين مع
    صلاحية trades.json دقيقةً وذاكرة الالتزام دقيقةً يضيف حتى 4 دقائق بعد النشر. فعند حدّ كل
-   لقطة (:15/:45 — الأسهم والكريبتو) + زمن الخادم نقرأ من جديد، ونعيد كلَّ 30 ثانية حتى تصل
+   لقطة (كلَّ ربع ساعة — الأسهم والكريبتو) + زمن الخادم نقرأ من جديد، ونعيد حتى تصل
    اللقطة المستحقّة (8 محاولات حدّاً). لا يمسّ شيئاً من الحساب: قراءةٌ أبكر لملفٍّ منشور.
    ===================================================================== */
 /* V4.1: الأسهم كلَّ 15 دقيقة، ونشرُها يصل بعد انتظار الشمعة (`CONFIRM_WAIT_S` في session.js —
    نفس الرقم الذي ينتظره الخادم) + ~40ث جلباً وبناءً ونشراً (مقيس: 19ث + 1ث + 15ث). فالسؤال الأوّل
    عند ذلك لا عند +4د، والإعادة كلَّ 20ث. والكريبتو: لقطتُه تُبنى عند :16/:46 وتُنشر بمهمّة النشر
    (:17/:47) — قِيس وصولها إلى فرع data عند +149ث (2026-10-04 11:15Z)، فالسؤال الأوّل عند +2.5د لا +4د. */
-const SLOT_FIRST_MS = 150000, SLOT_RETRY_MS = 30000, SLOT_TRIES = 8;
+/* V4.2: الكريبتو كلَّ 15 دقيقة، ودورتُه عند الحدّ نفسه تتحقّق من الشمعة المغلقة في Binance ثم
+   تبني وتنشر بنفسها. قِيس 2026-10-04: البوّابة +3ث · الجلب 9ث · V3 أقلّ من ثانية · النشر ~15ث ⇒ فرع data
+   عند ~+28ث. فالسؤال الأوّل عند +35ث والإعادة كلَّ 10ث (8 محاولات حتى ~+105ث). */
+const CRYPTO_FIRST_MS = 35000, SLOT_RETRY_MS = 10000, SLOT_TRIES = 8;
 const STOCK_FIRST_MS = ((typeof CONFIRM_WAIT_S === "number" ? CONFIRM_WAIT_S : 180) + 45) * 1000, STOCK_RETRY_MS = 20000;
 function scheduleSlotCatchUp() {
   const now = Date.now();
-  const nextC = Math.floor((now - 900000) / 1800000) * 1800000 + 900000 + 1800000;   // :15/:45
-  const nextS = nextScanSlot(now) || Infinity;
-  const at = Math.min(nextS + STOCK_FIRST_MS, nextC + SLOT_FIRST_MS);
+  // الدفتر المعروض وحده: لا يُنفَق حدُّ GitHub (60/ساعة) على التقاط دفترٍ غير ظاهر
+  const at = state.book === "crypto" ? cryptoSlotOf(now) + 900000 + CRYPTO_FIRST_MS
+                                     : (nextScanSlot(now) || Infinity) + STOCK_FIRST_MS;
   setTimeout(() => slotCatchUp(null, 0), Math.max(5000, at - now));
 }
 function slotCatchUp(due0, n) {
   // اللقطة المستحقّة للدفتر المعروض الآن: الأسهم من جدول نيويورك (في العطلة آخرُ لقطة جلسة،
-  // وهي موجودة فلا إعادة)، والكريبتو آخرُ :15/:45
+  // وهي موجودة فلا إعادة)، والكريبتو آخرُ ربع ساعة
   const CR = state.book === "crypto", now = Date.now();
-  const due = due0 || (CR ? Math.floor((now - 900000) / 1800000) * 1800000 + 900000 : scanSlotAt(now));
+  const due = due0 || (CR ? cryptoSlotOf(now) : scanSlotAt(now));
   const T = CR ? TRADES_C : TRADES;
   const have = T && T.hour * 1000 >= due;
   if (have || n >= SLOT_TRIES) { scheduleSlotCatchUp(); return; }

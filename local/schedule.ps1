@@ -49,7 +49,8 @@ if (-not (Test-Path $vbs)) { throw "لم يُعثر على $vbs" }
 #   الأسهم: Confirm كل 15د عند :00 — حدّ الشمعة نفسه، وwait-bar.mjs ينتظر أدنى انتظارٍ آمن ثم
 #   ظهورَ الشمعة في SIP (V4.1؛ كان :03 هامشاً ثابتاً موروثاً من ياهو) · Market كل 30د عند :20
 #   النشر: Publish كل دقيقتين — بلا قفل الجلب، وهو الكاتب الوحيد لفرع data
-#   الكريبتو: كل 5د عند :01 (لقطته على :15/:45)
+#   الكريبتو: كل 5د من :00 — ما يقع على حدّ ربع ساعة يتحقّق من شمعة Binance المغلقة (wait-bar --crypto)
+#   ثم يبني لقطة الربع ساعة وينشرها بنفسه (V4.2؛ كانت :01 ولقطته :15/:45 تنتظر مهمّة النشر)
 $tasks = @(
   @{ Name='WebTrade-Quotes';    Args='quotes';             Every=2;  Start='00:00'; LimitMin=5;    Swa=$true;  Desc='أسعار فقط' }
   @{ Name='WebTrade-Confirm';   Args='confirm --publish';  Every=15; Start='00:00'; LimitMin=4320; Swa=$false; Desc='التأكيد السريع: شموع SIP ثم V3 ثم العقود' }
@@ -58,7 +59,7 @@ $tasks = @(
   @{ Name='WebTrade-Options';   Args='options --publish';  Every=30; Start='00:06'; LimitMin=25;   Swa=$true;  Desc='عقود الخيارات لصفحة السهم (ياهو)' }
   @{ Name='WebTrade-Filings';   Args='filings --publish';  Every=10; Start='00:07'; LimitMin=5;    Swa=$true;  Desc='إيداعات SEC — 8-K وتداول المطّلعين' }
   @{ Name='WebTrade-Daily';     Args='daily --publish';    At='09:27';              LimitMin=60;   Swa=$true;  Desc='أساسيات وترتيب وأحداث وتقويم' }
-  @{ Name='WebTrade-Crypto';    Args='crypto';             Every=5;  Start='00:01'; LimitMin=4;    Swa=$true;  Desc='دفتر الكريبتو — شموع ومحرّك ولقطة فرص' }
+  @{ Name='WebTrade-Crypto';    Args='crypto';             Every=5;  Start='00:00'; LimitMin=4;    Swa=$true;  Desc='دفتر الكريبتو — شموع ومحرّك ولقطة فرص' }
   @{ Name='WebTrade-CryptoMon'; Args='cmon';               Every=5;  Start='00:04'; LimitMin=4;    Swa=$true;  Desc='مراقبة الكريبتو المنشور' }
   # الحراسة — بلا قفلٍ ولا شبكةٍ للجلب ولا أيّ نموذج لغوي
   @{ Name='WebTrade-Health';    Args='health';             Every=10; Start='00:09'; LimitMin=8;    Swa=$true;  Desc='صحّة المنشور ورجوعٌ آليّ عند عطبٍ تقنيّ' }

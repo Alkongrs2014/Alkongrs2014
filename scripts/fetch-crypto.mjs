@@ -339,7 +339,10 @@ async function main() {
 
   let reqs = 0, fails = [];
   const recs = [];
-  await pool(U.rows, 12, async (u) => {
+  /* المسارات (V4.2): الجلب محدودٌ بزمن الطلب لا بالحصّة — قِيس ~40 طلباً/ث بـ12 مساراً (789 طلباً في 16ث
+     عند حدّ ربع الساعة). ووزنُ دورة الحدّ ≤ 1965 طلباً × 2 = ~3.9 ألف من 6000/دقيقة، فالمضاعفة لا تقترب
+     من الحدّ. `CRYPTO_LANES` للقياس. */
+  await pool(U.rows, Number(process.env.CRYPTO_LANES || 24), async (u) => {
     const prev = readJSON(path.join(OUT, "sym", u.s + ".json"));
     const rec = { s: u.s, ar: u.ar, en: u.en, sec: u.sec, mkt: "crypto", src: "binance", tf: {} };
     let touched = false;

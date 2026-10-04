@@ -321,9 +321,12 @@ function serve() {
    نسخة سليمة (`data-lkg`). وأيُّ فشلٍ يترك المنشور كما هو.
    ===================================================================== */
 async function publish() {
+  /* اختبارٌ من worktree لا ينشر أبداً: الفرع `data` له كاتبٌ واحد (المجدول على الشجرة الرئيسية) */
+  if (process.env.WEBTRADE_NO_PUBLISH) { console.log("  — النشر معطَّل (WEBTRADE_NO_PUBLISH)"); return 0; }
   const { publishData } = await import("../scripts/lib/publish.mjs");
   const { quickDoctor } = await import("../scripts/lib/doctor-core.mjs");
-  const r = await publishData({ root: ROOT, dataDir: DATA, quick: quickDoctor, requireProvider: "alpaca_sip" });
+  // DATA_ROOT لا DATA: دورة الكريبتو (DATA = data/crypto) تنشر الفرع كاملاً كما تنشره مهمّة النشر
+  const r = await publishData({ root: ROOT, dataDir: DATA_ROOT, quick: quickDoctor, requireProvider: "alpaca_sip" });
   /* آخر نشرٍ يُسجَّل للصحّة — كلُّ محاولةٍ بنتيجتها، لا الناجحةُ وحدها */
   try { fs.mkdirSync(path.join(ROOT, "reports"), { recursive: true });
         fs.writeFileSync(path.join(ROOT, "reports", "publish-last.json"), JSON.stringify({ at: new Date().toISOString(), ok: r.ok, code: r.code, why: r.why, sha: r.sha || null, lkg: r.lkg || null })); } catch {}
@@ -458,6 +461,19 @@ else {
     if (code !== 0) console.error(`  ⚠ wait-bar انتهى برمز ${code} — الدورة تمضي`);
     else console.log(`  ⏱ wait-bar.mjs ${((Date.now() - t0) / 1000).toFixed(1)}ث`);
   }
+  /* V4.2: دورة الكريبتو كلَّ 5 دقائق من :00، وما يقع منها على حدّ ربع ساعة لم تُبنَ لقطتُه بعد
+     يتحقّق أوّلاً من شمعة Binance المغلقة (بلا انتظارٍ ثابت) ثم يبني **وينشر بنفسه** — لا ينتظر
+     مهمّة النشر (كانت تضيف ~1–2 دقيقة: قِيس +149ث من الإغلاق إلى فرع data في V4.1). */
+  const trHour = () => { try { return JSON.parse(fs.readFileSync(path.join(CRYPTO_DIR, "trades.json"), "utf8")).hour * 1000; } catch { return 0; } };
+  const cryptoH0 = cmd === "crypto" ? trHour() : 0;
+  if (cmd === "crypto") {
+    const Hq = Math.floor(Date.now() / 900000) * 900000;
+    if (Date.now() - Hq < 4 * 60000 && cryptoH0 < Hq) {
+      const t0 = Date.now(), code = await runScript("wait-bar.mjs --crypto");
+      if (code !== 0) console.error(`  ⚠ wait-bar انتهى برمز ${code} — الدورة تمضي`);
+      else console.log(`  ⏱ wait-bar.mjs ${((Date.now() - t0) / 1000).toFixed(1)}ث`);
+    }
+  }
   const READ_ONLY = ["replay", "audit", "cmon"];
   if (!READ_ONLY.includes(cmd) && !acquireLock(cmd)) process.exit(0);
   process.on("exit", releaseLock);
@@ -486,6 +502,10 @@ else {
      الأسهم أو يمنع نشرها في تلك الدورة. الآن تُنشر لقطة الأسهم أولاً، ثم تُبنى العقود وتُنشر
      وحدها — وفشلُها يُسجَّل ولا يمسّ الأسهم ولا الكريبتو. */
   const AFTER = cmd === "confirm" ? ["fetch-contracts.mjs"] : [];
+  if (!bad && cmd === "crypto" && trHour() > cryptoH0) {
+    releaseLock(); console.log("\n──── نشر لقطة الكريبتو ────");
+    process.exit(await publish());
+  }
   if (!bad && wantPublish) {
     releaseLock(); console.log("\n──── نشر ────");
     const pc = await publish();

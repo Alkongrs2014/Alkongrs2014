@@ -163,7 +163,7 @@ async function benchPublish() {
 async function benchConcurrency() {
   const runJob = (job) => new Promise((resolve) => {
     const t0 = Date.now(); let out = "";
-    const p = spawn(process.execPath, [path.join(ROOT, "local/run.mjs"), job], { cwd: ROOT });
+    const p = spawn(process.execPath, [path.join(ROOT, "local/run.mjs"), job], { cwd: ROOT, env: { ...process.env, WEBTRADE_NO_PUBLISH: "1" } });
     p.stdout.on("data", (d) => { out += d; }); p.stderr.on("data", (d) => { out += d; });
     p.on("close", (code) => resolve({ job, code, sec: (Date.now() - t0) / 1000, waited: /ننتظر دورنا/.test(out), out }));
   });
