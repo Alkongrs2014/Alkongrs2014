@@ -42,7 +42,12 @@ export const NO_PUBLISH = new Set([".run.lock", ".publish.lock", ".run.skips.jso
   /* المحرّك V3: حالته الداخلية لا تُنشر (trades.json هو المنشور) */
   "trades-state.json", ".trades.json.tmp", ".trades-state.json.tmp",
   /* العقود: ذاكرة OI والشموع اليومية لليوم داخلية — المنشور contracts.json وسجلُّ التتبّع */
-  "contracts-cache", "contracts.json.tmp", "contracts-track.json.tmp"]);
+  "contracts-cache", "contracts.json.tmp", "contracts-track.json.tmp",
+  /* المؤشرات وصناديقها (2026-10-05): حالة محرّك SPY/QQQ داخلية كحالة الأسهم */
+  "idx-trades-state.json", ".idx-trades.json.tmp", ".idx-trades-state.json.tmp", "core5.json.tmp"]);
+/* ملفّاتٌ خارج الدفترين يتغيّر محتواها وحدها (العقود، فرص المؤشرات، الأدوات الخمس): كان «لا جديد»
+   يُحكم بالدفترين فقط، فلقطةُ عقودٍ جديدة مع أسهمٍ وكريبتو بلا تغيّر لا تُنشر حتى يتحرّك أحدهما */
+export const EXTRA_FILES = ["contracts.json", "contracts-track.json", "idx-trades.json", "core5.json"];
 
 /* =====================================================================
    بوّابتا الدفترين — كما كانتا في `run.mjs` حرفياً، على **مجلّدٍ مُمرَّر**.
@@ -233,7 +238,7 @@ export async function publishData(opts = {}) {
     work = fs.mkdtempSync(path.join(os.tmpdir(), "webtrade-remote-"));
     const readRemote = prevSha ? await remoteReader(url, prevSha, work) : null;
     const remoteFiles = {};
-    if (readRemote) for (const f of ["summary.json", "trades.json", "crypto/summary.json", "crypto/trades.json"])
+    if (readRemote) for (const f of ["summary.json", "trades.json", "crypto/summary.json", "crypto/trades.json", ...EXTRA_FILES])
       remoteFiles[f] = await readRemote(f);
     const remoteState = stateOf((f) => remoteFiles[f] ?? null);
     mark("remote");
@@ -269,7 +274,7 @@ export async function publishData(opts = {}) {
     if (mono.length) return res(false, "regression", "حالةٌ أقدم من المنشور: " + mono.join(" · "));
     /* INV-68 (قرار 2026-10-03، بدل INV-65): «الجديدة» مولودةٌ في لقطتها — والصفقات المحمولة
        مكانُها `active` لا `open`. جديدةٌ بلقطةٍ أخرى = حملٌ في غير موضعه. */
-    for (const f of ["trades.json", "crypto/trades.json"]) {
+    for (const f of ["trades.json", "crypto/trades.json", "idx-trades.json"]) {
       let d = null; try { d = JSON.parse(fs.readFileSync(path.join(stage, f), "utf8")); } catch { continue; }
       const carried = (d.open || []).filter((t) => t.h !== d.hour).map((t) => t.id);
       if (carried.length) return res(false, "carry", `${f}: فرصٌ من ساعةٍ أخرى: ${carried.slice(0, 5).join(", ")}`);
@@ -278,7 +283,8 @@ export async function publishData(opts = {}) {
       if (oldEntry.length) return res(false, "stale-entry", `${f}: دخولٌ من شمعةٍ أقدم: ${oldEntry.slice(0, 5).join(", ")}`);
     }
     const same = ["stocks", "crypto"].every((b) => candState[b].rowsHash === remoteState[b].rowsHash
-      && candState[b].updated === remoteState[b].updated);
+      && candState[b].updated === remoteState[b].updated)
+      && EXTRA_FILES.every((f) => { let c = null; try { c = fs.readFileSync(path.join(stage, f), "utf8"); } catch {} return c === (remoteFiles[f] ?? null); });
     if (prevSha && same) return res(true, "unchanged", "لا جديد — المنشور مطابق", { sha: prevSha, prev: prevSha });
 
     /* ٦) الالتزام اليتيم والترقية بإيجار */

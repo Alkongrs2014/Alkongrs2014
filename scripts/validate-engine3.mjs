@@ -54,7 +54,8 @@ function simFrom(S, i, d, stopA, tgA, atrD) {
 
 export function run({ from, to, barsDir }) {
   const U = JSON.parse(fs.readFileSync(path.join(ROOT, "stocks/symbols.json"), "utf8"));
-  const syms = U.symbols.map(x => x.s).slice(0, U.top || 50);
+  /* `--syms=SPY,QQQ`: تقييم صلاحية المحرّك على أدواتٍ خارج الكون (المؤشرات وصناديقها) — للمعلومية */
+  const syms = arg("syms") ? arg("syms").split(",") : U.symbols.map(x => x.s).slice(0, U.top || 50);
   const trades = [];
   for (const s of syms) {
     const a = readSeries(barsDir, s, "15m"), b = readSeries(barsDir, s, "1d");

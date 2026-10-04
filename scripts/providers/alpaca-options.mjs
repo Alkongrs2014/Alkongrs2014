@@ -90,13 +90,14 @@ export async function contractsOI(underlying, { expGte, expLte, kLo, kHi } = {})
   return out;
 }
 
-/* لقطات الأسهم الخام (SIP): آخر صفقة، وشمعة اليوم بـVWAP، وإغلاق الأمس */
-export async function stockSnapshots(symbols) {
+/* لقطات الأسهم الخام (SIP): آخر صفقة، وشمعة اليوم بـVWAP، وإغلاق الأمس.
+   `feed="boats"` للجلسة الليلية (Blue Ocean 20:00–04:00 نيويورك) — مصدرٌ منفصل يُوسَم ولا يُخلط بشموع SIP */
+export async function stockSnapshots(symbols, feed = "sip") {
   const out = {};
   for (let i = 0; i < symbols.length; i += 100) {
     const u = new URL(`${DATA}/v2/stocks/snapshots`);
     u.searchParams.set("symbols", symbols.slice(i, i + 100).map(toAlpaca).join(","));
-    u.searchParams.set("feed", "sip");
+    u.searchParams.set("feed", feed);
     const j = await req(u.toString());
     for (const [k, v] of Object.entries(j.snapshots || j || {})) out[toApp(k)] = v;
   }

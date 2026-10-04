@@ -501,7 +501,12 @@ else {
   /* العقود **بعد** نشر الأسهم (2026-10-03): كانت قبله، فجلبٌ بطيءٌ أو فاشلٌ للعقود يؤخّر فرص
      الأسهم أو يمنع نشرها في تلك الدورة. الآن تُنشر لقطة الأسهم أولاً، ثم تُبنى العقود وتُنشر
      وحدها — وفشلُها يُسجَّل ولا يمسّ الأسهم ولا الكريبتو. */
-  const AFTER = cmd === "confirm" ? ["fetch-contracts.mjs"] : [];
+  /* بعد الأسهم (2026-10-05، طلب المالك): فرص SPY/QQQ بنفس المحرّك (`build-idx`، تقرأ مخزن SIP الذي
+     حدّثه fetch-market للتوّ فتُتخطّى إن فشل)، ثم العقود (تقرأ صفقاتها تأكيداً)، ثم لوحة الأدوات
+     الخمس (`build-core5`، كلَّ دورةٍ ليلاً ونهاراً — تقرأ لقطة العقود ولا تكتب فيها). نشرٌ واحد
+     بعدها كلّها، وفشلُ أيٍّ منها يُسجَّل ولا يمسّ الأسهم ولا أخواتها. */
+  const AFTER = cmd === "confirm" ? ["build-idx.mjs", "fetch-contracts.mjs", "build-core5.mjs"] : [];
+  const AFTER_DEPENDS = { "build-idx.mjs": "fetch-market.mjs" };
   if (!bad && cmd === "crypto" && trHour() > cryptoH0) {
     releaseLock(); console.log("\n──── نشر لقطة الكريبتو ────");
     process.exit(await publish());
@@ -516,13 +521,16 @@ else {
        ثم تنسحب — قِيس في قياس V4.1 (`confirm` بلا `--publish`؛ المجدول ينشر دائماً) */
     if (bad || !wantPublish) releaseLock();
     if (!acquireLock(cmd)) process.exit(bad ? 1 : 0);
+    let okAfter = 0;
     for (const j of AFTER) {
       console.log(`\n──── ${j} ────`);
+      if (failedJobs.includes(AFTER_DEPENDS[j])) { console.error(`  ✗ ${j} تُخطّي: ${AFTER_DEPENDS[j]} فشل في هذه الدورة — تبقى آخر لقطة سليمة`); continue; }
       const t0 = Date.now(), code = await runScript(j);
       console.log(`  ⏱ ${j} ${((Date.now() - t0) / 1000).toFixed(1)}ث · رمز ${code}`);
-      if (code !== 0) { logError({ job: cmd, failed: [j], note: "العقود — لا يمسّ الأسهم" }); console.error(`  ✗ ${j} انتهى برمز ${code} — الأسهم نُشرت قبلها`); }
-      else if (wantPublish) { releaseLock(); console.log("\n──── نشر العقود ────"); await publish(); }
+      if (code !== 0) { logError({ job: cmd, failed: [j], note: "بعد الأسهم — لا يمسّها" }); console.error(`  ✗ ${j} انتهى برمز ${code} — الأسهم نُشرت قبلها`); }
+      else okAfter++;
     }
+    if (okAfter && wantPublish) { releaseLock(); console.log("\n──── نشر العقود والمؤشرات ────"); await publish(); }
   }
   process.exit(bad ? 1 : 0);
 }
