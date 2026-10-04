@@ -2962,21 +2962,42 @@ function marketStatus(period, now = Date.now()) {
    رابط الدفعة (`.../<sha>/file`) فثابتٌ لا يتغيّر محتواه، فكلُّ الملفّات من
    نسخةٍ واحدة. والـsha يُسأل عنه مرّةً في الدقيقة (حدّ واجهة GitHub ستّون
    طلباً في الساعة)، وعند تعذّره يعود إلى رابط الفرع — تدهورٌ لا تعطّل. */
-let dataRef = { sha: null, at: 0, p: null };
+/* (2026-10-04، فحص التأخّر) ثلاثة إصلاحاتٍ مقيسة:
+   ١) **فشلُ السؤال كان يجمّد الصفحة على الالتزام القديم** حتى ينجح سؤالٌ لاحق — وحدُّ الستّين في
+      الساعة يُستنفد بنافذتين أو بهاتفٍ وحاسوبٍ على شبكةٍ واحدة (قِيس: ~30 سؤالاً في الساعة للنافذة)،
+      فتبقى البيانات متحجّرةً حتى تجدّد الحدّ (أُثبت: نفس الالتزام بعد 2 و10 و50 دقيقة من آخر نجاح).
+      الآن: التزامٌ أقدم من دقيقتين ونصف لا يُستعمل عند الفشل، والبديل رابط الفرع (حافّته تخزّن
+      5 دقائق — قِيس 324 ثانية — وهو أصدق من بياناتٍ متحجّرة ساعة).
+   ٢) **مهلة بعد الرفض**: 403/429 يُوقف السؤال دقيقتين بدل أن يتكرّر مع كل ملفّ.
+   ٣) **الالتزام مشتركٌ بين نوافذ المتصفّح** (localStorage) فلا تضاعف النوافذُ الأسئلة، و`no-cache` كي
+      لا يعيد كاش المتصفّح جواباً عمره حتى 60 ثانية حين تفرض «التقاط اللقطة» سؤالاً جديداً
+      (الـ304 تُحتسب من الحدّ مثل 200 — قِيس — فهي للطزاجة لا للتوفير). */
+let dataRef = { sha: null, at: 0, p: null, failAt: 0, force: false };
+const DATA_REF_KEY = "stk_dataRef", DATA_STALE_MS = 150e3, DATA_BACKOFF_MS = 120e3;
 async function dataBase() {
   const m = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(DATA);
   if (!m) return DATA;
-  if (dataRef.sha && Date.now() - dataRef.at < 60e3) return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${dataRef.sha}`;
-  if (!dataRef.p) dataRef.p = (async () => {
+  const pin = (s) => `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${s}`;
+  if (!dataRef.force) {
+    try { const o = JSON.parse(localStorage.getItem(DATA_REF_KEY) || "null");
+      if (o && /^[0-9a-f]{40}$/.test(o.sha) && o.at > dataRef.at) { dataRef.sha = o.sha; dataRef.at = o.at; } } catch { /* بلا تخزين */ }
+    if (dataRef.sha && Date.now() - dataRef.at < 60e3) return pin(dataRef.sha);
+  }
+  if (Date.now() - dataRef.failAt >= DATA_BACKOFF_MS && !dataRef.p) dataRef.p = (async () => {
     try {
       const r = await fetch(`https://api.github.com/repos/${m[1]}/${m[2]}/commits/${m[3]}`,
-                            { headers: { Accept: "application/vnd.github.sha" }, signal: AbortSignal.timeout(8000) });
-      if (r.ok) { const s = (await r.text()).trim(); if (/^[0-9a-f]{40}$/.test(s)) dataRef = { sha: s, at: Date.now(), p: null }; }
-    } catch { /* يعود إلى رابط الفرع */ }
-    dataRef.p = null;
+                            { headers: { Accept: "application/vnd.github.sha" }, cache: "no-cache", signal: AbortSignal.timeout(8000) });
+      const s = r.ok ? (await r.text()).trim() : "";
+      if (/^[0-9a-f]{40}$/.test(s)) {
+        dataRef = { sha: s, at: Date.now(), p: null, failAt: 0, force: false };
+        try { localStorage.setItem(DATA_REF_KEY, JSON.stringify({ sha: s, at: dataRef.at })); } catch { /* بلا تخزين */ }
+      } else dataRef.failAt = Date.now();
+    } catch { dataRef.failAt = Date.now(); }
+    dataRef.p = null; dataRef.force = false;
   })();
-  await dataRef.p;
-  return dataRef.sha ? `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${dataRef.sha}` : DATA;
+  if (dataRef.p) await dataRef.p;
+  if (dataRef.sha && Date.now() - dataRef.at < (dataRef.failAt ? DATA_STALE_MS : Infinity)) return pin(dataRef.sha);
+  return DATA;
 }
 
 async function getJSON(name) {
@@ -10032,7 +10053,7 @@ function slotCatchUp(due0, n) {
   const T = CR ? TRADES_C : TRADES;
   const have = T && T.hour * 1000 >= due;
   if (have || n >= SLOT_TRIES) { scheduleSlotCatchUp(); return; }
-  dataRef.at = 0;                                   // التزامٌ جديد لا الذاكرة
+  dataRef.at = 0; dataRef.force = true;             // التزامٌ جديد لا الذاكرة (ولا ذاكرة النوافذ الأخرى)
   lazyAt["trades.json"] = 0; lazyAt["contracts.json"] = 0; lazyAt["contracts-track.json"] = 0;
   refresh(true);
   setTimeout(() => slotCatchUp(due, n + 1), SLOT_RETRY_MS);

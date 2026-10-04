@@ -39,8 +39,8 @@
    تُترك للتذكّر — وهي نفس مبدأ «حارسٌ يمرّ دون أن تُختبر حالتُه حارسٌ
    مفترَض لا محروس».
    ===================================================================== */
-const V = "webtrade-v56";
-const SHELL_SHA = "d9c66c101490";     // يحسبها `check-ui` من ملفّات CORE
+const V = "webtrade-v57";
+const SHELL_SHA = "af36e2e3b8d8";     // يحسبها `check-ui` من ملفّات CORE
 const SHELL = V + "-shell";
 const DATA = V + "-data";
 const FONT = V + "-font";
