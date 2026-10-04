@@ -10050,9 +10050,13 @@ const CRYPTO_FIRST_MS = 35000, SLOT_RETRY_MS = 10000, SLOT_TRIES = 8;
 const STOCK_FIRST_MS = ((typeof CONFIRM_WAIT_S === "number" ? CONFIRM_WAIT_S : 180) + 45) * 1000, STOCK_RETRY_MS = 20000;
 function scheduleSlotCatchUp() {
   const now = Date.now();
-  // الدفتر المعروض وحده: لا يُنفَق حدُّ GitHub (60/ساعة) على التقاط دفترٍ غير ظاهر
-  const at = state.book === "crypto" ? cryptoSlotOf(now) + 900000 + CRYPTO_FIRST_MS
-                                     : (nextScanSlot(now) || Infinity) + STOCK_FIRST_MS;
+  /* أقربُ موعد التقاطٍ مستحقٍّ لأيٍّ من الدفترين — لا للمعروض لحظةَ الجدولة: الصفحة تبدأ على الأسهم،
+     فجدولةُ دفترها وحده أجّلت التقاط الكريبتو إلى الاستطلاع العادي (قِيس +123ث و+63ث بعد إغلاقٍ
+     نُشر عند +41ث و+37ث). وموعدُ الحدّ الجاري يُقدَّم ما دام لم يفُت (الأسهم عند +225ث والكريبتو
+     +35ث يقعان على الحدّ نفسه). و`slotCatchUp` لا يسأل GitHub إلا إن نقص الدفترَ المعروضَ لقطتُه. */
+  const due = (cur, next, first) => (cur && cur + first > now ? cur + first : (next || Infinity) + first);
+  const at = Math.min(due(scanSlotAt(now), nextScanSlot(now), STOCK_FIRST_MS),
+                      due(cryptoSlotOf(now), cryptoSlotOf(now) + 900000, CRYPTO_FIRST_MS));
   setTimeout(() => slotCatchUp(null, 0), Math.max(5000, at - now));
 }
 function slotCatchUp(due0, n) {
