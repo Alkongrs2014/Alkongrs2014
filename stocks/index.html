@@ -683,6 +683,7 @@ body.sheet-open{overflow:hidden}
 .v3base{display:inline-block;font-size:8.5px;font-weight:700;color:#04070C;background:var(--acc);border-radius:4px;padding:0 3px;vertical-align:middle}
 /* الصفقات القائمة والمنتهية — صفوفٌ مختصرة، والبطاقة الكاملة تُرسم عند الفتح وحده */
 .v3sect{margin-top:16px}
+.v3nav{display:flex;flex-wrap:wrap;gap:4px 8px;margin:6px 2px 10px;font-size:12.5px;font-weight:700}.v3nav a{color:var(--acc,var(--up));text-decoration:none}
 .v3sect > .gh{font-weight:800;font-size:13.5px;margin:0 2px 6px}
 .v3act{border:1px solid var(--hair);border-radius:var(--r-sm,12px);background:var(--s1);margin-bottom:7px;content-visibility:auto;contain-intrinsic-size:auto 56px}
 .v3act > summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:9px 12px;font-size:12.5px}
@@ -8239,7 +8240,7 @@ function v3Status(t) {
 
 /* بطاقة صفقة V3 — نفس الخطّافات التي تقرؤها أدوات الإثبات (`.srow` و`data-open`).
    `kind`: "new" فرصةٌ جديدة في هذه اللقطة · "active" صفقةٌ قائمة من لقطةٍ سابقة */
-function v3Card(t, i, kind) {
+function v3Card(t, i, kind, extra) {
   kind = kind || (t.now ? "active" : "new");
   const D = v3dir(t.d), lr = symRow(t.s);
   const px = lr && Number.isFinite(lr.p) ? lr.p : null;
@@ -8257,6 +8258,7 @@ function v3Card(t, i, kind) {
     chips.push(`<span class="cold">الأساس: ${esc(baseTxt)}${t.baseTfs && t.baseTfs.length > 1 ? ` (ومعه ${esc(t.baseTfs.filter(x => x !== t.baseTf).map(x => V3_TFL[x]).join("، "))})` : ""}</span>`);
   }
   if (px !== null) chips.push(`<span>السعر الآن <span class="num">${money(px)}</span> <span class="num" style="color:${col}">${chg === null ? "" : pct(chg)}</span></span>`);
+  if (extra) chips.push(extra);
   const warns = v3Warnings(t);
   const warnHtml = warns.length ? `<div class="v3warn"><b>تحذير:</b> ${warns.map(esc).join(" · ")} — الصفقة باقية بخطتها الأصلية حتى الوقف أو آخر هدف أو انقضاء مدّتها.</div>` : "";
   const nowSc = kind === "active" && t.now && Number.isFinite(t.now.score)
@@ -8349,16 +8351,61 @@ function renderTrades(book) {
       ${low.map((t, i) => v3Card(t, -1)).join("")}
     </div>` : "";
   const act = T.active || [], ended = T.closed || [];
-  el.innerHTML = v3Stale(T, CR) + note + (open.length ? open.map((t, i) => v3Card(t, i, "new")).join("")
-    : T.life ? `<div class="empty">لا فرصة جديدة في هذه اللقطة — الفرصة تتولّد من إشارةٍ جديدة على شمعةٍ مغلقة، وهذه نتيجة صحيحة لا عطل${act.length ? ". الصفقات القائمة أدناه" : ""}</div>`
+  /* الكريبتو: «الجديدة» تعيش لقطةً واحدة (15 دقيقة منذ V4.2) ثم تُنفَّذ وتذوب في مئات القائمة — فبدت
+     MAGIC (93.34) مختفية. نفصل ما زال يستوفي بوّابات دخول المحرّك عند السعر الحالي؛ عرضٌ لا إصدار. */
+  const stale = CR && !!v3Stale(T, CR);
+  const cls = CR && T.life ? act.map((t) => ({ t, v: v3EntryNow(t, stale) })) : null;
+  const valid = cls ? cls.filter((x) => x.v.ok).sort((a, b) => b.t.score - a.t.score || b.t.h - a.t.h) : [];
+  const follow = cls ? cls.filter((x) => !x.v.ok).map((x) => x.t) : act;
+  const nav = cls ? `<div class="v3nav"><a href="#" data-v3go="v3new">جديدة ${bd(all.length)}</a> · <a href="#" data-v3go="v3valid">صالحة للدخول ${bd(valid.length)}</a> · <a href="#" data-v3go="v3follow">قيد المتابعة ${bd(follow.length)}</a></div>` : "";
+  const why = cls ? Object.fromEntries(cls.map((x) => [x.t.id, x.v.why])) : {};
+  el.innerHTML = v3Stale(T, CR) + note + nav + (cls ? `<div id="v3new"></div>` : "") + (open.length ? open.map((t, i) => v3Card(t, i, "new")).join("")
+    : T.life ? `<div class="empty">لا فرصة جديدة في هذه اللقطة — الفرصة تتولّد من إشارةٍ جديدة على شمعةٍ مغلقة، وهذه نتيجة صحيحة لا عطل${cls ? (valid.length ? `. ${bd(valid.length)} فرصة سابقة ما زالت صالحة للدخول أدناه` : act.length ? ". الصفقات القائمة أدناه" : "") : act.length ? ". الصفقات القائمة أدناه" : ""}</div>`
     : `<div class="empty">لا فرصة في هذه اللقطة — تتولّد الفرصة حين يكون عبورُ قمة/قاع أمس قائماً أو المتوسطات مرتّبة، وهذه نتيجة صحيحة لا عطل</div>`) + lowHtml
-    + (T.life ? v3ActiveHtml(act) + v3EndedHtml(ended) : "");
+    + (cls ? v3ValidHtml(valid, stale) : "")
+    + (T.life ? v3ActiveHtml(follow, cls ? why : null) + v3EndedHtml(ended) : "");
   if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة${T.life ? " جديدة" : ""}${low.length ? ` + ${bd(low.length)} أقل سيولة` : ""}${T.life ? ` · ${bd(act.length)} صفقة قائمة` : ""} في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُني التحليل ${esc(stamp(Date.parse(T.generatedAt)))} (${ago(Date.parse(T.generatedAt))})`;
 }
 
 /* صفقات V3 القائمة — صفٌّ مختصر لكلٍّ، والبطاقة الكاملة تُرسم حين يُفتح الصفّ وحده (قوائم الكريبتو
    تبلغ المئات، ورسمُ مئات البطاقات بجداولها يثقل الهاتف بلا قارئ) */
-function v3ActiveHtml(act) {
+/* هل تستوفي صفقةٌ قائمة شروط دخول المحرّك **عند السعر الحالي**؟ نفس بوّابات `evaluateSlot` من E3
+   (engine3.js المحمَّل — لا نسخة ثانية): المخاطرة ≤ MAX_RISK_ATR×ATR يومي، وأمامه MIN_TGTS أهدافٌ أصلية
+   كلٌّ ≥ MIN_RR. والخطة الأصلية لا تتغيّر. ما تعذّر التحقّق منه (سعرٌ غائب أو قديم، لقطةٌ متأخّرة،
+   حقلٌ ناقص) ليس صالحاً — قرار المالك: لا يُعرض كفرصة دخول ما لم يُثبَت. */
+const V3_PX_FRESH_MS = 20 * 60000;
+function v3EntryNow(t, stale) {
+  const no = (why) => ({ ok: false, why });
+  if (stale) return no("اللقطة متأخّرة");
+  if (t.status !== "active" || !t.fill) return no("");
+  if (t.hit) return no(`بلغت T${t.hit}`);
+  if (t.sess) return no("من جلسةٍ سابقة");
+  const n = t.now;
+  // كلُّ أساسيةٍ كانت متحقّقةً عند الإصدار ما زالت متحقّقة (فرصةٌ وُلدت من أساسيةٍ واحدة لا تُطالَب بالثانية)
+  const el0 = t.el, el = n && n.el;
+  if (!el0 || !el || !(el0.day || el0.ma) || (el0.day && !el.day) || (el0.ma && !el.ma)) return no("الأساسية لم تعد متحقّقة");
+  if (v3Warnings(t).length) return no("عليها تحذير");
+  const S = mtSum("crypto"), r = mtRow("crypto", t.s);
+  const p = r && Number.isFinite(r.p) ? r.p : null;
+  if (p === null || !S || !(Date.now() - S.updated <= V3_PX_FRESH_MS)) return no("لا سعر حديث للتحقّق");
+  const d = t.d, risk = (p - t.st) * d;
+  if (!(risk > 0)) return no("بلغ السعر الوقف");
+  if (!(t.atrD > 0) || risk > E3.MAX_RISK_ATR * t.atrD) return no("السعر تجاوز بوّابة المخاطرة (1×ATR)");
+  const ahead = (t.tg || []).filter((x) => (x.p - p) * d / risk >= E3.MIN_RR);
+  if (ahead.length < E3.MIN_TGTS) return no(`العائد أقل من ${E3.MIN_RR}R عند السعر الحالي`);
+  return { ok: true, why: "", p, risk, rr: ((t.tg[0].p - p) * d) / risk };
+}
+function v3ValidHtml(valid, stale) {
+  const body = valid.length ? valid.map(({ t, v }) => v3Card(t, -1, "active",
+      `<span>عند السعر الحالي: مخاطرة <span class="num">${(v.risk / v.p * 100).toFixed(2)}%</span> · العائد إلى T1 <span class="num">${v.rr.toFixed(2)}R</span></span>`)).join("")
+    : `<div class="empty">${stale ? "اللقطة متأخّرة — لا يُعرض شيءٌ كصالحٍ للدخول حتى تصل لقطةٌ حديثة" : "لا صفقة قائمة تستوفي شروط الدخول عند السعر الحالي"}</div>`;
+  return `<div class="v3sect" id="v3valid"><div class="gh">فرصٌ سابقة ما زالت صالحة للدخول · ${bd(valid.length)}</div>
+    <p class="v3note"><b>ليست توصياتٍ جديدة:</b> صدرت في لقطاتٍ سابقة بخطتها الأصلية (دخول ووقف وأهداف لا تتغيّر)، وما زالت
+      تستوفي شروط دخول المحرّك عند السعر الحالي: المخاطرة إلى الوقف ≤ ${bd(E3.MAX_RISK_ATR)}×ATR يومي، وهدفان أصليّان على الأقل
+      بعائدٍ ≥ ${bd(E3.MIN_RR)}R، ولم تبلغ T1، وما تحقّق من الأساسيتين عند الإصدار ما زال متحقّقاً بلا تحذير، والسعر حديث. التوافق المرتفع وحده لا يكفي.</p>
+    ${body}</div>`;
+}
+function v3ActiveHtml(act, why) {
   if (!act.length) return "";
   const row = (t) => {
     const lr = symRow(t.s), D = v3dir(t.d), n = t.now || {};
@@ -8369,10 +8416,10 @@ function v3ActiveHtml(act) {
       <span class="s1">${esc(lr ? nm(lr) : t.s)}<small>${esc(t.s)}</small> <span style="color:var(--${D.c})">${D.t}</span>${t.low ? ` <small>أقل سيولة</small>` : ""}</span>
       <span class="s3 num">${pnl === null ? "—" : `<span style="color:${pnl >= 0 ? "var(--up)" : "var(--dn)"}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}%</span>`}</span>
       <span class="s2">${t.status === "confirmed" ? "بانتظار التنفيذ" : t.hit ? `بلغت T${t.hit}` : "نشطة"} · التوافق ${v3pct(t.score)} ← الآن ${Number.isFinite(n.score) ? v3pct(n.score) : "—"}
-        · صدرت ${esc(stamp(t.h * 1000))}${w.length ? ` · <span class="warn">تحذيرات: ${bd(w.length)}</span>` : ""}</span>
+        · صدرت ${esc(stamp(t.h * 1000))}${w.length ? ` · <span class="warn">تحذيرات: ${bd(w.length)}</span>` : ""}${why && why[t.id] ? ` · ليست للدخول الآن: ${esc(why[t.id])}` : ""}</span>
     </summary><div class="v3actb"></div></details>`;
   };
-  return `<div class="v3sect"><div class="gh">صفقات V3 القائمة · ${bd(act.length)}</div>
+  return `<div class="v3sect" id="v3follow"><div class="gh">${why ? "قيد المتابعة" : "صفقات V3 القائمة"} · ${bd(act.length)}</div>
     <p class="v3note">صدرت في لقطاتٍ سابقة وتُتابَع بخطتها الأصلية (دخول ووقف وأهداف لا تتغيّر) حتى الوقف أو آخر هدف أو انقضاء 5 جلسات.
       تغيّرُ الاستراتيجيات يظهر تحذيراً ولا يغلقها، ولا تتولّد للرمز فرصةٌ ثانية خلال دورة حياتها. الترتيب بالتوافق الحالي.
       «تفعيل الدخول» هنا متابعةٌ داخل الموقع لا أمرٌ في السوق.</p>
@@ -9876,6 +9923,9 @@ function boot() {
     // «دخلت الصفقة» — تسجيلٌ في «صفقاتي» لا فتحُ السهم
     const mt = e.target.closest("[data-mt]");
     if (mt) { e.preventDefault(); mtAsk(mt.dataset.mt); return; }
+    // شريط أقسام فرص الكريبتو: جديدة · صالحة للدخول · قيد المتابعة
+    const go = e.target.closest("[data-v3go]");
+    if (go) { e.preventDefault(); const s = document.getElementById(go.dataset.v3go); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     const mta = e.target.closest("[data-mta]");
     if (mta) { mtAction(mta.dataset.mta, mta.dataset.id); return; }
     if (e.target.closest(".v3act > summary")) return;
