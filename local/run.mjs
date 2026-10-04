@@ -352,9 +352,11 @@ if (cmd === "serve") { serve(); }
 else if (cmd === "publish") { process.exit(await publish()); }
 /* الحراسة — قراءةٌ وحدها بلا قفل تشغيل (الطبيب والإعادة يأخذان لقطتهما تحت
    القفل لثانية). بلا أيّ نموذج لغوي: سكربتاتٌ حتمية. */
-else if (["health", "fortress", "torture", "mutation", "doctor", "verify"].includes(cmd)) {
+/* `probe` (V4.1): مسبار زمن وصول شمعة SIP — قراءةٌ وحدها في data/logs/probe، بلا قفل */
+else if (["health", "fortress", "torture", "mutation", "doctor", "verify", "probe"].includes(cmd)) {
   const extra = process.argv.slice(3);
-  const code = await new Promise((resolve) => spawn(process.execPath, [path.join(ROOT, "scripts", cmd + ".mjs"), ...extra],
+  const file = cmd === "probe" ? "probe-sip-latency" : cmd;
+  const code = await new Promise((resolve) => spawn(process.execPath, [path.join(ROOT, "scripts", file + ".mjs"), ...extra],
     { stdio: "inherit", cwd: ROOT }).on("close", resolve));
   process.exit(code ?? 1);
 }
