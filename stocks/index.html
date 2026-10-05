@@ -2484,7 +2484,7 @@ section[data-view].on{animation:viewIn .42s var(--ease)}
     <div class="sticky-hd">
       <div class="schead" style="margin-bottom:9px">
         <h2 style="margin:0">فرص العقود</h2>
-        <span class="chip">مستقل · OPRA · كل 30 دقيقة</span>
+        <span class="chip">مستقل · OPRA · كل 15 دقيقة</span>
       </div>
       <div class="ocats" id="oCats" role="tablist" aria-label="تصنيفات العقود"></div>
       <div class="ofilt">
@@ -6270,7 +6270,7 @@ const LAZY = {
     if (state.view === "analysis") { renderAnalysis(); renderSectorMedians(); renderCompare(); }
   },
   "news.json": (n) => { state.news = n; renderNews(); if (state.sym) renderSymNews(); },
-  /* قسم العقود — لقطةٌ كل 30 دقيقة وسجلُّ ما بُلغ فعلاً. لا تُقبل لقطةٌ أقدم */
+  /* قسم العقود — لقطةٌ كل 15 دقيقة وسجلُّ ما بُلغ فعلاً. لا تُقبل لقطةٌ أقدم */
   "contracts.json": (j) => { if (!CONTRACTS || !(j.hour < CONTRACTS.hour)) CONTRACTS = j; if (state.view === "contracts") renderContracts(); },
   "contracts-track.json": (j) => { CTRACK = j; if (state.view === "contracts") renderContracts(); },
   /* الأدوات الخمس وفرص SPY/QQQ — لقطتان منفصلتان؛ لا تُقبل أقدم من المعروضة */
