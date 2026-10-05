@@ -84,6 +84,9 @@ export function recOf(s, C, now) {
       entry: p.entry, stop: p.stop, tg: p.tg, uT: p.uT, inv: p.inv, rr: p.rr, score: p.score, cat: p.cat, at: p.at, S: p.S,
       qt: l.qt, oi: l.oi, vol: l.vol, spr: l.spr, delta: l.delta, iv: l.iv, v3: p.v3 || null, why: p.why || [] }, why: null };
   }
+  /* NDX: تحليلٌ من بياناتٍ حقيقية حديثة صالح، والتنفيذ عبر Alpaca غير مدعوم — يُعرض موسوماً لا مخلوطاً */
+  const an = mine.filter((p) => p.anOnly);
+  if (an.length && fresh) { const r = recOf(s, { ...C, picks: an.map((p) => ({ ...p, exec: true })) }, now).rec; if (r) return { rec: { ...r, brokerOK: false }, why: null }; }
   const sig = C.sigs && C.sigs[s];
   if (!fresh) return { rec: null, why: "لقطة العقود ليست من الجلسة الجارية" };
   if (mine.length) return { rec: null, why: mine[0].execWhy || "غير قابلة للتنفيذ الآن" };
@@ -133,8 +136,11 @@ export async function build({ now = Date.now(), out = OUT } = {}) {
       } else row.px = null;
       row.trade = { alpaca: true };
     } else {
-      row.px = null;
-      row.pxWhy = "سعر المؤشر الحقيقي غير متاح في Alpaca (لا بيانات مؤشرات في الاشتراك)";
+      /* المؤشر: المستوى المشتقّ من تعادل عقوده (fetch-contracts) — حين تكون لقطة العقود من الجلسة الجارية */
+      const sg = C && C.sigs && C.sigs[x.s], freshC = C && C.hour && now - C.hour * 1000 <= 45 * MIN;
+      row.px = sg && sg.S && freshC ? { p: sg.S, t: sg.qAt, src: "PARITY", ref: sg.prev, chg: sg.chg, disp: sg.disp, pairs: sg.pairs, iv: sg.iv, move: sg.move } : null;
+      row.pxWhy = row.px ? null : sg && sg.why && sg.why[0] && freshC ? sg.why[0]
+        : "يُشتقّ مستوى المؤشر من عروض عقوده في الجلسة الرسمية وحدها (لا تتجدّد ليلاً) — Alpaca بلا بيانات مؤشرات";
       row.trade = { alpaca: x.s !== "NDX" };
     }
     /* سلسلة العقود حول السعر — أقرب انتهاءين أو ثلاثة */
@@ -164,9 +170,9 @@ export async function build({ now = Date.now(), out = OUT } = {}) {
       const v3 = IX ? [...(IX.open || []), ...(IX.active || [])].find((t) => t.s === x.s) : null;
       row.v3 = v3 ? { d: v3.d, score: v3.now && Number.isFinite(v3.now.score) ? v3.now.score : v3.score, h: v3.h, isNew: (IX.open || []).includes(v3), same: v3.same || null } : null;
     } else {
-      row.rec = null;
-      row.recWhy = "سعر المؤشر وشموعه غير متاحة لدى Alpaca — لا تُبنى خطةٌ بلا بيانات الأصل" +
-        (x.s === "NDX" ? "، والتداول على NDX غير متاح عبر Alpaca" : "");
+      const r = recOf(x.s, C, now);
+      row.rec = row.opt.open ? r.rec : null;
+      row.recWhy = row.rec ? null : !row.opt.open ? "سوق خيارات المؤشر مغلق الآن" : !row.px ? row.pxWhy : r.why;
       row.v3 = null;
     }
     rows.push(row);

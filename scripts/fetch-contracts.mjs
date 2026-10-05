@@ -31,6 +31,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { bs, impliedVol } from "./lib/options.mjs";
 import * as AO from "./providers/alpaca-options.mjs";
+import * as IP from "./lib/index-parity.mjs";
 
 const require = createRequire(import.meta.url);
 const SES = require("../stocks/session.js");
@@ -77,7 +78,7 @@ async function pool(items, n, fn) {
 }
 export function version() {
   const h = crypto.createHash("sha256");
-  for (const f of ["scripts/fetch-contracts.mjs", "scripts/providers/alpaca-options.mjs", "scripts/lib/options.mjs"])
+  for (const f of ["scripts/fetch-contracts.mjs", "scripts/providers/alpaca-options.mjs", "scripts/lib/options.mjs", "scripts/lib/index-parity.mjs"])
     h.update(fs.readFileSync(path.join(ROOT, f), "utf8").replace(/\r\n/g, "\n"));
   return h.digest("hex").slice(0, 12);
 }
@@ -339,7 +340,75 @@ const closeDoc = (doc, now = Date.now()) => {
   return { ...doc, phase: "post", marketOpen: false, note: "سوق العقود مغلق — آخر لقطة من الجلسة", picks, count: picks.length };
 };
 
-export async function run({ now = Date.now(), out = OUT, _closed = false } = {}) {
+/* =====================================================================
+   المؤشرات النقدية SPX · XSP · NDX (أولوية المالك 2026-10-05) — من عقودها نفسها:
+   المستوى الآن بتعادل الكول والبوت على عروض OPRA الحيّة (index-parity.mjs)، وإغلاق الجلسة
+   السابقة بنفس التعادل على صفقات دقائقها الأخيرة، ومقياس الحركة «ATR مكافئ» من التذبذب الضمني
+   لعقود الانتهاء القريب (S·IV/√252) — لا شموع مؤشر في الاشتراك. ثم `picksFor` نفسها كالأسهم:
+   الجهة من حركة اليوم بهذا المقياس ويُعارضها تدفّق العقود، والوقف والأهداف ببلاك–شولز.
+   لا VWAP (المؤشر بلا حجم) ولا IV/HV (لا تاريخ). وأيُّ بوّابةٍ تسقط ⇒ لا توصية ويُقال السبب.
+   ===================================================================== */
+const idxCloseAt = (exp) => SES.sessionCloseAt(Date.parse(exp + "T16:00:00Z"));
+function prevSessionClose(t) {
+  for (let i = 1; i < 10; i++) { const w = SES.sessionWindows(t - i * DAY); if (w.regular) return w.regular.end; }
+  return null;
+}
+export async function indexUnder(s, { H, wall = Date.now(), today, cacheDir }) {
+  const cfg = IP.IDX[s];
+  const near = await AO.chainSnapshots(cfg.root, { expGte: today, expLte: new Date(H + 4 * DAY).toISOString().slice(0, 10), maxPages: 6 });
+  const L = IP.parityLevel(near.snaps, { now: wall, closeAt: idxCloseAt, maxDisp: cfg.maxDisp });
+  if (!L.ok) return { ok: false, why: "مستوى المؤشر: " + L.why };
+  /* سجلُّ آخر مستوىً حيّ لكلّ يوم (من العروض — الأدقّ): آخرُ لقطةٍ قبل الإغلاق تصير إغلاقَ الغد إن
+     قربت منه، فيبقى NDX مغطّى في الأيام التي لا انتهاء NDXP فيها (عقود اليوم التالي عند الإغلاق: تشتّت 8
+     نقاط أساس مقيس فتُرفض) */
+  const hk = path.join(cacheDir, "idx-levels.json"), hist = readJ(hk) || {};
+  const wr = SES.sessionWindows(wall).regular;
+  hist[s] ||= {};
+  if (wr && wall <= wr.end + 60000) hist[s][today] = { S: L.S, at: wall };   // بعد الإغلاق لا يكتب فوق مستوى الإغلاق
+  for (const d of Object.keys(hist[s]).sort().slice(0, -10)) delete hist[s][d];
+  writeAtomic(hk, hist);
+  // إغلاق الجلسة السابقة — يُحسب مرّةً لليوم ويُخزَّن
+  const pk = path.join(cacheDir, `idxprev-${today}.json`), pc = readJ(pk) || {};
+  if (!pc[s]) {
+    const before = prevSessionClose(H);
+    const own = hist[s][SES.etParts(before).date];
+    if (own && own.at <= before + 60000 && before - own.at <= 20 * MIN) { pc[s] = { S: own.S, disp: 0, at: own.at, exp: "live" }; writeAtomic(pk, pc); }
+  }
+  if (!pc[s]) {
+    const before = prevSessionClose(H);
+    /* أدقّ إغلاقٍ: عقود الانتهاء **في يوم الجلسة السابقة نفسه** (0DTE يومها — أكثر العقود تداولاً عند
+       الإغلاق، والمقيس 0.5 نقطة أساس) ثم الانتهاءات التالية احتياطاً. والسترايكات حول المستوى الآن بخطوة
+       السلسلة؛ والتعادل يصحّ على أيّ سترايك فلا يلزم أن يكون مستوى الأمس بينها */
+    const parsed = Object.keys(near.snaps).map(AO.parseOcc).filter(Boolean);
+    const ks = [...new Set(parsed.map((p) => p.K))].sort((a, b) => a - b);
+    const step = Math.min(...ks.slice(1).map((k, i) => k - ks[i]).filter((d) => d > 0));
+    const k0 = Math.round(L.S / step) * step, Ks = Array.from({ length: 16 }, (_, i) => k0 + (i - 8) * step);
+    const prevDate = SES.etParts(before).date;
+    const exps = [prevDate, ...[...new Set(parsed.map((p) => p.exp))].filter((e) => idxCloseAt(e) > before).sort().slice(0, 2)];
+    const occ = (exp, t, K) => `${cfg.root}${exp.replace(/-/g, "").slice(2)}${t}${String(Math.round(K * 1000)).padStart(8, "0")}`;
+    let C = { ok: false, why: "لا انتهاء" };
+    for (const exp of exps) {
+      const bars = await AO.optionBars(Ks.flatMap((K) => [occ(exp, "C", K), occ(exp, "P", K)]), "1Min", new Date(before - 20 * MIN).toISOString());
+      C = IP.parityFromBars(bars, { before, T: Math.max(0, (idxCloseAt(exp) - before) / (365 * DAY)) });
+      if (C.ok) { C.exp = exp; break; }
+    }
+    if (!C.ok) return { ok: false, why: "إغلاق الجلسة السابقة: " + C.why };
+    pc[s] = { S: C.S, disp: C.disp, at: before, exp: C.exp }; writeAtomic(pk, pc);
+  }
+  return { ok: true, L, prev: pc[s] };
+}
+/* «ATR مكافئ» من التذبذب الضمني لأقرب انتهاءٍ بين 5 و40 يوماً عند المال */
+export function ivAtr(chain, S) {
+  const c = chain.filter((x) => x.dte >= 5 && x.dte <= 40 && Number.isFinite(x.iv) && x.iv > 0 && x.mid > 0);
+  if (!c.length) return null;
+  const e = c.map((x) => x.exp).sort()[0];
+  const atm = c.filter((x) => x.exp === e).sort((a, b) => Math.abs(a.K - S) - Math.abs(b.K - S)).slice(0, 4);
+  const iv = atm.reduce((a, x) => a + x.iv, 0) / atm.length;
+  return { iv, atr: S * iv / Math.sqrt(252), exp: e };
+}
+
+/* `wall`: ساعة الحائط لطزاجة عروض المؤشرات (يمرّرها الاختبار وحده) */
+export async function run({ now = Date.now(), out = OUT, _closed = false, wall = Date.now() } = {}) {
   ensureTrack(out);
   const H = SES.scanSlotAt(now, CT_STEP);
   if (!H) return { ok: false, why: "لا حدّ لقطة" };
@@ -427,6 +496,38 @@ export async function run({ now = Date.now(), out = OUT, _closed = false } = {})
       all.push(p);
     }
   });
+  /* المؤشرات النقدية — في الجلسة الرسمية وحدها (لا تتجدّد عروضها ليلاً — مقيس) */
+  if (live) for (const s of Object.keys(IP.IDX)) {
+    try {
+      const cfg = IP.IDX[s];
+      const I = await indexUnder(s, { H, wall, today, cacheDir });
+      if (!I.ok) { skip[s] = I.why; sigs[s] = { idx: 1, why: [I.why] }; continue; }
+      const S = I.L.S;
+      const { snaps: ch } = await AO.chainSnapshots(cfg.root, { expGte, expLte: new Date(H + 45 * DAY).toISOString().slice(0, 10),
+        kLo: Math.floor(S * 0.95), kHi: Math.ceil(S * 1.05) });
+      if (cfg.oi && !oiCache[s]) { try { oiCache[s] = await AO.contractsOI(cfg.oi, { expGte, expLte, kLo: Math.floor(S * 0.95), kHi: Math.ceil(S * 1.05) }); } catch { oiCache[s] = {}; } }
+      const chain = Object.entries(ch).map(([k, v]) => contractOf(k, v, (oiCache[s] || {})[k], S, H)).filter(Boolean);
+      const V = ivAtr(chain, S);
+      if (!V) { skip[s] = "لا تذبذب ضمني لعقود 5–40 يوماً"; continue; }
+      const u = { s, S, prev: I.prev.S, atr: V.atr, hv: null, etf: true, vwap: null, sess: "REGULAR", tradeAt: I.L.at };
+      const res = picksFor(u, chain, { now: H, live, v3: null, events: evs });
+      const der = { k: "inferred", t: `مستوى ${s} مشتقٌّ من تعادل CALL/PUT لعقوده (${cfg.root} ${I.L.exp} · سترايكات ${I.L.Ks.join("/")} · تشتّت ${r2(I.L.disp)} نقطة أساس)، والحركة بمقياس التذبذب الضمني ${r2(V.iv * 100)}% — لا شموع مؤشر في الاشتراك` };
+      sigs[s] = { idx: 1, S: r2(S), F: r2(I.L.F), prev: r2(I.prev.S), chg: r2((S / I.prev.S - 1) * 100), move: r2(res.sig.move), iv: r4(V.iv), atr: r2(V.atr),
+                  disp: r2(I.L.disp), pairs: I.L.n, qAt: Math.round(I.L.at / 1000), flow: res.sig.flow, liquid: res.liquid, total: res.total, why: res.why };
+      for (const p of res.picks) {
+        p.why = [der, ...p.why]; p.idx = 1;
+        const fresh = p.legs.every((l) => l.qt && H - l.qt * 1000 <= P.quoteAgeMs);
+        const open = H < w.regular.end + 15 * MIN;
+        p.exec = live && open && fresh && cfg.alpaca;
+        /* NDX: التحليل من بياناتٍ حقيقية صالح، والتنفيذ عبر Alpaca غير مدعوم — يُفصل ولا يُخلط */
+        p.anOnly = live && open && fresh && !cfg.alpaca ? 1 : 0;
+        p.execWhy = !fresh ? "عرض/طلب قديم" : !open ? "سوق العقود مغلق" : !cfg.alpaca ? "تحليلٌ صالح من OPRA — NDX غير قابل للتنفيذ عبر Alpaca (يُنفَّذ لدى وسيطٍ يدعمه)" : null;
+        p.at = Math.round(H / 1000);
+        p.id = `${p.s}|${p.kind}|${p.legs.map((l) => l.sym).join("+")}|${p.at}`;
+        all.push(p);
+      }
+    } catch (e) { skip[s] = e.message; }
+  }
   writeAtomic(oiKey, oiCache);
   for (const [s, m] of errs) skip[s] = m;
   all.sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -563,6 +664,8 @@ function selfCheck() {
   // رمز OCC
   const o = AO.parseOcc("NVDA261009C00235000");
   ok(o && o.root === "NVDA" && o.exp === "2026-10-09" && o.type === "call" && o.K === 235, "OCC");
+  n += IP.selfCheck();
+  ok(IP.IDX.NDX.alpaca === false && IP.IDX.SPX.alpaca && IP.IDX.XSP.alpaca, "قابلية التنفيذ عبر Alpaca");
   console.log(`✓ fetch-contracts --check · ${n} فحصاً`);
 }
 

@@ -6274,7 +6274,7 @@ const LAZY = {
   "contracts.json": (j) => { if (!CONTRACTS || !(j.hour < CONTRACTS.hour)) CONTRACTS = j; if (state.view === "contracts") renderContracts(); },
   "contracts-track.json": (j) => { CTRACK = j; if (state.view === "contracts") renderContracts(); },
   /* الأدوات الخمس وفرص SPY/QQQ — لقطتان منفصلتان؛ لا تُقبل أقدم من المعروضة */
-  "core5.json": (j) => { if (j && Array.isArray(j.rows) && (!CORE5D || !(j.at < CORE5D.at))) CORE5D = j; if (state.view === "contracts") renderCore5(); },
+  "core5.json": (j) => { if (j && Array.isArray(j.rows) && (!CORE5D || !(j.at < CORE5D.at))) CORE5D = j; if (state.view === "contracts") renderCore5(); if (state.view === "screen") renderIdx(); },
   "idx-trades.json": (j) => { if (j && Array.isArray(j.open) && (!IDXT || !(j.hour < IDXT.hour))) IDXT = j; if (state.view === "screen") renderIdx(); },
   /* لحظاتُ بدء الإشارات — المتصفح يحسب النتيجة بنفسه ولا يستطيع أن
      يعرف متى بدأت، فهذه المعلومة التاريخية لا بديل عنها. */
@@ -9608,7 +9608,8 @@ function c5Sess(o, what) {
 function c5Ago(sec) { return sec == null ? "—" : sec < 90 ? `${bd(sec)} ث` : sec < 5400 ? `${bd(Math.round(sec / 60))} د` : sec < 172800 ? `${bd(Math.round(sec / 3600))} س` : `${bd(Math.round(sec / 86400))} يوم`; }
 function c5Card(r) {
   const a = r.atm, rec = r.rec;
-  const px = r.px ? `<span>السعر <b class="num">${money(r.px.p)}</b> <small>(${esc(r.px.src === "BOATS" ? "التداول الليلي BOATS" : "SIP")} · ${esc(stamp(r.px.t * 1000))}${Number.isFinite(r.px.chg) ? ` · <span class="${r.px.chg > 0 ? "up" : r.px.chg < 0 ? "dn" : ""}"><bdi>${pct(r.px.chg)}</bdi></span> عن ${money(r.px.ref)}` : ""})</small></span>`
+  const px = r.px && r.px.src === "PARITY" ? `<span>المستوى <b class="num">${oNum(r.px.p)}</b> <small>(مشتقٌّ من تعادل CALL/PUT لعقود المؤشر نفسه — OPRA · ${bd(r.px.pairs)} زوجاً · تشتّت ${oNum(r.px.disp)} نقطة أساس · ${esc(stamp(r.px.t * 1000))}${Number.isFinite(r.px.chg) ? ` · <span class="${r.px.chg > 0 ? "up" : r.px.chg < 0 ? "dn" : ""}"><bdi>${pct(r.px.chg)}</bdi></span> عن إغلاق ${oNum(r.px.ref)}` : ""}${Number.isFinite(r.px.move) ? ` · الحركة ${oNum(r.px.move)}× من مدى التذبذب الضمني اليومي` : ""})</small></span>`
+    : r.px ? `<span>السعر <b class="num">${money(r.px.p)}</b> <small>(${esc(r.px.src === "BOATS" ? "التداول الليلي BOATS" : "SIP")} · ${esc(stamp(r.px.t * 1000))}${Number.isFinite(r.px.chg) ? ` · <span class="${r.px.chg > 0 ? "up" : r.px.chg < 0 ? "dn" : ""}"><bdi>${pct(r.px.chg)}</bdi></span> عن ${money(r.px.ref)}` : ""})</small></span>`
     : `<span class="warnline">${esc(r.pxWhy || "لا سعر")}</span>`;
   const atm = a ? `<div class="oleg"><b>${r.type === "index" ? "السترايك حيث يتقارب CALL وPUT" : "أقرب سترايك إلى السعر"}</b>
       <bdi>${oNum(a.K, a.K % 1 ? 2 : 0)}</bdi> · ${esc(oMon(a.exp))}
@@ -9629,7 +9630,7 @@ function c5Card(r) {
     <p class="small">الفرصة ${esc(stamp(rec.at * 1000))} ${TZ_NOTE} · عرض العقد ${rec.qt ? esc(stamp(rec.qt * 1000)) : "—"} · OI ${rec.oi == null ? "—" : bd(rec.oi)} · حجم ${bd(rec.vol || 0)} · سبريد ${Number.isFinite(rec.spr) ? oNum(rec.spr * 100, 1) + "%" : "—"}${rec.v3 ? ` · يتوافق مع V3 (${oNum(rec.v3.score, 0)}%)` : ""}${r.sameAs ? ` · <b>نفس حركة ${esc(r.sameAs)}</b> — ليست فرصةً مستقلّة` : ""}</p>`
     : `<p class="v3note"><b>لا توصية:</b> ${esc(r.recWhy || "—")}</p>`;
   const v3 = r.v3 ? `<span>فرصة V3 على ${esc(r.s)}: <b class="${r.v3.d > 0 ? "up" : "dn"}">${r.v3.d > 0 ? "صعود" : "هبوط"}</b> ${oNum(r.v3.score, 0)}% ${r.v3.isNew ? "(جديدة)" : "(قائمة)"}</span>` : "";
-  const badge = rec ? `<span class="ob ok">توصية قابلة للتنفيذ</span>` : `<span class="ob wait">${esc(r.opt && r.opt.open ? "بلا توصية الآن" : "سوق خياراتها مغلق")}</span>`;
+  const badge = rec && rec.brokerOK === false ? `<span class="ob wait">تحليل — لا تنفيذ عبر Alpaca</span>` : rec ? `<span class="ob ok">توصية قابلة للتنفيذ</span>` : `<span class="ob wait">${esc(r.opt && r.opt.open ? "بلا توصية الآن" : "سوق خياراتها مغلق")}</span>`;
   return `<div class="ocard ${rec ? (rec.type === "call" ? "up" : "dn") : ""}">
     <div class="ohd"><b class="osym">${esc(r.s)}</b><span class="okind">${esc(r.ar)}</span><span class="ocat">${esc(C5_TYPE[r.type] || r.type)}${r.trade && !r.trade.alpaca ? " · لا تداول عبر Alpaca" : ""}</span>${badge}</div>
     <div class="ometa">${px}</div>
@@ -9673,7 +9674,7 @@ function renderCore5() {
   const st = $("#c5State");
   const nRec = C.rows.filter((r) => r.rec).length;
   if (st) st.innerHTML = `<b>آخر تحديث ${esc(stamp(C.at * 1000))} ${TZ_NOTE}</b> (${ago(C.at * 1000)}) — ${nRec ? `${bd(nRec)} توصية قابلة للتنفيذ` : "لا توصية قابلة للتنفيذ الآن"}.
-    التوصية عقدٌ منفرد CALL أو PUT من لقطة العقود حين يكون سوق خياراته مفتوحاً وعروضه حديثة. <b>SPX وXSP وNDX بلا توصية</b>: Alpaca لا يقدّم سعر المؤشر ولا شموعه، والعقود تُعرض بأسعارها الحقيقية للاطّلاع — ولا يُستعمل سعر SPY أو QQQ بديلاً عنها. ${C.fut ? esc(C.fut.why) + "." : ""}`;
+    التوصية عقدٌ منفرد CALL أو PUT من لقطة العقود حين يكون سوق خياراته مفتوحاً وعروضه حديثة. <b>SPX وXSP وNDX</b>: Alpaca لا يقدّم سعر المؤشر، فيُشتقّ مستواه في الجلسة الرسمية من تعادل CALL/PUT لعقوده نفسها (دقّةٌ مقيسة ‎~0.5‎ نقطة أساس عن المؤشر الرسمي) — لا من SPY ولا QQQ — ولا توصية حين تسقط بوّابة الجودة أو تقدم العروض. <b>NDX</b> تحليلٌ صالح لا يُنفَّذ عبر Alpaca. ${C.fut ? esc(C.fut.why) + "." : ""}`;
   const src = $("#c5Src");
   if (src) src.innerHTML = `المصادر: ${esc(C.src.etf)} · ${esc(C.src.opt)} · المؤشرات: ${esc(C.src.idx)}${Object.keys(C.errs || {}).length ? ` · تعذّر: ${esc(Object.keys(C.errs).join("، "))}` : ""}`;
 }
@@ -9694,10 +9695,18 @@ function renderIdx() {
     if (n) return v3Card(n, -1, "new", sameNote(n));
     if (a) return v3Card(a, -1, "active", sameNote(a));
     const by = T.bySym && T.bySym[s];
+    /* المؤشرات: لا شموع لها (فلا محرّك V3 عليها) — فرصتُها من عقودها: المستوى المشتقّ وحركته والتوصية */
+    const c5 = CORE5D && CORE5D.rows.find((x) => x.s === s);
+    const idxWhy = () => {
+      if (!c5) return "لوحة المؤشرات تُجلب…";
+      const lv = c5.px && c5.px.src === "PARITY" ? `المستوى ${oNum(c5.px.p)} (${pct(c5.px.chg)}) مشتقٌّ من تعادل عقوده` : (c5.pxWhy || "");
+      const rc = c5.rec ? ` · <b class="${c5.rec.type === "call" ? "up" : "dn"}">${c5.rec.type === "call" ? "CALL" : "PUT"} ${oNum(c5.rec.K, 0)} · ${esc(oMon(c5.rec.exp))}</b> دخول ${oNum(c5.rec.entry)} وقف ${oNum(c5.rec.stop)}${c5.rec.brokerOK === false ? " (تحليل — لا تنفيذ عبر Alpaca)" : ""}` : ` · لا توصية: ${esc(c5.recWhy || "—")}`;
+      return esc(lv) + rc + " — بلا شموع مؤشر فلا يُطبَّق V3، والتفاصيل في قسم العقود";
+    };
     const why = s === "SPY" || s === "QQQ"
       ? (by ? `لا فرصة في هذه اللقطة — التوافق الآن: صعود ${oNum(by.up, 0)}% · هبوط ${oNum(by.dn, 0)}%` : "لا تحليل في هذه اللقطة (لا شمعة حديثة)")
-      : "غير مدعوم: سعر المؤشر الحقيقي وشموعه غير متاحة في اشتراك Alpaca — ولا يُستعمل " + (s === "NDX" ? "QQQ" : "SPY") + " بديلاً عنه";
-    return `<div class="row"><div class="l"><span class="tick">${esc(s)}</span> ${esc(ar)}<small>${esc(why)}</small></div><div class="r" style="color:var(--mut)">${s === "SPY" || s === "QQQ" ? "V3" : "—"}</div></div>`;
+      : null;
+    return `<div class="row"><div class="l"><span class="tick">${esc(s)}</span> ${esc(ar)}<small>${why === null ? idxWhy() : esc(why)}</small></div><div class="r" style="color:var(--mut)">${s === "SPY" || s === "QQQ" ? "V3" : "OPRA"}</div></div>`;
   }).join("");
   const cnt = $("#idxCount");
   if (cnt) cnt.innerHTML = `لقطة ${esc(stamp(T.hour * 1000))} ${TZ_NOTE} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · ${esc(T.src || "")} · الاستراتيجيات والأوزان ودورة الحياة نفسها المطبّقة على الأسهم — ولا تدخل هذه الفرص قائمة الأسهم الخمسين`;
@@ -10395,7 +10404,7 @@ function go(view) {
      التوافق التي تعدّل الترتيب. وغيابُ الأخيرتين تدهورٌ هادئ — القائمة
      تُعرض بترتيب المسح الخام ويُقال ذلك في سطر العدد. */
   if (view === "screen") {
-    need("fundamentals.json"); need("trades.json"); need("idx-trades.json");
+    need("fundamentals.json"); need("trades.json"); need("idx-trades.json"); need("core5.json");
     renderScreen(); renderEarnings(); renderIdx();
   }
   if (view === "crypto") renderScreen();
