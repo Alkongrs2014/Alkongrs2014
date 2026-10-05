@@ -1,6 +1,8 @@
 {
   "note": "قوائم قسم العقود وحده — لا تُضاف إلى الأسهم الأساسية (قرار المالك 2026-10-03). pre: تُراقَب من ما قبل الافتتاح وتستمرّ في الجلسة؛ والأساسية الخمسون من symbols.json تُضاف في الجلسة الرسمية. lateClose: صناديق تُتداول عقودُها حتى 16:15 (سمة options_late_close عند Alpaca، مقيسة).",
   "pre": ["QQQ","SPY","IWM","SNDK","GLD","MU","AMD","DIA","MSFT","TSLA","GOOGL","META","AVGO","INTC","AAPL","NVDA","AMZN","HOOD","ORCL","SPCX","SLV","GOOG","BABA","TSM","TQQQ","CRCL","COIN","UNH","SKHY","MSTR","PLTR","RKLB","IREN","NFLX","SMCI"],
+  "gth": ["AAPL","AMD","AMZN","AVGO","BABA","GOOG","GOOGL","HOOD","INTC","META","MSFT","MU","NFLX","NVDA","ORCL","PLTR","TSLA","TSM"],
+  "gthNote": "ما قبل الافتتاح: تقاطع pre مع رموز Cboe C1 المؤهّلة لجلسة GTH 07:30–09:25 نيويورك (نشرة Cboe — القائمة المتوقّعة). بلا تاريخ ثابت: العقد يصدر فقط إن كان عرضه/طلبه من جلسة GTH اليوم وحديثاً.",
   "etf": ["QQQ","SPY","IWM","DIA","GLD","SLV","TQQQ"],
   "lateClose": ["QQQ","SPY","IWM","DIA","GLD","SLV"]
 }

@@ -42,6 +42,14 @@ const OUT = path.resolve(argOf("out", path.join(ROOT, "data")));
 const DAY = 86400000, MIN = 60000;
 /* لقطةُ العقود كلَّ 15 دقيقة مثل الأسهم (05:15 · 05:30 …) — طلب المالك 2026-10-05 */
 const CT_STEP = 15;
+/* بريماركت حيّ فقط (طلب المالك 2026-10-05): قبل 09:30 لا يصدر عقدٌ إلا وكلُّ أرجله بعرضٍ/طلبٍ من
+   جلسة GTH اليوم (من 07:30 نيويورك) وحديث (≤ quoteAgeMs). بلا تاريخ إطلاقٍ ثابت: قبل أن تتداول
+   Cboe خيارات الأسهم في GTH تبقى العروض من الجلسة السابقة فلا يصدر شيء — لا «مُجهَّز بأسعار آخر جلسة». */
+const GTH_START_ET = 7 * 60 + 30;
+export const gthLive = (p, H, ageMs) => {
+  const g0 = SES.atEtMinutes(H, GTH_START_ET);
+  return H >= g0 && p.legs.every((l) => l.qt && l.qt * 1000 >= g0 && H - l.qt * 1000 <= ageMs);
+};
 const R = 0.04;                               // عائدٌ خالٍ من المخاطر تقريبي — أثره على عقود أسابيع ضئيل
 
 /* ---------------- المعايير — معلنةٌ في الواجهة ---------------- */
@@ -431,7 +439,7 @@ export async function run({ now = Date.now(), out = OUT, _closed = false, wall =
   const live = phase === "regular";
   const U = readJ(path.join(ROOT, "stocks/contracts-universe.json"));
   const core = readJ(path.join(ROOT, "stocks/symbols.json")).symbols.map((x) => x.s).slice(0, 50);
-  const syms = live ? [...new Set([...U.pre, ...core])] : U.pre;
+  const syms = live ? [...new Set([...U.pre, ...core])] : U.gth;
   const etf = new Set(U.etf), late = new Set(U.lateClose);
 
   // السهم: لقطة SIP وشموع يومية (مخزّنة لليوم)
@@ -461,6 +469,7 @@ export async function run({ now = Date.now(), out = OUT, _closed = false, wall =
   const oiCache = readJ(oiKey) || {};
 
   const all = [], skip = {}, sigs = {};
+  let stale = 0;   // عقودٌ قبل الافتتاح أُسقطت لأن عرضها ليس من جلسة GTH اليوم
   const expLte = new Date(H + 60 * DAY).toISOString().slice(0, 10), expGte = today;
   const errs = await pool(syms, 6, async (s) => {
     const sn = snaps[s];
@@ -485,12 +494,13 @@ export async function run({ now = Date.now(), out = OUT, _closed = false, wall =
       ...(k8[s] || []).slice(0, 2).map((f) => ({ k: "event", t: `إفصاح 8-K ${f.items && f.items.length ? "(بند " + f.items.join("، ") + ") " : ""}${new Date(f.at).toISOString().slice(0, 16).replace("T", " ")} UTC` })),
       ...((newsBy[s] || []).filter((n) => n.at * 1000 <= H).slice(0, 2).map((n) => ({ k: "weak", t: `خبر: ${n.h.slice(0, 140)}` })))];
     for (const p of res.picks) {
+      if (!live && !gthLive(p, H, P.quoteAgeMs)) { stale++; continue; }
       if (corp.length) p.why = [...p.why, ...corp];
       // قابلٌ للتنفيذ: سوق العقود مفتوح لهذا الرمز الآن، وكلُّ أرجله حديثة
       const closeAt = w.regular.end + (late.has(s) ? 15 * MIN : 0);
       const fresh = p.legs.every((l) => l.qt && H - l.qt * 1000 <= P.quoteAgeMs);
       p.exec = live && H < closeAt && fresh;
-      p.execWhy = !live ? "سوق العقود يفتح 09:30 نيويورك — مُجهَّز بأسعار آخر جلسة" : !fresh ? "عرض/طلب قديم" : H >= closeAt ? "سوق العقود مغلق" : null;
+      p.execWhy = !live ? "عرض/طلب حيّ من جلسة GTH — التنفيذ عبر Alpaca في الجلسة الرسمية 09:30 نيويورك" : !fresh ? "عرض/طلب قديم" : H >= closeAt ? "سوق العقود مغلق" : null;
       p.at = Math.round(H / 1000);
       p.id = `${p.s}|${p.kind}|${p.legs.map((l) => l.sym).join("+")}|${p.at}`;
       all.push(p);
@@ -545,7 +555,7 @@ export async function run({ now = Date.now(), out = OUT, _closed = false, wall =
   } catch (e) { console.warn(`  ⚠ تاريخ العقود: ${e.message}`); }
   if (!picks.length && Object.keys(skip).length > syms.length / 2) return { ok: false, why: `فشل أكثر من نصف الرموز: ${JSON.stringify(skip).slice(0, 300)}` };
   const doc = { v: 1, version: ver, generatedAt: new Date().toISOString(), hour: Math.round(H / 1000), phase, marketOpen: live,
-    universe: { n: syms.length, pre: U.pre.length, core: live ? core.length : 0 }, params: P, cats: CAT_AR,
+    universe: { n: syms.length, pre: U.pre.length, gth: U.gth.length, core: live ? core.length : 0 }, params: P, cats: CAT_AR, ...(live ? {} : { gthStale: stale }),
     count: picks.length, picks, sigs, skip, stats: { requests: AO.optStats.requests, failures: AO.optStats.failures } };
   doc.rowsHash = crypto.createHash("sha256").update(JSON.stringify(picks)).digest("hex").slice(0, 12);
   const final = _closed ? closeDoc(doc) : doc;   // Date.now(): الانتهاء يُقاس بالآن لا بلحظة اللقطة
@@ -664,6 +674,13 @@ function selfCheck() {
   // رمز OCC
   const o = AO.parseOcc("NVDA261009C00235000");
   ok(o && o.root === "NVDA" && o.exp === "2026-10-09" && o.type === "call" && o.K === 235, "OCC");
+  // بريماركت حيّ: عرضٌ من الجمعة يُسقط، وعرضٌ من GTH اليوم حديث يُقبل، وقبل 07:30 لا شيء
+  const Hp = Date.parse("2026-10-05T12:15:00Z");          // 08:15 نيويورك
+  const L = (t) => ({ legs: [{ qt: Math.round(t / 1000) }] });
+  ok(!gthLive(L(Date.parse("2026-10-02T19:59:59Z")), Hp, 300000), "عرض الجمعة لا يُقبل قبل الافتتاح");
+  ok(gthLive(L(Hp - 60000), Hp, 300000), "عرض GTH حديث يُقبل");
+  ok(!gthLive(L(Hp - 10 * 60000), Hp, 300000), "عرض GTH أقدم من 5 دقائق لا يُقبل");
+  ok(!gthLive(L(Date.parse("2026-10-05T10:59:00Z")), Date.parse("2026-10-05T11:00:00Z"), 300000), "قبل 07:30 لا GTH");
   n += IP.selfCheck();
   ok(IP.IDX.NDX.alpaca === false && IP.IDX.SPX.alpaca && IP.IDX.XSP.alpaca, "قابلية التنفيذ عبر Alpaca");
   console.log(`✓ fetch-contracts --check · ${n} فحصاً`);

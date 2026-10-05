@@ -9552,7 +9552,7 @@ function renderContracts() {
   if (st) st.innerHTML = C.phase === "regular"
     ? `<b>لقطة ${esc(stamp(C.hour * 1000))} ${TZ_NOTE}</b> — سوق العقود مفتوح. العقد «قابل للتنفيذ» حين يكون سوقه مفتوحاً وعروضُ كل أرجله حديثة (أقل من 5 دقائق).`
     : C.phase === "pre"
-    ? `<b>ما قبل الافتتاح — لقطة ${esc(stamp(C.hour * 1000))}</b>: عقودٌ مُجهَّزة من حركة السهم بأسعار آخر جلسة، <b>غير قابلة للتنفيذ</b> قبل فتح سوق العقود 09:30 نيويورك.`
+    ? `<b>ما قبل الافتتاح — لقطة ${esc(stamp(C.hour * 1000))}</b>: عقود GTH الحيّة وحدها — ${bd((C.universe && C.universe.gth) || 18)} رمزاً مؤهّلاً لجلسة Cboe ‏07:30–09:25 نيويورك، ولا يصدر عقدٌ إلا بعرض/طلب من جلسة اليوم (لا أسعار الجلسة السابقة). SPX وXSP وNDX بلا توصيات قبل الافتتاح: لا عرض/طلب حيّ لها في GTH عبر مصدرنا. التنفيذ عبر Alpaca من 09:30.`
     : `<b>سوق العقود مغلق</b> — آخر لقطة ${esc(stamp(C.hour * 1000))}. الأسعار للاطّلاع لا للتنفيذ.`;
   let L = (C.picks || []).filter(p =>
     (!oUI.cat || (oUI.cat === "etf" ? p.etf : p.cat === oUI.cat)) &&
@@ -9565,6 +9565,7 @@ function renderContracts() {
     cost: (a, b) => (a.cost || 0) - (b.cost || 0), rr: (a, b) => (b.rr ?? -1) - (a.rr ?? -1) };
   L = L.slice().sort(S[oUI.sort] || S.score);
   el.innerHTML = L.length ? L.map(p => oCard(p, first.get(oKey(p)))).join("")
+    : C.phase === "pre" && !(C.picks || []).length ? `<div class="empty">لا عقود بريماركت حيّة الآن — لا عرض/طلب من جلسة GTH اليوم للرموز المؤهّلة، فلا توصية من أسعار الجلسة السابقة</div>`
     : `<div class="empty">لا عقد يستوفي هذا التصنيف في هذه اللقطة — لا يُعرض عقدٌ في تصنيفٍ لا يستوفي شروطه</div>`;
   const cnt = $("#oCount");
   if (cnt) cnt.innerHTML = `${bd(L.length)} من ${bd((C.picks || []).length)} · ${bd(C.universe.n)} رمزاً مراقَباً · بُني ${esc(stamp(Date.parse(C.generatedAt)))} (${ago(Date.parse(C.generatedAt))}) · المصدر Alpaca OPRA · بصمة ${esc(C.rowsHash || "")}`;
