@@ -6362,7 +6362,7 @@ const LAZY = {
    الملف في نصف ساعة، كلها متطابقة. */
 const LAZY_TTL = {
   "options.json": 15 * 60e3,        // يُكتب كل 30 دقيقة
-  "contracts.json": 60e3,           // لقطةٌ كل 30 دقيقة — دقيقةٌ تكفي لالتقاطها
+  "contracts.json": 60e3,           // لقطةٌ كل 15 دقيقة — دقيقةٌ تكفي لالتقاطها
   "contracts-track.json": 60e3,     // أوقات بلوغ الأهداف تُحدَّث كل 15 دقيقة
   "core5.json": 60e3,               // كلَّ 15 دقيقة ليلاً ونهاراً مع دورة التأكيد
   "idx-trades.json": 60e3,          // لقطة SPY/QQQ على حدود لقطات الأسهم
@@ -9542,7 +9542,7 @@ function renderContracts() {
     cats.dataset.on = "1";
   }
   if (!C) {
-    if (lazyFail["contracts.json"]) { el.innerHTML = `<div class="empty">لم تُبنَ لقطة عقود بعد — أوّل لقطة 05:15 نيويورك (ما قبل الافتتاح) ثم كلَّ 30 دقيقة</div>`; return; }
+    if (lazyFail["contracts.json"]) { el.innerHTML = `<div class="empty">لم تُبنَ لقطة عقود بعد — أوّل لقطة 05:15 نيويورك (ما قبل الافتتاح) ثم كلَّ 15 دقيقة</div>`; return; }
     // الفشل (404 قبل أوّل لقطة) لا يمرّ بمعالج الملف — نعيد الرسم بعده كي تظهر الحالة لا هيكلٌ أبدي
     need("contracts.json").then(() => { if (state.view === "contracts" && !CONTRACTS) renderContracts(); });
     el.innerHTML = `<div class="skl" style="height:150px"></div>`; return;

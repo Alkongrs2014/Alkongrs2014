@@ -27,11 +27,11 @@ const SES = require("../stocks/session.js");
 const M15 = 15 * 60000;
 
 /* `minWaitS` من `CONFIRM_WAIT_S` في session.js (مصدرٌ واحد مع موعد التقاط الواجهة):
-   180 هو الهامش القديم نفسه حتى يُثبت المسبار أقصر منه في جلسةٍ حقيقية. */
+   هامشٌ قصير (2026-10-05) ثم تحقّقٌ من ظهور الشمعة كل 5ث — لا انتظار ثابت 3 دقائق. */
 export const BAR_READY = {
   minWaitS: Number(process.env.CONFIRM_MIN_WAIT_S ?? SES.CONFIRM_WAIT_S),
   refs: ["SPY", "QQQ"],
-  retryS: 10,
+  retryS: 5,
   capS: 120
 };
 
