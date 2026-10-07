@@ -24,7 +24,7 @@ import { BOOK_SCHEMAS } from "../schemas/index.mjs";
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const a = args.find((x) => x.startsWith(k + "=")); return a ? a.slice(k.length + 1) : d; };
-const SITE = opt("--url", "https://alkongrs2014.github.io/Alkongrs2014/");
+const SITE = opt("--url", process.env.SITE_URL || "https://alkongrs2014.github.io/Alkongrs2014/");
 const WAIT = Number(opt("--wait", "0")) * 1000;
 const REPO = "Alkongrs2014/Alkongrs2014";
 const sha = (t) => crypto.createHash("sha256").update(t).digest("hex").slice(0, 16);
@@ -55,11 +55,14 @@ async function versionMatch() {
 /* ٢) البيانات المنشورة */
 async function dataCheck() {
   let dsha = null;
-  try {
+  /* Alkongrs (AWS): البيانات في نفس نطاق الموقع — لا GitHub */
+  if (process.env.SITE_URL) dsha = "local";
+  else try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/commits/data`, { headers: { Accept: "application/vnd.github.sha" }, signal: AbortSignal.timeout(15000) });
     if (r.ok) dsha = (await r.text()).trim();
   } catch { /* يسقط إلى الفرع */ }
-  const base = `https://raw.githubusercontent.com/${REPO}/${dsha || "data"}/`;
+  const base = process.env.SITE_URL ? SITE.replace(/\/?$/, "/") + "data/"
+    : `https://raw.githubusercontent.com/${REPO}/${dsha || "data"}/`;
   const now = Date.now();
   /* الأسهم: صفقات المحرّك V3 (trades.json). الكريبتو: بياناتٌ فقط حتى نقله إلى V3. */
   for (const [book, sub, files] of [["stocks", "", ["summary.json", "trades.json", "market.json"]],

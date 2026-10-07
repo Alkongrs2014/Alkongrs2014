@@ -1,0 +1,55 @@
+#!/bin/bash
+# خطّاف المستودع الرئيسي على الخادم (/srv/alkongrs/git/alkongrs.git) — بديل GitHub Pages وفرع data:
+#   refs/heads/data  ← النشر المعاملاتي (scripts/lib/publish.mjs) دفعه بإيجار بعد كل بوّاباته؛
+#                      هنا يُستخرج إلى إصدارٍ جديد ويُبدَّل الرابط ذرّياً (mv -T) فلا يرى زائرٌ نصفَ لقطة.
+#   refs/heads/main  ← شيفرة: فحص الواجهة ثم تحديث شجرة التشغيل ثم تبديل الموقع ذرّياً.
+# rollbackData (data ← data-lkg) يدفع إلى data كذلك، فيمرّ من هنا بلا مسارٍ خاص.
+set -uo pipefail
+unset GIT_DIR GIT_WORK_TREE
+REPO=/srv/alkongrs/git/alkongrs.git
+WWW=/srv/alkongrs/www
+APP=/srv/alkongrs/app
+REL=$WWW/releases
+mkdir -p "$REL"
+
+swap() {  # swap <link-name> <target-dir>
+  ln -sfn "$2" "$WWW/.$1.new" && mv -T "$WWW/.$1.new" "$WWW/$1"
+}
+prune() {  # prune <prefix> <keep>
+  ls -1dt "$REL/$1"-* 2>/dev/null | tail -n +$(( $2 + 1 )) | while read -r d; do
+    [[ "$(readlink -f "$WWW/data")" == "$d" || "$(readlink -f "$WWW/stocks")" == "$d"* ]] || rm -rf "$d"
+  done
+}
+
+while read -r old new ref; do
+  [[ "$new" =~ ^0+$ ]] && continue
+  case "$ref" in
+    refs/heads/data)
+      d="$REL/data-$new"
+      if [[ ! -d "$d" ]]; then
+        t="$d.tmp.$$"; mkdir -p "$t"
+        git --git-dir="$REPO" archive "$new" | tar -x -C "$t" && mv -T "$t" "$d" || { rm -rf "$t"; echo "✗ استخراج data فشل"; exit 1; }
+      fi
+      swap data "$d"
+      prune data 4
+      echo "✓ data → ${new:0:10}" ;;
+    refs/heads/main)
+      # شجرة التشغيل تتبع main أوّلاً (المؤقّتات تشغّل منها)، ثم بوّابة الواجهة عليها
+      if [[ -d "$APP/.git" ]]; then
+        git -C "$APP" fetch -q origin main && git -C "$APP" merge -q --ff-only origin/main           || echo "⚠ شجرة التشغيل لم تتقدّم (تعديلٌ محلي؟)"
+        if ! git -C "$APP" diff --quiet "$old" "$new" -- package-lock.json 2>/dev/null; then
+          ( cd "$APP" && npm ci --no-audit --no-fund >/dev/null ) && echo "✓ npm ci"
+        fi
+        # البوّابة: فحص الواجهة (نحو، معرّفات، بصمة الهيكل) — بديل site.yml/gate
+        ( cd "$APP" && node scripts/check-ui.mjs >/dev/null ) || { echo "✗ check-ui فشل — الموقع لم يُبدَّل"; exit 1; }
+      fi
+      d="$REL/site-$new"
+      if [[ ! -d "$d" ]]; then
+        t="$d.tmp.$$"; mkdir -p "$t"
+        git --git-dir="$REPO" archive "$new" stocks | tar -x -C "$t" && mv -T "$t" "$d" || { rm -rf "$t"; exit 1; }
+      fi
+      swap stocks "$d/stocks"
+      prune site 4
+      echo "✓ الموقع → ${new:0:10}" ;;
+  esac
+done

@@ -21,7 +21,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
-const URL_ = process.argv[2] || "https://alkongrs2014.github.io/Alkongrs2014/stocks/";
+const URL_ = process.argv[2] || (process.env.SITE_URL ? process.env.SITE_URL.replace(/\/?$/, "/") + "stocks/" : "https://alkongrs2014.github.io/Alkongrs2014/stocks/");
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
 const CANDS = ["@playwright/test",
   path.join(homedir(), ".claude/skills/playwright-skill/node_modules/playwright"), "playwright"];

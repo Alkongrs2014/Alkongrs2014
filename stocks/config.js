@@ -8,12 +8,17 @@ window.CFG = {
      يُكتشف المكان تلقائياً فلا تحتاج نسختين من هذا الملف:
      • محلياً (localhost أو فتح الملف مباشرة) → مجلد data المجاور،
        يكتبه المشغّل المحلي `node local/run.mjs`
-     • منشوراً على الويب → فرع data عبر raw.githubusercontent (يدعم CORS)
+     • على github.io (النظام القديم) → فرع data عبر raw.githubusercontent
+     • غير ذلك (Alkongrs على AWS) → مجلّد data في نفس النطاق
 
      لتثبيت مصدر بعينه، استبدل السطر كله بنص ثابت. */
-  DATA_BASE: (["localhost", "127.0.0.1", ""].includes(location.hostname))
-    ? "../data"
-    : "https://raw.githubusercontent.com/Alkongrs2014/Alkongrs2014/data",
+  DATA_BASE: /\.github\.io$/.test(location.hostname)
+    ? "https://raw.githubusercontent.com/Alkongrs2014/Alkongrs2014/data"
+    : "../data",
+
+  /* الانتقال إلى AWS (Alkongrs): رابط الموقع الجديد. فارغٌ = لا تحويل. حين يُملأ تحوِّل
+     نسخةُ github.io زائرَها إليه حاملةً «صفقاتي» وإعداداته (localStorage لكل نطاق). */
+  MOVED_TO: "",
 
   /* اتركه فارغاً = الوضع المجاني (البيانات من الملفات، تأخير ~15 دقيقة).
      ضع هنا رابط Cloudflare Worker لتفعيل السعر اللحظي — انظر worker/README.md

@@ -41,7 +41,9 @@ h.published = { dataSha, dataLkg: lkgSha, pagesLkg };
 if (!lkgSha) problem("WARNING", "لا data-lkg بعد — لا هدف رجوعٍ للبيانات");
 let technical = [];
 if (dataSha) {
-  const base = `https://raw.githubusercontent.com/${REPO}/${dataSha}/`;
+  /* على Alkongrs (AWS) المنشور يُخدَم من نفس الخادم: `SITE_DATA_BASE` (مثل http://127.0.0.1/data/) */
+  const base = process.env.SITE_DATA_BASE ? process.env.SITE_DATA_BASE.replace(/\/?$/, "/")
+    : `https://raw.githubusercontent.com/${REPO}/${dataSha}/`;
   /* الأسهم: صفقات المحرّك V3. والكريبتو بياناتٌ فقط (بلا فرص حتى نقله إلى V3) —
      وعمرُ ملخّصه مقياسُ حياة الجهاز لأنه يُكتب ‎24/7‎. */
   try {

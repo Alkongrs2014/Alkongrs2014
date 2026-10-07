@@ -3164,6 +3164,36 @@ section[data-view].on{animation:viewIn .42s var(--ease)}
 const CFG  = window.CFG || {};
 const DATA = String(CFG.DATA_BASE || "").replace(/\/+$/, "");
 
+/* الانتقال إلى Alkongrs على AWS: localStorage لكل نطاق، فـ«صفقاتي» والإعدادات لا تعبر
+   وحدها. نسخة github.io تحملها في الجزء (#) — لا يصل أيَّ خادم — والجديدة تدمجها مرّة:
+   «صفقاتي» بالمعرّف (الموجود يبقى)، وغيرُها إن لم يوجد. */
+(() => {
+  try {
+    if (/\.github\.io$/.test(location.hostname) && CFG.MOVED_TO) {
+      const keep = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (/^stk_/.test(k) && k !== "stk_dataRef") keep[k] = localStorage.getItem(k);
+      }
+      location.replace(CFG.MOVED_TO + (Object.keys(keep).length ? "#mig=" + encodeURIComponent(JSON.stringify(keep)) : ""));
+      return;
+    }
+    const m = /^#mig=(.+)$/.exec(location.hash);
+    if (!m) return;
+    history.replaceState(null, "", location.pathname + location.search);
+    for (const [k, v] of Object.entries(JSON.parse(decodeURIComponent(m[1])))) {
+      if (!/^stk_/.test(k) || typeof v !== "string") continue;
+      const cur = localStorage.getItem(k);
+      if (cur === null) { localStorage.setItem(k, v); continue; }
+      if (k !== "stk_mytrades") continue;
+      const a = JSON.parse(cur), b = JSON.parse(v);
+      if (!Array.isArray(a) || !Array.isArray(b)) continue;
+      const ids = new Set(a.map((r) => r && r.id));
+      localStorage.setItem(k, JSON.stringify([...a, ...b.filter((r) => r && r.id && !ids.has(r.id))]));
+    }
+  } catch (e) {}
+})();
+
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
