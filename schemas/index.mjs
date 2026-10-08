@@ -135,8 +135,9 @@ const pos = { type: "number", exclusiveMinimum: 0 };
 const EVT3 = ["pdh_break", "pdl_reclaim", "pdl_break", "pdh_loss"];
 const WEVT3 = ["pwh_break", "pwl_reclaim", "pwl_break", "pwh_loss"];
 const pts3 = { type: "object", required: ["day", "ma", "trend", "vwap", "week"],
-  properties: { day: { enum: [0, 40] }, ma: { enum: [0, 40] }, trend: { enum: [0, 6.67] },
-                vwap: { enum: [0, 6.67] }, week: { enum: [0, 6.66] } }, additionalProperties: false };
+  /* الأوزان السابقة (الصفقات القائمة حتى تنتهي) واستراتيجية SMA (2026-10-08): المتوسطات 15د 40 + ساعة 20 */
+  properties: { day: { enum: [0, 40, 20] }, ma: { enum: [0, 40, 20, 60] }, trend: { enum: [0, 6.67, 5] },
+                vwap: { enum: [0, 6.67, 10] }, week: { enum: [0, 6.66, 5] } }, additionalProperties: false };
 const trade3 = { type: "object",
   required: ["id", "s", "d", "status", "t", "base", "evt", "el", "pts", "score", "e", "st", "risk", "tg", "hit"],
   properties: {

@@ -101,10 +101,10 @@ export function structuralChecks(dir) {
   /* INV-60..64 و68: لقطات V3 ودورة الحياة — الهندسة والدرجة والأساس والتفرّد والحمل */
   for (const [book, tr] of [["stocks", tr0], ["crypto", rd(dir, "crypto/trades.json")]]) {
     if (!tr) continue;
-    /* الأوزان كما تعلنها اللقطة نفسها (`weights`): لقطةٌ من نسخةٍ سابقة (مثبّتات، أو صفقاتٌ قائمة
-       لحظة تبديل المحرّك) تُفحص بأوزانها هي، ونقاطُ المتوسطات لكلّ فريم بقرار 2026-10-08 وحده */
-    const W = tr.weights || E3.E3.W, geo = [], score = [], base = [], seen = new Set(), dup = [];
-    const perTf = W.ma === E3.E3.W.ma && E3.E3.MA_TF;
+    /* كلُّ صفقةٍ بأوزانها: `wv: 2` = استراتيجية SMA (قرار 2026-10-08، نقاط المتوسطات لكلّ فريم)، وبدونه
+       الأوزان السابقة — الصفقات القائمة لحظة الإطلاق تبقى بشروطها الأصلية حتى تنتهي (قرار المالك) */
+    const W_OLD = { day: 40, ma: 40, trend: 6.67, vwap: 6.67, week: 6.66 };
+    const geo = [], score = [], base = [], seen = new Set(), dup = [];
     const act = tr.active || [];
     // المنتهية تُنشر مختصرةً بلا خطة (pubEnded) — فحصُ الهندسة والدرجة على الجديدة والقائمة
     for (const t of [...tr.open, ...act]) {
@@ -113,6 +113,7 @@ export function structuralChecks(dir) {
       if (t.d === -1 && !(tg.every((x) => x < t.e) && t.e < t.st)) geo.push(`${t.id} بيع معكوس`);
       if (tg.length < 2) geo.push(`${t.id} أقلّ من هدفين`);
       let sum = 0;
+      const W = t.wv === 2 ? E3.E3.W : W_OLD, perTf = t.wv === 2 && E3.E3.MA_TF;
       for (const k of Object.keys(W)) {
         /* المتوسطات (قرار 2026-10-08): نقاطُها مجموعُ أوزان فريماتها المتحقّقة (15د 30 · ساعة 20 · 4س 10)
            — مطابقةٌ تامّة حين تُنشر الفريمات (الجديدة)، وإلا مجموعٌ ممكن متّسقٌ مع تحقّق 15د */

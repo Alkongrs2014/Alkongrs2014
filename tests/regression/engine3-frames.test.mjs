@@ -1,6 +1,6 @@
 /* §4ج — الاستراتيجيات الخمس على الفريمات ودورة حياة الصفقة (قرار المالك 2026-10-03)، والمتوسطات
    البسيطة بأوزانها الجديدة (قرار المالك 2026-10-08).
-   ١) الأوزان: المتوسطات 60 (15د 30 · ساعة 20 · 4س 10) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5،
+   ١) الأوزان: المتوسطات 60 (15د 40 · ساعة 20؛ 4س خارجها بقرار الإطلاق) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5،
       والبقية مرّةً واحدة مهما تعدّدت الفريمات.
    ٢) لا فرصة بلا شرط 15د: أوّلُ افتتاحٍ عبر SMA200 بترتيب SMA35/50 المعاكس، بشمعةٍ أُغلقت في النافذة.
       عبورُ أمس والساعة و4س تقييمٌ لا مُنشئ.
@@ -37,20 +37,20 @@ const up = (x = {}) => ({ ma: { ...MA0, up: true, dir: 1, ...x } });
 const dn = (x = {}) => ({ ma: { ...MA0, dn: true, dir: -1, ...x } });
 
 describe("الأوزان ونقاط الفريمات (قرار 2026-10-08)", () => {
-  it("مجموع الأوزان 100 ونقاط المتوسطات 30/20/10 = 60", () => {
+  it("مجموع الأوزان 100 ونقاط المتوسطات 40/20 = 60", () => {
     const W = E.E3.W;
     expect(W.ma + W.day + W.vwap + W.week + W.trend).toBe(100);
     expect([W.ma, W.day, W.vwap, W.week, W.trend]).toEqual([60, 20, 10, 5, 5]);
-    expect(E.E3.MA_TF).toEqual({ "15m": 30, "1h": 20, "4h": 10 });
+    expect(E.E3.MA_TF).toEqual({ "15m": 40, "1h": 20 });
   });
-  it("15د وحده = 30، ومعه أمس على الساعة = 50", () => {
+  it("15د وحده = 40، ومعه أمس على الساعة = 60", () => {
     const s = E.scoreFrames(fa({ "15m": up(), "1h": { day: brk(1) } }), 1);
-    expect(s.pts.ma).toBe(30);
-    expect(s.score).toBe(50);
+    expect(s.pts.ma).toBe(40);
+    expect(s.score).toBe(60);
     expect(s.tfs.ma).toEqual(["15m"]);
     expect(s.el.ma).toBe(true);
   });
-  it("المتوسطات على الثلاثة = 60، والخمس كلُّها = 100، والتعارض يُسجَّل لا يُطرح", () => {
+  it("المتوسطات على 15د والساعة = 60 (و4س لا يُحتسب)، والخمس كلُّها = 100، والتعارض يُسجَّل لا يُطرح", () => {
     const all = {};
     for (const tf of ["15m", "1h", "4h"]) all[tf] = { day: hold(1), week: hold(1), vwap: { side: 1 }, ...up() };
     all["1d"] = { week: hold(-1) };
@@ -59,12 +59,13 @@ describe("الأوزان ونقاط الفريمات (قرار 2026-10-08)", () 
     expect(s.score).toBe(100);
     expect(s.opp.week).toEqual(["1d"]);
   });
-  it("الساعة و4س بلا 15د: نقاطُهما 30 لكن المتوسطات «غير متحقّقة» (الأساس 15د)", () => {
+  it("الساعة بلا 15د: نقاطُها 20 لكن المتوسطات «غير متحقّقة» (الأساس 15د)، و4س لا نقاط له", () => {
     const s = E.scoreFrames(fa({ "1h": up(), "4h": up() }), 1);
-    expect(s.pts.ma).toBe(30);
+    expect(s.pts.ma).toBe(20);
     expect(s.el.ma).toBe(false);
   });
   it("الهبوط مرآة الصعود", () => {
+    expect(E.scoreFrames(fa({ "15m": dn(), "1h": dn() }), -1).pts.ma).toBe(60);
     expect(E.scoreFrames(fa({ "15m": dn(), "4h": dn() }), -1).pts.ma).toBe(40);
     expect(E.scoreFrames(fa({ "15m": dn() }), 1).pts.ma).toBe(0);
   });
@@ -134,15 +135,8 @@ describe("شروط المتوسطات — حالاتٌ ذهبية", () => {
     expect([h(99).up, h(99).dn]).toEqual([false, true]);
     expect([h(100).up, h(100).dn]).toEqual([false, false]);
   });
-  /* 4س: 16 إغلاقاً عند 100 ⇒ SMA15 = 100 حتى 15 وحتى 14؛ والشمعة 16 */
-  it("4س: افتتاحٌ أو منتصف جسمٍ في الجهة أو إغلاقٌ يخترق SMA15", () => {
-    const q = (o, c) => E.smaFrame("4h", mk(Array(17).fill(100), { 16: { o, c } }));
-    expect(q(101, 100.2)).toMatchObject({ up: true, dn: false, dir: 1 });   // افتتاحٌ ومنتصف فوقه
-    expect(q(98, 99)).toMatchObject({ up: false, dn: true, dir: -1 });
-    expect(q(99, 103)).toMatchObject({ up: true, dn: true });               // منتصف 101 وإغلاقٌ مخترق، والافتتاح تحته
-    expect(q(99.5, 100.4)).toMatchObject({ up: true });                     // اختراقٌ بالإغلاق وحده (منتصف 99.95)
-  });
-  it("اليومي بلا متوسطات", () => {
+  it("4س واليومي بلا متوسطات (4س باقٍ في الاتجاه والشارت)", () => {
+    expect(E.smaFrame("4h", mk(Array(60).fill(100), { 59: { o: 120, c: 130 } }))).toMatchObject({ na: true, up: false, dn: false, ok: false });
     expect(E.smaFrame("1d", mk(Array(250).fill(100), {}))).toMatchObject({ na: true, up: false, dn: false });
   });
 });

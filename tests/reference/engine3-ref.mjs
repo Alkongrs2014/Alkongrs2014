@@ -3,9 +3,9 @@
    **بلا أيّ استيراد من الإنتاج** (اختبار الاستقلال في reference.test.mjs).
    يأخذ نفس كائن المدخلات (شموعٌ مغلقة) ويعيد نفس القرار.
    ===================================================================== */
-// قرار المالك 2026-10-08: المتوسطات 60 (15د 30 · ساعة 20 · 4س 10) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5
+// قرار المالك 2026-10-08: المتوسطات 60 (15د 40 · ساعة 20؛ 4س خارجها) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5
 const W = { day: 20, ma: 60, trend: 5, vwap: 10, week: 5 };
-const MAW = { "15m": 30, "1h": 20, "4h": 10 };
+const MAW = { "15m": 40, "1h": 20 };
 const K = 3, WIN = 120;
 const last = (a, n) => a.slice(Math.max(0, a.length - n));
 
@@ -216,7 +216,7 @@ function planRef(inp, wkOf, d, base, elOver, scoreOver) {
    من المواصفة: الفرصة من شرط 15د وحده — آخرُ شمعةٍ مغلقة في (prevH, H] هي أوّلُ
    افتتاحٍ فوق SMA200 (افتتاح سابقتها عنده أو تحته) وSMA35 وSMA50 تحته، أو معكوسه
    للهبوط. كلُّ متوسطٍ على إغلاقات ما **قبل** الشمعة المقيسة. التأكيد: ساعة = افتتاح
-   آخر شمعة في جهة SMA50؛ 4س = افتتاحها أو منتصف جسمها في جهة SMA15 أو إغلاقٌ يخترقه.
+   آخر شمعة في جهة SMA50؛ و4س واليومي بلا متوسطات.
    ونقاط المتوسطات لكلّ فريمٍ متحقّق بوزنه؛ والبقية مرّةً واحدة، والاتجاه إجماع 1h/4h/1d.
    ===================================================================== */
 const TFR = ["15m", "1h", "4h", "1d"];
@@ -232,7 +232,7 @@ function lastCrossEndRef(bars, H, L, pre) {
 // المتوسطات على فريمٍ واحد: { up, dn, ev } من شموعه المغلقة
 function smaTfRef(tf, bars) {
   const n = bars.length, none = { up: false, dn: false, ev: 0 };
-  if (tf === "1d" || n < 3) return none;
+  if (tf === "1d" || tf === "4h" || n < 3) return none;
   const c = bars.map((x) => x.c), b = bars[n - 1], p = bars[n - 2];
   const before = c.slice(0, n - 1), before2 = c.slice(0, n - 2);
   if (tf === "15m") {
@@ -247,10 +247,7 @@ function smaTfRef(tf, bars) {
     const m = smaRef(before, 50);
     return m === null ? none : { up: b.o > m, dn: b.o < m, ev: 0 };
   }
-  const m = smaRef(before, 15), mp = smaRef(before2, 15);
-  if (m === null || mp === null) return none;
-  const mid = (b.o + b.c) / 2;
-  return { up: b.o > m || mid > m || (b.c > m && p.c <= mp), dn: b.o < m || mid < m || (b.c < m && p.c >= mp), ev: 0 };
+  return none;
 }
 export function evaluateSlotRef(inp, wkOf, prevH) {
   const b15 = inp.b15, d1 = inp.d1;

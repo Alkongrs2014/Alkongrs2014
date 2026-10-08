@@ -36,7 +36,7 @@ describe("§4ج والمتوسطات البسيطة (قرار 2026-10-08) مقا
     expect(dirs[1]).toBeGreaterThan(0);                  // الصعود والهبوط كلاهما يُنشئان فرصاً
     expect(dirs[-1]).toBeGreaterThan(0);
     expect([...tfsSeen]).toEqual(["15m"]);               // لا فرصة بلا شرط 15د
-    expect([...maPts].every((x) => x >= 30 && x <= 60)).toBe(true);
+    expect([...maPts].every((x) => x === 40 || x === 60)).toBe(true);   // 15د 40 + ساعة 20
   });
 });
 

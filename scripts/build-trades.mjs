@@ -66,7 +66,7 @@ function frPack(fa) {
   for (const tf of E.E3_TFS) {
     const r = fa.fr[tf];
     /* المتوسطات (قرار 2026-10-08): 15د ±2 أوّلُ افتتاحٍ عبر SMA200 بالترتيب، ±1 جهةُ الافتتاح ·
-       ساعة ±1 · 4س ±1 أو 3 (تحقّقت الجهتان) · اليومي null */
+       ساعة ±1 · 4س واليومي null (بلا متوسطات) */
     const mv = !r.ma.ok ? null : r.ma.ev ? 2 * r.ma.ev : (r.ma.up && r.ma.dn ? 3 : (r.ma.up ? 1 : (r.ma.dn ? -1 : 0)));
     o[tf] = [kindCode(r.day), mv, r.trend,
       r.vwap ? r.vwap.side : null, kindCode(r.week)];
@@ -97,7 +97,7 @@ function pubTrade(tr) {
     e: r4(tr.e), st: r4(tr.st), risk: r4(tr.risk), rr1: r2(tr.rr1),
     tg: tr.tg.map((x) => ({ p: r4(x.p), src: x.src })), hit: tr.hit || 0,
     ma: tr.ma, trend: tr.trend, trendTf: tr.trendTf, vwap: r4(tr.vwap),
-    pdh: r4(tr.pdh), pdl: r4(tr.pdl), pwh: r4(tr.pwh), pwl: r4(tr.pwl), atrD: r4(tr.atrD) };
+    pdh: r4(tr.pdh), pdl: r4(tr.pdl), pwh: r4(tr.pwh), pwl: r4(tr.pwl), atrD: r4(tr.atrD), ...(tr.wv ? { wv: tr.wv } : {}) };
   if (tr.stNow !== undefined && tr.stNow !== tr.st) o.stNow = r4(tr.stNow);
   if (tr.fill) o.fill = { t: sec(tr.fill.t), px: r4(tr.fill.px) };
   if (Number.isFinite(tr.sess)) o.sess = tr.sess;
@@ -113,7 +113,7 @@ function newTrade(s, H, sig, extra) {
     conflict: sig.conflict, el: sig.el, pts: sig.pts, score: sig.score, tfs: sig.tfs, opp: sig.opp,
     e: sig.e, st: sig.st, risk: sig.risk, rr1: sig.rr1, tg: sig.tg, atrD: sig.atrD,
     ma: sig.ma, trend: sig.trend, trendTf: sig.trendTf, vwap: sig.vwap,
-    pdh: sig.pdh, pdl: sig.pdl, pwh: sig.pwh, pwl: sig.pwl, ...extra };
+    pdh: sig.pdh, pdl: sig.pdl, pwh: sig.pwh, pwl: sig.pwl, wv: 2, ...extra };
 }
 /* التوافق الحالي لصفقةٍ قائمة وتحذيراتها — عرضٌ لا قرار: لا يُغلقها ولا يغيّر خطتها.
      drop  التوافق الحالي أقلّ من التوافق عند الإصدار
