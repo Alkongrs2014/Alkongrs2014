@@ -12,13 +12,14 @@ describe("§4ج والمتوسطات البسيطة (قرار 2026-10-08) مقا
   const bad = [];
   let n = 0, sig = 0;
   const dirs = { 1: 0, "-1": 0 }, tfsSeen = new Set(), maPts = new Set();
-  for (const seed of [7, 11, 23, 41]) it(`السوق الاصطناعي ${seed}: نفس الجهة والأساس والدرجة ونقاط الفريمات والخطة عند كل لقطة 15 دقيقة`, () => {
+  for (const seed of [7, 11, 23, 41]) it(`السوق الاصطناعي ${seed}: نفس الجهة والأساس والدرجة ونقاط الفريمات والخطة عند كل لقطة 15 دقيقة`, async () => {
     {
       const A0 = synth(seed, 240), S0 = prep(A0.b15, A0.b1d);
       const f0 = S0.r15.findIndex((b) => b.t >= Date.parse("2025-06-01"));
       for (let i = f0; i < S0.r15.length; i++) {
         const T = S0.r15[i].end;
         if (T % 900000 !== 0) continue;
+        if (n % 150 === 0) await new Promise((r) => setImmediate(r));
         const inp = inputAt(S0, i), prevH = T - 900000;
         const a = E.evaluateSlot(inp, (d) => isoWeek(d), prevH), b = evaluateSlotRef(inp, (d) => isoWeek(d), prevH);
         n++;

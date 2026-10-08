@@ -48,7 +48,8 @@ jobs:
       - name: الطبيب على المثبّتات
         run: node scripts/doctor.mjs --fixtures
       - name: الوحدات والذهبية والانحدار والخصائص والسباقات والمرجع
-        run: npx vitest run || { node scripts/ci-annotate.mjs; exit 1; }
+        run: npx vitest run 2>&1 | tee vitest.log; test "${PIPESTATUS[0]}" = 0 || { node scripts/ci-annotate.mjs reports/vitest-report.json vitest.log; exit 1; }
+        shell: bash
         env: { FC_RUNS: "1000" }
       - name: الواجهة (Playwright — سطح المكتب والهاتف)
         run: npx playwright test

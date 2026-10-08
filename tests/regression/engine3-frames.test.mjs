@@ -183,11 +183,14 @@ describe("لا شمعة جارية ولا نظر إلى المستقبل في ق
 describe("WLD — على شموعها الحقيقية (2026-09-26 → 2026-10-03)", () => {
   const rec = JSON.parse(fs.readFileSync(path.join(HERE, "../fixtures/v3/WLD-USD-2026-10-03.json"), "utf8"));
   const S = { "WLD-USD": prepCrypto(rec) };
-  it("الصفقة المفعّلة تبقى بخطتها حتى تنتهي بقواعدها ولا تتكرّر خلال دورة حياتها", () => {
+  // ~490 لقطة: تنازلٌ عن الحلقة كلَّ 20 — الحجب المتزامن الطويل يُسقط عامل vitest بمهلة RPC في CI
+  it("الصفقة المفعّلة تبقى بخطتها حتى تنتهي بقواعدها ولا تتكرّر خلال دورة حياتها", async () => {
     const r15 = S["WLD-USD"].r15;
     let state = null, cur = null;
     const births = [];
+    let k = 0;
     for (let H = r15[210].end; H <= r15[r15.length - 1].end; H += 900000) {
+      if (++k % 20 === 0) await new Promise((r) => setImmediate(r));
       const r = build({ now: H + 60000, book: "crypto", out: "/nonexistent", S, state });
       expect(r.ok).toBe(true);
       state = JSON.parse(JSON.stringify(r.state));
