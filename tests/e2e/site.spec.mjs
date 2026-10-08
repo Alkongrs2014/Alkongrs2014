@@ -116,9 +116,17 @@ async function firstCard(page) {
   const sec = page.locator('section[data-view="screen"]');
   await page.waitForFunction(() => typeof TRADES !== "undefined" && TRADES, null, { timeout: 20000 });
   await page.waitForTimeout(300);
-  if (!(await sec.locator(".srow.opp").count()) && await sec.locator(".v3act").count())
-    await sec.locator(".v3act > summary").first().click();
-  return sec.locator(".srow.opp").first();
+  /* أقسام الفرص (جديدة · صالحة للدخول · قيد المتابعة، 2026-10-05): القائمة في قسمٍ آخر غير الظاهر —
+     بلا هذا كان الاختبار الحيّ يسقط كلّما خلت اللقطة من جديد، فيُرجع التحقّقُ النشرَ كلَّه */
+  if (!(await sec.locator(".srow.opp:visible").count())) {
+    for (const k of ["valid", "follow"]) {
+      if (await sec.locator(".v3act:visible").count()) break;
+      const btn = sec.locator(`.v3tabs [data-v3tab="${k}"]`);
+      if (await btn.count()) { await btn.first().click(); await page.waitForTimeout(300); }
+    }
+    if (await sec.locator(".v3act:visible").count()) await sec.locator(".v3act:visible > summary").first().click();
+  }
+  return sec.locator(".srow.opp:visible").first();
 }
 
 test("بطاقة الفرصة تشرح درجتها: الخمس بأوزانها ✓/✗ والدرجة مجموعُ المتوافقة", async ({ page }) => {
@@ -128,14 +136,15 @@ test("بطاقة الفرصة تشرح درجتها: الخمس بأوزانها
   await expect(card).toBeVisible({ timeout: 20000 });
   const r = await card.evaluate((c) => ({
     score: parseFloat(c.querySelector(".v3q b").textContent),
-    items: [...c.querySelectorAll(".v3els .it")].map((x) => ({ on: x.classList.contains("on"), t: x.textContent }))
+    items: [...c.querySelectorAll(".v3els .it")].map((x) => ({ on: x.classList.contains("on"), p: parseFloat(x.querySelector(".num").textContent) }))
   }));
   expect(r.items.length).toBe(5);
-  const W = [40, 40, 6.67, 6.67, 6.66];
-  const sum = Math.round(r.items.reduce((a, x, i) => a + (x.on ? W[i] : 0), 0) * 100) / 100;
+  // النقاط كما تعرضها البطاقة لكل استراتيجية (المتوسطات بفريماتها منذ 2026-10-08، والقائمة قبلها بأوزانها)
+  expect(r.items.every((x) => x.on || x.p === 0)).toBe(true);
+  const sum = Math.round(r.items.reduce((a, x) => a + x.p, 0) * 100) / 100;
   expect(r.score).toBeCloseTo(sum, 6);
   expect(r.score).toBeLessThanOrEqual(100);
-  expect(await card.innerText()).toMatch(/قوة التوافق|التوافق عند الإصدار/);
+  expect(await card.textContent()).toMatch(/قوة التوافق|التوافق عند الإصدار/);
 });
 
 test("فتحُ سهمٍ من الفرص يعرض تفاصيله بلا خطأ، والعودة تعمل", async ({ page }) => {

@@ -5005,7 +5005,8 @@ async function loadOptions(sym) {
   // لا خيارات على العملات الرقمية: الطلب يعود 404 في كل فتحة وتمتلئ
   // شاشة المطوّر بخطأٍ سببه أننا سألنا عمّا لا وجود له
   const r0 = symRow(sym);
-  if ((r0 && r0.mkt === "crypto") || /-USD$/.test(sym)) { renderOptions(); return; }
+  // ولا على رمزٍ خارج كون الأسهم (SPY/QQQ من فرص المؤشرات): ملفُّ خياراته غير موجود (404)
+  if (!r0 || r0.mkt === "crypto" || /-USD$/.test(sym)) { renderOptions(); return; }
   if (!state.optCache[sym]) state.optCache[sym] = await getJSON(`options/${sym}.json`);
   if (state.sym !== sym) return;                 // انتقل المستخدم أثناء الجلب
   state.optExp = 0; state.optSide = "calls";
