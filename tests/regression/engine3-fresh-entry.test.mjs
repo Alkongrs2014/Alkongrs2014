@@ -4,7 +4,7 @@
    ٢) رمزٌ بلا شمعةٍ في آخر ربع ساعة يُستبعد وحده: بقية الفرص كما هي حرفياً، والسبب في stats.
    ٣) الاستبعاد مؤقّت: حين تأتي شمعةٌ فيها تداول تعود الفرصة بنفس أرقام البناء من الصفر.
    لا يكتب في المثبّتات: كلُّ شيءٍ في مجلّدٍ مؤقّت. */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -32,18 +32,22 @@ const run = (H, drop) => { const dir = tmp(); const now = H + 4 * 60000;
    تُمسح آخر 90 يوماً في الذاكرة (`evalSlot`، بلا كتابة) وتُؤخذ أوّل 12 لقطةٍ فيها فرصةٌ لرمزٍ ما،
    ممتدّةً ورسمية، ثم تُبنى كاملةً على المخزن كما كانت. */
 const lastT = DATA[0][1].b15[DATA[0][1].b15.length - 1].t;
-const PREP = DATA.map(([s, d]) => [s, prep(d.b15, d.b1d)]);
 const slots = [];
-for (let k = 90; k >= 0 && slots.length < 12; k--)
-  for (const H of SES.scanSlotsOf(lastT - k * 86400000)) {
-    if (H > lastT || slots.length >= 12) continue;
-    if (PREP.some(([, S]) => { const x = evalSlot(S, H, SES.scanSlotAt(H - 1)); return x.i >= 0 && !x.r.reject && S.r15[x.i].t === H - M15; })) slots.push(H);
-  }
 
 describe("INV-67 — لا دخولٌ من شمعةٍ أقدم من شمعة اللقطة", () => {
   // تنازلٌ عن الحلقة بين اللقطات: بخطوة 15 دقيقة (V4.1) تضاعفت اللقطات فصار الحجب المتزامن يُسقط
-  // عامل vitest بمهلة RPC «onTaskUpdate» والاختبارات ناجحة
+  // عامل vitest بمهلة RPC «onTaskUpdate» والاختبارات ناجحة — والمسح المسبق كذلك: يومٌ ثم تنازل
   const yieldLoop = () => new Promise((r) => setImmediate(r));
+  beforeAll(async () => {
+    const PREP = DATA.map(([s, d]) => [s, prep(d.b15, d.b1d)]);
+    for (let k = 90; k >= 0 && slots.length < 12; k--) {
+      await yieldLoop();
+      for (const H of SES.scanSlotsOf(lastT - k * 86400000)) {
+        if (H > lastT || slots.length >= 12) continue;
+        if (PREP.some(([, S]) => { const x = evalSlot(S, H, SES.scanSlotAt(H - 1)); return x.i >= 0 && !x.r.reject && S.r15[x.i].t === H - M15; })) slots.push(H);
+      }
+    }
+  });
   it("كلُّ فرصةٍ في كل لقطةٍ على شمعة اللقطة", async () => {
     let n = 0;
     for (const H of slots) {

@@ -7,11 +7,13 @@ import { evaluateRef, manageRef, evaluateHourRef, evaluateSlotRef } from "../ref
 import { synth } from "./synth3.mjs";
 
 describe("§4ج والمتوسطات البسيطة (قرار 2026-10-08) مقابل المرجع المستقلّ", () => {
-  it("نفس الجهة والأساس والدرجة ونقاط الفريمات والخطة عند كل لقطة 15 دقيقة — على عدّة أسواقٍ اصطناعية", () => {
-    const bad = [];
-    let n = 0, sig = 0;
-    const dirs = { 1: 0, "-1": 0 }, tfsSeen = new Set(), maPts = new Set();
-    for (const seed of [7, 11, 23, 41]) {
+  /* سوقٌ لكلّ اختبار (والمجاميع في الأخير): حلقةٌ متزامنة واحدة على الأربعة (~20ث) تُسقط عامل
+     vitest بمهلة RPC والاختبارات ناجحة — مصيدةٌ موثّقة */
+  const bad = [];
+  let n = 0, sig = 0;
+  const dirs = { 1: 0, "-1": 0 }, tfsSeen = new Set(), maPts = new Set();
+  for (const seed of [7, 11, 23, 41]) it(`السوق الاصطناعي ${seed}: نفس الجهة والأساس والدرجة ونقاط الفريمات والخطة عند كل لقطة 15 دقيقة`, () => {
+    {
       const A0 = synth(seed, 240), S0 = prep(A0.b15, A0.b1d);
       const f0 = S0.r15.findIndex((b) => b.t >= Date.parse("2025-06-01"));
       for (let i = f0; i < S0.r15.length; i++) {
@@ -31,6 +33,8 @@ describe("§4ج والمتوسطات البسيطة (قرار 2026-10-08) مقا
       }
     }
     expect(bad.slice(0, 5)).toEqual([]);
+  });
+  it("المجاميع على الأسواق الأربعة", () => {
     expect(n).toBeGreaterThan(2000);
     expect(sig).toBeGreaterThan(10);
     expect(dirs[1]).toBeGreaterThan(0);                  // الصعود والهبوط كلاهما يُنشئان فرصاً
