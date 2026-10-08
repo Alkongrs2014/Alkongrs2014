@@ -59,13 +59,14 @@ describe("حالاتٌ يدوية من المواصفة", () => {
     expect(ev(100.1, 99.9)).toEqual(["pdh_loss"]);      // O > H و C < H
     expect(E.crossEvents({ o: 99, c: 99.5, h: 105, l: 85 }, 100, 90, "pd")).toEqual([]);   // ذيلان فقط
   });
-  it("الأوزان: 40+40+6.67+6.67 = 93.34 · والخمس = 100 · والأساسيتان = 80", () => {
+  it("الأوزان (قرار 2026-10-08): أمس 20 + المتوسطات 60 + الاتجاه 5 + VWAP 10 = 95 · والخمس = 100 · والأساسيتان سابقاً = 80", () => {
     const st = (el) => ({ day: el[0] ? { d: 1, holds: true } : null, ma: { dir: el[1] ? 1 : 0 },
       trend: { dir: el[2] ? 1 : 0 }, vwap: 10, px: el[3] ? 11 : 9, week: el[4] ? { d: 1, holds: true } : null });
-    expect(E.scoreFor(st([1, 1, 1, 1, 0]), 1).score).toBe(93.34);
+    expect(E.scoreFor(st([1, 1, 1, 1, 0]), 1).score).toBe(95);
     expect(E.scoreFor(st([1, 1, 1, 1, 1]), 1).score).toBe(100);
     expect(E.scoreFor(st([1, 1, 0, 0, 0]), 1).score).toBe(80);
-    expect(E.scoreFor(st([1, 0, 0, 0, 0]), 1).score).toBe(40);
+    expect(E.scoreFor(st([1, 0, 0, 0, 0]), 1).score).toBe(20);
+    expect(E.scoreFor(st([0, 1, 0, 0, 0]), 1).score).toBe(60);
     expect(E.scoreFor(st([1, 1, 1, 1, 1]), -1).score).toBe(0);    // كلّها شراء ⇒ صفرٌ للبيع
   });
   it("الأهداف: مستوياتٌ ≥ 1R أولاً ثم إكمالٌ بمضاعف المخاطرة موسوماً", () => {

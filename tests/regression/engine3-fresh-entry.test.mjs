@@ -10,6 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { build } from "../../scripts/build-trades.mjs";
+import { prep, evalSlot } from "../../scripts/lib/engine3-run.mjs";
 import { synth, writeStore } from "../property/synth3.mjs";
 
 const SES = createRequire(import.meta.url)("../../stocks/session.js");
@@ -27,9 +28,17 @@ function storeAt(dir, now, drop = null) {
 }
 const run = (H, drop) => { const dir = tmp(); const now = H + 4 * 60000;
   return build({ now, out: dir, barsDir: storeAt(dir, now, drop), fresh: true }); };
-// لقطات آخر يومٍ في البيانات (ممتدّ + رسمي)
+/* لقطاتٌ فيها إشارة: شرط 15د (قرار 2026-10-08) أندر من «أمس أو المتوسطات»، فلا يكفي آخر يوم —
+   تُمسح آخر 90 يوماً في الذاكرة (`evalSlot`، بلا كتابة) وتُؤخذ أوّل 12 لقطةٍ فيها فرصةٌ لرمزٍ ما،
+   ممتدّةً ورسمية، ثم تُبنى كاملةً على المخزن كما كانت. */
 const lastT = DATA[0][1].b15[DATA[0][1].b15.length - 1].t;
-const slots = SES.scanSlotsOf(lastT - 6 * 3600000).filter((t) => t <= lastT);
+const PREP = DATA.map(([s, d]) => [s, prep(d.b15, d.b1d)]);
+const slots = [];
+for (let k = 90; k >= 0 && slots.length < 12; k--)
+  for (const H of SES.scanSlotsOf(lastT - k * 86400000)) {
+    if (H > lastT || slots.length >= 12) continue;
+    if (PREP.some(([, S]) => { const x = evalSlot(S, H, SES.scanSlotAt(H - 1)); return x.i >= 0 && !x.r.reject && S.r15[x.i].t === H - M15; })) slots.push(H);
+  }
 
 describe("INV-67 — لا دخولٌ من شمعةٍ أقدم من شمعة اللقطة", () => {
   // تنازلٌ عن الحلقة بين اللقطات: بخطوة 15 دقيقة (V4.1) تضاعفت اللقطات فصار الحجب المتزامن يُسقط
@@ -43,7 +52,8 @@ describe("INV-67 — لا دخولٌ من شمعةٍ أقدم من شمعة ال
       expect(r.ok).toBe(true);
       for (const t of r.doc.open) { expect(t.t).toBe(r.doc.candleKey); n++; }
     }
-    expect(n).toBeGreaterThan(10);
+    expect(slots.length).toBeGreaterThanOrEqual(8);
+    expect(n).toBeGreaterThanOrEqual(slots.length);
   });
 
   it("الاستبعاد للرمز بلا تداول وحده، ومؤقّت", async () => {
@@ -64,6 +74,6 @@ describe("INV-67 — لا دخولٌ من شمعةٍ أقدم من شمعة ال
       expect(back.doc.open.find((t) => t.s === victim.s)).toEqual(victim);
       tested++;
     }
-    expect(tested).toBeGreaterThan(3);
+    expect(tested).toBeGreaterThanOrEqual(8);
   });
 });
