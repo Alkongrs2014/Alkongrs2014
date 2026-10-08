@@ -101,7 +101,10 @@ export function structuralChecks(dir) {
   /* INV-60..64 و68: لقطات V3 ودورة الحياة — الهندسة والدرجة والأساس والتفرّد والحمل */
   for (const [book, tr] of [["stocks", tr0], ["crypto", rd(dir, "crypto/trades.json")]]) {
     if (!tr) continue;
-    const W = E3.E3.W, geo = [], score = [], base = [], seen = new Set(), dup = [];
+    /* الأوزان كما تعلنها اللقطة نفسها (`weights`): لقطةٌ من نسخةٍ سابقة (مثبّتات، أو صفقاتٌ قائمة
+       لحظة تبديل المحرّك) تُفحص بأوزانها هي، ونقاطُ المتوسطات لكلّ فريم بقرار 2026-10-08 وحده */
+    const W = tr.weights || E3.E3.W, geo = [], score = [], base = [], seen = new Set(), dup = [];
+    const perTf = W.ma === E3.E3.W.ma && E3.E3.MA_TF;
     const act = tr.active || [];
     // المنتهية تُنشر مختصرةً بلا خطة (pubEnded) — فحصُ الهندسة والدرجة على الجديدة والقائمة
     for (const t of [...tr.open, ...act]) {
@@ -111,12 +114,24 @@ export function structuralChecks(dir) {
       if (tg.length < 2) geo.push(`${t.id} أقلّ من هدفين`);
       let sum = 0;
       for (const k of Object.keys(W)) {
-        const want = t.el && t.el[k] ? W[k] : 0;
+        /* المتوسطات (قرار 2026-10-08): نقاطُها مجموعُ أوزان فريماتها المتحقّقة (15د 30 · ساعة 20 · 4س 10)
+           — مطابقةٌ تامّة حين تُنشر الفريمات (الجديدة)، وإلا مجموعٌ ممكن متّسقٌ مع تحقّق 15د */
+        let want = t.el && t.el[k] ? W[k] : 0;
+        if (k === "ma" && perTf) {
+          const MT = perTf;
+          if (t.tfs && t.tfs.ma) want = t.tfs.ma.reduce((a, tf) => a + (MT[tf] || 0), 0);
+          else {
+            const p = t.pts && t.pts.ma, can = new Set([0]);
+            for (const w of Object.values(MT)) for (const x of [...can]) can.add(x + w);
+            const ok15 = t.el && t.el.ma ? p >= MT["15m"] : true;
+            want = can.has(p) && ok15 ? p : NaN;
+          }
+        }
         if (!t.pts || t.pts[k] !== want) score.push(`${t.id}.${k}`);
         sum += want;
       }
       if (Math.abs(Math.round(sum * 100) / 100 - t.score) > 1e-9 || t.score > 100) score.push(`${t.id} score=${t.score}≠${sum}`);
-      if (t.base === "day" && !(t.evt && t.pts.day === 40)) base.push(`${t.id} أساس «أمس» بلا حدث`);
+      if (t.base === "day" && !(t.evt && t.pts.day === W.day)) base.push(`${t.id} أساس «أمس» بلا حدث`);
       if (t.base !== "day" && t.base !== "ma") base.push(`${t.id} أساس ${t.base}`);
     }
     // صفقةٌ واحدة لكل رمز بين الجديدة والقائمة — لا تتكرّر خلال دورة حياتها (§4ج)

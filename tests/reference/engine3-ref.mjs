@@ -3,7 +3,9 @@
    **بلا أيّ استيراد من الإنتاج** (اختبار الاستقلال في reference.test.mjs).
    يأخذ نفس كائن المدخلات (شموعٌ مغلقة) ويعيد نفس القرار.
    ===================================================================== */
-const W = { day: 40, ma: 40, trend: 6.67, vwap: 6.67, week: 6.66 };
+// قرار المالك 2026-10-08: المتوسطات 60 (15د 30 · ساعة 20 · 4س 10) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5
+const W = { day: 20, ma: 60, trend: 5, vwap: 10, week: 5 };
+const MAW = { "15m": 30, "1h": 20, "4h": 10 };
 const K = 3, WIN = 120;
 const last = (a, n) => a.slice(Math.max(0, a.length - n));
 
@@ -33,6 +35,13 @@ function emaRef(xs, p) {
   for (let i = p; i < xs.length; i++) v += (2 / (p + 1)) * (xs[i] - v);
   return v;
 }
+// المتوسط البسيط لآخر p إغلاقاً من xs (null إن قصرت)
+function smaRef(xs, p) {
+  if (xs.length < p) return null;
+  let s = 0;
+  for (const x of xs.slice(xs.length - p)) s += x;
+  return s / p;
+}
 function atrRef(b, p = 14) {
   if (b.length < p + 1) return null;
   const tr = [];
@@ -59,7 +68,7 @@ function swingRef(bars) {
 }
 function maRef(h1) {
   const c = last(h1 || [], 259).map((b) => b.c), px = c[c.length - 1];
-  const [a, b, d] = [20, 50, 200].map((p) => emaRef(c, p));
+  const [a, b, d] = [20, 50, 200].map((p) => smaRef(c, p));
   if ([a, b, d, px].some((x) => x === null || !Number.isFinite(x))) return 0;
   return px > a && a > b && b > d ? 1 : (px < a && a < b && b < d ? -1 : 0);
 }
@@ -160,7 +169,7 @@ export function evaluateHourRef(inp, wkOf) {
   // بفرض حدثٍ مكافئ: لا يوجد في المرجع إلا حسابٌ واحد للدرجة والخطة
   return planRef(inp, wkOf, d, base);
 }
-function planRef(inp, wkOf, d, base, elOver) {
+function planRef(inp, wkOf, d, base, elOver, scoreOver) {
   const b15 = inp.b15, d1 = inp.d1, b = b15[b15.length - 1], pd = d1[d1.length - 1];
   let pw = null;
   for (const x of d1) if (x.w < inp.wk) {
@@ -180,7 +189,7 @@ function planRef(inp, wkOf, d, base, elOver) {
   if (!(atrD > 0 && atr15 > 0)) return { reject: "atr" };
   const el = elOver || { day: !!(day && day.d === d && day.holds), ma: ma === d, trend: trend === d,
                vwap: vwap !== null && d * (b.c - vwap) > 0, week: !!(week && week.d === d && week.holds) };
-  const score = Math.round(Object.keys(W).reduce((a, k) => a + (el[k] ? W[k] : 0), 0) * 100) / 100;
+  const score = scoreOver !== undefined ? scoreOver : Math.round(Object.keys(W).reduce((a, k) => a + (el[k] ? W[k] : 0), 0) * 100) / 100;
   const hw = last(inp.h1, WIN), pv2 = pivRef(hw), list = d > 0 ? pv2.lo : pv2.hi;
   let stop = null;
   for (let i = list.length - 1; i >= 0; i--) {
@@ -203,11 +212,12 @@ function planRef(inp, wkOf, d, base, elOver) {
 }
 
 /* =====================================================================
-   §4ج الفريمات الأربعة (قرار 2026-10-03) — مرجعياً من المواصفة:
-   كلُّ استراتيجيةٍ على شموع كلّ فريمٍ المغلقة، والنقاط مرّةً واحدة إن تحقّقت على
-   فريمٍ واحد على الأقل؛ والاتجاه إجماع 1h/4h/1d كما كان. والفرصة من إشارةٍ جديدة
-   أُغلقت شمعتُها في (prevH, H]: عبورُ أمس القائم على 15د/ساعة/4س، وإلا انقلابُ
-   ترتيب المتوسطات على أيّ فريم. «أمس» أوّلاً، ثم الأحدث، ثم الأدقّ.
+   §4ج الفريمات (قرار 2026-10-03) والمتوسطات البسيطة (قرار 2026-10-08) — مرجعياً
+   من المواصفة: الفرصة من شرط 15د وحده — آخرُ شمعةٍ مغلقة في (prevH, H] هي أوّلُ
+   افتتاحٍ فوق SMA200 (افتتاح سابقتها عنده أو تحته) وSMA35 وSMA50 تحته، أو معكوسه
+   للهبوط. كلُّ متوسطٍ على إغلاقات ما **قبل** الشمعة المقيسة. التأكيد: ساعة = افتتاح
+   آخر شمعة في جهة SMA50؛ 4س = افتتاحها أو منتصف جسمها في جهة SMA15 أو إغلاقٌ يخترقه.
+   ونقاط المتوسطات لكلّ فريمٍ متحقّق بوزنه؛ والبقية مرّةً واحدة، والاتجاه إجماع 1h/4h/1d.
    ===================================================================== */
 const TFR = ["15m", "1h", "4h", "1d"];
 function lastCrossEndRef(bars, H, L, pre) {
@@ -219,11 +229,28 @@ function lastCrossEndRef(bars, H, L, pre) {
   }
   return null;
 }
-function maDirAt(bars) {
-  const c = last(bars, 259).map((b) => b.c), px = c[c.length - 1];
-  const e = [20, 50, 200].map((p) => emaRef(c, p));
-  if (e.some((x) => x === null) || !Number.isFinite(px)) return { dir: 0, ok: false };
-  return { dir: px > e[0] && e[0] > e[1] && e[1] > e[2] ? 1 : (px < e[0] && e[0] < e[1] && e[1] < e[2] ? -1 : 0), ok: true };
+// المتوسطات على فريمٍ واحد: { up, dn, ev } من شموعه المغلقة
+function smaTfRef(tf, bars) {
+  const n = bars.length, none = { up: false, dn: false, ev: 0 };
+  if (tf === "1d" || n < 3) return none;
+  const c = bars.map((x) => x.c), b = bars[n - 1], p = bars[n - 2];
+  const before = c.slice(0, n - 1), before2 = c.slice(0, n - 2);
+  if (tf === "15m") {
+    const m200 = smaRef(before, 200), m200p = smaRef(before2, 200), m35 = smaRef(before, 35), m50 = smaRef(before, 50);
+    if ([m200, m200p, m35, m50].some((x) => x === null)) return none;
+    let ev = 0;
+    if (b.o > m200 && p.o <= m200p && m35 < m200 && m50 < m200) ev = 1;
+    if (b.o < m200 && p.o >= m200p && m35 > m200 && m50 > m200) ev = -1;
+    return { up: b.o > m200, dn: b.o < m200, ev };
+  }
+  if (tf === "1h") {
+    const m = smaRef(before, 50);
+    return m === null ? none : { up: b.o > m, dn: b.o < m, ev: 0 };
+  }
+  const m = smaRef(before, 15), mp = smaRef(before2, 15);
+  if (m === null || mp === null) return none;
+  const mid = (b.o + b.c) / 2;
+  return { up: b.o > m || mid > m || (b.c > m && p.c <= mp), dn: b.o < m || mid < m || (b.c < m && p.c >= mp), ev: 0 };
 }
 export function evaluateSlotRef(inp, wkOf, prevH) {
   const b15 = inp.b15, d1 = inp.d1;
@@ -241,7 +268,6 @@ export function evaluateSlotRef(inp, wkOf, prevH) {
     const bars = F[tf];
     const today = bars.filter((x) => x.d === b.d), wkb = bars.filter((x) => wkOf(x.d) === inp.wk);
     const tail = last(bars, 260);
-    const now = maDirAt(tail), before = maDirAt(tail.slice(0, -1));
     let vw = null;
     if (tf !== "1d" && today.length) {
       const lb = today[today.length - 1];
@@ -252,30 +278,27 @@ export function evaluateSlotRef(inp, wkOf, prevH) {
     per[tf] = {
       day: tf === "1d" ? null : lastCrossEndRef(today, pd.h, pd.l, "pd"),
       week: pw ? lastCrossEndRef(wkb, pw.h, pw.l, "pw") : null,
-      ma: now.dir, flip: now.ok && now.dir !== 0 && now.dir !== before.dir, maEnd: tail.length ? tail[tail.length - 1].end : null,
+      ma: smaTfRef(tf, tail), maEnd: tail.length ? tail[tail.length - 1].end : null,
       vw
     };
   });
-  const cands = [];
-  TFR.forEach((tf, o) => {
-    const p = per[tf];
-    if (p.day && p.day.holds && p.day.end > prevH) cands.push({ base: "day", tf, d: p.day.d, end: p.day.end, o });
-    if (p.flip && p.maEnd > prevH) cands.push({ base: "ma", tf, d: p.ma, end: p.maEnd, o });
-  });
-  if (!cands.length) return { reject: "nobase" };
-  cands.sort((x, y) => (x.base !== y.base ? (x.base === "day" ? -1 : 1) : 0) || (y.end - x.end) || (x.o - y.o));
-  const top = cands[0], d = top.d;
+  const m15 = per["15m"];
+  if (!(m15.ma.ev && m15.maEnd > prevH)) return { reject: "nobase" };
+  const d = m15.ma.ev;
   const ts = [swingRef(inp.h1), swingRef(inp.h4), swingRef(d1)];
   const up = ts.filter((x) => x === 1).length, dn = ts.filter((x) => x === -1).length;
   const sat = (k) => TFR.filter((tf) => {
     const p = per[tf];
     if (k === "day" || k === "week") return !!(p[k] && p[k].d === d && p[k].holds);
-    if (k === "ma") return p.ma === d;
+    if (k === "ma") return d > 0 ? p.ma.up : p.ma.dn;
     return p.vw === d;
   });
-  const el = { day: sat("day").length > 0, ma: sat("ma").length > 0, trend: (up >= 2 && !dn ? 1 : (dn >= 2 && !up ? -1 : 0)) === d,
+  const maTfs = sat("ma");
+  const el = { day: sat("day").length > 0, ma: maTfs.includes("15m"), trend: (up >= 2 && !dn ? 1 : (dn >= 2 && !up ? -1 : 0)) === d,
                vwap: sat("vwap").length > 0, week: sat("week").length > 0 };
-  const r = planRef(inp, wkOf, d, top.base, el);
+  const score = Math.round((maTfs.reduce((a, tf) => a + (MAW[tf] || 0), 0)
+    + ["day", "trend", "vwap", "week"].reduce((a, k) => a + (el[k] ? W[k] : 0), 0)) * 100) / 100;
+  const r = planRef(inp, wkOf, d, "ma", el, score);
   if (r.reject) return r;
-  return { ...r, baseTf: top.tf, tfs: { day: sat("day"), ma: sat("ma"), vwap: sat("vwap"), week: sat("week") } };
+  return { ...r, baseTf: "15m", tfs: { day: sat("day"), ma: maTfs, vwap: sat("vwap"), week: sat("week") } };
 }

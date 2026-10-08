@@ -52,7 +52,7 @@ const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } ca
        "a" فوق المستوى منذ الافتتاح بلا عبور · "w" تحته · "i" داخل النطاق · "n" لا شمعة مغلقة بعد ·
        "r1"/"r-1"/"r0" اليومي مصدرُ المستوى وافتتاح اليوم فوقه/تحته/بينهما
        ورمز الحدث: hb كسر القمة · lr استعادة القاع · lb كسر القاع · hl فقد القمة
-     المتوسطات: 1/-1/0 ترتيبٌ، و2/-2 انقلابٌ بإغلاق آخر شمعة · الاتجاه 1/-1/0 · VWAP 1/-1/0 أو null */
+     المتوسطات: انظر frPack (SMA، قرار 2026-10-08) · الاتجاه 1/-1/0 · VWAP 1/-1/0 أو null */
 const EVC = { h_break: "hb", l_reclaim: "lr", l_break: "lb", h_loss: "hl" };
 const kindCode = (x) => {
   if (!x || x.kind === "none") return "n";
@@ -65,7 +65,10 @@ function frPack(fa) {
   const o = {};
   for (const tf of E.E3_TFS) {
     const r = fa.fr[tf];
-    o[tf] = [kindCode(r.day), r.ma.ok ? (r.ma.flip ? 2 : 1) * r.ma.dir : null, r.trend,
+    /* المتوسطات (قرار 2026-10-08): 15د ±2 أوّلُ افتتاحٍ عبر SMA200 بالترتيب، ±1 جهةُ الافتتاح ·
+       ساعة ±1 · 4س ±1 أو 3 (تحقّقت الجهتان) · اليومي null */
+    const mv = !r.ma.ok ? null : r.ma.ev ? 2 * r.ma.ev : (r.ma.up && r.ma.dn ? 3 : (r.ma.up ? 1 : (r.ma.dn ? -1 : 0)));
+    o[tf] = [kindCode(r.day), mv, r.trend,
       r.vwap ? r.vwap.side : null, kindCode(r.week)];
   }
   return o;
@@ -128,13 +131,13 @@ function nowOf(tr, r) {
 /* كفاية البيانات لكل استراتيجية على فريمها (لبطاقة «الاستراتيجيات حسب الفريم») —
    عرضٌ لا قرار: نفس مدخلات الفرصة (`inputAt`) ونفس دوالّ المحرّك (`e3pivots`)،
    فـ«بيانات غير كافية» تعني أن المحرّك نفسه لم يملك ما يحكم به، لا «محايد».
-     ma   ‎≥ 200‎ شمعة ساعة في نافذة المتوسطات (EMA200 تحتاجها)
+     ma   ‎≥ 202‎ شمعة 15د (SMA200 على ما قبل الشمعة وسابقتها)
      tr   لكل فريم: قمّتان وقاعان مؤكّدان على الأقل في نافذة الاتجاه
      vw · wk   VWAP اليوم ومستويا الأسبوع السابق موجودة */
 function dataQuality(S, i, st) {
   const inp = inputAt(S, i), tail = (a, n) => a.slice(Math.max(0, a.length - n));
   const piv = (bars) => { const p = E.e3pivots(tail(bars || [], E.E3.PIV_WIN), E.E3.PIV_K); return p.hi.length >= 2 && p.lo.length >= 2 ? 1 : 0; };
-  return { ma: tail(inp.h1, E.E3.MA_WIN).length >= E.E3.MA[2] ? 1 : 0,
+  return { ma: tail(inp.b15, E.E3.MA_WIN + 1).length >= E.E3.SMA_BASE + 2 ? 1 : 0,
            tr: { "1h": piv(inp.h1), "4h": piv(inp.h4), "1d": piv(inp.d1) },
            vw: st.vwap !== null ? 1 : 0, wk: st.pw ? 1 : 0 };
 }

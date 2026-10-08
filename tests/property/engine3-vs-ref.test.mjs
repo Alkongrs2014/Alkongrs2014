@@ -6,34 +6,37 @@ import { prep, inputAt, isoWeek } from "../../scripts/lib/engine3-run.mjs";
 import { evaluateRef, manageRef, evaluateHourRef, evaluateSlotRef } from "../reference/engine3-ref.mjs";
 import { synth } from "./synth3.mjs";
 
-describe("§4ج الفريمات الأربعة (قرار 2026-10-03) مقابل المرجع المستقلّ", () => {
-  it("نفس الجهة والأساس وفريم الأساس والدرجة والفريمات المتّفقة والخطة عند كل لقطة 30 دقيقة", () => {
-    const A0 = synth(7, 240), S0 = prep(A0.b15, A0.b1d);
-    const f0 = S0.r15.findIndex((b) => b.t >= Date.parse("2025-06-01"));
+describe("§4ج والمتوسطات البسيطة (قرار 2026-10-08) مقابل المرجع المستقلّ", () => {
+  it("نفس الجهة والأساس والدرجة ونقاط الفريمات والخطة عند كل لقطة 15 دقيقة — على عدّة أسواقٍ اصطناعية", () => {
     const bad = [];
     let n = 0, sig = 0;
-    const bases = { day: 0, ma: 0 }, tfsSeen = new Set();
-    for (let i = f0; i < S0.r15.length; i++) {
-      const T = S0.r15[i].end;
-      if (T % 1800000 !== 0) continue;
-      const inp = inputAt(S0, i), prevH = T - 1800000;
-      const a = E.evaluateSlot(inp, (d) => isoWeek(d), prevH), b = evaluateSlotRef(inp, (d) => isoWeek(d), prevH);
-      n++;
-      if ((a.reject || null) !== b.reject) { bad.push([i, "reject", a.reject, b.reject]); continue; }
-      if (a.reject) continue;
-      sig++; bases[a.sig.base]++; tfsSeen.add(a.sig.baseTf);
-      const s = a.sig;
-      const tfsA = JSON.stringify({ day: s.tfs.day, ma: s.tfs.ma, vwap: s.tfs.vwap, week: s.tfs.week });
-      if (s.d !== b.d || s.base !== b.base || s.baseTf !== b.baseTf || JSON.stringify(s.el) !== JSON.stringify(b.el) ||
-          s.score !== b.score || tfsA !== JSON.stringify(b.tfs) || !near(s.e, b.e) || !near(s.st, b.st) ||
-          s.tg.length !== b.tg.length || s.tg.some((x, k) => !near(x.p, b.tg[k]))) bad.push([i, "sig", s.baseTf, b.baseTf]);
+    const dirs = { 1: 0, "-1": 0 }, tfsSeen = new Set(), maPts = new Set();
+    for (const seed of [7, 11, 23, 41]) {
+      const A0 = synth(seed, 240), S0 = prep(A0.b15, A0.b1d);
+      const f0 = S0.r15.findIndex((b) => b.t >= Date.parse("2025-06-01"));
+      for (let i = f0; i < S0.r15.length; i++) {
+        const T = S0.r15[i].end;
+        if (T % 900000 !== 0) continue;
+        const inp = inputAt(S0, i), prevH = T - 900000;
+        const a = E.evaluateSlot(inp, (d) => isoWeek(d), prevH), b = evaluateSlotRef(inp, (d) => isoWeek(d), prevH);
+        n++;
+        if ((a.reject || null) !== b.reject) { bad.push([seed, i, "reject", a.reject, b.reject]); continue; }
+        if (a.reject) continue;
+        sig++; dirs[a.sig.d]++; tfsSeen.add(a.sig.baseTf); maPts.add(a.sig.pts.ma);
+        const s = a.sig;
+        const tfsA = JSON.stringify({ day: s.tfs.day, ma: s.tfs.ma, vwap: s.tfs.vwap, week: s.tfs.week });
+        if (s.d !== b.d || s.base !== b.base || s.baseTf !== b.baseTf || JSON.stringify(s.el) !== JSON.stringify(b.el) ||
+            s.score !== b.score || tfsA !== JSON.stringify(b.tfs) || !near(s.e, b.e) || !near(s.st, b.st) ||
+            s.tg.length !== b.tg.length || s.tg.some((x, k) => !near(x.p, b.tg[k]))) bad.push([seed, i, "sig", s.score, b.score]);
+      }
     }
     expect(bad.slice(0, 5)).toEqual([]);
-    expect(n).toBeGreaterThan(500);
-    expect(sig).toBeGreaterThan(20);
-    expect(bases.day).toBeGreaterThan(0);
-    expect(bases.ma).toBeGreaterThan(0);
-    expect(tfsSeen.size).toBeGreaterThan(1);           // الفرص تتولّد من أكثر من فريم فعلاً
+    expect(n).toBeGreaterThan(2000);
+    expect(sig).toBeGreaterThan(10);
+    expect(dirs[1]).toBeGreaterThan(0);                  // الصعود والهبوط كلاهما يُنشئان فرصاً
+    expect(dirs[-1]).toBeGreaterThan(0);
+    expect([...tfsSeen]).toEqual(["15m"]);               // لا فرصة بلا شرط 15د
+    expect([...maPts].every((x) => x >= 30 && x <= 60)).toBe(true);
   });
 });
 

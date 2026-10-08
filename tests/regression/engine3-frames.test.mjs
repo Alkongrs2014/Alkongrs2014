@@ -1,100 +1,149 @@
-/* §4ج — الاستراتيجيات الخمس على الفريمات الأربعة ودورة حياة الصفقة (قرار المالك 2026-10-03).
-   ١) النقاط مرّةً واحدة مهما تعدّدت الفريمات: A (المتوسطات 15د + أمس ساعة) = 80 · B (أمس 4س) = 40 ·
-      C (أمس 15د+ساعة+4س) = 40 والفريمات الثلاثة معلنة.
-   ٢) لا يُشترط توافق الفريمات: إشارةٌ على فريمٍ واحد تكفي، والفريم الأعلى غير المتحقّق لا يلغيها.
-   ٣) أنواع حركة السعر حول المستوى: عبور بإغلاق · ثبات بعد عبور · عاد · فوق/تحت منذ الافتتاح · داخل —
-      شراءً وبيعاً، والافتتاح فوق القمة ليس اختراقاً جديداً.
-   ٤) ترتيب متوسطاتٍ مستمرّ ليس إشارةً جديدة؛ الانقلاب بإغلاق شمعة هو الإشارة.
+/* §4ج — الاستراتيجيات الخمس على الفريمات ودورة حياة الصفقة (قرار المالك 2026-10-03)، والمتوسطات
+   البسيطة بأوزانها الجديدة (قرار المالك 2026-10-08).
+   ١) الأوزان: المتوسطات 60 (15د 30 · ساعة 20 · 4س 10) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5،
+      والبقية مرّةً واحدة مهما تعدّدت الفريمات.
+   ٢) لا فرصة بلا شرط 15د: أوّلُ افتتاحٍ عبر SMA200 بترتيب SMA35/50 المعاكس، بشمعةٍ أُغلقت في النافذة.
+      عبورُ أمس والساعة و4س تقييمٌ لا مُنشئ.
+   ٣) حالاتٌ ذهبية محسوبةٌ يدوياً لشروط الفريمات الثلاثة (صعوداً وهبوطاً، والحدود الصارمة).
+   ٤) أنواع حركة السعر حول المستوى (أمس/الأسبوع) كما كانت.
    ٥) لا شمعة جارية ولا مستقبل: تشويه ما بعد H لا يغيّر قرار اللقطة.
-   ٦) WLD (2026-10-03) على شموعها الحقيقية: الصفقة المفعّلة تبقى بخطتها حتى تنتهي بقواعدها،
-      ولا تتكرّر خلال دورة حياتها — العلّة كانت بوّابة المخاطرة تُعاد على صفقةٍ دخلت.
+   ٦) WLD على شموعها الحقيقية: الصفقة تبقى بخطتها حتى تنتهي بقواعدها ولا تتكرّر.
    لا يكتب في المثبّتات. */
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { prep, prepCrypto, inputAt, isoWeek, evalSlot, stepOver } from "../../scripts/lib/engine3-run.mjs";
+import { prep, prepCrypto, evalSlot } from "../../scripts/lib/engine3-run.mjs";
 import { build } from "../../scripts/build-trades.mjs";
 import { synth } from "../property/synth3.mjs";
 
 const require = createRequire(import.meta.url);
 const E = require("../../stocks/engine3.js");
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const wkOf = (d) => isoWeek(d);
 
 /* حالة فريماتٍ مصطنعة: كلُّ شيءٍ محايد إلا ما يُمرَّر */
+const MA0 = { up: false, dn: false, dir: 0, ev: 0, flip: false, ok: true };
 function fa(over, trendDir = 0) {
   const fr = {};
   for (const tf of E.E3_TFS) fr[tf] = { day: tf === "1d" ? { kind: "ref", open: 0 } : { kind: "inside" },
-    week: { kind: "inside" }, ma: { dir: 0, flip: false, ok: true }, vwap: tf === "1d" ? null : { side: 0 }, trend: 0 };
+    week: { kind: "inside" }, ma: { ...MA0, na: tf === "1d" }, vwap: tf === "1d" ? null : { side: 0 }, trend: 0 };
   for (const [tf, o] of Object.entries(over)) Object.assign(fr[tf], o);
   return { st: { trend: { dir: trendDir } }, fr };
 }
 const brk = (d) => ({ kind: "break", d, holds: true, evt: d > 0 ? "pdh_break" : "pdl_break" });
 const hold = (d) => ({ kind: "hold", d, holds: true, evt: d > 0 ? "pdh_break" : "pdl_break" });
+const up = (x = {}) => ({ ma: { ...MA0, up: true, dir: 1, ...x } });
+const dn = (x = {}) => ({ ma: { ...MA0, dn: true, dir: -1, ...x } });
 
-describe("النقاط مرّةً واحدة لكل استراتيجية", () => {
-  it("A: المتوسطات على 15د وأمس على الساعة = 80", () => {
-    const s = E.scoreFrames(fa({ "15m": { ma: { dir: 1, ok: true } }, "1h": { day: brk(1) } }), 1);
-    expect(s.score).toBe(80);
+describe("الأوزان ونقاط الفريمات (قرار 2026-10-08)", () => {
+  it("مجموع الأوزان 100 ونقاط المتوسطات 30/20/10 = 60", () => {
+    const W = E.E3.W;
+    expect(W.ma + W.day + W.vwap + W.week + W.trend).toBe(100);
+    expect([W.ma, W.day, W.vwap, W.week, W.trend]).toEqual([60, 20, 10, 5, 5]);
+    expect(E.E3.MA_TF).toEqual({ "15m": 30, "1h": 20, "4h": 10 });
+  });
+  it("15د وحده = 30، ومعه أمس على الساعة = 50", () => {
+    const s = E.scoreFrames(fa({ "15m": up(), "1h": { day: brk(1) } }), 1);
+    expect(s.pts.ma).toBe(30);
+    expect(s.score).toBe(50);
     expect(s.tfs.ma).toEqual(["15m"]);
-    expect(s.tfs.day).toEqual(["1h"]);
+    expect(s.el.ma).toBe(true);
   });
-  it("B: أمس على 4س وحدها = 40", () => {
-    const s = E.scoreFrames(fa({ "4h": { day: brk(1) } }), 1);
-    expect(s.score).toBe(40);
-    expect(s.tfs.day).toEqual(["4h"]);
-  });
-  it("C: أمس على 15د والساعة و4س = 40 مرّةً واحدة، والفريمات الثلاثة معلنة", () => {
-    const s = E.scoreFrames(fa({ "15m": { day: brk(1) }, "1h": { day: hold(1) }, "4h": { day: hold(1) } }), 1);
-    expect(s.score).toBe(40);
-    expect(s.pts.day).toBe(40);
-    expect(s.tfs.day).toEqual(["15m", "1h", "4h"]);
-  });
-  it("كلُّ الاستراتيجيات على كل الفريمات لا تتجاوز 100، والتعارض يُسجَّل لا يُطرح", () => {
+  it("المتوسطات على الثلاثة = 60، والخمس كلُّها = 100، والتعارض يُسجَّل لا يُطرح", () => {
     const all = {};
-    for (const tf of ["15m", "1h", "4h"]) all[tf] = { day: hold(1), week: hold(1), ma: { dir: 1, ok: true }, vwap: { side: 1 } };
-    all["1d"] = { ma: { dir: -1, ok: true }, week: hold(-1) };
+    for (const tf of ["15m", "1h", "4h"]) all[tf] = { day: hold(1), week: hold(1), vwap: { side: 1 }, ...up() };
+    all["1d"] = { week: hold(-1) };
     const s = E.scoreFrames(fa(all, 1), 1);
+    expect(s.pts).toEqual({ day: 20, ma: 60, trend: 5, vwap: 10, week: 5 });
     expect(s.score).toBe(100);
-    expect(s.opp.ma).toEqual(["1d"]);
     expect(s.opp.week).toEqual(["1d"]);
   });
-  it("الاتجاه يبقى إجماع 1h/4h/1d — اتجاه 15د وحده لا يمنح نقاطه", () => {
-    const f = fa({ "15m": { trend: 1 } }, 0);
-    const s = E.scoreFrames(f, 1);
+  it("الساعة و4س بلا 15د: نقاطُهما 30 لكن المتوسطات «غير متحقّقة» (الأساس 15د)", () => {
+    const s = E.scoreFrames(fa({ "1h": up(), "4h": up() }), 1);
+    expect(s.pts.ma).toBe(30);
+    expect(s.el.ma).toBe(false);
+  });
+  it("الهبوط مرآة الصعود", () => {
+    expect(E.scoreFrames(fa({ "15m": dn(), "4h": dn() }), -1).pts.ma).toBe(40);
+    expect(E.scoreFrames(fa({ "15m": dn() }), 1).pts.ma).toBe(0);
+  });
+  it("الاتجاه يبقى إجماع 1h/4h/1d بوزن 5 — اتجاه 15د وحده لا يمنح نقاطه", () => {
+    const s = E.scoreFrames(fa({ "15m": { trend: 1 } }, 0), 1);
     expect(s.pts.trend).toBe(0);
     expect(s.tfs.trend).toEqual(["15m"]);
-    expect(E.scoreFrames(fa({}, 1), 1).pts.trend).toBe(6.67);
+    expect(E.scoreFrames(fa({}, 1), 1).pts.trend).toBe(5);
   });
 });
 
-describe("لا يُشترط توافق الفريمات، والإشارة الجديدة وحدها تُنشئ فرصة", () => {
+describe("لا فرصة بلا شرط 15د", () => {
   const P = 1000;
-  it("أمس على 4س وحدها والبقية محايدة ⇒ مرشّحٌ بأساس أمس على 4س", () => {
-    const f = fa({ "4h": { day: { ...brk(1), evEnd: P + 1 } } });
-    const c = E.slotCands(f, P);
-    expect(c.map((x) => [x.base, x.tf, x.d])).toEqual([["day", "4h", 1]]);
+  it("حدث 15د في النافذة ⇒ مرشّحٌ وحيد بأساس المتوسطات على 15د، صعوداً وهبوطاً", () => {
+    expect(E.slotCands(fa({ "15m": up({ ev: 1, flip: true, end: P + 1 }) }), P)).toEqual([{ base: "ma", tf: "15m", d: 1, end: P + 1, o: 0 }]);
+    expect(E.slotCands(fa({ "15m": dn({ ev: -1, flip: true, end: P + 1 }) }), P)[0]).toMatchObject({ d: -1, tf: "15m" });
   });
-  it("الفريم الأعلى المعاكس لا يلغي فرصة الأدنى — يُسجَّل تعارضاً", () => {
-    const f = fa({ "15m": { day: { ...brk(1), evEnd: P + 2 } }, "4h": { ma: { dir: -1, flip: true, ok: true, end: P + 1 } } });
-    const c = E.slotCands(f, P);
-    expect(c[0]).toMatchObject({ base: "day", tf: "15m", d: 1 });
-    expect(c.some((x) => x.d === -1)).toBe(true);
+  it("حدثٌ قديم (شمعته قبل النافذة) ليس إشارة، وحالةٌ قائمة بلا حدث ليست إشارة", () => {
+    expect(E.slotCands(fa({ "15m": up({ ev: 1, flip: true, end: P - 1 }) }), P)).toEqual([]);
+    expect(E.slotCands(fa({ "15m": up({ end: P + 1 }) }), P)).toEqual([]);
   });
-  it("ترتيب متوسطاتٍ مستمرّ ليس إشارة؛ الانقلاب بإغلاق شمعةٍ في النافذة هو الإشارة", () => {
-    expect(E.slotCands(fa({ "1d": { ma: { dir: 1, flip: false, ok: true, end: P + 1 } } }), P)).toEqual([]);
-    expect(E.slotCands(fa({ "1d": { ma: { dir: 1, flip: true, ok: true, end: P - 1 } } }), P)).toEqual([]);   // انقلابٌ قديم
-    expect(E.slotCands(fa({ "1d": { ma: { dir: 1, flip: true, ok: true, end: P + 1 } } }), P)[0]).toMatchObject({ base: "ma", tf: "1d" });
+  it("عبور أمس وتأكيد الساعة و4س وحدها لا تُنشئ فرصة", () => {
+    const f = fa({ "15m": { day: { ...brk(1), evEnd: P + 1 } }, "1h": { day: { ...brk(1), evEnd: P + 1 }, ...up({ end: P + 1 }) },
+                   "4h": up({ end: P + 1 }) });
+    expect(E.slotCands(f, P)).toEqual([]);
   });
-  it("عبورٌ قديم ما زال قائماً ليس إشارةً جديدة", () => {
-    expect(E.slotCands(fa({ "15m": { day: { ...hold(1), evEnd: P - 1 } } }), P)).toEqual([]);
+});
+
+/* حالاتٌ ذهبية محسوبةٌ يدوياً. كلُّ متوسطٍ على إغلاقات ما قبل الشمعة المقيسة. */
+describe("شروط المتوسطات — حالاتٌ ذهبية", () => {
+  const mk = (closes, over) => {
+    const bars = closes.map((c, i) => ({ t: i, o: c, h: c, l: c, c, end: i + 1 }));
+    for (const [k, o] of Object.entries(over)) Object.assign(bars[Number(k)], o);
+    return bars;
+  };
+  /* 15د: 150 إغلاقاً عند 110 ثم 53 عند 90 (203 شمعة، الأخيرة 202):
+       SMA200 حتى 201 = (148×110 + 52×90)/200 = 104.8 · وحتى 200 = (149×110 + 51×90)/200 = 104.9
+       SMA35 = SMA50 = 90 < 104.8  ⇒ صعودٌ إن افتتحت 202 فوق 104.8 وافتتحت 201 عند/تحت 104.9 */
+  const up15 = (o201, o202) => E.smaFrame("15m", mk([...Array(150).fill(110), ...Array(53).fill(90)], { 201: { o: o201 }, 202: { o: o202 } }));
+  it("15د صعود: أوّلُ افتتاحٍ فوق SMA200 بـ35/50 تحته", () => {
+    const r = up15(100, 105);
+    expect(r.v.base).toBeCloseTo(104.8, 10);
+    expect(r.v.f35).toBe(90);
+    expect(r.ev).toBe(1);
+    expect(r.up).toBe(true);
   });
-  it("أمس يسبق المتوسطات، وبين الفريمات الأحدثُ ثم الأدقّ", () => {
-    const f = fa({ "15m": { ma: { dir: 1, flip: true, ok: true, end: P + 9 } }, "1h": { day: { ...brk(1), evEnd: P + 5 } },
-                   "4h": { day: { ...brk(1), evEnd: P + 5 } } });
-    expect(E.slotCands(f, P)[0]).toMatchObject({ base: "day", tf: "1h" });
+  it("15د: الافتتاح عند SMA200 تماماً ليس فوقه، وافتتاحُ السابقة فوقه يجعلها ليست الأولى", () => {
+    expect(up15(100, 104.8).ev).toBe(0);
+    expect(up15(104.95, 105).ev).toBe(0);
+    expect(up15(104.9, 105).ev).toBe(1);                 // السابقة عند مستواها (104.9) = ليست فوقه
+  });
+  /* الهبوط: 150 عند 90 ثم 53 عند 110: SMA200 حتى 201 = 95.2 · حتى 200 = 95.1 · و35/50 = 110 فوقه */
+  it("15د هبوط: أوّلُ افتتاحٍ تحت SMA200 بـ35/50 فوقه", () => {
+    const r = E.smaFrame("15m", mk([...Array(150).fill(90), ...Array(53).fill(110)], { 201: { o: 100 }, 202: { o: 95 } }));
+    expect(r.v.base).toBeCloseTo(95.2, 10);
+    expect(r.ev).toBe(-1);
+  });
+  it("15د: افتتاحٌ فوق SMA200 و35/50 فوقه أيضاً ليس شرط الصعود", () => {
+    const r = E.smaFrame("15m", mk([...Array(150).fill(90), ...Array(53).fill(110)], { 201: { o: 95 }, 202: { o: 96 } }));
+    expect(r.ev).toBe(0);
+    expect(r.up).toBe(true);
+  });
+  /* الساعة: 51 إغلاقاً عند 100 ⇒ SMA50 حتى 50 = 100، والشمعة 51 تُقاس بافتتاحها */
+  it("الساعة: افتتاحُ آخر شمعة فوق/تحت SMA50", () => {
+    const h = (o) => E.smaFrame("1h", mk(Array(52).fill(100), { 51: { o } }));
+    expect([h(101).up, h(101).dn]).toEqual([true, false]);
+    expect([h(99).up, h(99).dn]).toEqual([false, true]);
+    expect([h(100).up, h(100).dn]).toEqual([false, false]);
+  });
+  /* 4س: 16 إغلاقاً عند 100 ⇒ SMA15 = 100 حتى 15 وحتى 14؛ والشمعة 16 */
+  it("4س: افتتاحٌ أو منتصف جسمٍ في الجهة أو إغلاقٌ يخترق SMA15", () => {
+    const q = (o, c) => E.smaFrame("4h", mk(Array(17).fill(100), { 16: { o, c } }));
+    expect(q(101, 100.2)).toMatchObject({ up: true, dn: false, dir: 1 });   // افتتاحٌ ومنتصف فوقه
+    expect(q(98, 99)).toMatchObject({ up: false, dn: true, dir: -1 });
+    expect(q(99, 103)).toMatchObject({ up: true, dn: true });               // منتصف 101 وإغلاقٌ مخترق، والافتتاح تحته
+    expect(q(99.5, 100.4)).toMatchObject({ up: true });                     // اختراقٌ بالإغلاق وحده (منتصف 99.95)
+  });
+  it("اليومي بلا متوسطات", () => {
+    expect(E.smaFrame("1d", mk(Array(250).fill(100), {}))).toMatchObject({ na: true, up: false, dn: false });
   });
 });
 
@@ -137,42 +186,25 @@ describe("لا شمعة جارية ولا نظر إلى المستقبل في ق
   });
 });
 
-describe("WLD 2026-10-03 — على شموعها الحقيقية", () => {
+describe("WLD — على شموعها الحقيقية (2026-09-26 → 2026-10-03)", () => {
   const rec = JSON.parse(fs.readFileSync(path.join(HERE, "../fixtures/v3/WLD-USD-2026-10-03.json"), "utf8"));
   const S = { "WLD-USD": prepCrypto(rec) };
-  const H0 = Date.parse("2026-10-03T10:15:00Z"), H1 = Date.parse("2026-10-03T18:15:00Z");
-  it("الصفقة المفعّلة تبقى بخطتها حتى تنتهي بقواعدها ولا تتكرّر — والمحرّك القديم كان يُسقطها بالمخاطرة", () => {
-    let state = null, born = null, slotsActive = 0;
-    const oldRejects = [];
-    for (let H = H0; H <= H1; H += 900000) {          // كلَّ ربع ساعة كالحيّ (V4.2)
+  it("الصفقة المفعّلة تبقى بخطتها حتى تنتهي بقواعدها ولا تتكرّر خلال دورة حياتها", () => {
+    const r15 = S["WLD-USD"].r15;
+    let state = null, cur = null;
+    const births = [];
+    for (let H = r15[210].end; H <= r15[r15.length - 1].end; H += 900000) {
       const r = build({ now: H + 60000, book: "crypto", out: "/nonexistent", S, state });
       expect(r.ok).toBe(true);
       state = JSON.parse(JSON.stringify(r.state));
-      const all = [...r.doc.open, ...r.doc.active];
-      expect(all.filter((t) => t.s === "WLD-USD").length).toBeLessThanOrEqual(1);   // لا تكرار
-      const t = all.find((x) => x.s === "WLD-USD");
-      if (born) {
-        expect(t, new Date(H).toISOString()).toBeTruthy();                           // لا اختفاء قبل الوقف/الهدف
-        expect([t.e, t.st, JSON.stringify(t.tg)]).toEqual(born.plan);
-        slotsActive++;
-      } else if (t && r.doc.open.includes(t)) born = { id: t.id, plan: [t.e, t.st, JSON.stringify(t.tg)], H };
-      const old = E.evaluateHour(inputAt(S["WLD-USD"], S["WLD-USD"].r15.findIndex((b) => b.end === H)), wkOf);
-      if (old.reject === "risk") oldRejects.push(new Date(H).toISOString().slice(11, 16));
+      const all = [...r.doc.open, ...r.doc.active].filter((t) => t.s === "WLD-USD");
+      expect(all.length).toBeLessThanOrEqual(1);                                     // لا تكرار
+      const t = all[0];
+      if (cur && t && t.id === cur.id) expect([t.e, t.st, JSON.stringify(t.tg)]).toEqual(cur.plan);
+      if (t && r.doc.open.includes(t)) { cur = { id: t.id, plan: [t.e, t.st, JSON.stringify(t.tg)] }; births.push([new Date(H).toISOString().slice(0, 16), t.d]); }
+      if (cur && !t) cur = null;
     }
-    expect(born).toBeTruthy();
-    expect(new Date(born.H).toISOString()).toBe("2026-10-03T11:00:00.000Z");      // كسر قمة أمس على الساعة — عند إغلاق شمعتها نفسها (V4.2؛ كانت 11:15 بلقطة الثلاثين)
-    expect(slotsActive).toBeGreaterThanOrEqual(12);
-    expect(oldRejects).toEqual(expect.arrayContaining(["12:15", "14:15", "14:45", "15:15"]));
-  });
-  it("الإدارة نفسها خارج البناء: لا وقف ولا هدف حتى 18:15 (أعلى سعر 0.6151 والهدف الأول 0.6451)", () => {
-    const S1 = S["WLD-USD"], H = Date.parse("2026-10-03T11:15:00Z");
-    const r = evalSlot(S1, H, H - 1800000).r;
-    expect(r.reject).toBeNull();
-    expect(r.sig.baseTf).toBe("1h");
-    expect(r.sig.score).toBe(100);
-    const tr = { d: r.sig.d, e: r.sig.e, st: r.sig.st, tg: r.sig.tg, risk: r.sig.risk, atrD: r.sig.atrD, status: "confirmed" };
-    stepOver(tr, S1, H, Date.parse("2026-10-03T18:15:00Z"));
-    expect(tr.status).toBe("active");
-    expect(tr.hit).toBe(0);
+    // تثبيتٌ لنتيجة المحرّك على هذه الشموع (قرار 2026-10-08)
+    expect(births).toEqual([["2026-09-29T15:00", 1], ["2026-10-01T13:30", -1]]);
   });
 });

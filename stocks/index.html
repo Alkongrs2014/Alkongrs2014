@@ -2603,11 +2603,10 @@ section[data-view].on{animation:viewIn .42s var(--ease)}
       <summary>كيف تُحسب الفرصة وقوة التوافق؟</summary>
       <p class="scan-why" id="scanWhy" style="margin:0 0 9px;padding:0"></p>
       <!-- المحرّك V3 (docs/ENGINE_V3_SPEC.md) — أوزانٌ ثابتة بقرار المالك -->
-      <p><b>الفرصة من إحدى الاستراتيجيتين الأساسيتين قائمةً الآن:</b> عبورٌ لقمة أو قاع أمس بجسم شمعة
-      15 دقيقة مغلقة (افتتاحها في جهة وإغلاقها في الأخرى — لا لمسٌ بالذيل) خلال جلسة اليوم وما زال السعر
-      في جهته، أو المتوسطات (EMA 20/50/200 على فريم الساعة) في ترتيبٍ كامل شراءً أو بيعاً.</p>
+      <p><b>الفرصة من شرط المتوسطات البسيطة على 15 دقيقة وحده:</b> أوّلُ شمعة 15د تفتح فوق SMA200 وSMA35 وSMA50 تحته (أو تحته وهما فوقه للبيع)، بشمعةٍ مغلقة.
+      والساعة (افتتاحٌ فوق/تحت SMA50) و4 ساعات (افتتاحٌ أو منتصف جسمٍ أو اختراقٌ لـSMA15) تأكيدٌ وتقييم لا يُنشئان فرصة.</p>
       <p><b>قوة التوافق</b> مجموعُ أوزان الاستراتيجيات المتوافقة مع جهة الصفقة:
-      قمة/قاع أمس ‎40%‎ · المتوسطات ‎40%‎ · الاتجاه ‎6.67%‎ · VWAP ‎6.67%‎ · قمة/قاع الأسبوع السابق ‎6.66%‎.
+      المتوسطات ‎60%‎ (15د ‎30‎ · ساعة ‎20‎ · 4س ‎10‎) · قمة/قاع أمس ‎20%‎ · VWAP ‎10%‎ · قمة/قاع الأسبوع السابق ‎5%‎ · الاتجاه ‎5%‎.
       <b>ليست نسبة نجاح</b> — ‎100%‎ تعني أن الخمس متوافقة، لا أن الصفقة مضمونة.</p>
       <p><b>الدخول</b> إغلاقُ شمعة التأكيد، و<b>الوقف</b> آخرُ قاعٍ مؤكَّد على فريم الساعة (قمّةٍ في البيع)،
       و<b>الأهداف</b> المستويات الحقيقية أمام الصفقة بعائدٍ لا يقلّ عن مرّة المخاطرة، ويُكمَّل ما نقص
@@ -3813,7 +3812,7 @@ function renderTopOpp() {
       ${monoTile(t.s, lr && lr.sec, "sm")}
       <div class="g">
         <div class="t">${esc(lr ? nm(lr) : t.s)}<span class="tick">${esc(t.s)}</span></div>
-        <div class="s"><b style="color:var(--${D.c})">${D.t}</b> · ${esc(t.evt ? V3_EVT[t.evt] : "انقلاب المتوسطات")} ·
+        <div class="s"><b style="color:var(--${D.c})">${D.t}</b> · ${esc(t.base === "ma" ? (t.d > 0 ? "افتتاحٌ فوق SMA200 · 15د" : "افتتاحٌ تحت SMA200 · 15د") : (t.evt ? V3_EVT[t.evt] : "المتوسطات"))} ·
           دخول <span class="num">${money(t.e)}</span> · <span class="num" style="color:${ccol}">${chg === null ? "—" : pct(chg)}</span></div>
       </div>
       <div class="q"><b class="num">${v3pct(t.score)}</b><i>توافق</i></div>
@@ -6581,16 +6580,16 @@ function renderStrategies(rec) {
   const evt = (e) => e ? `${esc(V3_EVT[e.evt] || e.evt)} → ${dirT(e.d)}${e.holds ? "" : ` <small style="color:var(--mut)">(السعر عاد عبر المستوى — لا يُحتسب)</small>`}` : `<span style="color:var(--mut)">لا عبور في الفترة</span>`;
   const tfs = b.trendTf ? ["1h", "4h", "1d"].map(k => `${TF_LABEL[k] || k}: ${dirT(b.trendTf[k])}`).join(" · ") : "";
   const rows = [
-    ["قمة/قاع أمس — 40%", `قمة ${lvl(b.pdh)} · قاع ${lvl(b.pdl)}<br>آخر عبورٍ اليوم: ${evt(b.day)}`],
-    ["المتوسطات — 40%", `EMA 20/50/200 على الساعة: ${dirT(b.ma)}`],
-    ["الاتجاه — 6.67%", `${dirT(b.trend)}${tfs ? `<br><small>${tfs}</small>` : ""}`],
-    ["VWAP — 6.67%", Number.isFinite(b.vwap) ? `VWAP ${lvl(b.vwap)} · الإغلاق ${Number.isFinite(b.px) ? (b.px > b.vwap ? "فوقه" : b.px < b.vwap ? "تحته" : "عنده") : "—"}` : "—"],
-    ["قمة/قاع الأسبوع السابق — 6.66%", `قمة ${lvl(b.pwh)} · قاع ${lvl(b.pwl)}<br>آخر عبورٍ هذا الأسبوع: ${evt(b.week)}`]
+    ["قمة/قاع أمس — 20%", `قمة ${lvl(b.pdh)} · قاع ${lvl(b.pdl)}<br>آخر عبورٍ اليوم: ${evt(b.day)}`],
+    ["المتوسطات — 60%", `SMA200 مع 35/50 على 15د · SMA50 على الساعة · SMA15 على 4س — التفصيل في جدول الفريمات`],
+    ["الاتجاه — 5%", `${dirT(b.trend)}${tfs ? `<br><small>${tfs}</small>` : ""}`],
+    ["VWAP — 10%", Number.isFinite(b.vwap) ? `VWAP ${lvl(b.vwap)} · الإغلاق ${Number.isFinite(b.px) ? (b.px > b.vwap ? "فوقه" : b.px < b.vwap ? "تحته" : "عنده") : "—"}` : "—"],
+    ["قمة/قاع الأسبوع السابق — 5%", `قمة ${lvl(b.pwh)} · قاع ${lvl(b.pwl)}<br>آخر عبورٍ هذا الأسبوع: ${evt(b.week)}`]
   ];
   el.innerHTML = rows.map(([k, v]) => `<div class="row"><div class="l"><b>${k}</b><small>${v}</small></div></div>`).join("") +
     (b.fr ? v3Frames({ d: b.up >= b.dn ? 1 : -1 }, b.fr, "الاستراتيجيات حسب الفريم — الآن") : "") +
     `<div class="note">توافق الشراء الآن <b class="num">${v3pct(b.up)}</b> · توافق البيع الآن <b class="num">${v3pct(b.dn)}</b>
-     — حالةٌ حالية لا فرصة: الفرصة تتولّد فقط ${TT.life ? "من إشارةٍ جديدة على شمعةٍ مغلقة — عبور قمة/قاع أمس بجسم شمعة 15د أو ساعة أو 4س، أو انقلاب المتوسطات على أيّ فريم" : "بعبور قمة/قاع أمس بجسم شمعة أو انقلاب المتوسطات"}.</div>
+     — حالةٌ حالية لا فرصة: الفرصة تتولّد فقط ${TT.life ? "من إشارةٍ جديدة على شمعة 15د مغلقة — أوّلُ شمعة 15د تفتح فوق SMA200 وSMA35 وSMA50 تحته (أو تحته وهما فوقه للبيع)" : "بعبور قمة/قاع أمس بجسم شمعة أو انقلاب المتوسطات"}.</div>
      <p class="srcline">لقطة ${esc(v3Hour(TT))} — شموعٌ مغلقة وحدها، وتُعاد من الصفر ${v3Cycle(TT)}.</p>`;
   if (hint) hint.textContent = "المحرّك V3 — خمس استراتيجيات بأوزانٍ ثابتة";
   card.style.display = "";
@@ -8758,11 +8757,11 @@ function stockSlotsRiyadh() {
   return [];
 }
 const V3_EL = [
-  { k: "day",   lbl: "قمة/قاع أمس",        w: 40,   core: 1 },
-  { k: "ma",    lbl: "المتوسطات",          w: 40,   core: 1 },
-  { k: "trend", lbl: "الاتجاه",            w: 6.67, core: 0 },
-  { k: "vwap",  lbl: "VWAP",               w: 6.67, core: 0 },
-  { k: "week",  lbl: "قمة/قاع الأسبوع السابق", w: 6.66, core: 0 }
+  { k: "ma",    lbl: "المتوسطات (15د 30 · ساعة 20 · 4س 10)", w: 60, core: 1 },
+  { k: "day",   lbl: "قمة/قاع أمس",        w: 20, core: 0 },
+  { k: "vwap",  lbl: "VWAP",               w: 10, core: 0 },
+  { k: "week",  lbl: "قمة/قاع الأسبوع السابق", w: 5, core: 0 },
+  { k: "trend", lbl: "الاتجاه",            w: 5,  core: 0 }
 ];
 const V3_EVT = { pdh_break: "كسر قمة أمس", pdl_reclaim: "استعادة قاع أمس", pdl_break: "كسر قاع أمس",
   pdh_loss: "فقد قمة أمس", pwh_break: "كسر قمة الأسبوع", pwl_reclaim: "استعادة قاع الأسبوع",
@@ -8781,10 +8780,11 @@ function v3Elements(t) {
     const on = !!(t.el && t.el[e.k]);
     const why = e.k === "day" && on && t.evt ? ` <small>${esc(V3_EVT[t.evt] || t.evt)}</small>`
               : e.k === "week" && on && t.weekEvt ? ` <small>${esc(V3_EVT[t.weekEvt] || t.weekEvt)}</small>` : "";
-    return `<div class="it${on ? " on" : ""}"><span class="mk">${on ? "✓" : "✗"}</span>${esc(e.lbl)} — <span class="num">${v3pct(on ? e.w : 0)}</span>${why}</div>`;
+    const p = t.pts && Number.isFinite(t.pts[e.k]) ? t.pts[e.k] : (on ? e.w : 0);
+    return `<div class="it${on ? " on" : ""}"><span class="mk">${on ? "✓" : "✗"}</span>${esc(e.lbl)} — <span class="num">${v3pct(p)}</span>${why}</div>`;
   };
   return `<div class="v3els">
-    <div><div class="gh">الاستراتيجيات الأساسية</div>${V3_EL.filter(e => e.core).map(it).join("")}</div>
+    <div><div class="gh">الاستراتيجية الأساسية</div>${V3_EL.filter(e => e.core).map(it).join("")}</div>
     <div><div class="gh">تأكيدات إضافية</div>${V3_EL.filter(e => !e.core).map(it).join("")}</div>
   </div>`;
 }
@@ -8831,8 +8831,14 @@ function v3Frames(t, frNow, title) {
     const a = fr[tf] || [];
     if (k === "day") return v3LevelCell(a[0], false);
     if (k === "week") return v3LevelCell(a[4], true);
-    if (k === "ma") { const v = a[1]; if (v == null) return { nd: 1 };
-      return { dir: Math.sign(v), txt: Math.abs(v) === 2 ? tri(v, "انقلاب صاعد بإغلاق هذه الشمعة", "انقلاب هابط بإغلاق هذه الشمعة") : tri(v, "ترتيب صاعد", "ترتيب هابط", "غير مرتّب") }; }
+    if (k === "ma") { const v = a[1];
+      if (tf === "1d") return { na: 1 };
+      if (v == null) return { nd: 1 };
+      if (tf === "15m") return { dir: Math.sign(v), txt: Math.abs(v) === 2 ? tri(v, "أوّل افتتاحٍ فوق SMA200 (35/50 تحته)", "أوّل افتتاحٍ تحت SMA200 (35/50 فوقه)")
+        : tri(v, "الافتتاح فوق SMA200", "الافتتاح تحت SMA200", "الافتتاح عند SMA200"), sub: "الشرط الأساسي" };
+      if (tf === "1h") return { dir: v, txt: tri(v, "الافتتاح فوق SMA50", "الافتتاح تحت SMA50", "الافتتاح عند SMA50") };
+      if (v === 3) return { dir: d, txt: "إشاراتٌ على SMA15 في الجهتين" };
+      return { dir: v, txt: tri(v, "فوق SMA15 (افتتاح/منتصف/اختراق)", "تحت SMA15 (افتتاح/منتصف/اختراق)", "عند SMA15") }; }
     if (k === "trend") { const v = a[2]; if (v == null) return { nd: 1 };
       return { dir: v, txt: tri(v, "صاعد", "هابط", "محايد"), sub: tf === "15m" ? "للعرض — لا يدخل الحكم" : "" }; }
     if (tf === "1d") return { na: 1 };
@@ -8845,7 +8851,7 @@ function v3Frames(t, frNow, title) {
     const nSat = cells.filter((c) => c.dir === d).length;
     const tds = cells.map((c, i) => {
       if (c.na) return `<td class="na">لا ينطبق</td>`;
-      if (c.nd || (k === "ma" && dq && dq.ma === 0 && V3_TFS[i] === "1h")) return `<td class="nd">بيانات غير كافية</td>`;
+      if (c.nd || (k === "ma" && dq && dq.ma === 0 && V3_TFS[i] === "15m")) return `<td class="nd">بيانات غير كافية</td>`;
       const base = !frNow && t.base === k && t.baseTf === V3_TFS[i] ? ` <b class="v3base">أساس</b>` : "";
       const sub = c.sub ? `<br><small>${esc(c.sub)}</small>` : "";
       if (c.ref) return `<td class="lv">${esc(c.txt)}${sub}</td>`;
@@ -8861,7 +8867,7 @@ function v3Frames(t, frNow, title) {
     <table class="v3tft"><thead><tr><th>${d > 0 ? "لجهة الشراء" : "لجهة البيع"}</th>${V3_TFS.map((tf) => `<th>${V3_TFL[tf]}</th>`).join("")}${ptsH}</tr></thead>
     <tbody>${body}</tbody></table>
     <p class="v3tfn">✓ متحقّقة على الفريم · ✓✓ متحقّقة ومؤكَّدة بفريمٍ آخر · ⇄ متحقّقة في الجهة المعاكسة (تعارض) · ✗ غير متحقّقة.
-      كلُّ استراتيجيةٍ تُحتسب بنقاطها <b>مرّةً واحدة</b> مهما تعدّدت فريماتها. الاتجاه يُحتسب بإجماع الساعة و4س واليومي
+      المتوسطات بنقاطٍ لكلّ فريم (15د 30 · ساعة 20 · 4س 10) و15د شرطُ الفرصة؛ وكلُّ استراتيجيةٍ أخرى تُحتسب <b>مرّةً واحدة</b> مهما تعدّدت فريماتها. الاتجاه يُحتسب بإجماع الساعة و4س واليومي
       (فريمان على الأقل ولا معاكس)، و15د للعرض. اليومي مصدرُ مستوى أمس والحكم على الفريمات الأدنى؛ و«فوق المستوى منذ
       الافتتاح» ليس اختراقاً جديداً. شموعٌ مغلقة وحدها.</p>
   </details>`;
@@ -8901,7 +8907,7 @@ function v3Warnings(t) {
   if (n && n.warn) {
     if (n.warn.includes("nodata")) w.push("لا شموع حديثة للرمز في هذه اللقطة — الحالة من آخر بياناتٍ متاحة");
     if (n.warn.includes("drop") && Number.isFinite(n.score)) w.push(`انخفض التوافق من ${v3pct(t.score)} عند الإصدار إلى ${v3pct(n.score)} الآن`);
-    if (n.warn.includes("core")) w.push("لم تعد قمة/قاع أمس ولا المتوسطات متحقّقةً في جهة الصفقة على أيّ فريم");
+    if (n.warn.includes("core")) w.push("لم يعد افتتاح 15د في جهة الصفقة من SMA200 ولا عبورُ أمس قائماً");
     if (n.warn.includes("opp")) w.push("إشارةٌ أساسية في الجهة المعاكسة الآن (أمس أو المتوسطات)");
   }
   for (const c of t.conflict || []) w.push(`تعارض عند الإصدار: ${V3_BASE[c.base] || c.base} ${c.d > 0 ? "صاعدة" : "هابطة"} على ${V3_TFL[c.tf] || c.tf}`);
@@ -9048,14 +9054,14 @@ function renderTrades(book) {
                    : `كل 15 دقيقة طوال بيانات SIP (ما قبل الافتتاح · الرسمية · ما بعد الإغلاق): ${hrs.length ? hrs[0] + " · " + (hrs[1] || "") + " … " + hrs[hrs.length - 1] : "—"} ${TZ_NOTE}`;
   const note = T.life
     ? `<p class="v3note"><b>لقطة ${esc(v3Hour(T))}</b> — ${cycle}. <b>الفرص الجديدة</b> وُلدت من إشارةٍ جديدة في هذه اللقطة
-      (عبور قمة/قاع أمس بإغلاق شمعة 15د أو ساعة أو 4س، أو انقلاب المتوسطات على أيّ فريم) ومرتّبةٌ بقوة التوافق ثم الحداثة.
+      (أوّلُ شمعة 15د تفتح فوق SMA200 وSMA35 وSMA50 تحته (أو تحته وهما فوقه للبيع)) ومرتّبةٌ بقوة التوافق ثم الحداثة.
       وما صدر قبلها يُتابَع في «صفقات V3 القائمة» بخطته الأصلية حتى الوقف أو آخر هدف أو انقضاء 5 جلسات — ولا يؤثّر في الترتيب.<br>
       قوة التوافق = نسبة توافق الاستراتيجيات الخمس حسب الأوزان المحدّدة
-      (أمس 40 · المتوسطات 40 · الاتجاه 6.67 · VWAP 6.67 · الأسبوع 6.66)، كلٌّ مرّةً واحدة مهما تعدّدت فريماته — <b>ليست نسبة نجاح</b>.</p>`
+      (المتوسطات 60 (15د 30 · ساعة 20 · 4س 10) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5)، كلٌّ مرّةً واحدة مهما تعدّدت فريماته — <b>ليست نسبة نجاح</b>.</p>`
     : `<p class="v3note"><b>لقطة ${esc(v3Hour(T))}</b> — تُصفَّر الفرص كلُّها وتُبنى من الصفر ${cycle}،
     ولا يُحمَل دخولٌ ولا وقفٌ ولا هدف من اللقطة السابقة.<br>
     قوة التوافق = نسبة توافق الاستراتيجيات الخمس حسب الأوزان المحدّدة
-    (أمس 40 · المتوسطات 40 · الاتجاه 6.67 · VWAP 6.67 · الأسبوع 6.66) — <b>ليست نسبة نجاح</b>.</p>`;
+    (المتوسطات 60 (15د 30 · ساعة 20 · 4س 10) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5) — <b>ليست نسبة نجاح</b>.</p>`;
   /* الكريبتو: فرصُ العملات دون حدّ السيولة (`low`) في قسمٍ منفصل بتحذير — نفس التحليل
      والدرجة، والفصل عرضٌ لا قرار. الترتيب داخل كلّ قسمٍ ترتيبُ الخادم كما هو. */
   const all = T.open || [];
@@ -9086,10 +9092,10 @@ function renderTrades(book) {
       + `<div class="v3head"><span><b>لقطة ${esc(v3Hour(T))}</b></span><span>كل 15 دقيقة · ‎24/7‎</span></div>`
       + `<div class="v3tabs" role="tablist" aria-label="أقسام الفرص" style="--t:${V3_TABS.indexOf(tab)}"><span class="v3ind" aria-hidden="true"></span>${tb("new", "جديدة", all.length)}${tb("valid", "صالحة للدخول", valid.length)}${tb("follow", "قيد المتابعة", follow.length)}</div>`
       + `<details class="plain v3how"${howWas && howWas.open ? " open" : ""}><summary>كيف تعمل الفرص؟</summary>
-          <p><b>جديدة</b> — وُلدت من إشارةٍ جديدة في هذه اللقطة: عبور قمة/قاع أمس بإغلاق شمعة 15د أو ساعة أو 4س، أو انقلاب المتوسطات على أيّ فريم. مرتّبةٌ بقوة التوافق ثم الحداثة، وتعيش لقطةً واحدة.</p>
+          <p><b>جديدة</b> — وُلدت من إشارةٍ جديدة في هذه اللقطة: أوّلُ شمعة 15د تفتح فوق SMA200 وSMA35 وSMA50 تحته (أو تحته وهما فوقه للبيع). مرتّبةٌ بقوة التوافق ثم الحداثة، وتعيش لقطةً واحدة.</p>
           <p><b>صالحة للدخول</b> — ليست توصياتٍ جديدة: صدرت في لقطاتٍ سابقة بخطتها الأصلية، وما زالت تستوفي شروط دخول المحرّك عند السعر الحالي: المخاطرة إلى الوقف ≤ ${bd(E3.MAX_RISK_ATR)}×ATR يومي، وT1 وT2 الأصليّان كلٌّ ≥ ${bd(E3.MIN_RR)}R، ولم تبلغ T1، والأساسية ما زالت متحقّقة بلا تحذير، والسعر حديث. التوافق المرتفع وحده لا يكفي.</p>
           <p><b>قيد المتابعة</b> — تُتابَع بخطتها الأصلية حتى الوقف أو آخر هدف أو انقضاء 5 جلسات، ولا يتولّد للرمز فرصةٌ ثانية خلالها. تغيّرُ الاستراتيجيات تحذيرٌ لا إغلاق. «تفعيل الدخول» متابعةٌ داخل الموقع لا أمرٌ في السوق.</p>
-          <p><b>قوة التوافق</b> = نسبة توافق الاستراتيجيات الخمس بأوزانها (أمس 40 · المتوسطات 40 · الاتجاه 6.67 · VWAP 6.67 · الأسبوع 6.66)، كلٌّ مرّةً واحدة مهما تعدّدت فريماته — ليست نسبة نجاح.</p>
+          <p><b>قوة التوافق</b> = نسبة توافق الاستراتيجيات الخمس بأوزانها (المتوسطات 60 (15د 30 · ساعة 20 · 4س 10) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5)، كلٌّ مرّةً واحدة مهما تعدّدت فريماته — ليست نسبة نجاح.</p>
         </details>`
       + `<div ${pane("new")} id="v3new"><p class="v3lede">إشاراتٌ وُلدت في هذه اللقطة — مرتّبةٌ بقوة التوافق.</p>`
       + (open.length ? open.map((t, i) => v3Card(t, i, "new")).join("")
@@ -9102,7 +9108,7 @@ function renderTrades(book) {
     + `<div class="v3head"><span><b>لقطة ${esc(v3Hour(T))}</b> · كل 15 دقيقة</span>${open.length ? `<span>${bd(open.length)} فرصة${T.life ? " جديدة" : ""}</span>` : ""}</div>`
     + `<details class="plain v3how"><summary>كيف تعمل الفرص؟</summary>${note}</details>` + (open.length ? open.map((t, i) => v3Card(t, i, "new")).join("")
     : T.life ? `<div class="empty">لا فرصة جديدة في هذه اللقطة — الفرصة تتولّد من إشارةٍ جديدة على شمعةٍ مغلقة، وهذه نتيجة صحيحة لا عطل${cls ? (valid.length ? `. ${bd(valid.length)} فرصة سابقة ما زالت صالحة للدخول أدناه` : act.length ? ". الصفقات القائمة أدناه" : "") : act.length ? ". الصفقات القائمة أدناه" : ""}</div>`
-    : `<div class="empty">لا فرصة في هذه اللقطة — تتولّد الفرصة حين يكون عبورُ قمة/قاع أمس قائماً أو المتوسطات مرتّبة، وهذه نتيجة صحيحة لا عطل</div>`) + lowHtml
+    : `<div class="empty">لا فرصة في هذه اللقطة — تتولّد الفرصة من شرط SMA200 على 15د، وهذه نتيجة صحيحة لا عطل</div>`) + lowHtml
     + (T.life ? v3ActiveHtml(follow, null) + v3EndedHtml(ended) : "");
   if (!el.dataset.drawn) { el.dataset.drawn = "1"; el.classList.add("enter"); setTimeout(() => el.classList.remove("enter"), 1600); }
   if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة${T.life ? " جديدة" : ""}${low.length ? ` + ${bd(low.length)} أقل سيولة` : ""}${T.life ? ` · ${bd(act.length)} صفقة قائمة` : ""} في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُني التحليل ${esc(stamp(Date.parse(T.generatedAt)))} (${ago(Date.parse(T.generatedAt))})`;

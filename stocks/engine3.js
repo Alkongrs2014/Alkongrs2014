@@ -1,9 +1,9 @@
 /* =====================================================================
    المحرّك V3 — محرّك الفرص المعتمد. المواصفة: docs/ENGINE_V3_SPEC.md
 
-   خمس استراتيجيات بأوزانٍ ثابتة بقرار المالك: قمة/قاع أمس 40 · المتوسطات 40 ·
-   الاتجاه 6.67 · VWAP 6.67 · قمة/قاع الأسبوع السابق 6.66. الفرصة تتولّد من إحدى
-   الأساسيتين وحدها، والثلاث تأكيدات.
+   خمس استراتيجيات بأوزانٍ ثابتة بقرار المالك (2026-10-08، SMA): المتوسطات 60
+   (15د 30 · ساعة 20 · 4س 10) · قمة/قاع أمس 20 · VWAP 10 · قمة/قاع الأسبوع السابق 5 ·
+   الاتجاه 5. الفرصة تتولّد من شرط المتوسطات على 15د وحده، والبقيّة تأكيدٌ وتقييم.
 
    الملفّ **نقيّ ومكتفٍ بذاته**: لا يستورد شيئاً ولا يعرف المحرّكين السابقين
    (أرشيف في legacy_strategy_engine/، واختبار عزلٍ يمنع استيرادهما). يستدعيه
@@ -17,7 +17,10 @@
    ===================================================================== */
 
 var E3 = {
-  W: { day: 40, ma: 40, trend: 6.67, vwap: 6.67, week: 6.66 },
+  W: { day: 20, ma: 60, trend: 5, vwap: 10, week: 5 },
+  /* المتوسطات (قرار المالك 2026-10-08): نقاطُها موزّعةٌ على الفريمات، و15د شرطُ الإصدار */
+  MA_TF: { "15m": 30, "1h": 20, "4h": 10 },
+  SMA_BASE: 200, SMA_FAST: [35, 50], SMA_H1: 50, SMA_H4: 15,
   PIV_K: 3, PIV_WIN: 120,
   MA: [20, 50, 200], MA_WIN: 259,
   ATR_P: 14, ATR_WIN: 259,
@@ -44,6 +47,14 @@ function e3ema(a, p) {
   var v = s / p, k = 2 / (p + 1);
   for (var j = p; j < a.length; j++) v = a[j] * k + v * (1 - k);
   return v;
+}
+/* المتوسط البسيط لآخر p قيمة حتى الفهرس k ضمناً (null إن قصرت السلسلة) */
+function e3sma(a, p, k) {
+  if (k === undefined) k = a.length - 1;
+  if (k + 1 < p || k < 0) return null;
+  var s = 0;
+  for (var i = k - p + 1; i <= k; i++) s += a[i];
+  return s / p;
 }
 function e3atr(bars, p) {
   if (!bars || bars.length < p + 1) return null;
@@ -114,7 +125,7 @@ function trendOf(inp) {
 /* ---------------- المتوسطات: استراتيجيةٌ واحدة ---------------- */
 function maOf(h1) {
   var w = e3tail(h1 || [], E3.MA_WIN), c = w.map(function (b) { return b.c; });
-  var e = E3.MA.map(function (p) { return e3ema(c, p); }), px = c[c.length - 1];
+  var e = E3.MA.map(function (p) { return e3sma(c, p); }), px = c[c.length - 1];
   if (!(Number.isFinite(px) && e.every(Number.isFinite))) return { dir: 0, e: e, px: px };
   var dir = (px > e[0] && e[0] > e[1] && e[1] > e[2]) ? 1 : ((px < e[0] && e[0] < e[1] && e[1] < e[2]) ? -1 : 0);
   return { dir: dir, e: e, px: px };
@@ -321,11 +332,51 @@ function levelKind(bars, H, L, pre) {
   o.kind = side > 0 ? "open_above" : (side < 0 ? "open_below" : "inside");
   return o;
 }
-function maFlip(bars) {
-  var now = maOf(bars), lb = bars.length ? bars[bars.length - 1] : null;
-  var prev = bars.length > 1 ? maOf(bars.slice(0, bars.length - 1)).dir : 0;
-  var ok = now.e.every(Number.isFinite);
-  return { dir: now.dir, prev: prev, flip: ok && now.dir !== 0 && now.dir !== prev, end: lb ? lb.end : null, ok: ok };
+/* =====================================================================
+   **المتوسطات البسيطة على كلّ فريم** — قرار المالك 2026-10-08.
+   كلُّ متوسطٍ يُحسب على إغلاقات الشموع **السابقة** للشمعة المقيسة (قيمتُه لحظة
+   افتتاحها)، فلا يدخل إغلاقُها في المستوى الذي يُقارَن به افتتاحُها.
+     15m  الشرط الأساسي: الشمعة الأخيرة المغلقة هي **أوّل** شمعةٍ تفتح فوق SMA200
+          (افتتاحُ سابقتها عنده أو تحته)، وSMA35 وSMA50 تحت SMA200 ⇒ صعود (ev = 1).
+          والهبوط معكوسه: أوّلُ افتتاحٍ تحت SMA200 وSMA35 وSMA50 فوقه (ev = -1).
+          والحالة القائمة (للتقييم بعد الإصدار): افتتاحُ آخر شمعة في جهة SMA200.
+     1h   تأكيد: افتتاحُ آخر شمعة ساعة مغلقة في جهة SMA50.
+     4h   تأكيد: آخر شمعة 4س مغلقة — افتتاحُها في جهة SMA15، أو منتصفُ جسمها
+          ((o+c)/2) في جهته، أو إغلاقُها يخترقه (السابقة أُغلقت عنده أو في الجهة الأخرى).
+     1d   لا متوسطات عليه.
+   up/dn: تحقّق الشرط صعوداً/هبوطاً (قد يتحقّقان معاً على 4س). dir للعرض: جهةٌ واحدة أو 0.
+   ===================================================================== */
+function smaFrame(tf, bars) {
+  var n = bars.length, o = { up: false, dn: false, dir: 0, ev: 0, flip: false, ok: false, na: tf === "1d",
+    end: n ? bars[n - 1].end : null };
+  if (o.na || !n) return o;
+  var c = bars.map(function (b) { return b.c; }), b = bars[n - 1], i = n - 1;
+  if (tf === "15m") {
+    var base = e3sma(c, E3.SMA_BASE, i - 1), pBase = e3sma(c, E3.SMA_BASE, i - 2);
+    var f1 = e3sma(c, E3.SMA_FAST[0], i - 1), f2 = e3sma(c, E3.SMA_FAST[1], i - 1);
+    if (![base, pBase, f1, f2].every(Number.isFinite)) return o;
+    o.ok = true; o.v = { base: base, f35: f1, f50: f2 };
+    var po = bars[i - 1].o;
+    if (b.o > base && po <= pBase && f1 < base && f2 < base) o.ev = 1;
+    else if (b.o < base && po >= pBase && f1 > base && f2 > base) o.ev = -1;
+    o.up = b.o > base; o.dn = b.o < base;
+  } else if (tf === "1h") {
+    var m = e3sma(c, E3.SMA_H1, i - 1);
+    if (!Number.isFinite(m)) return o;
+    o.ok = true; o.v = { sma50: m };
+    o.up = b.o > m; o.dn = b.o < m;
+  } else if (tf === "4h") {
+    var s = e3sma(c, E3.SMA_H4, i - 1), sp = e3sma(c, E3.SMA_H4, i - 2);
+    if (!(Number.isFinite(s) && Number.isFinite(sp))) return o;
+    o.ok = true; o.v = { sma15: s };
+    var mid = (b.o + b.c) / 2, pc = bars[i - 1].c;
+    o.up = b.o > s || mid > s || (b.c > s && pc <= sp);
+    o.dn = b.o < s || mid < s || (b.c < s && pc >= sp);
+  }
+  o.dir = o.up && !o.dn ? 1 : (o.dn && !o.up ? -1 : 0);
+  o.flip = o.ev !== 0;
+  if (o.flip) o.dir = o.ev;
+  return o;
 }
 function framesAt(inp, wkOf) {
   var st = stateAt(inp, wkOf);
@@ -347,7 +398,7 @@ function framesAt(inp, wkOf) {
     }
     var wbars = bars.filter(function (x) { return wkOf(x.d) === wk; });
     r.week = st.pw ? levelKind(wbars, st.pw.h, st.pw.l, "pw") : { kind: "none" };
-    r.ma = maFlip(e3tail(bars, E3.MA_WIN + 1));
+    r.ma = smaFrame(tf, e3tail(bars, E3.MA_WIN + 1));
     r.trend = swingTrend(bars);
     out[tf] = r;
   }
@@ -358,7 +409,7 @@ function framesAt(inp, wkOf) {
 function frameSat(r, k, d) {
   if (!r) return false;
   if (k === "day" || k === "week") { var x = r[k]; return !!(x && x.d === d && x.holds && x.kind !== "ref"); }
-  if (k === "ma") return r.ma.dir === d;
+  if (k === "ma") return d > 0 ? r.ma.up : r.ma.dn;
   if (k === "vwap") return !!(r.vwap && r.vwap.side === d);
   return false;
 }
@@ -379,26 +430,25 @@ function scoreFrames(FA, d) {
       }
       el[k] = tfs[k].length > 0;
     }
-    pts[k] = el[k] ? E3.W[k] : 0; sum += pts[k];
+    if (k === "ma") {
+      /* نقاط المتوسطات لكلّ فريمٍ متحقّق بوزنه، و«تحقّقها» = شرط 15د (الأساس) */
+      pts[k] = 0;
+      for (var m = 0; m < tfs[k].length; m++) pts[k] += E3.MA_TF[tfs[k][m]] || 0;
+      el[k] = tfs[k].indexOf("15m") >= 0;
+    } else pts[k] = el[k] ? E3.W[k] : 0;
+    sum += pts[k];
   }
   return { el: el, pts: pts, score: Math.round(sum * 100) / 100, tfs: tfs, opp: opp };
 }
 /* =====================================================================
-   **إنشاء الفرصة من إشارةٍ جديدة** في نافذة اللقطة (prevH, H]:
-     أ) عبورُ قمة/قاع أمس بالجسم على شمعة 15د أو ساعة أو 4س أُغلقت في النافذة،
-        وما زال قائماً عند H؛ وإلا
-     ب) انقلابُ ترتيب المتوسطات (`flip`) على أيّ فريمٍ بإغلاق شمعةٍ في النافذة.
-   «أمس» يسبق المتوسطات، وبين الفريمات الأحدثُ حدثاً ثم الأدقّ فريماً. والمرشّحات
-   المعاكسة تُسجَّل تعارضاً لا إلغاءً. الدخول والوقف والأهداف والمخاطرة كما في §5.
+   **إنشاء الفرصة من إشارةٍ جديدة** في نافذة اللقطة (prevH, H]: شرط المتوسطات على
+   15د وحده (قرار المالك 2026-10-08) — شمعةٌ أُغلقت في النافذة هي أوّلُ افتتاحٍ عبر
+   SMA200 بترتيب SMA35/50 المعاكس. عبورُ قمة/قاع أمس صار تقييماً لا مُنشئاً. الدخول والوقف والأهداف والمخاطرة كما في §5.
    ===================================================================== */
 function slotCands(FA, prevH) {
-  var c = [];
-  for (var i = 0; i < E3_TFS.length; i++) {
-    var tf = E3_TFS[i], r = FA.fr[tf];
-    if (tf !== "1d" && r.day && r.day.holds && r.day.evEnd > prevH) c.push({ base: "day", tf: tf, d: r.day.d, end: r.day.evEnd, evt: r.day.evt, o: i });
-    if (r.ma.flip && r.ma.end > prevH) c.push({ base: "ma", tf: tf, d: r.ma.dir, end: r.ma.end, o: i });
-  }
-  c.sort(function (a, b) { return (a.base === b.base ? 0 : (a.base === "day" ? -1 : 1)) || (b.end - a.end) || (a.o - b.o); });
+  /* قرار المالك 2026-10-08: لا فرصة بلا شرط 15د — أوّلُ افتتاحٍ عبر SMA200 بترتيب 35/50 */
+  var r = FA.fr["15m"], c = [];
+  if (r && r.ma.ev && r.ma.end > prevH) c.push({ base: "ma", tf: "15m", d: r.ma.ev, end: r.ma.end, o: 0 });
   return c;
 }
 function evaluateSlot(inp, wkOf, prevH) {
@@ -476,11 +526,11 @@ function tradeR(tr, costs) {
   return ((x - F) * d - fee * (F + x)) / tr.risk;
 }
 
-var ENGINE3 = { E3: E3, E3_EVT: E3_EVT, e3ema: e3ema, e3atr: e3atr, crossEvents: crossEvents,
+var ENGINE3 = { E3: E3, E3_EVT: E3_EVT, e3ema: e3ema, e3sma: e3sma, smaFrame: smaFrame, e3atr: e3atr, crossEvents: crossEvents,
   lastCross: lastCross, e3pivots: e3pivots, swingTrend: swingTrend, trendOf: trendOf, maOf: maOf,
   prevDay: prevDay, prevWeek: prevWeek, vwapOf: vwapOf, stateAt: stateAt, scoreFor: scoreFor,
   stopOf: stopOf, targetsOf: targetsOf, evaluate: evaluate, evaluateHour: evaluateHour, fillTrade: fillTrade,
   stepTrade: stepTrade, tradeR: tradeR,
-  E3_TFS: E3_TFS, levelKind: levelKind, maFlip: maFlip, framesAt: framesAt, frameSat: frameSat,
+  E3_TFS: E3_TFS, levelKind: levelKind, framesAt: framesAt, frameSat: frameSat,
   scoreFrames: scoreFrames, slotCands: slotCands, evaluateSlot: evaluateSlot };
 if (typeof module !== "undefined" && module.exports) module.exports = ENGINE3;
