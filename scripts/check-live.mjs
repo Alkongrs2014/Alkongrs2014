@@ -5,7 +5,7 @@
    عليها عاملُ الخدمة والشبكة وترتيبُ وصول الملفّات الكسولة. فهذا يفحص:
    ١) الشيفرة المنشورة = شيفرة القرص (بعد إلغاء عامل الخدمة).
    ٢) الفرص المعروضة = صفقات trades.json المنشورة، بترتيبها، والدرجة لكل
-      صفقة = مجموع أوزان ما عُلّم ✓ في بطاقتها (40 · 40 · 6.67 · 6.67 · 6.66).
+      صفقة = مجموع نقاط ما عُلّم ✓ في بطاقتها كما تعرضها (أوزان SMA منذ 2026-10-08).
    ٣) ما يراه المستخدم لا يتبدّل بعد ظهوره، ولا يتحرّك بتذبذب السعر اللحظي.
    ٤) لا فرصة من المحرّك القديم: لا لقطة قديمة تُطلب، والكريبتو بلا فرص.
    ٥) صفرُ استثناءٍ وصفرُ قيدٍ في سجلّ التشخيص.
@@ -33,7 +33,6 @@ let pass = 0, fail = 0;
 const ok = (m, d) => { pass++; console.log(`  ✓ ${m}${d ? " — " + d : ""}`); };
 const no = (m, d) => { fail++; console.log(`  ✗ ${m}${d ? " — " + d : ""}`); };
 const h12 = (x) => createHash("sha256").update(x).digest("hex").slice(0, 12);
-const W = { day: 40, ma: 40, trend: 6.67, vwap: 6.67, week: 6.66 };
 
 /* تأخيرٌ صناعيّ لملفّ الصفقات: بلاه يصل قبل أوّل رسم فلا يُختبر أن الواجهة
    تعرض هيكلاً ولا تخترع قائمةً مؤقّتة. */
@@ -84,7 +83,8 @@ try {
   const read = () => page.evaluate(() => [...document.querySelectorAll("#scanList .srow.opp")].map(c => ({
     s: c.dataset.open,
     score: parseFloat(c.querySelector(".v3q b").textContent),
-    on: [...c.querySelectorAll(".v3els .it")].map(x => x.classList.contains("on") ? 1 : 0)
+    on: [...c.querySelectorAll(".v3els .it")].map(x => x.classList.contains("on") ? 1 : 0),
+    pts: [...c.querySelectorAll(".v3els .it")].map(x => parseFloat((x.querySelector(".num") || {}).textContent))
   })));
   const first = await read();
 
@@ -101,13 +101,13 @@ try {
                       : no("لا وراثة: كلُّ فرصةٍ مبنيّةٌ في لقطة ساعتها", pub.carried + " من ساعةٍ أخرى");
     !pub.oldEntry.length ? ok("لا دخولٌ قديم: كلُّ فرصةٍ على شمعة اللقطة نفسها (تداولٌ في آخر 15 دقيقة)")
                          : no("لا دخولٌ قديم: كلُّ فرصةٍ على شمعة اللقطة نفسها", pub.oldEntry.join(", "));
-    const keys = ["day", "ma", "trend", "vwap", "week"];
     const bad = first.filter(x => {
-      const sum = Math.round(keys.reduce((a, k, i) => a + (x.on[i] ? W[k] : 0), 0) * 100) / 100;
-      return Math.abs(sum - x.score) > 1e-6 || x.score > 100;
+      /* النقاط كما تعرضها البطاقة (استراتيجية SMA منذ 2026-10-08: المتوسطات بفريماتها)، وكلُّ ✗ صفر */
+      const sum = Math.round(x.pts.reduce((a, v) => a + (Number.isFinite(v) ? v : 0), 0) * 100) / 100;
+      return Math.abs(sum - x.score) > 1e-6 || x.score > 100 || x.pts.some((v, i) => !x.on[i] && v > 0);
     }).map(x => x.s);
     bad.length ? no("الدرجة = مجموع أوزان ✓ في البطاقة", bad.slice(0, 6).join(", "))
-               : ok("الدرجة = مجموع أوزان ✓ في البطاقة", "40 · 40 · 6.67 · 6.67 · 6.66");
+               : ok("الدرجة = مجموع أوزان ✓ في البطاقة", "المتوسطات 60 (15د 40 · ساعة 20) · أمس 20 · VWAP 10 · الأسبوع 5 · الاتجاه 5");
     first.every((x, i) => !i || first[i - 1].score >= x.score)
       ? ok("الترتيب من الأعلى توافقاً إلى الأقل") : no("الترتيب من الأعلى توافقاً إلى الأقل");
     const base0 = first.filter(x => !(x.on[0] || x.on[1])).map(x => x.s);
