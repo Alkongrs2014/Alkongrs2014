@@ -190,6 +190,14 @@ test("كلُّ الأوقات المعروضة بتوقيت الرياض مهم�
 test("العقود: البطاقات والتصنيفات — لا عقد في تصنيفٍ لا يستوفيه", async ({ page }) => {
   await open(page);
   await nav(page, "contracts");
+  /* لقطةٌ بلا عقودٍ صحيحةٌ في ما قبل الافتتاح وخارج الجلسة (حيّة من GTH وحدها) — كان التحقّق الحيّ
+     يسقط فيها فيُرجع النشر. حينها: رسالةٌ مفسِّرة لا قائمةٌ فارغة صامتة، ولا تصنيف يُفحص */
+  await page.waitForFunction(() => typeof CONTRACTS !== "undefined" && CONTRACTS, null, { timeout: 20000 });
+  if (!(await page.evaluate(() => (CONTRACTS.picks || []).length))) {
+    await expect(page.locator("#oList .ocard")).toHaveCount(0);
+    expect((await page.locator("#oList").textContent()).trim().length, "قائمة عقود فارغة بلا تفسير").toBeGreaterThan(10);
+    return;
+  }
   const all = await page.locator("#oList .ocard").count();
   expect(all, "لا بطاقات عقود").toBeGreaterThan(0);
   for (const [cat, re] of [["etf", /ETF/], ["weekly", /أسبوعية/], ["swing", /متوسطة وطويلة/]]) {
