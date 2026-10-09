@@ -585,6 +585,11 @@ body.sheet-open{overflow:hidden}
   border-radius:var(--r-lg);
   background:radial-gradient(420px 130px at 92% -18%, rgba(124,200,255,.10), transparent 70%)}
 
+.v3ref{display:inline-block;margin-top:5px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600;line-height:1.6;border:1px solid}
+.v3ref small{font-weight:400;opacity:.75}
+.v3ref.ok{color:var(--up);border-color:color-mix(in srgb,var(--up) 45%,transparent);background:color-mix(in srgb,var(--up) 10%,transparent)}
+.v3ref.no{color:var(--dn);border-color:color-mix(in srgb,var(--dn) 45%,transparent);background:color-mix(in srgb,var(--dn) 10%,transparent)}
+.v3ref.na{color:var(--mut);border-color:color-mix(in srgb,var(--mut) 40%,transparent)}
 .opp-hd{display:flex;align-items:flex-start;gap:11px;padding:13px 14px 10px;
   position:relative;z-index:2}
 .srow.opp .rank{width:26px;height:26px;flex:none;border-radius:8px;display:grid;
@@ -6275,7 +6280,7 @@ const LAZY = {
   "contracts-track.json": (j) => { CTRACK = j; if (state.view === "contracts") renderContracts(); },
   /* الأدوات الخمس وفرص SPY/QQQ — لقطتان منفصلتان؛ لا تُقبل أقدم من المعروضة */
   "core5.json": (j) => { if (j && Array.isArray(j.rows) && (!CORE5D || !(j.at < CORE5D.at))) CORE5D = j; if (state.view === "contracts") renderCore5(); if (state.view === "screen") renderIdx(); },
-  "idx-trades.json": (j) => { if (j && Array.isArray(j.open) && (!IDXT || !(j.hour < IDXT.hour))) IDXT = j; if (state.view === "screen") renderIdx(); },
+  "idx-trades.json": (j) => { if (j && Array.isArray(j.open) && (!IDXT || !(j.hour < IDXT.hour))) IDXT = j; if (state.view === "screen") { renderIdx(); renderScreen(); } },
   /* لحظاتُ بدء الإشارات — المتصفح يحسب النتيجة بنفسه ولا يستطيع أن
      يعرف متى بدأت، فهذه المعلومة التاريخية لا بديل عنها. */
   /* لقطةُ الفرص — مصدرُ القائمة الوحيد. تُبنى على الخادم مرّةً لكل
@@ -8951,6 +8956,26 @@ const V3_ARROW = { up: `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 
                    dn: `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 9.8 L2 4.6 H4.6 V2.2 H7.4 V4.6 H10 Z" fill="currentColor"/></svg>` };
 /* الفرصة الجديدة تومض مرّةً واحدة حين تظهر أوّل مرّة في هذا المتصفّح — لا مع كلّ تحديث */
 const v3Seen = new Set();
+/* =====================================================================
+   التوافق مع السوق المرجعي (طلب المالك 2026-10-09) — **معلوماتيٌّ فقط**: لا يدخل النقاط ولا
+   الترتيب ولا شروط الظهور، ولا يُحسب هنا شيءٌ جديد. المرجع SPY للأسهم (idx-trades.json) وبيتكوين
+   للكريبتو (crypto/trades.json)، واتجاهُه على **فريم الفرصة نفسه** (فريم أساسها) هو اتجاه الموقع
+   على شموعه المغلقة (`swingTrend` في المحرّك، الحقل الثالث من `fr`). وغيابُ البيانات أو لقطةٌ
+   مرجعية أقدم من لقطة الفرصة بأكثر من ساعة أو اتجاهٌ محايد ⇒ «غير محسوم»، بلا تخمين.
+   ===================================================================== */
+const V3_REF = { stocks: { s: "SPY", lbl: "SPY" }, crypto: { s: "BTC-USD", lbl: "بيتكوين" } };
+function v3RefAlign(t) {
+  const book = /-USD$/.test(t.s) ? "crypto" : "stocks", R = V3_REF[book];
+  const doc = book === "crypto" ? TRADES_C : IDXT, tf = t.baseTf || "15m";
+  const fr = doc && doc.bySym && doc.bySym[R.s] && doc.bySym[R.s].fr;
+  const own = book === "crypto" ? TRADES_C : TRADES;
+  const stale = !doc || (own && Number.isFinite(own.hour) && Number.isFinite(doc.hour) && own.hour - doc.hour > 3600);
+  const v = !stale && fr && fr[tf] ? fr[tf][2] : null;
+  const on = V3_TFL[tf] || tf;
+  if (v !== 1 && v !== -1) return { k: "na", mk: "⚪", txt: `اتجاه ${R.lbl} غير محسوم`, tf: on };
+  return v === t.d ? { k: "ok", mk: "✅", txt: `متوافق مع ${R.lbl}`, tf: on } : { k: "no", mk: "❌", txt: `غير متوافق مع ${R.lbl}`, tf: on };
+}
+
 function v3Card(t, i, kind, extra) {
   kind = kind || (t.now ? "active" : "new");
   const D = v3dir(t.d), lr = symRow(t.s);
@@ -8983,6 +9008,7 @@ function v3Card(t, i, kind, extra) {
       <div class="id">
         <div class="t">${esc(lr ? nm(lr) : t.s)}<span class="tick">${esc(t.s)}</span></div>
         <div class="n">${esc((lr && lr.sec) || "—")}${t.evt ? " · " + esc(V3_EVT[t.evt] || t.evt) : ""}</div>
+        ${(() => { const a = v3RefAlign(t); return `<div class="v3ref ${a.k}" title="معلوماتيٌّ فقط — لا يؤثّر في النقاط ولا الترتيب">${a.mk} ${esc(a.txt)} <small>· ${esc(a.tf)}</small></div>`; })()}
       </div>
       <div class="opp-dir ${D.c}">${V3_ARROW[D.c] || ""}${D.t.replace(/^[▲▼]\s*/, "")}</div>
     </div>
