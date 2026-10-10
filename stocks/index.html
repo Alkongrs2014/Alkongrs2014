@@ -8990,7 +8990,7 @@ function v3Card(t, i, kind, extra) {
     chips.push(`<span class="good">${v3Status(t)}</span>`);
     chips.push(`<span class="cold">صدرت ${esc(stamp(t.h * 1000))} ${TZ_NOTE} · الأساس: ${esc(baseTxt)}</span>`);
   } else {
-    chips.push(`<span class="good">${T0 && T0.life ? "إشارةٌ جديدة في" : "لقطة"} ${esc(v3Hour(T0))}${t.evAt ? ` — على إغلاق شمعة ${esc(clock(t.evAt * 1000))}` : ""}</span>`);
+    chips.push(`<span class="good">${T0 && T0.life ? "إشارةٌ جديدة في" : "لقطة"} ${esc(v3Hour(T0))}${t.evAt ? ` — شمعة 15د ${esc(clock((t.t || t.evAt - 900) * 1000))} (بتوقيت افتتاحها كما في TradingView، وأُغلقت ${esc(clock(t.evAt * 1000))})` : ""}</span>`);
     chips.push(`<span class="cold">الأساس: ${esc(baseTxt)}${t.baseTfs && t.baseTfs.length > 1 ? ` (ومعه ${esc(t.baseTfs.filter(x => x !== t.baseTf).map(x => V3_TFL[x]).join("، "))})` : ""}</span>`);
   }
   const warns = v3Warnings(t);
@@ -9136,7 +9136,7 @@ function renderTrades(book) {
     : `<div class="empty">لا فرصة في هذه اللقطة — تتولّد الفرصة من شرط SMA200 على 15د، وهذه نتيجة صحيحة لا عطل</div>`) + lowHtml
     + (T.life ? v3ActiveHtml(follow, null) + v3EndedHtml(ended) : "");
   if (!el.dataset.drawn) { el.dataset.drawn = "1"; el.classList.add("enter"); setTimeout(() => el.classList.remove("enter"), 1600); }
-  if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة${T.life ? " جديدة" : ""}${low.length ? ` + ${bd(low.length)} أقل سيولة` : ""}${T.life ? ` · ${bd(act.length)} صفقة قائمة` : ""} في لقطة ${esc(v3Hour(T))} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُني التحليل ${esc(stamp(Date.parse(T.generatedAt)))} (${ago(Date.parse(T.generatedAt))})`;
+  if (cnt) cnt.innerHTML = `${bd(open.length)} فرصة${T.life ? " جديدة" : ""}${low.length ? ` + ${bd(low.length)} أقل سيولة` : ""}${T.life ? ` · ${bd(act.length)} صفقة قائمة` : ""} في لقطة ${esc(v3Hour(T))} · آخر شمعة مغلقة ${esc(stamp(T.candleKey * 1000))} (بتوقيت افتتاحها) · بصمة ${esc(String(T.rowsHash).slice(0, 8))} · بُني التحليل ${esc(stamp(Date.parse(T.generatedAt)))} (${ago(Date.parse(T.generatedAt))})`;
 }
 
 /* صفقات V3 القائمة — صفٌّ مختصر لكلٍّ، والبطاقة الكاملة تُرسم حين يُفتح الصفّ وحده (قوائم الكريبتو
@@ -9741,7 +9741,7 @@ function renderIdx() {
     return `<div class="row"><div class="l"><span class="tick">${esc(s)}</span> ${esc(ar)}<small>${why === null ? idxWhy() : esc(why)}</small></div><div class="r" style="color:var(--mut)">${s === "SPY" || s === "QQQ" ? "V3" : "OPRA"}</div></div>`;
   }).join("");
   const cnt = $("#idxCount");
-  if (cnt) cnt.innerHTML = `لقطة ${esc(stamp(T.hour * 1000))} ${TZ_NOTE} · على إغلاق شمعة ${esc(stamp(T.candleKey * 1000))} · ${esc(T.src || "")} · الاستراتيجيات والأوزان ودورة الحياة نفسها المطبّقة على الأسهم — ولا تدخل هذه الفرص قائمة الأسهم الخمسين`;
+  if (cnt) cnt.innerHTML = `لقطة ${esc(stamp(T.hour * 1000))} ${TZ_NOTE} · آخر شمعة مغلقة ${esc(stamp(T.candleKey * 1000))} (بتوقيت افتتاحها) · ${esc(T.src || "")} · الاستراتيجيات والأوزان ودورة الحياة نفسها المطبّقة على الأسهم — ولا تدخل هذه الفرص قائمة الأسهم الخمسين`;
 }
 
 function renderEarnings() {
